@@ -37,7 +37,7 @@
     configure: j => { Object.assign(settings, JSON.parse(j)); setTimeout(() => omegaReceive('config', JSON.parse(window.Omega.state())), 10); },
     cancel() {}, open() {}, share() {}, copy() {}, rate() {}, saveKey() {}, testProvider() {}, newThread: () => 3, deleteThread() {}, renameThread() {},
     brainDownload() {}, brainActivate() {}, brainDelete() {}, brainImport() {}, brainRefresh() {}, memAdd() {}, memDelete() {}, memClear() {}, kbAdd() {}, kbDelete() {}, kbImport() {},
-    packInstall() {}, packRemove() {}, packRefresh() {}, dbExport() {}, dbImport() {}, forgetKeys() {},
+    packInstall() {}, memImportCopyPrompt() {}, memImportText() {}, memImportFile() {}, packRemove() {}, packRefresh() {}, dbExport() {}, dbImport() {}, forgetKeys() {},
   };
   window.__live = function () {
     job.busy = true; job.kind = 'ask'; job.threadId = 2;

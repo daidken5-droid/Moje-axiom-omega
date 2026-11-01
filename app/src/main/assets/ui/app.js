@@ -446,6 +446,16 @@ function renderMemory() {
       <div class="card"><div class="row"><select id="memKind" style="width:130px"><option value="FACT">Fakt</option><option value="PROFILE">Profil</option><option value="PREFERENCE">Preference</option><option value="LESSON">Poučení</option></select>
         <input type="text" id="memText" class="grow" placeholder="Co si mám pamatovat?"></div>
         <button class="btn wide" data-mem-add>Uložit do paměti</button></div>
+      <details class="x card" style="padding:0" id="geminiImport"><summary style="padding:14px 16px">IMPORT PAMĚTI Z GEMINI</summary><div class="in" style="white-space:normal;padding:0 16px 16px">
+        <p class="small"><b>1.</b> Zkopíruj dotaz a pošli ho Gemini (aplikace nebo gemini.google.com).</p>
+        <button class="btn sm wide" data-gem-prompt>Zkopírovat dotaz pro Gemini</button>
+        <p class="small" style="margin-top:12px"><b>2.</b> Celou odpověď Gemini (nebo seznam z Nastavení → Uložené informace) vlož sem:</p>
+        <textarea id="gemText" rows="5" placeholder="[Profil] …&#10;[Preference] …&#10;[Fakt] …"></textarea>
+        <button class="btn primary wide" data-gem-text>Importovat do paměti</button>
+        <p class="small" style="margin-top:12px"><b>Nebo</b> Google Takeout → Moje aktivita → Aplikace Gemini: vyber <span class="mono">MyActivity.json</span>, <span class="mono">.html</span> nebo celý <span class="mono">.zip</span>. Dotazy se uloží do znalostí a výslovná sdělení („jmenuji se…“, „pamatuj si…“) do paměti.</p>
+        <div class="grid2"><button class="btn sm" data-gem-file>Vybrat soubor</button><button class="btn sm" data-open="https://takeout.google.com/">Google Takeout ↗</button></div>
+        <p class="small muted">Importovaný obsah jsou jen data – AXIOM Ω z něj nikdy nevykonává instrukce. Vše zůstává v telefonu.</p>
+      </div></details>
       <div class="card">${items.length ? items.map(m => `<div class="mem"><span class="badge">${esc(m.label)}</span><span class="t">${esc(m.text)}<br><span class="meta">VÁHA ${Number(m.weight).toFixed(1)} · POUŽITO ${m.uses}×</span></span>
         <button class="icon-btn" data-mem-del="${m.id}" aria-label="Smazat">${ICONS.trash}</button></div>`).join('') : '<div class="empty">Paměť je zatím prázdná.</div>'}</div>
       ${items.length ? '<button class="btn danger wide" data-mem-clear>Vymazat celou paměť</button>' : ''}</div>`;
@@ -675,6 +685,9 @@ document.addEventListener('click', e => {
   if (ds.brainRefresh !== undefined) { call('brainRefresh'); return; }
   if (ds.memtab) { memTab = ds.memtab; renderMemory(); return; }
   if (ds.memAdd !== undefined) { const v = $('#memText').value.trim(); if (v) { call('memAdd', $('#memKind').value, v); toast('Zapamatováno.'); } return; }
+  if (ds.gemPrompt !== undefined) { call('memImportCopyPrompt'); return; }
+  if (ds.gemText !== undefined) { const v = $('#gemText').value.trim(); if (!v) return toast('Vlož odpověď z Gemini.'); call('memImportText', v); $('#gemText').value = ''; return; }
+  if (ds.gemFile !== undefined) { call('memImportFile'); return; }
   if (ds.memDel) { call('memDelete', Number(ds.memDel)); return; }
   if (ds.memClear !== undefined) { if (confirm('Opravdu vymazat celou paměť?')) call('memClear'); return; }
   if (ds.packInstall) { toast('Instaluji do lokální databáze…'); call('packInstall', ds.packInstall); return; }

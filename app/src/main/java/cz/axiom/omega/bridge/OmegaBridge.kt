@@ -16,6 +16,7 @@ import cz.axiom.omega.core.randy.Randy
 import cz.axiom.omega.core.randy.RandyLevel
 import cz.axiom.omega.core.self.Identity
 import cz.axiom.omega.core.self.MemoryItem
+import cz.axiom.omega.core.self.MemoryImport
 import cz.axiom.omega.core.self.MemoryKind
 import cz.axiom.omega.core.step0.Step0
 import cz.axiom.omega.core.util.TextUtil
@@ -261,6 +262,65 @@ class OmegaBridge(private val activity: MainActivity) {
         if (text.isBlank()) return
         omega.db.remember(MemoryItem(kind = k, text = text.trim().take(600), weight = 1.3))
         Events.emit("mem", JSONObject())
+    }
+
+    // ------------------------------------------------------------------ import paměti z Gemini
+
+    /** Dotaz, který si uživatel zkopíruje do Gemini (odpověď pak vloží zpět). */
+    @JavascriptInterface fun memImportPrompt(): String = MemoryImport.PROMPT
+
+    @JavascriptInterface
+    fun memImportCopyPrompt() = copy(MemoryImport.PROMPT)
+
+    @JavascriptInterface
+    fun memImportText(text: String) = async {
+        require(text.length <= 2_000_000) { "Text je příliš dlouhý." }
+        applyImport(MemoryImport.parseAny(text))
+    }
+
+    @JavascriptInterface
+    fun memImportFile() = activity.runOnUiThread {
+        activity.pickMemory.launch(arrayOf("application/json", "text/html", "text/plain", "application/zip", "*/*"))
+    }
+
+    fun onMemoryFile(uri: Uri) = async {
+        val name = uri.lastPathSegment.orEmpty()
+        val bytes = activity.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        require(bytes.size <= 200_000_000) { "Soubor je příliš velký." }
+        val result = if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+            // Google Takeout ZIP → najdi aktivitu Aplikace Gemini
+            var found: Pair<String, String>? = null
+            java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+                while (true) {
+                    val e = zip.nextEntry ?: break
+                    val n = e.name
+                    if (!e.isDirectory && (n.contains("Gemini", true) || n.contains("Bard", true)) &&
+                        (n.endsWith("MyActivity.json", true) || n.endsWith("MyActivity.html", true) || n.endsWith(".json", true))
+                    ) {
+                        val data = zip.readBytes()
+                        require(data.size <= 200_000_000)
+                        found = n to String(data, Charsets.UTF_8)
+                        if (n.endsWith(".json", true)) break
+                    }
+                }
+            }
+            val (n, content) = found ?: error("V ZIPu není aktivita „Aplikace Gemini“ (Moje aktivita → Gemini Apps).")
+            MemoryImport.parseAny(content, n)
+        } else {
+            MemoryImport.parseAny(String(bytes, Charsets.UTF_8), name)
+        }
+        applyImport(result)
+    }
+
+    private fun applyImport(r: MemoryImport.Result) {
+        r.items.forEach { omega.db.remember(it) }
+        r.transcript?.let { omega.db.addDocument("Gemini – historie dotazů", it, "Import z Gemini") }
+        Events.emit("mem", JSONObject()); Events.emit("kb", JSONObject())
+        Events.note(
+            "Z Gemini importováno ${r.items.size} vzpomínek" +
+                (if (r.prompts > 0) " a ${r.prompts} dotazů do znalostí" else "") +
+                (if (r.skipped > 0) " (přeskočeno ${r.skipped})." else "."),
+        )
     }
 
     @JavascriptInterface fun memDelete(id: Long) { omega.db.deleteMemory(id); Events.emit("mem", JSONObject()) }

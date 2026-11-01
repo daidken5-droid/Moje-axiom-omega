@@ -44,6 +44,8 @@ paměť), své limity a historii – a nepředstírá vědomí ani city.
   metodika AXIOM, jednotky a konstanty SI, stavba a materiály, finance a +EV, Kimi K3 a vlastní server.
   Nové verze se stahují z repozitáře a ověřují SHA-256 (`tools/update_pack_catalog.py`).
 * Vlastní dokumenty: import TXT / Markdown / CSV / JSON nebo poznámky.
+* **Import paměti z Gemini** (Paměť → Import paměti z Gemini): zkopírovaný dotaz pro Gemini + vložení odpovědi,
+  seznam „Uložené informace“, nebo Google Takeout (Moje aktivita → Aplikace Gemini: `MyActivity.json`, `.html`, `.zip`).
 * **Záloha a obnova** celé databáze (vlákna, paměť, znalosti) do souboru; API klíče se nezálohují.
 
 ## Stažení APK
@@ -56,7 +58,7 @@ paměť), své limity a historii – a nepředstírá vědomí ani city.
 ## Vývoj
 
 ```
-./gradlew :core:test                                   # 50+ unit testů (JVM, bez Androidu)
+./gradlew :core:test                                   # 58 unit testů (JVM, bez Androidu)
 ./gradlew :app:assembleDebug                           # plné APK včetně llama.cpp (NDK 27.2, CMake 3.22.1)
 ./gradlew :app:assembleDebug -Pomega.native=false      # rychlé APK bez nativní části
 tools/ui-preview/build.sh && node tools/ui-preview/shoot.js /tmp   # náhled UI s mock mostem

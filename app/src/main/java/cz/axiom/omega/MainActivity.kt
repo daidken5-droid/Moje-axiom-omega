@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     val pickText = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> bridge.onTextFiles(uris) }
     val pickBrain = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onBrainFile) }
+    val pickMemory = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onMemoryFile) }
     val exportDb = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-sqlite3")) { uri -> uri?.let(bridge::onExport) }
     val importDb = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onRestore) }
 
