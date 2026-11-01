@@ -8,6 +8,21 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 4.2 – finální verze
+
+* **Přepínač výkonu** (úvodní obrazovka, výběr variant, Nastavení):
+  **Základ** – rychle a úsporně (1 průchod, bez řetězců) · **Pokročilé** – vyvážené, RANDY volí ·
+  **Sherlock** – maximum: metoda dedukce (pozorování → hypotézy → důkazy → vyloučení → závěr), 3 průchody,
+  přemýšlení, delší agenti a každý závěr projde oponenturou Ω Nemesis. Při přehřátí nebo slabé baterii se Sherlock sám zmírní.
+* **Mapa kompetencí: 21 modulů** (finance, podnikání, stavba, domácnost, zahrada, vaření, IT, kyberbezpečnost,
+  energie, auta, věda, matematika, zdraví, sport, psychologie, právo, historie, cestování, kultura, jazyk, sebepoznání)
+  – každý se svými **offline balíčky znalostí** (22 balíčků, 11 nových) a tlačítkem pro doplnění z Wikipedie.
+* **Ušito na míru Google Pixel 9a** (`core/device/DeviceProfile.kt`): Tensor G4 má 1× X4 + 3× A720 + 4× A520 –
+  AVIOR generuje na **4 výkonných jádrech** (úsporná jádra by vlákna brzdila), kontext 8k ve všech režimech
+  (přepnutí výkonu bez znovunačtení mozku), doporučený mozek Gemma 4 E4B Q4_K_M + KV cache Q8 v 8 GB RAM,
+  výpočet na CPU (na GPU Mali-G715 je llama.cpp méně spolehlivá), RANDY šetří už od stavu „teplé“ (Tensor se zahřívá).
+  Ostatní telefony dostanou profil automaticky podle frekvencí jader a RAM.
+
 ## Novinky 4.1
 
 * **RANDY kombinuje podmodely.** Když úloha potřebuje víc dovedností, RANDY sestaví řetězec (max. 3 fáze) v logickém

@@ -554,6 +554,18 @@ class OmegaBridge(private val activity: MainActivity) {
 
     // ------------------------------------------------------------------ Kognice (učení z každé otázky)
 
+    // ------------------------------------------------------------------ profil zařízení a režim výkonu
+
+    @JavascriptInterface
+    fun device(): String {
+        val d = omega.device
+        return JSONObject().put("name", d.name).put("soc", d.soc ?: JSONObject.NULL).put("ramGb", d.ramGb).put("threads", d.threads)
+            .put("known", d.known).put("recommendedBrain", d.recommendedBrain).put("ctx", omega.effectiveCtx()).put("ctxManual", omega.settings.ctxManual)
+            .put("notes", JSONArray(d.notes)).put("power", omega.power().name)
+            .put("powers", JSONArray().apply { cz.axiom.omega.core.device.Power.entries.forEach { put(JSONObject().put("id", it.name).put("label", it.label).put("desc", it.description)) } })
+            .toString()
+    }
+
     // ------------------------------------------------------------------ aktualizace
 
     /** Zkontroluje novou verzi (ručně, nebo automaticky jednou denně při startu). */

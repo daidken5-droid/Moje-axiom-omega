@@ -21,18 +21,32 @@ import cz.axiom.omega.core.util.TextUtil
  */
 object Cognition {
 
-    enum class Domain(val label: String, val icon: String, keywords: String) {
-        FINANCE("Finance a čísla", "€", "kurz sazk bankroll kelly investic hypotek uver splatk urok roi marze dph dan cena rozpocet akcie krypto inflac"),
-        BUILD("Stavba a řemesla", "▦", "stavb mikrocement beton omitk dlazb obklad koupeln zed strech izolac material podlah malt sadrokarton cihl"),
-        TECH("IT a programování", "</>", "kod program skript python kotlin java javascript android aplikac server linux databaz sql api git bug algoritm"),
-        ENERGY("Technika a energie", "⚡", "elektr napet proud jistic fotovolt baterie tepeln cerpadl kotel motor auto elektromobil vykon kwh"),
-        SCIENCE("Věda a příroda", "Φ", "fyzik chemi biolog vesmir planet atom molekul evoluc gen bunk klima energie hvezd"),
-        HEALTH("Zdraví a tělo", "✚", "zdravi nemoc lek lekar symptom bolest vyziv strava cvic spanek vitamin"),
-        LAW("Právo a úřady", "§", "zakon pravo smlouv soud urad vypoved najem zivnost dan priznani pokut plna moc"),
-        HISTORY("Historie a společnost", "◷", "histori valk stolet kral cisar revoluc komunis stb politik vlad konspira projekt"),
-        MATH("Matematika a logika", "Σ", "rovnic integral derivac pravdepodobnost statistik matic vypocit procent geometri logik"),
-        LANGUAGE("Jazyk a psaní", "Aa", "prelozi preklad gramatik pravopis text clanek email dopis basen pribeh styl"),
-        SELF("O mně samém", "Ω", "kdo jsi jak funguj tvuj mozek sam sebe vedomi uci se avior randy"),
+    /**
+     * Moduly mapy kompetencí. Každý má klíčová slova (kmeny bez diakritiky) a offline balíčky
+     * znalostí (soubory .md ve složce packs), které AVIOR v dané oblasti používá bez internetu.
+     */
+    enum class Domain(val label: String, val icon: String, keywords: String, val packs: List<String> = emptyList()) {
+        FINANCE("Finance a čísla", "€", "kurz sazk bankroll kelly investic hypotek uver splatk urok roi marze dph cena rozpocet akcie krypto inflac sporen penez", listOf("finance-ev")),
+        BUSINESS("Podnikání a marketing", "◩", "podnik firm zivnostnik osvc faktur zakaznik marketing prodej eshop e-shop reklam brand cenotvorb konkurenc", listOf("podnikani-marketing")),
+        BUILD("Stavba a řemesla", "▦", "stavb mikrocement beton omitk dlazb obklad koupeln zed strech izolac material podlah malt sadrokarton cihl", listOf("stavba-materialy")),
+        HOME("Domácnost a bydlení", "⌂", "domacnost uklid prani skvrn plisen vlhkost spotrebic lednick pracka mycka topeni uspor energi byt nabyt", listOf("domacnost-bydleni")),
+        GARDEN("Zahrada a příroda", "❦", "zahrad rostlin kvetin zelenin rajcat strom ker travnik hnoj kompost semen sklizen skudc bylin", listOf("zahrada")),
+        COOKING("Vaření a jídlo", "◒", "recept vareni varit peceni pect jidlo maso testo omack polevk dezert kuchyn ingredienc gramu", listOf("vareni-jidlo")),
+        TECH("IT a programování", "</>", "kod program skript python kotlin java javascript android aplikac server linux databaz sql api git bug algoritm", listOf("it-prikazy")),
+        CYBER("Kyberbezpečnost", "⛨", "heslo hesla phishing podvod hack hacker virus malware zabezpec sifrov dvoufaktor 2fa unik vpn", listOf("kyberbezpecnost")),
+        ENERGY("Technika a energie", "⚡", "elektr napet proud jistic fotovolt baterie tepeln cerpadl kotel vykon kwh wallbox", listOf("elektro-energie")),
+        AUTO("Auta a doprava", "◎", "auto aut vuz motor pneumatik stk servis olej brzd ridic ridicak dalnic znamk palivo nafta benzin elektromobil", listOf("auta-doprava")),
+        SCIENCE("Věda a vesmír", "Φ", "fyzik chemi biolog vesmir planet atom molekul evoluc gen bunk klima hvezd galaxi", listOf("jednotky-konstanty")),
+        MATH("Matematika a logika", "Σ", "rovnic integral derivac pravdepodobnost statistik matic vypocit procent geometri logik", listOf("matematika-statistika")),
+        HEALTH("Zdraví a tělo", "✚", "zdravi nemoc lek lekar symptom bolest vyziv strava cvic spanek vitamin horeck alergi", listOf("zdravi-prvni-pomoc")),
+        SPORT("Sport a pohyb", "△", "sport trenink beh behat posilov fitness kalori svaly kondic kolo plavani tep", listOf("sport-trenink")),
+        PSYCHOLOGY("Psychologie a vztahy", "◑", "stres uzkost motivac vztah partner emoc psycholog prokrastin sebevedomi komunikac konflikt", listOf("psychologie")),
+        LAW("Právo a úřady", "§", "zakon pravo smlouv soud urad vypoved najem zivnost danove priznani pokut plna moc reklamac", listOf("pravo-urady")),
+        HISTORY("Historie a společnost", "◷", "histori valk stolet kral cisar revoluc komunis stb politik vlad konspira projekt", listOf("vladni-projekty", "konspiracni-teorie")),
+        TRAVEL("Cestování a zeměpis", "✈", "cestov dovolen let letadl hotel pas vizum zem stat mest hlavni mesto mapa cestovni pojisteni", listOf("cestovani")),
+        CULTURE("Kultura a umění", "♫", "film knih hudb umeni malir spisovatel divadl seri obraz kultur pisn", emptyList()),
+        LANGUAGE("Jazyk a psaní", "Aa", "prelozi preklad gramatik pravopis text clanek email dopis basen pribeh styl", listOf("cestina-styl")),
+        SELF("O mně samém", "Ω", "kdo jsi jak funguj tvuj mozek sam sebe vedomi uci se avior randy", listOf("axiom-metodika")),
         GENERAL("Obecné", "◇", ""),
         ;
 

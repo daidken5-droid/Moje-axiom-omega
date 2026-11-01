@@ -23,3 +23,6 @@ RANDY je nadřazený řídicí modul: před každým dotazem zvolí Ω variantu,
 
 ## Řetězce podmodelů
 Když úloha potřebuje víc dovedností, RANDY spojí podmodely do řetězce (max. 3 fáze) v pořadí sběr → analýza → tvorba → kritika, např. Ω Deep Research → Ω Office nebo Ω Think → Ω Studio. Každá fáze dostane výstup předchozí jako podklad; poslední fáze dává finální odpověď.
+
+## Režimy výkonu
+Základ: rychlé a úsporné odpovědi (1 průchod, bez řetězců). Pokročilé: RANDY volí hloubku, podmodely a řetězce podle úlohy. Sherlock: maximum – metoda dedukce (pozorování, hypotézy, důkazy pro a proti, vylučování, závěr s jistotou), 3 průchody, přemýšlení, delší agenti a závěrečná oponentura Ω Nemesis. Při přehřátí nebo slabé baterii RANDY Sherlock zmírní.

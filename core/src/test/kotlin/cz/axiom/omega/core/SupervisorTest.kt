@@ -125,3 +125,49 @@ class PipelineTest {
         assertEquals(Variant.NEMESIS, p.pipeline.last().variant)
     }
 }
+
+class PowerAndDeviceTest {
+    private val ok = Device(batteryPct = 80, charging = false, online = true)
+    private fun plan(t: String, p: cz.axiom.omega.core.device.Power, d: Device = ok) =
+        Supervisor.plan(Request(t, power = p), d, emptyMap(), Authority.GOVERN)
+
+    @Test fun powerModes() {
+        val P = cz.axiom.omega.core.device.Power.Companion
+        val basic = plan("Proč je inflace vyšší než loni a co s tím?", cz.axiom.omega.core.device.Power.BASIC)
+        assertEquals(1, basic.passes); assertEquals(false, basic.thinking); assertTrue(basic.pipeline.isEmpty())
+        val sher = plan("Kdo nejspíš vzal klíče, když byly ráno na stole a odpoledne zmizely?", cz.axiom.omega.core.device.Power.SHERLOCK)
+        assertEquals(Variant.THINK, sher.pipeline.first().variant)
+        assertEquals(Variant.NEMESIS, sher.pipeline.last().variant)
+        assertEquals(3, sher.passes); assertEquals(true, sher.thinking)
+        assertTrue(sher.extraStyle!!.contains("dedukce"))
+        // Sherlock u tvorby: řetězec + oponentura na konci
+        val s2 = plan("Udělej rešerši trhu s tepelnými čerpadly a připrav z toho Word dokument", cz.axiom.omega.core.device.Power.SHERLOCK)
+        assertEquals(listOf(Variant.RESEARCH, Variant.OFFICE, Variant.NEMESIS), s2.pipeline.map { it.variant })
+        // horký Pixel: Sherlock se zmírní (bez řetězce), Tensor šetří už od stavu „teplé“ (2)
+        val hot = Supervisor.plan(Request("Proč padá cena bitcoinu?", power = cz.axiom.omega.core.device.Power.SHERLOCK, thermalCaution = 2),
+            Device(80, false, thermal = 2), emptyMap(), Authority.FULL)
+        assertTrue(hot.pipeline.isEmpty()); assertEquals(1, hot.passes)
+        assertEquals(cz.axiom.omega.core.device.Power.ADVANCED, P.of("nesmysl"))
+    }
+
+    @Test fun pixel9aProfile() {
+        val D = cz.axiom.omega.core.device.DeviceProfiles
+        val freqs = listOf(1_950_000L, 1_950_000, 1_950_000, 1_950_000, 2_600_000, 2_600_000, 2_600_000, 3_100_000)
+        val p = D.detect("Google", "Pixel 9a", "Tensor G4", 8, freqs)
+        assertTrue(p.known); assertEquals(4, p.threads); assertEquals(8192, p.ctxFor(cz.axiom.omega.core.device.Power.SHERLOCK))
+        assertEquals("omega-core-gemma4-e4b-q4km", p.recommendedBrain); assertEquals(2, p.thermalCaution)
+        assertEquals(4, D.performanceCores(freqs))
+        val g = D.detect("Xiaomi", "X", null, 12, listOf(2_000_000L, 2_000_000, 2_000_000, 2_000_000, 2_800_000, 2_800_000, 2_800_000, 3_300_000))
+        assertEquals(4, g.threads); assertEquals(16384, g.ctxFor(cz.axiom.omega.core.device.Power.ADVANCED))
+    }
+
+    @Test fun domainsHavePacks() {
+
+        assertEquals(cz.axiom.omega.core.self.Cognition.Domain.AUTO, cz.axiom.omega.core.self.Cognition.domainOf("Kdy musím na STK s autem?"))
+        assertEquals(cz.axiom.omega.core.self.Cognition.Domain.COOKING, cz.axiom.omega.core.self.Cognition.domainOf("Recept na pečení kuřete"))
+        assertEquals(cz.axiom.omega.core.self.Cognition.Domain.CYBER, cz.axiom.omega.core.self.Cognition.domainOf("Přišel mi phishing, co s heslem?"))
+        assertTrue(cz.axiom.omega.core.self.Cognition.Domain.entries.size >= 22)
+        val packs = java.io.File("../packs").listFiles()!!.map { it.nameWithoutExtension }.toSet()
+        cz.axiom.omega.core.self.Cognition.Domain.entries.flatMap { it.packs }.forEach { assertTrue("chybí balíček $it", it in packs) }
+    }
+}

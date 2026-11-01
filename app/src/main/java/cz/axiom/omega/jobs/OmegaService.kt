@@ -129,7 +129,8 @@ class OmegaService : Service() {
         val (domain, selfInsight) = omega.cognition.brief(text)
         val competence = omega.cognition.competence(domain)
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
-            weakDomain = if (learning && competence?.weak == true) domain.label else null), device, omega.randy.stats(), authority)
+            weakDomain = if (learning && competence?.weak == true) domain.label else null,
+            power = omega.power(), thermalCaution = omega.device.thermalCaution), device, omega.randy.stats(), authority)
         // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
         val exemplar = if (learning && omega.settings.ctxTokens >= 8192) omega.cognition.exemplar(domain) else null
         val insight = if (learning) listOfNotNull(selfInsight, exemplar).joinToString("\n\n") else null
@@ -213,7 +214,7 @@ class OmegaService : Service() {
                                 omega.db.updateTask(taskId, "running", steps.length(), null)
                                 Events.emit("step", j)
                             }
-                        }, s.rates, s.userName.ifBlank { null }, agentRole, listOfNotNull(variant.style, insight).joinToString("\n").ifBlank { null }, variant.temperature ?: 0.4f, watchdog)
+                        }, s.rates, s.userName.ifBlank { null }, agentRole, listOfNotNull(variant.style, plan.extraStyle, insight).joinToString("\n").ifBlank { null }, variant.temperature ?: 0.4f, watchdog)
                     } catch (e: Exception) {
                         omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
                         throw e
@@ -229,7 +230,7 @@ class OmegaService : Service() {
                     val passes = plan.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
                     var r = omega.orchestrator().run(
                         AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
-                            s.userName.ifBlank { null }, variant.style, variant.temperature, insight),
+                            s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight),
                         engine, cancel, listener,
                     )
                     // RANDY eskalace: nejistá odpověď → silnější varianta (jen s plnou pravomocí)
@@ -249,6 +250,7 @@ class OmegaService : Service() {
             }
             val finalVariant = escalatedTo ?: variant
             if (finalVariant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", finalVariant.title)
+            meta.put("power", plan.power.label)
             val randyMeta = JSONObject().put("summary", plan.summary).put("authority", authority.label).put("chosen", plan.chosenByRandy)
                 .put("variantId", finalVariant.name)
                 .put("decisions", JSONArray().apply { plan.decisions.forEach { put(it) } })
@@ -329,12 +331,13 @@ class OmegaService : Service() {
                             omega.db.updateTask(taskId, "running", allSteps.length(), null)
                             Events.emit("step", j)
                         }
-                    }, s.rates, s.userName.ifBlank { null }, v.role, listOfNotNull(v.style, insight).joinToString("\n").ifBlank { null }, v.temperature ?: 0.4f, watchdog)
+                    }, s.rates, s.userName.ifBlank { null }, v.role, listOfNotNull(v.style, plan.extraStyle, insight).joinToString("\n").ifBlank { null }, v.temperature ?: 0.4f, watchdog)
                     out = r.answer
                 } else {
                     val r = omega.orchestrator().run(
                         AskRequest(stagePrompt, if (i == 0) history else emptyList(), v.level, v.passes ?: if (local) s.localMaxPasses else s.maxPasses,
-                            s.reflect && i == n - 1, false, v.thinking ?: s.thinking, true, s.rates, s.userName.ifBlank { null }, v.style, v.temperature, insight),
+                            s.reflect && i == n - 1, false, if (plan.power == cz.axiom.omega.core.device.Power.SHERLOCK) true else v.thinking ?: s.thinking, true, s.rates,
+                            s.userName.ifBlank { null }, listOfNotNull(v.style, plan.extraStyle).joinToString("\n").ifBlank { null }, v.temperature, insight),
                         engine, cancel, listener,
                     )
                     lastChat = r

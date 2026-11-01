@@ -71,6 +71,14 @@ class Settings(context: Context) {
     var ctxTokens: Int
         get() = p.getInt("ctxTokens", 8192)
         set(v) = p.edit().putInt("ctxTokens", v.coerceIn(2048, 16384)).apply()
+    /** false = kontext volí profil zařízení podle režimu výkonu (doporučeno) */
+    var ctxManual: Boolean
+        get() = p.getBoolean("ctxManual", false)
+        set(v) = p.edit().putBoolean("ctxManual", v).apply()
+    /** Režim výkonu: BASIC | ADVANCED | SHERLOCK */
+    var power: String
+        get() = p.getString("power", "ADVANCED")!!
+        set(v) = p.edit().putString("power", cz.axiom.omega.core.device.Power.of(v).name).apply()
     var theme: String
         get() = p.getString("theme", "obsidian")!!
         set(v) = p.edit().putString("theme", if (v in setOf("obsidian", "platinum", "auto")) v else "obsidian").apply()
@@ -125,7 +133,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -139,7 +147,8 @@ class Settings(context: Context) {
         if (o.has("reflect")) reflect = o.getBoolean("reflect")
         if (o.has("web")) web = o.getBoolean("web")
         if (o.has("thinking")) thinking = o.getBoolean("thinking")
-        if (o.has("ctxTokens")) ctxTokens = o.getInt("ctxTokens")
+        if (o.has("ctxTokens")) { val c = o.getInt("ctxTokens"); if (c <= 0) ctxManual = false else { ctxManual = true; ctxTokens = c } }
+        if (o.has("power")) power = o.getString("power")
         if (o.has("theme")) theme = o.getString("theme")
         if (o.has("font")) font = o.getInt("font")
         if (o.has("userName")) userName = o.getString("userName")

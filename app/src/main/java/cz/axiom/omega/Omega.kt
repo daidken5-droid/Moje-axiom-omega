@@ -112,7 +112,7 @@ class Omega private constructor(val app: Context) {
         val f = embedderFile() ?: return false
         // Při málo volné RAM (8GB telefon s načteným mozkem) sémantiku vynech – fulltext stačí
         if (cz.axiom.omega.sys.Introspect.freeRamMb(app) in 1..1_500) return false
-        return runCatching { Embedder.open(app, f) }.getOrDefault(false)
+        return runCatching { Embedder.open(app, f, minOf(device.threads, 4)) }.getOrDefault(false)
     }
 
     /** Nástroje aktivního agenta (síťové jen online). */
@@ -133,6 +133,21 @@ class Omega private constructor(val app: Context) {
             return r.joinToString("\n\n") { "${it.title} (${it.source}):\n${it.text.take(1_400)}" }
         }
     }
+
+    /** Profil zařízení (např. Google Pixel 9a): vlákna podle výkonných jader, kontext podle RAM a režimu. */
+    val device by lazy {
+        val freqs = (0 until 16).mapNotNull { i ->
+            runCatching { java.io.File("/sys/devices/system/cpu/cpu$i/cpufreq/cpuinfo_max_freq").readText().trim().toLong() }.getOrNull()
+        }
+        val soc = if (android.os.Build.VERSION.SDK_INT >= 31) android.os.Build.SOC_MODEL.takeIf { it.isNotBlank() && it != "unknown" } else null
+        cz.axiom.omega.core.device.DeviceProfiles.detect(
+            android.os.Build.MANUFACTURER.replaceFirstChar { it.uppercase() }, android.os.Build.MODEL, soc,
+            cz.axiom.omega.core.brain.BrainCatalog.nominalRamGb(Introspect.totalRamGb(app)), freqs,
+        )
+    }
+
+    fun power() = cz.axiom.omega.core.device.Power.of(settings.power)
+    fun effectiveCtx() = if (settings.ctxManual) settings.ctxTokens else device.ctxFor(power())
 
     fun loraDir() = java.io.File(app.filesDir, "lora").apply { mkdirs() }
 
@@ -160,7 +175,7 @@ class Omega private constructor(val app: Context) {
             engineKind = kind.label,
             online = Introspect.online(app),
             brainName = brain?.second?.name ?: brain?.first?.nameWithoutExtension,
-            contextTokens = if (kind == EngineKind.LOCAL) settings.ctxTokens else null,
+            contextTokens = if (kind == EngineKind.LOCAL) effectiveCtx() else null,
             memoryCount = db.memoryCount(),
             knowledgeDocs = db.docCount(),
             conversations = db.threadCount(),
@@ -178,7 +193,7 @@ class Omega private constructor(val app: Context) {
     fun local(): LocalEngine {
         val (file, spec) = brains.active() ?: throw EngineException("Lokální mozek není stažený. Otevři Mozky a stáhni doporučený.")
         val lora = settings.lora.takeIf { it.isNotBlank() }?.let { java.io.File(loraDir(), it) }?.takeIf { it.exists() }
-        return LocalEngine.obtain(app, file, spec, settings.ctxTokens, lora, settings.loraScale / 100f)
+        return LocalEngine.obtain(app, file, spec, effectiveCtx(), lora, settings.loraScale / 100f, device.threads)
     }
 
     fun kimi(): KimiEngine {

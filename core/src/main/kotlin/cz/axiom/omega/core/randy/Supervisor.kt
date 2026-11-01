@@ -1,6 +1,7 @@
 package cz.axiom.omega.core.randy
 
 import cz.axiom.omega.core.agent.AgentRole
+import cz.axiom.omega.core.device.Power
 import cz.axiom.omega.core.agent.Router
 import cz.axiom.omega.core.agent.Variant
 import cz.axiom.omega.core.util.TextUtil
@@ -43,6 +44,7 @@ object Supervisor {
     ) {
         val lowPower get() = batteryPct != null && batteryPct <= 20 && charging != true
         val hot get() = thermal >= 3
+        fun hotFor(caution: Int) = thermal >= caution
         val tightRam get() = freeRamMb != null && freeRamMb in 1..1_500
     }
 
@@ -67,6 +69,10 @@ object Supervisor {
         val toolsOnline: Boolean = true,
         /** Oblast, ve které je AVIOR podle vlastní historie slabší (Cognition) → RANDY přidá hloubku. */
         val weakDomain: String? = null,
+        /** Režim výkonu zvolený uživatelem: Základ / Pokročilé / Sherlock. */
+        val power: cz.axiom.omega.core.device.Power = cz.axiom.omega.core.device.Power.ADVANCED,
+        /** od jaké teploty (THERMAL_STATUS) šetřit – podle profilu zařízení */
+        val thermalCaution: Int = 3,
     )
 
     data class Plan(
@@ -86,6 +92,9 @@ object Supervisor {
         val authority: Authority,
         /** Řetězec podmodelů (2–3 fáze), když úloha potřebuje víc dovedností za sebou. Prázdný = jedna varianta. */
         val pipeline: List<Stage> = emptyList(),
+        val power: cz.axiom.omega.core.device.Power = cz.axiom.omega.core.device.Power.ADVANCED,
+        /** styl režimu výkonu (Sherlock: dedukce) – přidá se k stylu varianty */
+        val extraStyle: String? = null,
     ) {
         val summary get() = if (pipeline.size >= 2) "RANDY → " + pipeline.joinToString(" → ") { it.variant.title }
         else "RANDY → ${variant.title}" + (role?.let { " · ${it.title}" } ?: "") + (level?.let { " · ${it.code}" } ?: "")
@@ -160,6 +169,24 @@ object Supervisor {
         var steps = v.steps
         var budget = if (mode == Router.Mode.AGENT) 6 * 60_000L else 3 * 60_000L
 
+        // a2) REŽIM VÝKONU (Základ / Pokročilé / Sherlock)
+        var extraStyle: String? = null
+        when (req.power) {
+            Power.BASIC -> {
+                if (!explicitAny && v == Variant.THINK) { v = Variant.AUTO; mode = Variant.AUTO.mode }
+                passes = 1; thinking = false; steps = minOf(steps ?: 6, 6); budget = minOf(budget, 2 * 60_000L)
+                why += "režim Základ → rychle a úsporně"
+            }
+            Power.SHERLOCK -> {
+                if (!explicitAny && v in setOf(Variant.AUTO, Variant.FLASH, Variant.MENTOR)) { v = Variant.THINK; mode = Variant.THINK.mode }
+                passes = maxOf(passes ?: 3, 3); thinking = true
+                steps = maxOf(steps ?: 15, 15); budget = minOf(budget * 2, 15 * 60_000L)
+                extraStyle = SHERLOCK_STYLE
+                why += "režim Sherlock → dedukce, maximum průchodů a ověřování"
+            }
+            Power.ADVANCED -> Unit
+        }
+
         // b) Offline: rešerše bez webu nedává smysl
         if (!req.toolsOnline && v == Variant.RESEARCH && !explicitVariant) {
             v = Variant.THINK; mode = Router.Mode.CHAT; why += "offline → místo webové rešerše Ω Think s offline knihovnou"
@@ -168,10 +195,10 @@ object Supervisor {
         // c) Řízení zdrojů telefonu (efficiency)
         val governs = authority != Authority.ADVISORY && device.local
         val mayCutExplicit = authority == Authority.FULL
-        if (governs && (device.lowPower || device.hot)) {
+        if (governs && (device.lowPower || device.hotFor(req.thermalCaution))) {
             if (!explicitAny || mayCutExplicit) {
                 passes = 1; thinking = false; steps = minOf(steps ?: 6, 6); budget = minOf(budget, 2 * 60_000L)
-                why += if (device.hot) "telefon je horký → úsporný režim (1 průchod, bez přemýšlení)" else "baterie ${device.batteryPct} % → úsporný režim"
+                why += if (device.hotFor(req.thermalCaution)) "telefon je horký → úsporný režim (1 průchod, bez přemýšlení)" else "baterie ${device.batteryPct} % → úsporný režim"
             } else why += "baterie/teplota je kritická – zvaž úspornější variantu"
         } else if (governs && device.tightRam) {
             if (!explicitAny || mayCutExplicit) { passes = minOf(passes ?: 2, 2); why += "málo volné RAM → max. 2 průchody" }
@@ -188,8 +215,18 @@ object Supervisor {
 
         // e) KOMBINACE PODMODELŮ: úloha potřebuje víc dovedností za sebou → řetězec
         var pipeline = emptyList<Stage>()
-        if (!explicitAny && authority != Authority.ADVISORY) {
-            pipeline = pipelineFor(f, req.toolsOnline, authority, device.local && (device.lowPower || device.hot))
+        val saving = device.local && (device.lowPower || device.hotFor(req.thermalCaution))
+        if (!explicitAny && authority != Authority.ADVISORY && req.power != Power.BASIC) {
+            pipeline = pipelineFor(f, req.toolsOnline, if (req.power == Power.SHERLOCK) Authority.FULL else authority, saving)
+            // Sherlock: každý netriviální závěr projde oponenturou
+            if (req.power == Power.SHERLOCK && !saving && Variant.NEMESIS !in pipeline.map { it.variant }) {
+                pipeline = when {
+                    pipeline.size >= 2 -> (if (pipeline.size >= 3) pipeline.take(2) else pipeline) + Stage(Variant.NEMESIS, "oponentura: najdi chyby a slabá místa v závěru")
+                    (mode ?: Variant.AUTO.mode) != Router.Mode.AGENT && v != Variant.MUSE ->
+                        listOf(Stage(v, "dedukce a odpověď"), Stage(Variant.NEMESIS, "oponentura: najdi chyby, oprav je a dej finální závěr"))
+                    else -> pipeline
+                }
+            }
             if (pipeline.size >= 2) {
                 why += "úloha potřebuje víc dovedností → řetězec " + pipeline.joinToString(" → ") { it.variant.title }
                 v = pipeline.last().variant
@@ -197,14 +234,14 @@ object Supervisor {
             }
         }
 
-        val mayEscalate = pipeline.isEmpty() && authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !(device.local && (device.lowPower || device.hot))
+        val mayEscalate = pipeline.isEmpty() && req.power != Power.BASIC && authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !saving
         if (authority == Authority.ADVISORY) {
             // poradní režim: nic nemění, jen radí
             return Plan(req.variant, req.kind ?: req.variant.mode, req.role ?: req.variant.role, req.level ?: req.variant.level, req.variant.passes,
                 req.variant.thinking, req.variant.steps, budget, false, why.ifEmpty { listOf("poradní režim – bez zásahu") }, false, authority)
         }
         return Plan(v, if (pipeline.size >= 2) v.mode else mode, if (pipeline.size >= 2) v.role else role, if (pipeline.size >= 2) v.level else level,
-            passes, thinking, steps, budget, mayEscalate, why, chosen || pipeline.size >= 2, authority, pipeline)
+            passes, thinking, steps, budget, mayEscalate, why, chosen || pipeline.size >= 2, authority, pipeline, req.power, extraStyle)
     }
 
     /**
@@ -234,6 +271,10 @@ object Supervisor {
         // drž poslední (výstupní) fázi: když je moc fází, vynech prostřední
         return if (stages.size <= max) stages else stages.take(max - 1) + stages.last()
     }
+
+    const val SHERLOCK_STYLE = "REŽIM SHERLOCK – metoda dedukce: 1) pozorování (co přesně víme, včetně drobností), " +
+        "2) hypotézy (všechna rozumná vysvětlení), 3) důkazy pro a proti každé, 4) vylučování – co zbude, je nejpravděpodobnější, " +
+        "5) závěr s mírou jistoty a tím, co by ho vyvrátilo. Hledej nesrovnalosti a skryté předpoklady, nic nepřijímej bez důkazu."
 
     // ------------------------------------------------------------------ 2) eskalace
 

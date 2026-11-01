@@ -518,3 +518,17 @@ nav.tabs button.on svg { filter: drop-shadow(0 0 5px rgba(255, 255, 255, .35)); 
 .journal small { color: var(--dim); font: 9px var(--mono); letter-spacing: 1px; margin-left: 6px; }
 .learned { display: inline-flex; align-items: center; gap: 6px; font: 9px var(--mono); letter-spacing: 1px; color: var(--muted); margin-top: 8px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); }
 input[type=range] { accent-color: #c3c8cf; }
+
+/* ---------- v4.2: výkon a moduly ---------- */
+.power { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 16px; background: linear-gradient(var(--ink), var(--ink)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
+.power button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; color: var(--muted); font-size: .8rem; transition: background .15s, color .15s; }
+.power button b { font-weight: 600; }
+.power button small { font-size: .64rem; color: var(--dim); text-align: center; line-height: 1.25; }
+.power .p-ic { font: 600 13px var(--mono); }
+.power button.on { color: var(--ti-text); background: linear-gradient(180deg, #1a1d23, var(--ink)) padding-box, var(--ti-grad) border-box; border: 1px solid transparent; box-shadow: 0 6px 18px -10px rgba(255, 255, 255, .45); text-shadow: 0 0 8px rgba(255, 255, 255, .25); }
+.power button.on[data-power="SHERLOCK"] .p-ic { text-shadow: 0 0 10px rgba(255, 255, 255, .7); }
+.power.big button { padding: 10px 6px; }
+.dom.idle { opacity: .55; }
+.dom-kb { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.kbchip { font: 9px var(--mono); letter-spacing: .5px; padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line2); color: var(--muted); }
+.kbchip.add { color: var(--ti-text); border-color: var(--ti3); }

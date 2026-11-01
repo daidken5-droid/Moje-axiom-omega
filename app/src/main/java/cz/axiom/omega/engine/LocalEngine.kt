@@ -61,11 +61,11 @@ object Embedder {
     @Volatile private var file: File? = null
 
     @Synchronized
-    fun open(context: Context, f: File): Boolean {
+    fun open(context: Context, f: File, nThreads: Int = 0): Boolean {
         if (handle != 0L && file == f) return true
         close()
         if (!NativeLlama.available(context) || !f.exists()) return false
-        val threads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 4)
+        val threads = if (nThreads > 0) nThreads else (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 4)
         handle = NativeLlama.nativeLoadEmbedder(f.absolutePath, threads)
         file = f
         return handle != 0L
@@ -190,15 +190,15 @@ class LocalEngine private constructor(
         @Volatile private var current: LocalEngine? = null
 
         @Synchronized
-        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int, lora: File? = null, loraScale: Float = 1f): LocalEngine {
+        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int, lora: File? = null, loraScale: Float = 1f, nThreads: Int = 0): LocalEngine {
             current?.let { if (it.file == file && it.requestedCtx == ctxTokens) { it.applyLora(lora, loraScale); return it } }
             release()
             if (!NativeLlama.available(context)) {
                 throw EngineException("Lokální mozek není v tomto sestavení dostupný (${NativeLlama.loadError ?: "bez nativní knihovny"}).")
             }
             if (!file.exists()) throw EngineException("Soubor mozku chybí – stáhni ho v sekci Mozky.")
-            val cores = Runtime.getRuntime().availableProcessors()
-            val threads = (cores - 2).coerceIn(2, 6)
+            // vlákna jen na výkonných jádrech (profil zařízení – Pixel 9a: 4); úsporná jádra by generování brzdila
+            val threads = if (nThreads > 0) nThreads else (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 6)
             var ctx = minOf(ctxTokens, spec?.contextTokens?.times(2) ?: ctxTokens)
             // 8GB telefony: při málo volné RAM menší kontext (KV cache), aby systém mozek nezabil
             val freeMb = cz.axiom.omega.sys.Introspect.freeRamMb(context)

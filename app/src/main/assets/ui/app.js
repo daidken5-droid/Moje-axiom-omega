@@ -126,6 +126,16 @@ const SUGGEST = [
   { ic: '▣', t: 'Vyrob aplikaci', q: 'Vytvoř aplikaci APK „Nákupní seznam“ s kategoriemi a odškrtáváním' },
 ];
 
+const POWERS = [
+  { id: 'BASIC', ic: '◇', label: 'Základ', desc: 'Rychle a úsporně' },
+  { id: 'ADVANCED', ic: '◈', label: 'Pokročilé', desc: 'Vyvážené – RANDY volí' },
+  { id: 'SHERLOCK', ic: '⌕', label: 'Sherlock', desc: 'Maximum: dedukce a oponentura' },
+];
+const curPower = () => (S.settings || {}).power || 'ADVANCED';
+function powerSeg(big) {
+  return `<div class="power ${big ? 'big' : ''}">${POWERS.map(p => `<button data-power="${p.id}" class="${curPower() === p.id ? 'on' : ''}"><span class="p-ic">${p.ic}</span><b>${p.label}</b>${big ? `<small>${p.desc}</small>` : ''}</button>`).join('')}</div>`;
+}
+
 function greeting() {
   const h = new Date().getHours();
   return h < 5 ? 'Dobrou noc' : h < 10 ? 'Dobré ráno' : h < 12 ? 'Dobré dopoledne' : h < 18 ? 'Dobré odpoledne' : 'Dobrý večer';
@@ -230,6 +240,7 @@ function renderChat() {
       ${S.update ? `<div class="card glow" style="text-align:left"><b>Nová verze AVIOR ${esc(S.update.version)}</b><p class="small muted" style="margin:4px 0 10px">Máš ${esc(S.update.current)}. Aktualizace zachová mozek, Wikipedii i paměť.</p>
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
+      <div style="margin-top:18px">${powerSeg(false)}</div>
       ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
       <div class="suggest">${SUGGEST.map(s => `<button data-suggest="${esc(s.q)}"><span class="s-ic">${esc(s.ic)}</span><b>${esc(s.t)}</b><small>${esc(s.q.replace(/^\/agent /, ''))}</small></button>`).join('')}</div>
@@ -338,7 +349,8 @@ function fab() {
 function composer() {
   const k = KINDS.find(x => x.id === forcedKind);
   const v = variants().find(x => x.id === variant) || variants()[0];
-  const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '');
+  const pw = curPower() === 'SHERLOCK' ? ' · ⌕' : curPower() === 'BASIC' ? ' · ◇' : '';
+  const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '') + pw;
   return `<div class="composer"><div class="wrap">
     <div class="randy-hint" id="randyHint"></div>
     <div class="box">
@@ -609,7 +621,13 @@ function renderSystem() {
         ${(l.decisions || []).map(x => `<span>› ${esc(x)}</span>`).join('')}${(l.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`).join('')}</div>`).join('')}</div></details>` : ''}
       ${R.runs ? '<button class="link" data-randy-reset>Vynulovat statistiky</button>' : ''}
     </div>`;
+  const dv = J('device') || {};
+  const devicePanel = card(`<div class="row" style="gap:12px"><span class="v-ic">▯</span><span class="grow"><b>${dv.known ? 'Ušito na míru: ' : 'Profil: '}${esc(dv.name || 'telefon')}</b>
+      <small class="muted" style="display:block">${esc(dv.soc || '')}${dv.soc ? ' · ' : ''}${dv.ramGb || '?'} GB RAM · ${dv.threads || '?'} výkonná vlákna · kontext ${dv.ctx || '?'}</small></span></div>
+    <label>Výkon</label>${powerSeg(true)}
+    ${(dv.notes || []).length ? `<details class="x"><summary>JAK JE AVIOR NALADĚNÝ NA TENTO TELEFON</summary><div class="in" style="white-space:normal">${dv.notes.map(n => `<p class="small">› ${esc(n)}</p>`).join('')}</div></details>` : ''}`, 'randy');
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
+    ${devicePanel}
     ${randyPanel}
     ${card(`${sw('learning', 'Učit se z každé otázky', 'Kompetence, kalibrace jistoty, vlastní poznatky, deník vývoje.')}
       ${sw('selfStudy', 'Samostudium', 'Při nabíjení na Wi-Fi si dohledám, co jsem nevěděl.')}
@@ -619,7 +637,7 @@ function renderSystem() {
       ${sw('thinking', 'Hluboké přemýšlení v telefonu', 'Přesnější, ale pomalejší.')}`)}
     ${card(`<label style="margin-top:0">Kroky agenta (max.)</label>${seg('agentSteps', [[5, '5'], [10, '10'], [15, '15'], [25, '25']])}
       <label>Průchody RANDY · cloud / telefon</label><div class="grid2">${seg('maxPasses', [[1, '1'], [2, '2'], [3, '3']])}${seg('localMaxPasses', [[1, '1'], [2, '2'], [3, '3']])}</div>
-      <label>Kontext mozku v telefonu</label>${seg('ctxTokens', [[4096, '4k'], [8192, '8k'], [16384, '16k']])}
+      <label>Kontext mozku v telefonu</label><div class="seg">${[[0, 'Auto'], [4096, '4k'], [8192, '8k'], [16384, '16k']].map(([v, l]) => `<button data-setv="ctxTokens" data-val="${v}" class="${(v === 0 && !st.ctxManual) || (st.ctxManual && st.ctxTokens === v) ? 'on' : ''}">${l}</button>`).join('')}</div>
       <label>Rozhodčí Konzilia</label>${seg('councilJudge', [['kimi', 'Kimi'], ['node', 'Node'], ['local', 'Telefon'], ['claude', 'Claude']])}`)}
     ${card(`<label style="margin-top:0">Motiv</label>${seg('theme', [['obsidian', 'Obsidian'], ['platinum', 'Platinum'], ['auto', 'Systém']])}
       <label>Písmo · ${st.font}px</label><input type="range" min="13" max="21" value="${st.font}" data-range="font" style="width:100%">
@@ -633,20 +651,27 @@ function renderSystem() {
   </div>`;
 }
 
+function packChips(d) {
+  const pk = (J('packs') || { packs: [] }).packs;
+  return (d.packs || []).map(id => { const p = pk.find(x => x.id === id); if (!p) return '';
+    return p.installed ? `<span class="kbchip">✓ ${esc(p.name)}</span>` : `<button class="kbchip add" data-pack-install="${esc(id)}">＋ ${esc(p.name)}</button>`; }).join('');
+}
+
 function selfSheet() {
   const me = J('self') || {};
   const cg = J('cognition') || { domains: [], open: [], journal: [], total: 0, insights: 0 };
   const stat = (v, l) => `<div class="stat"><b>${v ?? '—'}</b><small>${l}</small></div>`;
-  const doms = [...cg.domains].sort((a, b) => b.mastery - a.mastery);
+  const doms = [...cg.domains].sort((a, b) => (b.questions > 0) - (a.questions > 0) || b.mastery - a.mastery || a.label.localeCompare(b.label, 'cs'));
   const when = t => { const d = (Date.now() - t) / 864e5; return d < 1 ? 'DNES' : d < 2 ? 'VČERA' : Math.floor(d) + ' DNÍ'; };
   sheet(`<div class="mind-hero"><div style="width:84px;height:84px;margin:4px auto 0">${appIcon()}</div><h2>${esc(me.name || 'AVIOR')}</h2>
       <p>Učím se z každé otázky a úvahy · verze ${esc(me.version || '')}</p></div>
-    <div class="grid2">${stat(cg.total, 'OTÁZEK')}${stat(cg.insights, 'VLASTNÍCH POZNATKŮ')}${stat(doms.length, 'OBLASTÍ')}${stat(me.confidence != null ? me.confidence + ' %' : null, 'SEBEDŮVĚRA')}</div>
+    <div class="grid2">${stat(cg.total, 'OTÁZEK')}${stat(cg.insights, 'VLASTNÍCH POZNATKŮ')}${stat(doms.filter(d => d.questions > 0).length + ' / ' + doms.length, 'AKTIVNÍCH MODULŮ')}${stat(me.confidence != null ? me.confidence + ' %' : null, 'SEBEDŮVĚRA')}</div>
 
-    <div class="eyebrow">MAPA KOMPETENCÍ · CO UMÍM</div>
-    ${doms.length ? doms.map(d => `<div class="dom"><span class="v-ic">${esc(d.icon)}</span><span class="grow"><b>${esc(d.label)}</b>
+    <div class="eyebrow">MAPA KOMPETENCÍ · ${doms.filter(d => d.questions > 0).length}/${doms.length} MODULŮ AKTIVNÍCH</div>
+    ${doms.length ? doms.map(d => `<div class="dom ${d.questions ? '' : 'idle'}"><span class="v-ic">${esc(d.icon)}</span><span class="grow"><b>${esc(d.label)}</b>
       <small>${d.questions} ${d.questions === 1 ? 'otázka' : d.questions < 5 ? 'otázky' : 'otázek'} · mistrovství ${d.mastery} %${d.approval != null ? ' · ✓ ' + d.approval + ' %' : ''}${d.calibration != null ? ' · kalibrace ' + (d.calibration > 0 ? '+' : '') + d.calibration : ''}${d.weak ? ' · <span class="weak">tady se ještě učím</span>' : ''}</small>
-      <span class="progress"><i style="width:${d.mastery}%"></i></span></span></div>`).join('') : '<p class="small muted">Zatím nic – každá tvoje otázka mě něco naučí.</p>'}
+      <span class="progress"><i style="width:${d.mastery}%"></i></span>
+      <span class="dom-kb">${packChips(d)}<button class="kbchip add" data-wiki-domain="${esc(d.label)}">＋ Wikipedie</button></span></span></div>`).join('') : '<p class="small muted">Zatím nic – každá tvoje otázka mě něco naučí.</p>'}
 
     <div class="eyebrow">CO JEŠTĚ NEVÍM · ${cg.open.length}</div>
     ${cg.open.length ? cg.open.slice(-5).reverse().map(o => `<p class="small" style="margin:6px 0">› ${esc(o.q)}</p>`).join('') +
@@ -671,7 +696,8 @@ function closeSheet() { $('#sheet').innerHTML = ''; }
 
 function kindSheet() {
   const lv = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
-  sheet(`<div class="eyebrow" style="margin-top:4px">Ω VARIANTY · PODMODELY</div>
+  sheet(`<div class="eyebrow" style="margin-top:4px">VÝKON</div>${powerSeg(true)}
+    <div class="eyebrow">Ω VARIANTY · PODMODELY</div>
     <div class="vgrid">${variants().map(v => `<button class="vcard ${variant === v.id ? 'on' : ''}" data-variant="${v.id}"><span class="v-ic">${esc(v.icon)}</span>
       <b>${esc(v.title)}</b><small>${esc(v.tagline)}</small>${v.agent ? '<i>AGENT</i>' : ''}</button>`).join('')}</div>
     <details class="x"><summary>POKROČILÉ · REŽIM A HLOUBKA RANDY</summary><div class="in" style="white-space:normal">` +
@@ -843,6 +869,9 @@ document.addEventListener('click', e => {
   if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
+  if (ds.power) { configure({ power: ds.power }); S.settings = Object.assign({}, S.settings, { power: ds.power }); haptic(); toast('Výkon: ' + POWERS.find(p => p.id === ds.power).label + ' – ' + POWERS.find(p => p.id === ds.power).desc);
+    if ($('#sheet').innerHTML) kindSheet(); else render(); return; }
+  if (ds.wikiDomain) { call('wikiImport', ds.wikiDomain, 'cs', 10); toast('Stahuji články z Wikipedie…'); return; }
   if (ds.checkUpdate !== undefined) { toast('Kontroluji…'); call('checkUpdate', true); return; }
   if (ds.loraImport !== undefined) { call('loraImport'); return; }
   if (ds.loraUse !== undefined) { call('loraUse', ds.loraUse); setTimeout(() => view === 'modules' && renderModules(), 200); return; }

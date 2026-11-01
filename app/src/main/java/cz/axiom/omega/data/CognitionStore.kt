@@ -161,11 +161,12 @@ class CognitionStore(context: Context, private val db: Db) {
     fun toJson(): JSONObject {
         val o = root()
         val domains = JSONArray()
-        Domain.entries.forEach { d ->
-            val c = comp(o.optJSONObject("domains")?.optJSONObject(d.name)) ?: return@forEach
+        Domain.entries.filter { it != Domain.GENERAL }.forEach { d ->
+            val c = comp(o.optJSONObject("domains")?.optJSONObject(d.name)) ?: Competence()
             domains.put(JSONObject().put("id", d.name).put("label", d.label).put("icon", d.icon).put("questions", c.questions)
-                .put("mastery", c.mastery).put("approval", c.approval ?: JSONObject.NULL).put("conf", c.avgConfidence ?: JSONObject.NULL)
-                .put("calibration", c.calibration ?: JSONObject.NULL).put("weak", c.weak).put("insights", c.insights))
+                .put("mastery", if (c.questions == 0) 0 else c.mastery).put("approval", c.approval ?: JSONObject.NULL).put("conf", c.avgConfidence ?: JSONObject.NULL)
+                .put("calibration", c.calibration ?: JSONObject.NULL).put("weak", c.weak).put("insights", c.insights)
+                .put("packs", JSONArray(d.packs)))
         }
         return JSONObject().put("total", o.optInt("total")).put("insights", o.optJSONObject("insights")?.length() ?: 0)
             .put("studied", o.optInt("studied")).put("domains", domains)
