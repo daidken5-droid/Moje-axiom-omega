@@ -134,6 +134,8 @@ class Omega private constructor(val app: Context) {
         }
     }
 
+    val randy by lazy { cz.axiom.omega.data.RandyStore(app) }
+
     val forge by lazy { cz.axiom.omega.forge.AndroidForge(app) }
 
     fun agent() = ActiveAgent(agentTools(), db) { selfState(currentLabel, currentKind) }

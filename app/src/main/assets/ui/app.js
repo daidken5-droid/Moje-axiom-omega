@@ -257,10 +257,13 @@ function msgHtml(m, last) {
       <div class="tools"><button data-retry="${m.id}">Zkusit znovu</button><button data-go="modules">Moduly</button></div></div>`;
   }
   const agent = meta.mode === 'agent';
-  const label = [meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
+  const label = [meta.randy && meta.randy.chosen ? 'RANDY →' : '', meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
   const files = (meta.files || []).map(f => fileCard(f, f.local || f.uri)).join('');
   const headTxt = [label, meta.engine, secs(meta.millis)].filter(Boolean).join(' · ');
   const det = [];
+  const rd = meta.randy;
+  if (rd) det.unshift(`<div class="sub">RANDY · DOHLED (${esc(rd.authority || '')})</div><div class="randy-log"><b>${esc(rd.summary)}</b>` +
+    [...(rd.decisions || []).map(x => `<span>› ${esc(x)}</span>`), ...(rd.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`)].join('') + '</div>');
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
@@ -304,6 +307,21 @@ function updateLive() {
   fab();
 }
 
+/** Živý náhled: co RANDY Supervisor aktivuje pro rozepsaný dotaz. */
+function randyHint() {
+  clearTimeout(randyHint.t);
+  randyHint.t = setTimeout(() => {
+    const el = $('#randyHint');
+    if (!el) return;
+    const t = draft.trim();
+    if (t.length < 6 || thinking()) { el.classList.remove('show'); return; }
+    const p = J('randyPlan', t, variant);
+    if (!p) return;
+    el.innerHTML = `<span class="r-dot"></span><b>${esc(p.summary)}</b>${p.decisions && p.decisions[0] ? `<small>${esc(p.decisions[0])}</small>` : ''}`;
+    el.classList.add('show');
+  }, 260);
+}
+
 /** Tlačítko „dolů“, když uživatel odscrolluje nahoru během dlouhé odpovědi. */
 function fab() {
   const main = $('#main'), b = $('#toBottom');
@@ -316,6 +334,7 @@ function composer() {
   const v = variants().find(x => x.id === variant) || variants()[0];
   const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '');
   return `<div class="composer"><div class="wrap">
+    <div class="randy-hint" id="randyHint"></div>
     <div class="box">
       <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se nebo zadej úkol…">${esc(draft)}</textarea>
@@ -328,7 +347,8 @@ function bindComposer() {
   const ta = $('#input');
   const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(170, ta.scrollHeight) + 'px'; };
   grow();
-  ta.addEventListener('input', () => { draft = ta.value; grow(); });
+  ta.addEventListener('input', () => { draft = ta.value; grow(); randyHint(); });
+  randyHint();
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(ta.value); } });
   $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
   $('#micBtn').onclick = () => { haptic(); call('voice'); };
@@ -550,7 +570,22 @@ function renderSystem() {
   const st = S.settings || {};
   const sw = (key, title, sub) => `<div class="toggle"><span>${title}<small>${sub}</small></span><label class="switch"><input type="checkbox" data-set="${key}" ${st[key] ? 'checked' : ''}><i></i></label></div>`;
   const seg = (key, vals) => `<div class="seg">${vals.map(([v, l]) => `<button data-setv="${key}" data-val="${v}" class="${String(st[key]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const R = J('randy') || { variants: [], log: [], authorities: [] };
+  const eff = R.efficiency;
+  const randyPanel = `<div class="card randy">
+      <div class="row" style="gap:12px"><span class="r-core">R</span><span class="grow"><b>RANDY Supervisor</b><small>Nadřazený modul · plánuje podfunkce, řídí zdroje, dohlíží na agenty, eskaluje, učí se</small></span></div>
+      <div class="grid3"><div class="stat"><b>${eff ?? '—'}</b><small>EFEKTIVITA</small></div><div class="stat"><b>${R.runs || 0}</b><small>ŘÍZENÝCH ÚLOH</small></div><div class="stat"><b>${R.escalations || 0}</b><small>ESKALACÍ</small></div></div>
+      <label>Pravomoci</label><div class="seg">${(R.authorities || []).map(a => `<button data-setv="randyAuthority" data-val="${a.id}" class="${(st.randyAuthority || R.authority) === a.id ? 'on' : ''}">${a.label}</button>`).join('')}</div>
+      <p class="small muted">${esc(((R.authorities || []).find(a => a.id === (st.randyAuthority || R.authority)) || {}).desc || '')}</p>
+      ${R.variants.length ? `<div class="sub">EFEKTIVITA PODMODELŮ</div>` + R.variants.sort((a, b) => b.runs - a.runs).map(v => `<div class="effrow"><span class="v-ic">${esc(v.icon)}</span><span class="grow"><b>${esc(v.title)}</b>
+        <small>${v.runs}× · ⌀ ${secs(v.avgMs)}${v.conf != null ? ' · jistota ' + v.conf + ' %' : ''}${v.approval != null ? ' · 👍 ' + v.approval + ' %' : ''}</small>
+        <span class="progress"><i style="width:${v.eff ?? 0}%"></i></span></span><b class="mono">${v.eff ?? '—'}</b></div>`).join('') : '<p class="small muted">Zatím žádná data – RANDY se učí z každé úlohy a tvého hodnocení ✓/✗.</p>'}
+      ${R.log.length ? `<details class="x"><summary>POSLEDNÍ ROZHODNUTÍ</summary><div class="in" style="white-space:normal">${R.log.slice(0, 8).map(l => `<div class="randy-log"><b>${esc(l.summary)}</b><span class="muted">„${esc(l.prompt)}“ · ${secs(l.ms)}</span>
+        ${(l.decisions || []).map(x => `<span>› ${esc(x)}</span>`).join('')}${(l.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`).join('')}</div>`).join('')}</div></details>` : ''}
+      ${R.runs ? '<button class="link" data-randy-reset>Vynulovat statistiky</button>' : ''}
+    </div>`;
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
+    ${randyPanel}
     ${card(`${sw('reflect', 'Sebereflexe', 'Po odpovědi se ohodnotím a zapíšu poučení.')}
       ${sw('semantic', 'Hledání podle významu', 'Používá rozšíření OMEGA Sense, je-li stažené.')}
       ${sw('web', 'Web u Claude', 'Claude smí hledat na webu.')}
@@ -719,7 +754,7 @@ document.addEventListener('click', e => {
   if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AXIOM Ω'); return; }
   if (ds.rate) {
     const m = msgs.find(x => x.id === Number(ds.rate));
-    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
+    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1'); m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
   if (ds.retry) { const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
@@ -760,6 +795,7 @@ document.addEventListener('click', e => {
   if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
+  if (ds.randyReset !== undefined) { if (confirm('Vynulovat statistiky RANDY?')) { call('randyReset'); renderSystem(); } return; }
   if (ds.forgetKeys !== undefined) { if (confirm('Odstranit všechny klíče?')) call('forgetKeys'); return; }
   if (ds.onboard) {
     configure({ onboarded: true });

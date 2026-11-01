@@ -26,6 +26,7 @@ import cz.axiom.omega.engine.LocalEngine
 import cz.axiom.omega.engine.NativeLlama
 import cz.axiom.omega.jobs.OmegaService
 import cz.axiom.omega.sys.Introspect
+import cz.axiom.omega.core.randy.Supervisor as Sup
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -543,6 +544,25 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface fun open(url: String) = activity.openExternal(url)
 
     // ------------------------------------------------------------------ Ω varianty, agenti, vytvořené soubory
+
+    // ------------------------------------------------------------------ RANDY Supervisor
+
+    @JavascriptInterface
+    fun randy(): String = omega.randy.toJson(cz.axiom.omega.core.randy.Supervisor.Authority.of(omega.settings.randyAuthority)).toString()
+
+    @JavascriptInterface fun randyRate(variantId: String, good: Boolean) = omega.randy.rate(variantId, good)
+
+    @JavascriptInterface fun randyReset() { omega.randy.reset(); Events.note("Statistiky RANDY vynulovány.") }
+
+    /** Náhled plánu RANDY během psaní (co by aktivoval). */
+    @JavascriptInterface
+    fun randyPlan(text: String, variant: String): String {
+        val (b, c) = Introspect.battery(activity)
+        val p = Sup.plan(Sup.Request(text, cz.axiom.omega.core.agent.Variant.of(variant), toolsOnline = Introspect.online(activity)),
+            Sup.Device(b, c, Introspect.thermalLevel(activity), Introspect.freeRamMb(activity), Introspect.online(activity)),
+            omega.randy.stats(), Sup.Authority.of(omega.settings.randyAuthority))
+        return JSONObject().put("summary", p.summary).put("variant", p.variant.name).put("decisions", JSONArray(p.decisions)).toString()
+    }
 
     @JavascriptInterface
     fun variants(): String = JSONArray().apply {

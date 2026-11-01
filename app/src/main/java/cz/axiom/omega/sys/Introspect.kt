@@ -38,6 +38,12 @@ object Introspect {
         return pct to (if (i == null) null else charging)
     }
 
+    /** 0 = v normě … 4+ = kritické (pro RANDY Supervisor). */
+    fun thermalLevel(context: Context): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        return (context.getSystemService(Context.POWER_SERVICE) as PowerManager).currentThermalStatus
+    }
+
     fun thermal(context: Context): String? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager

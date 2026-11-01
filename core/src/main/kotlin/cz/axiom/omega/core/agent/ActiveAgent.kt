@@ -121,6 +121,8 @@ class ActiveAgent(
         role: AgentRole? = null,
         style: String? = null,
         temperature: Float = 0.4f,
+        /** RANDY Supervisor: hlídá smyčky, selhávající nástroje a časový rozpočet. */
+        watchdog: cz.axiom.omega.core.randy.Supervisor.Watchdog? = null,
     ): AgentResult {
         val started = System.currentTimeMillis()
         val local = engine.kind == EngineKind.LOCAL
@@ -148,8 +150,10 @@ class ActiveAgent(
         var formatErrors = 0
         for (i in 1..limit + 1) {
             cancel.check()
-            val forceFinal = i > limit
-            if (forceFinal) msgs += ChatMessage(Role.USER, "Došel limit kroků. Teď napiš HOTOVO: a nejlepší možnou odpověď z toho, co už víš (uveď, co zůstalo neověřené).")
+            val overBudget = i <= limit && i > 1 && watchdog?.overBudget() == true
+            val forceFinal = i > limit || overBudget
+            if (forceFinal) msgs += ChatMessage(Role.USER, (if (overBudget) "RANDY: časový rozpočet úlohy je vyčerpán." else "Došel limit kroků.") +
+                " Teď napiš HOTOVO: a nejlepší možnou odpověď z toho, co už víš (uveď, co zůstalo neověřené).")
             listener.onPhase(if (forceFinal) "Agent · závěr" else "Agent · krok $i/$limit · ${engine.label}")
             val t0 = System.currentTimeMillis()
             val res = engine.generate(
@@ -182,7 +186,13 @@ class ActiveAgent(
             }
             val tool = byName[call.first]
             listener.onPhase("Agent · ${call.first}")
+            val argsKey = call.second.toString()
+            val verdict = watchdog?.before(call.first, argsKey) ?: cz.axiom.omega.core.randy.Supervisor.Watchdog.Verdict.Run
             val observation = when {
+                verdict is cz.axiom.omega.core.randy.Supervisor.Watchdog.Verdict.Reuse ->
+                    "RANDY: stejné volání už proběhlo – tady je jeho výsledek, nevolej ho znovu a postup dál.\n${verdict.observation}"
+                verdict is cz.axiom.omega.core.randy.Supervisor.Watchdog.Verdict.Block ->
+                    "RANDY: ${verdict.note}. Použij jiný nástroj nebo odpověz z toho, co víš."
                 tool == null -> "CHYBA: nástroj '${call.first}' neexistuje. Dostupné: ${tools.joinToString { it.name }}."
                 else -> try {
                     tool.run(call.second, cancel)
@@ -192,6 +202,7 @@ class ActiveAgent(
                     "CHYBA nástroje: ${e.message ?: e.javaClass.simpleName}"
                 }
             }
+            if (verdict is cz.axiom.omega.core.randy.Supervisor.Watchdog.Verdict.Run) watchdog?.after(call.first, argsKey, observation)
             val obs = TextUtil.clip(observation, if (local) 1_500 else 6_000)
             val step = AgentStep(i, parsed.thought, call.first, call.second.toString(), obs, System.currentTimeMillis() - t0)
             steps += step

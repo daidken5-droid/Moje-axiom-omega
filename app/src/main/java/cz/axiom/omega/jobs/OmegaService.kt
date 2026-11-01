@@ -38,6 +38,7 @@ import cz.axiom.omega.core.llm.Delta
 import cz.axiom.omega.core.llm.EngineKind
 import cz.axiom.omega.core.llm.Role
 import cz.axiom.omega.core.randy.RandyLevel
+import cz.axiom.omega.core.randy.Supervisor as Sup
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
@@ -108,9 +109,23 @@ class OmegaService : Service() {
         val threadId = intent.getLongExtra("threadId", 0)
         val text = intent.getStringExtra("text").orEmpty()
         val mode = intent.getStringExtra("mode") ?: omega.settings.mode
-        // Ω varianta (podmodel): výchozí nastavení, výslovná volba uživatele má přednost
-        val variant = cz.axiom.omega.core.agent.Variant.of(intent.getStringExtra("variant"))
-        val forced = RandyLevel.fromCode(intent.getStringExtra("level")) ?: variant.level
+        // Výslovné volby uživatele (Ω varianta, režim, role, hloubka) – RANDY je nikdy nepřepíše
+        val userVariant = cz.axiom.omega.core.agent.Variant.of(intent.getStringExtra("variant"))
+        val userKind = when (intent.getStringExtra("kind")) {
+            "agent" -> Router.Mode.AGENT; "chat" -> Router.Mode.CHAT; "council" -> Router.Mode.COUNCIL
+            else -> if (mode == "council") Router.Mode.COUNCIL else null
+        }
+        val userRole = cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role"))
+        val userLevel = RandyLevel.fromCode(intent.getStringExtra("level"))
+        // RANDY SUPERVISOR: nadřazený modul naplánuje podfunkce a zdroje
+        val authority = Sup.Authority.of(omega.settings.randyAuthority)
+        val (battery, charging) = Introspect.battery(this)
+        val engines = omega.availableEngines()
+        val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
+            local = mode == "local" || (mode == "auto" && engines.firstOrNull() == "local"))
+        val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this)), device, omega.randy.stats(), authority)
+        val variant = plan.variant
+        val forced = plan.level
         val job = omega.job
         job.reset("ask", threadId)
         Events.emit("state", job.toJson())
@@ -150,17 +165,13 @@ class OmegaService : Service() {
 
         try {
             val userEngine = mode.takeIf { it != "auto" && it != "council" }
-            val userMode = when (intent.getStringExtra("kind")) {
-                "agent" -> Router.Mode.AGENT
-                "chat" -> Router.Mode.CHAT
-                "council" -> Router.Mode.COUNCIL
-                else -> if (mode == "council") Router.Mode.COUNCIL else variant.mode
-            }
-            val role = cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role")) ?: variant.role
+            val role = plan.role
             synchronized(omega.forge.session) { omega.forge.session.clear() }
-            val route = Router.route(text, Router.Context(Introspect.online(this), omega.availableEngines(), userEngine, userMode))
+            val route = Router.route(text, Router.Context(Introspect.online(this), engines, userEngine, plan.mode))
             val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
-            listener.onPhase((if (variant != cz.axiom.omega.core.agent.Variant.AUTO) variant.title + " · " else "Ω volí: ") + "${route.mode.label} · ${route.reason}")
+            listener.onPhase(plan.summary + " · ${route.mode.label}" + (plan.decisions.firstOrNull()?.let { " · $it" } ?: ""))
+            val watchdog = Sup.Watchdog(plan.budgetMillis, authority)
+            var escalatedTo: cz.axiom.omega.core.agent.Variant? = null
             val meta: JSONObject
             val answer: String
             when (route.mode) {
@@ -179,7 +190,7 @@ class OmegaService : Service() {
                     job.kind = "agent"
                     val steps = JSONArray()
                     val r = try {
-                        omega.agent().run(route.prompt, history, engine, maxOf(s.agentSteps, variant.steps ?: 0), cancel, object : AgentListener {
+                        omega.agent().run(route.prompt, history, engine, plan.steps?.let { if (device.lowPower || device.hot) it else maxOf(s.agentSteps, it) } ?: s.agentSteps, cancel, object : AgentListener {
                             override fun onPhase(text: String) = listener.onPhase(text)
                             override fun onDelta(delta: Delta) = listener.onDelta(steps.length() + 1, 0, delta)
                             override fun onStep(step: AgentStep) {
@@ -189,7 +200,7 @@ class OmegaService : Service() {
                                 omega.db.updateTask(taskId, "running", steps.length(), null)
                                 Events.emit("step", j)
                             }
-                        }, s.rates, s.userName.ifBlank { null }, agentRole, variant.style, variant.temperature ?: 0.4f)
+                        }, s.rates, s.userName.ifBlank { null }, agentRole, variant.style, variant.temperature ?: 0.4f, watchdog)
                     } catch (e: Exception) {
                         omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
                         throw e
@@ -202,17 +213,37 @@ class OmegaService : Service() {
                 Router.Mode.CHAT -> {
                     val engine = omega.resolve(route.engine)
                     listener.onPhase("Probouzím ${engine.label}…")
-                    val passes = variant.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
-                    val r = omega.orchestrator().run(
-                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, variant.thinking ?: s.thinking, true, s.rates,
+                    val passes = plan.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
+                    var r = omega.orchestrator().run(
+                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
                             s.userName.ifBlank { null }, variant.style, variant.temperature),
                         engine, cancel, listener,
                     )
+                    // RANDY eskalace: nejistá odpověď → silnější varianta (jen s plnou pravomocí)
+                    Sup.escalation(plan, r.confidence, r.answer.length)?.let { up ->
+                        listener.onPhase("RANDY eskaluje → ${up.title} (jistota ${r.confidence ?: "?"} %)")
+                        omega.randy.record(variant, r.millis, r.confidence, true)
+                        val r2 = omega.orchestrator().run(
+                            AskRequest(route.prompt, history, up.level ?: forced, up.passes ?: 3, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, up.thinking ?: true, true,
+                                s.rates, s.userName.ifBlank { null }, up.style, up.temperature),
+                            engine, cancel, listener,
+                        )
+                        if ((r2.confidence ?: 0) >= (r.confidence ?: 0)) { r = r2; escalatedTo = up }
+                    }
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason); answer = r.answer
                 }
             }
-            if (variant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", variant.title)
+            val finalVariant = escalatedTo ?: variant
+            if (finalVariant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", finalVariant.title)
+            val randyMeta = JSONObject().put("summary", plan.summary).put("authority", authority.label).put("chosen", plan.chosenByRandy)
+                .put("variantId", finalVariant.name)
+                .put("decisions", JSONArray().apply { plan.decisions.forEach { put(it) } })
+                .put("interventions", JSONArray().apply { watchdog.interventions.forEach { put(it) }; escalatedTo?.let { put("eskalace na ${it.title}") } })
+            meta.put("randy", randyMeta)
+            omega.randy.record(finalVariant, meta.optLong("millis"), meta.optInt("confidence", -1).takeIf { it >= 0 }, escalatedTo != null)
+            omega.randy.log(JSONObject().put("prompt", text.take(80)).put("summary", plan.summary).put("decisions", randyMeta.getJSONArray("decisions"))
+                .put("interventions", randyMeta.getJSONArray("interventions")).put("ms", meta.optLong("millis")))
             agentRole?.takeIf { route.mode == Router.Mode.AGENT }?.let { meta.put("role", it.title) }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })

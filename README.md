@@ -8,6 +8,22 @@ Nástupce **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5**. Zachovává jejich DNA 
 a přidává výkonný lokální mozek, funkční sebemodel, dlouhodobou paměť, celou offline Wikipedii a aktivní agenty.
 Rozbor původní aplikace a seznam opravených chyb: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 3.5 – RANDY Supervisor
+
+RANDY už není jen protokol hloubky L0–L6, ale **nadřazený řídicí modul** celého systému (`core/randy/Supervisor.kt`):
+
+| Pravomoc | Co RANDY dělá |
+|---|---|
+| **Plánuje** | před každým dotazem sám aktivuje podfunkce: Ω variantu, režim (odpověď/agent), roli agenta, hloubku, průchody, přemýšlení, limit kroků a časový rozpočet |
+| **Řídí zdroje** | slabá baterie, přehřátý telefon nebo málo RAM → úsporný režim; při nabíjení plný výkon; offline → místo webové rešerše offline knihovna |
+| **Dohlíží** | hlídá agenta: opakované volání nástroje nahradí předchozím výsledkem, nástroj, který 2× selže, zablokuje, po vyčerpání času nařídí závěr |
+| **Eskaluje** | nejistá odpověď (jistota < 45 %) → sám spustí Ω Think / Ω Nemesis a ponechá lepší výsledek |
+| **Učí se** | měří čas, jistotu a tvé hodnocení ✓/✗ každé varianty; špatně hodnocené nebo pomalé varianty příště omezí |
+
+Pravomoci volíš v Nastavení: **Poradní** (jen radí), **Řídící**, **Plná** (výchozí). Výslovnou volbu varianty, role
+nebo hloubky RANDY nikdy nepřepíše – s plnou pravomocí jí jen ubere zdroje, když hrozí vybitá baterie nebo přehřátí.
+Při psaní dotazu vidíš živý náhled, co RANDY aktivuje; u odpovědi v Podrobnostech jeho rozhodnutí a zásahy.
+
 ## Novinky 3.4
 
 * **Ω varianty – podmodely** inspirované režimy předních AI: **Ω Flash** (okamžitě), **Ω Think** (hluboké přemýšlení),

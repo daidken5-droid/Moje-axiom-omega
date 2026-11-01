@@ -83,6 +83,10 @@ class Settings(context: Context) {
     var councilJudge: String
         get() = p.getString("councilJudge", "local")!!
         set(v) = p.edit().putString("councilJudge", v).apply()
+    /** Pravomoci RANDY Supervisoru: ADVISORY | GOVERN | FULL */
+    var randyAuthority: String
+        get() = p.getString("randyAuthority", "FULL")!!
+        set(v) = p.edit().putString("randyAuthority", cz.axiom.omega.core.randy.Supervisor.Authority.of(v).name).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
         set(v) = p.edit().putBoolean("onboarded", v).apply()
@@ -106,7 +110,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -131,6 +135,7 @@ class Settings(context: Context) {
         if (o.has("hfRepo")) hfRepo = o.getString("hfRepo").also { require(it.isEmpty() || it.matches(Regex("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"))) { "Repozitář ve tvaru uživatel/jméno." } }
         if (o.has("agentSteps")) agentSteps = o.getInt("agentSteps")
         if (o.has("semantic")) semantic = o.getBoolean("semantic")
+        if (o.has("randyAuthority")) randyAuthority = o.getString("randyAuthority")
     }
 
     private fun checkModelId(id: String) {
