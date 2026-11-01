@@ -44,6 +44,8 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // edge-to-edge všude stejně: okraje (lišty i klávesnici) řešíme sami přes insets → žádné dvojité odsazení
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.parseColor("#05060A")
         window.navigationBarColor = Color.parseColor("#05060A")
 

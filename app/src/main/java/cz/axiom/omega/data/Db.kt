@@ -20,7 +20,7 @@ import org.json.JSONObject
  * commit při KAŽDÉM stisku klávesy v poznámkách) → zamrzání UI a ztráta dat při překročení.
  */
 class Db private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 1), KnowledgeSource, MemoryStore {
+    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 2), KnowledgeSource, MemoryStore {
 
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
@@ -41,10 +41,103 @@ class Db private constructor(context: Context) :
         db.execSQL("CREATE TABLE docs(id INTEGER PRIMARY KEY, title TEXT, source TEXT, added INTEGER, chars INTEGER)")
         db.execSQL("CREATE VIRTUAL TABLE chunks USING fts4(document_id, title, body, notindexed=document_id, tokenize=unicode61)")
         db.execSQL("CREATE TABLE packs(id TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL, docs INTEGER NOT NULL, installed INTEGER NOT NULL)")
+        createV2(db)
         // Znalosti se plní z offline balíčků (PackManager.ensureAutoInstalled) – vestavěné v APK, bez internetu.
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createV2(db)
+    }
+
+    /** v2: vektory pro sémantické hledání + úkoly aktivních agentů. */
+    private fun createV2(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS vectors(chunk INTEGER PRIMARY KEY, dim INTEGER NOT NULL, vec BLOB NOT NULL)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY, thread_id INTEGER, goal TEXT NOT NULL, status TEXT NOT NULL, " +
+                "engine TEXT, steps INTEGER NOT NULL DEFAULT 0, result TEXT, created INTEGER NOT NULL, updated INTEGER NOT NULL)",
+        )
+    }
+
+    // ------------------------------------------------------------------ úkoly agentů
+
+    fun addTask(threadId: Long, goal: String, engine: String): Long {
+        val now = System.currentTimeMillis()
+        return writableDatabase.insertOrThrow("tasks", null, ContentValues().apply {
+            put("thread_id", threadId); put("goal", TextUtil.clip(goal, 500)); put("status", "running"); put("engine", engine)
+            put("created", now); put("updated", now)
+        })
+    }
+
+    fun updateTask(id: Long, status: String, steps: Int, result: String?) {
+        writableDatabase.update("tasks", ContentValues().apply {
+            put("status", status); put("steps", steps); put("result", result?.let { TextUtil.clip(it, 400) }); put("updated", System.currentTimeMillis())
+        }, "id=?", arrayOf(id.toString()))
+    }
+
+    fun tasks(): JSONArray {
+        val out = JSONArray()
+        readableDatabase.rawQuery("SELECT id, thread_id, goal, status, engine, steps, result, created, updated FROM tasks ORDER BY id DESC LIMIT 200", null).use { c ->
+            while (c.moveToNext()) out.put(
+                JSONObject().put("id", c.getLong(0)).put("threadId", c.getLong(1)).put("goal", c.getString(2)).put("status", c.getString(3))
+                    .put("engine", c.getString(4) ?: "").put("steps", c.getInt(5)).put("result", c.getString(6) ?: "")
+                    .put("created", c.getLong(7)).put("updated", c.getLong(8)),
+            )
+        }
+        return out
+    }
+
+    fun deleteTask(id: Long) { writableDatabase.delete("tasks", "id=?", arrayOf(id.toString())) }
+
+    /** Po pádu/ukončení aplikace nesmí úkol viset jako „běží“. */
+    fun failStaleTasks() {
+        writableDatabase.execSQL("UPDATE tasks SET status='stopped' WHERE status='running'")
+    }
+
+    // ------------------------------------------------------------------ vektory (sémantická paměť)
+
+    fun chunksWithoutVectors(limit: Int): List<Triple<Long, String, String>> {
+        val out = mutableListOf<Triple<Long, String, String>>()
+        readableDatabase.rawQuery(
+            "SELECT docid, title, body FROM chunks WHERE docid NOT IN (SELECT chunk FROM vectors) LIMIT ?", arrayOf(limit.toString()),
+        ).use { c -> while (c.moveToNext()) out += Triple(c.getLong(0), c.getString(1) ?: "", c.getString(2) ?: "") }
+        return out
+    }
+
+    fun putVector(chunk: Long, v: FloatArray) {
+        val buf = java.nio.ByteBuffer.allocate(v.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        v.forEach { buf.putFloat(it) }
+        writableDatabase.insertWithOnConflict("vectors", null, ContentValues().apply {
+            put("chunk", chunk); put("dim", v.size); put("vec", buf.array())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun vectorCount(): Int = readableDatabase.rawQuery("SELECT count(*) FROM vectors", null).use { it.moveToFirst(); it.getInt(0) }
+
+    fun pruneVectors() {
+        writableDatabase.execSQL("DELETE FROM vectors WHERE chunk NOT IN (SELECT docid FROM chunks)")
+    }
+
+    fun clearVectors() { writableDatabase.delete("vectors", null, null) }
+
+    /** Kosinová podobnost (vektory jsou normalizované) přes všechny úseky – pro desítky tisíc úseků stačí. */
+    fun semantic(query: FloatArray, limit: Int): List<Pair<Snippet, Float>> {
+        val scored = ArrayList<Pair<Long, Float>>()
+        readableDatabase.rawQuery("SELECT chunk, dim, vec FROM vectors", null).use { c ->
+            while (c.moveToNext()) {
+                if (c.getInt(1) != query.size) continue
+                val b = java.nio.ByteBuffer.wrap(c.getBlob(2)).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                var dot = 0f
+                for (i in query.indices) dot += query[i] * b.get(i)
+                scored += c.getLong(0) to dot
+            }
+        }
+        return scored.sortedByDescending { it.second }.take(limit).mapNotNull { (id, score) ->
+            readableDatabase.rawQuery(
+                "SELECT chunks.document_id, chunks.title, chunks.body, docs.source FROM chunks JOIN docs ON docs.id=chunks.document_id WHERE chunks.docid=?",
+                arrayOf(id.toString()),
+            ).use { c -> if (c.moveToFirst()) Snippet(c.getLong(0), c.getString(1), c.getString(2), c.getString(3)) to score else null }
+        }
+    }
 
     // ------------------------------------------------------------------ vlákna
 
@@ -290,6 +383,7 @@ class Db private constructor(context: Context) :
     }
 
     fun stats(): JSONObject = JSONObject()
+        .put("vectors", vectorCount())
         .put("docs", docCount()).put("memory", memoryCount()).put("threads", threadCount())
         .put("chunks", readableDatabase.rawQuery("SELECT count(*) FROM chunks", null).use { it.moveToFirst(); it.getInt(0) })
         .put("messages", readableDatabase.rawQuery("SELECT count(*) FROM messages", null).use { it.moveToFirst(); it.getInt(0) })

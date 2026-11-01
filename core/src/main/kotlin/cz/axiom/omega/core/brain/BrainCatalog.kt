@@ -29,6 +29,8 @@ data class BrainSpec(
     /** "qwen3" = model zná přepínač přemýšlení (enable_thinking). */
     val thinking: Boolean,
     val recommended: Boolean = false,
+    /** chat = mozek pro odpovědi, embedding = rozšíření pro sémantické hledání */
+    val kind: String = "chat",
 ) {
     val fileName get() = "$id.gguf"
     val sizeGbLabel get() = String.format(java.util.Locale.ROOT, "%.2f GB", sizeBytes / 1e9).replace('.', ',')
@@ -39,6 +41,23 @@ object BrainCatalog {
     const val REMOTE_URL = "https://raw.githubusercontent.com/daidken5-droid/Moje-axiom-omega/main/brains/catalog.json"
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    fun toJson(list: List<BrainSpec>): String = kotlinx.serialization.json.buildJsonObject {
+        put("version", kotlinx.serialization.json.JsonPrimitive(1))
+        put("brains", kotlinx.serialization.json.buildJsonArray {
+            list.forEach { b ->
+                add(kotlinx.serialization.json.buildJsonObject {
+                    put("id", kotlinx.serialization.json.JsonPrimitive(b.id)); put("name", kotlinx.serialization.json.JsonPrimitive(b.name))
+                    put("family", kotlinx.serialization.json.JsonPrimitive(b.family)); put("description", kotlinx.serialization.json.JsonPrimitive(b.description))
+                    put("urls", kotlinx.serialization.json.JsonArray(b.urls.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                    put("sizeBytes", kotlinx.serialization.json.JsonPrimitive(b.sizeBytes)); put("sha256", kotlinx.serialization.json.JsonPrimitive(b.sha256))
+                    put("minRamGb", kotlinx.serialization.json.JsonPrimitive(b.minRamGb)); put("contextTokens", kotlinx.serialization.json.JsonPrimitive(b.contextTokens))
+                    put("license", kotlinx.serialization.json.JsonPrimitive(b.license)); put("thinking", kotlinx.serialization.json.JsonPrimitive(b.thinking))
+                    put("kind", kotlinx.serialization.json.JsonPrimitive(b.kind))
+                })
+            }
+        })
+    }.toString()
 
     fun parse(text: String): List<BrainSpec> {
         val root = json.parseToJsonElement(text).jsonObject
@@ -57,21 +76,23 @@ object BrainCatalog {
                     require(list.isNotEmpty() && list.all { it.startsWith("https://") }) { "Mozek ${s("id")}: URL musí být https" }
                 },
                 sizeBytes = o["sizeBytes"]!!.jsonPrimitive.long.also { require(it > 10_000_000) },
-                sha256 = s("sha256").lowercase().also { require(Regex("[0-9a-f]{64}").matches(it)) { "Neplatné SHA-256" } },
+                // prázdné SHA jen u vlastních odkazů uživatele (ověří se aspoň hlavička GGUF)
+                sha256 = s("sha256").lowercase().also { require(it.isEmpty() || Regex("[0-9a-f]{64}").matches(it)) { "Neplatné SHA-256" } },
                 minRamGb = o["minRamGb"]!!.jsonPrimitive.int,
                 contextTokens = o["contextTokens"]?.jsonPrimitive?.intOrNull ?: 4096,
                 license = o["license"]?.jsonPrimitive?.content ?: "",
                 thinking = b("thinking"),
                 recommended = b("recommended"),
+                kind = o["kind"]?.jsonPrimitive?.content?.takeIf { it in setOf("chat", "embedding") } ?: "chat",
             )
         }
     }
 
     /** Nejlepší mozek, který se do zařízení vejde (RAM i úložiště). */
     fun recommend(brains: List<BrainSpec>, totalRamGb: Double, freeBytes: Long): BrainSpec? =
-        brains.filter { it.minRamGb <= totalRamGb + 0.3 && it.sizeBytes * 1.05 < freeBytes }
+        brains.filter { it.kind == "chat" && it.minRamGb <= totalRamGb + 0.3 && it.sizeBytes * 1.05 < freeBytes }
             .sortedWith(compareByDescending<BrainSpec> { it.recommended }.thenByDescending { it.sizeBytes })
             .firstOrNull()
-            ?: brains.minByOrNull { it.sizeBytes }
+            ?: brains.filter { it.kind == "chat" }.minByOrNull { it.sizeBytes }
 }
 

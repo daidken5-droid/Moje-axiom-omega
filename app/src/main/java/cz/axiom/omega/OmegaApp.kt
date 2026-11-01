@@ -17,7 +17,10 @@ class OmegaApp : Application() {
             },
         )
         // Offline znalostní balíčky z APK → lokální databáze (bez internetu, jen poprvé / po aktualizaci)
-        Thread({ runCatching { Omega.get(this).packs.ensureAutoInstalled() } }, "omega-packs").start()
+        Thread({
+            runCatching { Omega.get(this).db.failStaleTasks() }
+            runCatching { Omega.get(this).packs.ensureAutoInstalled() }
+        }, "omega-packs").start()
     }
 
     @Deprecated("Deprecated in Java")

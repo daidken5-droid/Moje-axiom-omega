@@ -29,6 +29,22 @@ class Settings(context: Context) {
         get() = p.getString("serverModel", "kimi-k3")!!
         set(v) = p.edit().putString("serverModel", v.trim()).apply()
 
+    var nodeUrl: String
+        get() = p.getString("nodeUrl", "")!!
+        set(v) = p.edit().putString("nodeUrl", v.trim().trimEnd('/')).apply()
+    var nodeModel: String
+        get() = p.getString("nodeModel", "axiom")!!
+        set(v) = p.edit().putString("nodeModel", v.trim()).apply()
+    var hfRepo: String
+        get() = p.getString("hfRepo", "")!!
+        set(v) = p.edit().putString("hfRepo", v.trim()).apply()
+    var agentSteps: Int
+        get() = p.getInt("agentSteps", 10)
+        set(v) = p.edit().putInt("agentSteps", v.coerceIn(3, 25)).apply()
+    var semantic: Boolean
+        get() = p.getBoolean("semantic", true)
+        set(v) = p.edit().putBoolean("semantic", v).apply()
+
     var claudeModel: String
         get() = p.getString("claudeModel", ClaudeEngine.DEFAULT_MODEL)!!
         set(v) = p.edit().putString("claudeModel", v.trim()).apply()
@@ -65,7 +81,7 @@ class Settings(context: Context) {
         get() = p.getString("userName", "")!!
         set(v) = p.edit().putString("userName", v.trim().take(40)).apply()
     var councilJudge: String
-        get() = p.getString("councilJudge", "claude")!!
+        get() = p.getString("councilJudge", "kimi")!!
         set(v) = p.edit().putString("councilJudge", v).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
@@ -90,6 +106,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -107,8 +124,13 @@ class Settings(context: Context) {
         if (o.has("theme")) theme = o.getString("theme")
         if (o.has("font")) font = o.getInt("font")
         if (o.has("userName")) userName = o.getString("userName")
-        if (o.has("councilJudge")) councilJudge = o.getString("councilJudge").takeIf { it in setOf("claude", "kimi", "server", "local") } ?: "claude"
+        if (o.has("councilJudge")) councilJudge = o.getString("councilJudge").takeIf { it in setOf("claude", "kimi", "server", "local", "node") } ?: "kimi"
         if (o.has("onboarded")) onboarded = o.getBoolean("onboarded")
+        if (o.has("nodeUrl")) nodeUrl = o.getString("nodeUrl")
+        if (o.has("nodeModel")) nodeModel = o.getString("nodeModel").ifBlank { "axiom" }.also(::checkModelId)
+        if (o.has("hfRepo")) hfRepo = o.getString("hfRepo").also { require(it.isEmpty() || it.matches(Regex("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"))) { "Repozitář ve tvaru uživatel/jméno." } }
+        if (o.has("agentSteps")) agentSteps = o.getInt("agentSteps")
+        if (o.has("semantic")) semantic = o.getBoolean("semantic")
     }
 
     private fun checkModelId(id: String) {
@@ -116,6 +138,6 @@ class Settings(context: Context) {
     }
 
     companion object {
-        val MODES = setOf("auto", "local", "kimi", "server", "claude", "council")
+        val MODES = setOf("auto", "local", "kimi", "node", "server", "claude", "council")
     }
 }

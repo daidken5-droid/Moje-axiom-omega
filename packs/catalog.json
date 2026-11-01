@@ -56,6 +56,50 @@
       "sha256": "75cbc17ca1b48f6051fe9796f0968263328ffdbbf63035b4ddc07bf0bfc5e1b0",
       "sections": 5,
       "autoInstall": true
+    },
+    {
+      "id": "matematika-statistika",
+      "name": "Matematika a statistika",
+      "description": "Rovnice, geometrie, procenta, statistika, pravděpodobnost.",
+      "file": "matematika-statistika.md",
+      "version": 2,
+      "bytes": 1804,
+      "sha256": "77d4d42a31f22d1720808dc3d110340a8832494a52f1f9fc589cb4f2b535ea04",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "elektro-energie",
+      "name": "Elektro a energie",
+      "description": "Ohmův zákon, domácí rozvody, spotřeba, fotovoltaika, elektromobilita.",
+      "file": "elektro-energie.md",
+      "version": 2,
+      "bytes": 1717,
+      "sha256": "c509cbd207ebd0c8ccf68f566d35595045fadfa8f4ec700b1c94d5d5c57960b8",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "it-prikazy",
+      "name": "IT, Linux, Git a sítě",
+      "description": "Příkazy Linuxu, Git, sítě, Docker, bezpečnost.",
+      "file": "it-prikazy.md",
+      "version": 2,
+      "bytes": 1701,
+      "sha256": "2865361287c9a8785418ac7e8f0f5ed1fedccb27caae420fc1acd12c80c38543",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "cestina-styl",
+      "name": "Čeština – pravopis a styl",
+      "description": "i/y, mě/mně, čárky, oslovení, psaní čísel a jednotek.",
+      "file": "cestina-styl.md",
+      "version": 2,
+      "bytes": 1532,
+      "sha256": "53ec57d686b53851b11d92d1c3762d92c629f7f29a7fdc364ee3fa6d1e61d201",
+      "sections": 5,
+      "autoInstall": true
     }
   ]
 }

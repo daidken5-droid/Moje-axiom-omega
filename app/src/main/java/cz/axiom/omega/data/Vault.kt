@@ -70,5 +70,7 @@ class Vault(context: Context) {
         const val KIMI = "kimi"
         const val CLAUDE = "claude"
         const val SERVER = "server"
+        const val NODE = "node"
+        const val HF = "hf"
     }
 }

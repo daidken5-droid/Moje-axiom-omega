@@ -424,6 +424,79 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeGenerate(
     return rc;
 }
 
+/**
+ * Sémantická paměť: načte embedding model (např. Qwen3-Embedding) s vlastním kontextem.
+ * Pooling se bere z metadat modelu (LLAMA_POOLING_TYPE_UNSPECIFIED).
+ */
+JNIEXPORT jlong JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeLoadEmbedder(JNIEnv *env, jobject, jstring jpath, jint n_threads) {
+    const std::string path = jstr(env, jpath);
+    llama_model_params mp = llama_model_default_params();
+    mp.use_mmap = true;
+    llama_model *model = llama_model_load_from_file(path.c_str(), mp);
+    if (!model) { LOGE("embedding model se nenačetl: %s", path.c_str()); return 0; }
+    auto *o = new Omega();
+    o->model = model;
+    o->vocab = llama_model_get_vocab(model);
+    llama_context_params cp = llama_context_default_params();
+    cp.n_ctx = 2048;
+    cp.n_batch = 2048;
+    cp.n_ubatch = 2048;
+    cp.embeddings = true;
+    cp.pooling_type = LLAMA_POOLING_TYPE_UNSPECIFIED;
+    cp.n_threads = std::max(1, (int) n_threads);
+    cp.n_threads_batch = std::max(1, (int) n_threads);
+    cp.abort_callback = abort_cb;
+    cp.abort_callback_data = o;
+    o->ctx = llama_init_from_model(model, cp);
+    if (!o->ctx) { llama_model_free(model); delete o; return 0; }
+    o->n_ctx = (int) llama_n_ctx(o->ctx);
+    o->n_batch = 2048;
+    return reinterpret_cast<jlong>(o);
+}
+
+/** Vektor významu textu (nenormalizovaný; normalizuje Kotlin). null = chyba. */
+JNIEXPORT jfloatArray JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeEmbed(JNIEnv *env, jobject, jlong h, jstring jtext) {
+    auto *o = reinterpret_cast<Omega *>(h);
+    if (!o || !o->ctx) return nullptr;
+    std::lock_guard<std::mutex> lk(o->mu);
+    o->cancel.store(false);
+    const std::string text = jstr_utf8(env, jtext);
+    auto toks = common_tokenize(o->vocab, text, /*add_special*/ true, /*parse_special*/ false);
+    if (toks.empty()) return nullptr;
+    const int max_tok = std::min(o->n_ctx, o->n_batch) - 1;
+    if ((int) toks.size() > max_tok) toks.resize((size_t) max_tok);
+    llama_memory_t mem = llama_get_memory(o->ctx);
+    if (mem) llama_memory_clear(mem, true);
+    llama_batch batch = llama_batch_init((int) toks.size(), 0, 1);
+    batch.n_tokens = (int) toks.size();
+    for (int i = 0; i < batch.n_tokens; ++i) {
+        batch.token[i] = toks[i];
+        batch.pos[i] = i;
+        batch.n_seq_id[i] = 1;
+        batch.seq_id[i][0] = 0;
+        batch.logits[i] = true;
+    }
+    int rc;
+    if (llama_model_has_encoder(o->model) && !llama_model_has_decoder(o->model)) rc = llama_encode(o->ctx, batch);
+    else rc = llama_decode(o->ctx, batch);
+    jfloatArray out = nullptr;
+    if (rc == 0) {
+        const int n_embd = llama_model_n_embd(o->model);
+        const float *emb = llama_get_embeddings_seq(o->ctx, 0);
+        if (!emb) emb = llama_get_embeddings_ith(o->ctx, batch.n_tokens - 1);
+        if (emb && n_embd > 0) {
+            out = env->NewFloatArray(n_embd);
+            env->SetFloatArrayRegion(out, 0, n_embd, emb);
+        }
+    } else {
+        LOGE("embedding decode selhal: %d", rc);
+    }
+    llama_batch_free(batch);
+    return out;
+}
+
 JNIEXPORT void JNICALL
 Java_cz_axiom_omega_engine_NativeLlama_nativeFree(JNIEnv *, jobject, jlong h) {
     auto *o = reinterpret_cast<Omega *>(h);

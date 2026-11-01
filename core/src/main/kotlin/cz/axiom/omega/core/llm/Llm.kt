@@ -76,6 +76,7 @@ enum class EngineKind(val label: String, val online: Boolean) {
     LOCAL("Lokální mozek v telefonu", false),
     KIMI_CLOUD("Kimi K3 · cloud", true),
     KIMI_SERVER("Kimi K3 · vlastní server", false),
+    NODE("AXIOM Node · cloud server", true),
     CLAUDE("Claude · Anthropic API", true),
 }
 

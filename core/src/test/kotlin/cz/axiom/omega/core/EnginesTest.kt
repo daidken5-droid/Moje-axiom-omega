@@ -233,10 +233,13 @@ class EnginesTest {
         val file = listOf(File("../brains/catalog.json"), File("brains/catalog.json")).first { it.exists() }
         val brains = BrainCatalog.parse(file.readText())
         assertTrue(brains.size >= 3)
+        assertTrue("repo katalog musí mít SHA-256 u všech mozků", brains.all { it.sha256.length == 64 })
+        assertEquals(brains, BrainCatalog.parse(BrainCatalog.toJson(brains)).map { it.copy(recommended = brains.first { b -> b.id == it.id }.recommended) })
         assertTrue(brains.any { it.sha256 == "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a" }) // AXIOM 2.1 mozek
         val pick = BrainCatalog.recommend(brains, totalRamGb = 5.5, freeBytes = 10_000_000_000)!!
         assertTrue(pick.minRamGb <= 6)
-        assertEquals(brains.minBy { it.sizeBytes }, BrainCatalog.recommend(brains, 2.0, 100))
+        assertEquals(brains.filter { it.kind == "chat" }.minBy { it.sizeBytes }, BrainCatalog.recommend(brains, 2.0, 100))
+        assertTrue(brains.any { it.kind == "embedding" })
     }
 
     // ---------------------------------------------------------------- Orchestrator

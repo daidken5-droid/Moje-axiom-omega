@@ -115,6 +115,11 @@ class PackManager(private val context: Context) {
         val tmp = File(context.cacheDir, "restore.db")
         context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { input.copyTo(it) } }
             ?: throw IOException("Zálohu nelze otevřít.")
+        restoreFile(tmp)
+    }
+
+    /** Obnova z dočasného souboru SQLite (místní nebo cloudová záloha). Soubor se smaže. */
+    fun restoreFile(tmp: File) {
         val header = tmp.inputStream().use { s -> ByteArray(16).also { s.read(it) } }
         if (String(header, 0, 15, Charsets.US_ASCII) != "SQLite format 3") { tmp.delete(); throw IOException("Soubor není záloha AXIOM Ω (SQLite).") }
         val target = Db.path(context)

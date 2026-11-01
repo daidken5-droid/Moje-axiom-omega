@@ -35,7 +35,8 @@ class KimiEngine(
 
     override val id = "kimi:$model@${baseUrl.trimEnd('/')}"
     override val label = when (kind) {
-        EngineKind.KIMI_SERVER -> "Kimi K3 · vlastní server ($model)"
+        EngineKind.KIMI_SERVER -> "Vlastní server ($model)"
+        EngineKind.NODE -> "AXIOM Node ($model)"
         else -> "Kimi K3 · cloud ($model)"
     }
     override val contextBudgetChars = 400_000
@@ -94,7 +95,7 @@ class KimiEngine(
         } catch (e: IOException) {
             if (cancel.cancelled) throw CancelledException()
             throw EngineException(
-                if (kind == EngineKind.KIMI_SERVER) "Server Kimi K3 (${baseUrl}) neodpovídá: ${e.message}. Je zapnutý a ve stejné síti?"
+                if (kind != EngineKind.KIMI_CLOUD) "Server ${baseUrl} neodpovídá: ${e.message}. Je zapnutý a dostupný?"
                 else "Spojení s Kimi selhalo: ${e.message}",
                 retryable = true, cause = e,
             )
@@ -107,7 +108,7 @@ class KimiEngine(
         put("model", model)
         put("stream", true)
         put("max_tokens", options.maxTokens)
-        if (kind == EngineKind.KIMI_SERVER) put("temperature", options.temperature.toDouble())
+        if (kind != EngineKind.KIMI_CLOUD) put("temperature", options.temperature.toDouble())
         if (sendReasoningEffort) put("reasoning_effort", mapEffort(options.effort))
         put("messages", buildJsonArray {
             // Sloučí systémové zprávy do jedné na začátku (některé servery víc nesnesou).

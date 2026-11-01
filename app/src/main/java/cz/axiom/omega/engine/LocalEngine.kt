@@ -50,6 +50,48 @@ object NativeLlama {
     external fun nativeCancel(handle: Long)
     external fun nativeStats(handle: Long): String
     external fun nativeFree(handle: Long)
+    external fun nativeLoadEmbedder(path: String, nThreads: Int): Long
+    external fun nativeEmbed(handle: Long, text: String): FloatArray?
+}
+
+/** Sémantický embedder (rozšíření OMEGA Sense). Vrací L2-normalizované vektory. */
+object Embedder {
+    @Volatile private var handle = 0L
+    @Volatile private var file: File? = null
+
+    @Synchronized
+    fun open(context: Context, f: File): Boolean {
+        if (handle != 0L && file == f) return true
+        close()
+        if (!NativeLlama.available(context) || !f.exists()) return false
+        val threads = (Runtime.getRuntime().availableProcessors() - 2).coerceIn(2, 4)
+        handle = NativeLlama.nativeLoadEmbedder(f.absolutePath, threads)
+        file = f
+        return handle != 0L
+    }
+
+    fun ready() = handle != 0L
+
+    fun embed(text: String): FloatArray? {
+        val h = handle
+        if (h == 0L) return null
+        val v = NativeLlama.nativeEmbed(h, text) ?: return null
+        var n = 0.0
+        for (x in v) n += x * x
+        val norm = kotlin.math.sqrt(n).toFloat().takeIf { it > 0f } ?: return null
+        for (i in v.indices) v[i] /= norm
+        return v
+    }
+
+    /** Qwen3-Embedding: dotazy dostávají instrukci, dokumenty ne. */
+    fun embedQuery(q: String) = embed("Instruct: Given a question, retrieve passages that answer it\nQuery: $q")
+
+    @Synchronized
+    fun close() {
+        if (handle != 0L) NativeLlama.nativeFree(handle)
+        handle = 0L
+        file = null
+    }
 }
 
 /**

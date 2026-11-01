@@ -11,6 +11,7 @@ import cz.axiom.omega.Events
 import cz.axiom.omega.MainActivity
 import cz.axiom.omega.Omega
 import cz.axiom.omega.core.llm.ClaudeEngine
+import cz.axiom.omega.core.hub.HfHub
 import cz.axiom.omega.core.llm.KimiEngine
 import cz.axiom.omega.core.randy.Randy
 import cz.axiom.omega.core.randy.RandyLevel
@@ -54,7 +55,10 @@ class OmegaBridge(private val activity: MainActivity) {
             .put("version", Identity.VERSION).put("name", Identity.NAME).put("debug", BuildConfig.DEBUG)
             .put("job", omega.job.toJson())
             .put("settings", s.toJson())
-            .put("keys", JSONObject().put("kimi", omega.vault.has(Vault.KIMI)).put("claude", omega.vault.has(Vault.CLAUDE)).put("server", omega.vault.has(Vault.SERVER)))
+            .put("keys", JSONObject().put("kimi", omega.vault.has(Vault.KIMI)).put("claude", omega.vault.has(Vault.CLAUDE)).put("server", omega.vault.has(Vault.SERVER))
+                .put("node", omega.vault.has(Vault.NODE)).put("hf", omega.vault.has(Vault.HF)))
+            .put("engines", JSONArray(omega.availableEngines()))
+            .put("sense", omega.embedderFile() != null)
             .put("online", Introspect.online(activity))
             .put("native", NativeLlama.available(activity))
             .put("brain", active?.second?.name ?: active?.first?.nameWithoutExtension ?: JSONObject.NULL)
@@ -120,6 +124,7 @@ class OmegaBridge(private val activity: MainActivity) {
         OmegaService.start(
             activity,
             Intent(OmegaService.ACTION_ASK).putExtra("threadId", threadId).putExtra("text", text).putExtra("mode", mode)
+                .putExtra("kind", o.optString("kind", "").takeIf { it in setOf("agent", "chat", "council") })
                 .putExtra("level", o.optString("level", "").takeIf { RandyLevel.fromCode(it) != null }),
         )
         return threadId
@@ -163,7 +168,7 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     private fun saveKeyInternal(provider: String, key: String) {
-        require(provider in setOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER)) { "Neznámý poskytovatel." }
+        require(provider in setOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF)) { "Neznámý poskytovatel." }
         val k = key.trim()
         if (k.isNotEmpty()) require(k.length in 8..400 && k.none { it.isWhitespace() }) { "Klíč má neplatný formát." }
         omega.vault.save(provider, k)
@@ -173,7 +178,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun forgetKeys() {
-        listOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER).forEach(omega.vault::remove)
+        listOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF).forEach(omega.vault::remove)
         Events.note("Všechny klíče odstraněny.")
         Events.emit("config", JSONObject(state()))
     }
@@ -184,11 +189,109 @@ class OmegaBridge(private val activity: MainActivity) {
         val models: List<String> = when (provider) {
             "kimi" -> KimiEngine.listModels(omega.settings.kimiBase, omega.vault.read(Vault.KIMI) ?: error("Nejdřív ulož klíč Kimi."))
             "server" -> { omega.server(); KimiEngine.listModels(omega.settings.serverUrl, omega.vault.read(Vault.SERVER)) }
+            "node" -> { omega.node(); KimiEngine.listModels(omega.settings.nodeUrl, omega.vault.read(Vault.NODE)) }
             "claude" -> ClaudeEngine.listModels(omega.vault.read(Vault.CLAUDE) ?: error("Nejdřív ulož klíč Claude."))
             else -> error("Neznámý poskytovatel.")
         }
         Events.emit("models", JSONObject().put("provider", provider).put("models", JSONArray(models)))
         Events.note("Spojení funguje · ${models.size} modelů.")
+    }
+
+    // ------------------------------------------------------------------ aktivní agenti
+
+    @JavascriptInterface fun tasks(): String = omega.db.tasks().toString()
+
+    @JavascriptInterface fun deleteTask(id: Long) { omega.db.deleteTask(id); Events.emit("tasks", JSONObject()) }
+
+    // ------------------------------------------------------------------ Hugging Face
+
+    @JavascriptInterface
+    fun hfSearch(q: String) = async {
+        val list = HfHub().searchModels(q.ifBlank { "gguf" }, 20)
+        Events.emit("hf_models", JSONObject().put("q", q).put("models", JSONArray().apply {
+            list.forEach { put(JSONObject().put("id", it.id).put("downloads", it.downloads).put("likes", it.likes).put("updated", it.updated).put("gated", it.gated)) }
+        }))
+    }
+
+    @JavascriptInterface
+    fun hfFiles(repo: String) = async {
+        val ram = Introspect.totalRamGb(activity)
+        val files = HfHub().ggufFiles(repo)
+        Events.emit("hf_files", JSONObject().put("repo", repo).put("files", JSONArray().apply {
+            files.forEach { f ->
+                put(JSONObject().put("path", f.path).put("quant", f.quant).put("size", f.size).put("sha256", f.sha256)
+                    .put("sizeLabel", "%.2f GB".format(f.size / 1e9)).put("fits", f.size * 1.35 / 1e9 <= ram + 0.3))
+            }
+        }))
+    }
+
+    @JavascriptInterface
+    fun hfDownload(repo: String, path: String, kind: String) = async {
+        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        val hub = HfHub()
+        val f = hub.ggufFiles(repo).firstOrNull { it.path == path } ?: error("Soubor nenalezen.")
+        val b = hub.toBrain(f)
+        val spec = JSONObject().put("id", b.id).put("name", b.name).put("family", b.family).put("description", b.description)
+            .put("url", b.urls.first()).put("size", b.sizeBytes).put("sha256", b.sha256).put("license", b.license)
+            .put("kind", if (kind == "embedding") "embedding" else "chat")
+        OmegaService.start(activity, Intent(OmegaService.ACTION_DOWNLOAD).putExtra("spec", spec.toString()))
+    }
+
+    /** Libovolný odkaz na .gguf (bez katalogu). */
+    @JavascriptInterface
+    fun brainFromUrl(url: String) = async {
+        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        val u = url.trim()
+        require(u.startsWith("https://") && u.contains(".gguf")) { "Vlož https:// odkaz na soubor .gguf" }
+        OmegaService.start(activity, Intent(OmegaService.ACTION_DOWNLOAD).putExtra("spec", JSONObject().put("url", u).toString()))
+    }
+
+    @JavascriptInterface
+    fun datasetImport(dataset: String, config: String, split: String, count: Int, query: String) {
+        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (!dataset.matches(Regex("[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?"))) { Events.note("Neplatný název datasetu."); return }
+        OmegaService.start(
+            activity,
+            Intent(OmegaService.ACTION_DATASET).putExtra("dataset", dataset).putExtra("config", config).putExtra("split", split.ifBlank { "train" })
+                .putExtra("count", count).putExtra("query", query.ifBlank { null }),
+        )
+    }
+
+    @JavascriptInterface
+    fun wikiImport(topic: String, lang: String, count: Int) {
+        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (topic.isBlank()) { Events.note("Zadej téma."); return }
+        OmegaService.start(activity, Intent(OmegaService.ACTION_WIKI).putExtra("topic", topic.trim()).putExtra("lang", lang).putExtra("count", count))
+    }
+
+    @JavascriptInterface
+    fun indexStart() {
+        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
+    }
+
+    // ------------------------------------------------------------------ cloud (Hugging Face dataset)
+
+    @JavascriptInterface
+    fun cloudBackup() = async {
+        val token = omega.vault.read(Vault.HF) ?: error("Nejdřív ulož Hugging Face token (právo write).")
+        val cb = cz.axiom.omega.data.CloudBackup(activity, token)
+        val repo = cb.ensureRepo(omega.settings.hfRepo)
+        omega.settings.hfRepo = repo
+        val size = cb.upload(repo, omega.db)
+        Events.emit("config", JSONObject(state()))
+        Events.note("Záloha nahrána do soukromého datasetu $repo (${size / 1024} kB).")
+    }
+
+    @JavascriptInterface
+    fun cloudRestore() = async {
+        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        val token = omega.vault.read(Vault.HF) ?: error("Nejdřív ulož Hugging Face token.")
+        val repo = omega.settings.hfRepo.ifBlank { error("Není nastavený dataset se zálohou.") }
+        val f = cz.axiom.omega.data.CloudBackup(activity, token).download(repo)
+        omega.packs.restoreFile(f)
+        Events.emit("kb", JSONObject()); Events.emit("mem", JSONObject()); Events.emit("config", JSONObject(state()))
+        Events.note("Databáze obnovena z cloudu ($repo).")
     }
 
     // ------------------------------------------------------------------ mozky
@@ -233,22 +336,62 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun kbDelete(id: Long) { omega.db.deleteDocument(id); Events.emit("kb", JSONObject()) }
 
-    @JavascriptInterface fun kbImport() = activity.runOnUiThread { activity.pickText.launch(arrayOf("text/plain", "text/markdown", "text/x-markdown", "text/csv", "application/json")) }
+    @JavascriptInterface fun kbImport() = activity.runOnUiThread { activity.pickText.launch(arrayOf("text/plain", "text/markdown", "text/x-markdown", "text/csv", "application/json", "application/x-ndjson", "application/zip")) }
 
     fun onTextFiles(uris: List<Uri>) = async {
         var ok = 0
         var fail = 0
         for (u in uris.take(100)) {
             runCatching {
+                val name = u.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':') ?: "Dokument"
                 val bytes = activity.contentResolver.openInputStream(u)!!.use { it.readBytes() }
-                require(bytes.size <= 10_000_000) { "příliš velký" }
-                val text = String(bytes, Charsets.UTF_8)
-                require(text.indexOf('\u0000') < 0) { "není text" }
-                omega.db.addDocument(u.lastPathSegment?.substringAfterLast('/') ?: "Dokument", text, "Import z telefonu")
-            }.onSuccess { ok++ }.onFailure { fail++ }
+                require(bytes.size <= 200_000_000) { "příliš velký" }
+                ok += if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+                    var n = 0
+                    java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
+                        while (true) {
+                            val e = zip.nextEntry ?: break
+                            if (e.isDirectory || !e.name.substringAfterLast('.').lowercase().let { it in setOf("md", "txt", "csv", "json", "jsonl") }) continue
+                            val data = zip.readBytes()
+                            if (data.size > 50_000_000) continue
+                            n += importText(e.name.substringAfterLast('/'), String(data, Charsets.UTF_8))
+                        }
+                    }
+                    n
+                } else {
+                    importText(name, String(bytes, Charsets.UTF_8))
+                }
+            }.onFailure { fail++ }
         }
         Events.emit("kb", JSONObject())
-        Events.note("Importováno $ok dokumentů" + if (fail > 0) ", $fail se nepodařilo (jen UTF-8 text do 10 MB)." else ".")
+        Events.note("Do offline databáze přidáno $ok dokumentů" + if (fail > 0) ", $fail souborů se nepodařilo načíst." else ".")
+        if (omega.settings.semantic && omega.embedderFile() != null && !OmegaService.RUNNING.get()) OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
+    }
+
+    /** Text → dokumenty: JSONL (dataset) po řádcích, Markdown po kapitolách „## “, jinak jeden dokument. */
+    private fun importText(name: String, text: String): Int {
+        require(text.indexOf('\u0000') < 0) { "není text" }
+        val db = omega.db
+        val ext = name.substringAfterLast('.', "").lowercase()
+        if (ext == "jsonl" || (ext == "json" && text.trimStart().startsWith("{") && text.lines().count { it.trimStart().startsWith("{") } > 1)) {
+            var n = 0
+            for (line in text.lineSequence()) {
+                val l = line.trim()
+                if (!l.startsWith("{")) continue
+                val row = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(l) as kotlinx.serialization.json.JsonObject }.getOrNull() ?: continue
+                HfHub.rowToDoc(row, name)?.let { db.addDocument(it.first.take(200), it.second, "Import: $name"); n++ }
+                if (n >= 20_000) break
+            }
+            return n
+        }
+        if (ext == "md" && text.contains("\n## ")) {
+            val sections = cz.axiom.omega.core.packs.Packs.sections(text)
+            sections.forEach { db.addDocument(it.title.take(200), it.body, "Balíček: $name") }
+            if (sections.isNotEmpty()) return sections.size
+        }
+        require(text.length <= 10_000_000) { "příliš velký" }
+        db.addDocument(name, text, "Import z telefonu")
+        return 1
     }
 
     @JavascriptInterface

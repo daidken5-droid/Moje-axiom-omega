@@ -4,7 +4,13 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import cz.axiom.omega.brain.BrainManager
+import cz.axiom.omega.core.agent.ActiveAgent
+import cz.axiom.omega.core.agent.AgentTool
+import cz.axiom.omega.core.agent.KnowledgeSource
 import cz.axiom.omega.core.agent.Orchestrator
+import cz.axiom.omega.core.agent.Snippet
+import cz.axiom.omega.core.agent.Tools
+import cz.axiom.omega.engine.Embedder
 import cz.axiom.omega.core.llm.ClaudeEngine
 import cz.axiom.omega.core.llm.EngineException
 import cz.axiom.omega.core.llm.EngineKind
@@ -71,7 +77,44 @@ class Omega private constructor(val app: Context) {
     val job = JobState()
     private val confidences = ArrayDeque<Int>()
 
-    fun orchestrator(): Orchestrator { val d = db; return Orchestrator(d, d, { selfState(currentLabel, currentKind) }) }
+    fun orchestrator(): Orchestrator = Orchestrator(knowledge(), db, { selfState(currentLabel, currentKind) })
+
+    /** Hybridní znalosti: fulltext + (je-li nainstalovaný OMEGA Sense) hledání podle významu. */
+    fun knowledge(): KnowledgeSource {
+        val d = db
+        return object : KnowledgeSource {
+            override fun search(query: String, limit: Int): List<Snippet> {
+                val words = d.search(query, limit)
+                if (!settings.semantic || !ensureEmbedder()) return words
+                val q = Embedder.embedQuery(query) ?: return words
+                val sem = d.semantic(q, limit).filter { it.second > 0.35f }.map { it.first }
+                // proložit: nejlepší sémantické + nejlepší slovní, bez duplicit
+                val out = LinkedHashMap<String, Snippet>()
+                val it1 = sem.iterator(); val it2 = words.iterator()
+                while (out.size < limit && (it1.hasNext() || it2.hasNext())) {
+                    if (it1.hasNext()) it1.next().let { out.putIfAbsent("${it.id}:${it.text.take(40)}", it) }
+                    if (out.size < limit && it2.hasNext()) it2.next().let { out.putIfAbsent("${it.id}:${it.text.take(40)}", it) }
+                }
+                return out.values.toList()
+            }
+        }
+    }
+
+    fun embedderFile(): java.io.File? = brains.catalog().firstOrNull { it.kind == "embedding" && brains.isInstalled(it) }?.let { brains.fileFor(it) }
+
+    fun ensureEmbedder(): Boolean {
+        if (Embedder.ready()) return true
+        val f = embedderFile() ?: return false
+        return runCatching { Embedder.open(app, f) }.getOrDefault(false)
+    }
+
+    /** Nástroje aktivního agenta (síťové jen online). */
+    fun agentTools(): List<AgentTool> {
+        val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") }
+        return if (Introspect.online(app)) offline + Tools.online() else offline
+    }
+
+    fun agent() = ActiveAgent(agentTools(), db) { selfState(currentLabel, currentKind) }
 
     @Volatile private var currentLabel = "neurčen"
     @Volatile private var currentKind = EngineKind.LOCAL
@@ -121,6 +164,24 @@ class Omega private constructor(val app: Context) {
         return KimiEngine(url, vault.read(Vault.SERVER), settings.serverModel, EngineKind.KIMI_SERVER)
     }
 
+    fun node(): KimiEngine {
+        val url = settings.nodeUrl.ifBlank { throw EngineException("Není nastavená adresa AXIOM Node (Moduly → AXIOM Node).") }
+        Http.requireAllowed(url)
+        return KimiEngine(url, vault.read(Vault.NODE), settings.nodeModel, EngineKind.NODE)
+    }
+
+    /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AXIOM na něm nezávisí). */
+    fun availableEngines(): List<String> {
+        val online = Introspect.online(app)
+        return buildList {
+            if (online && vault.has(Vault.KIMI)) add("kimi")
+            if (online && settings.nodeUrl.isNotBlank()) add("node")
+            if (localAvailable()) add("local")
+            if (settings.serverUrl.isNotBlank()) add("server")
+            if (online && vault.has(Vault.CLAUDE)) add("claude")
+        }
+    }
+
     fun claude(): ClaudeEngine {
         val key = vault.read(Vault.CLAUDE) ?: throw EngineException("Chybí API klíč Claude (console.anthropic.com). Zadej ho v Systému.")
         return ClaudeEngine(key, settings.claudeModel)
@@ -133,15 +194,17 @@ class Omega private constructor(val app: Context) {
         val e: LlmEngine = when (mode) {
             "local" -> local()
             "kimi" -> kimi()
+            "node" -> node()
             "server" -> server()
             "claude" -> claude()
             else -> {
                 val online = Introspect.online(app)
                 when {
                     online && vault.has(Vault.KIMI) -> kimi()
-                    online && vault.has(Vault.CLAUDE) -> claude()
+                    online && settings.nodeUrl.isNotBlank() -> node()
                     localAvailable() -> local()
                     settings.serverUrl.isNotBlank() -> server()
+                    online && vault.has(Vault.CLAUDE) -> claude()
                     else -> throw EngineException(
                         if (online) "Žádný mozek: stáhni lokální mozek (Mozky) nebo zadej klíč Kimi K3 / Claude (Systém)."
                         else "Jsi offline a lokální mozek není stažený. Připoj se a stáhni ho v sekci Mozky.",
@@ -158,6 +221,7 @@ class Omega private constructor(val app: Context) {
         val online = Introspect.online(app)
         val members = buildList {
             if (online && vault.has(Vault.KIMI)) runCatching { kimi() }.getOrNull()?.let(::add)
+            if (online && settings.nodeUrl.isNotBlank()) runCatching { node() }.getOrNull()?.let(::add)
             if (online && vault.has(Vault.CLAUDE)) runCatching { claude() }.getOrNull()?.let(::add)
             if (settings.serverUrl.isNotBlank()) runCatching { server() }.getOrNull()?.let(::add)
             if (size < 2 && localAvailable()) runCatching { local() }.getOrNull()?.let(::add)
@@ -166,8 +230,10 @@ class Omega private constructor(val app: Context) {
         val judge = when (settings.councilJudge) {
             "kimi" -> members.firstOrNull { it.kind == EngineKind.KIMI_CLOUD }
             "server" -> members.firstOrNull { it.kind == EngineKind.KIMI_SERVER }
+            "node" -> members.firstOrNull { it.kind == EngineKind.NODE }
             "local" -> members.firstOrNull { it.kind == EngineKind.LOCAL }
-            else -> members.firstOrNull { it.kind == EngineKind.CLAUDE }
+            "claude" -> members.firstOrNull { it.kind == EngineKind.CLAUDE }
+            else -> members.firstOrNull { it.kind == EngineKind.KIMI_CLOUD }
         } ?: members.first()
         currentLabel = "Konzilium"
         currentKind = judge.kind

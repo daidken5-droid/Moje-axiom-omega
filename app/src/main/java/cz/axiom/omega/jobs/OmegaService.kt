@@ -20,7 +20,14 @@ import cz.axiom.omega.MainActivity
 import cz.axiom.omega.Omega
 import cz.axiom.omega.OmegaApp
 import cz.axiom.omega.R
+import cz.axiom.omega.core.agent.AgentListener
+import cz.axiom.omega.core.agent.AgentStep
 import cz.axiom.omega.core.agent.AskListener
+import cz.axiom.omega.core.agent.Router
+import cz.axiom.omega.core.hub.HfHub
+import cz.axiom.omega.core.hub.Web
+import cz.axiom.omega.engine.Embedder
+import cz.axiom.omega.sys.Introspect
 import cz.axiom.omega.core.agent.AskRequest
 import cz.axiom.omega.core.agent.AskResult
 import cz.axiom.omega.core.agent.PassTrace
@@ -61,7 +68,7 @@ class OmegaService : Service() {
             Events.note("Právě probíhá jiná úloha – počkej nebo ji zastav.")
             return START_NOT_STICKY
         }
-        val download = intent.action == ACTION_DOWNLOAD || intent.action == ACTION_IMPORT
+        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI)
         val type = if (download) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         else if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         ServiceCompat.startForeground(this, NOTIF_ID, notification("Připravuji…", -1), type)
@@ -72,7 +79,10 @@ class OmegaService : Service() {
             try {
                 when (intent.action) {
                     ACTION_ASK -> ask(intent, cancel)
-                    ACTION_DOWNLOAD -> download(intent.getStringExtra("id")!!, cancel)
+                    ACTION_DOWNLOAD -> download(intent.getStringExtra("id"), intent.getStringExtra("spec"), cancel)
+                    ACTION_INDEX -> index(cancel)
+                    ACTION_DATASET -> dataset(intent, cancel)
+                    ACTION_WIKI -> wiki(intent, cancel)
                     ACTION_IMPORT -> import(intent.getParcelableExtraCompat("uri")!!, cancel)
                 }
             } catch (e: Throwable) {
@@ -136,26 +146,67 @@ class OmegaService : Service() {
         }
 
         try {
-            val result: AskResult
-            if (mode == "council") {
-                val (members, judge) = omega.councilMembers()
-                result = omega.orchestrator().council(
-                    AskRequest(text, history, forced, 1, s.reflect, s.web, s.thinking, true, s.rates, s.userName.ifBlank { null }),
-                    members, judge, cancel, listener,
-                )
-            } else {
-                val engine = omega.resolve(mode)
-                listener.onPhase("Probouzím ${engine.label}…")
-                val passes = if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
-                result = omega.orchestrator().run(
-                    AskRequest(text, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, s.thinking, true, s.rates, s.userName.ifBlank { null }),
-                    engine, cancel, listener,
-                )
+            val userEngine = mode.takeIf { it != "auto" && it != "council" }
+            val userMode = when (intent.getStringExtra("kind")) {
+                "agent" -> Router.Mode.AGENT
+                "chat" -> Router.Mode.CHAT
+                "council" -> Router.Mode.COUNCIL
+                else -> if (mode == "council") Router.Mode.COUNCIL else null
             }
-            omega.rememberConfidence(result.confidence)
-            val meta = metaOf(result)
-            val id = omega.db.addMessage(threadId, "assistant", result.answer, meta)
-            Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", result.answer).put("meta", meta))
+            val route = Router.route(text, Router.Context(Introspect.online(this), omega.availableEngines(), userEngine, userMode))
+            listener.onPhase("Ω volí: ${route.mode.label} · ${route.reason}")
+            val meta: JSONObject
+            val answer: String
+            when (route.mode) {
+                Router.Mode.COUNCIL -> {
+                    val (members, judge) = omega.councilMembers()
+                    val r = omega.orchestrator().council(
+                        AskRequest(route.prompt, history, forced, 1, s.reflect, s.web, s.thinking, true, s.rates, s.userName.ifBlank { null }),
+                        members, judge, cancel, listener,
+                    )
+                    omega.rememberConfidence(r.confidence)
+                    meta = metaOf(r); answer = r.answer
+                }
+                Router.Mode.AGENT -> {
+                    val engine = omega.resolve(route.engine)
+                    val taskId = omega.db.addTask(threadId, route.prompt, engine.label)
+                    job.kind = "agent"
+                    val steps = JSONArray()
+                    val r = try {
+                        omega.agent().run(route.prompt, history, engine, s.agentSteps, cancel, object : AgentListener {
+                            override fun onPhase(text: String) = listener.onPhase(text)
+                            override fun onDelta(delta: Delta) = listener.onDelta(steps.length() + 1, 0, delta)
+                            override fun onStep(step: AgentStep) {
+                                val j = JSONObject().put("index", step.index).put("thought", step.thought).put("tool", step.tool ?: JSONObject.NULL)
+                                    .put("args", step.args ?: JSONObject.NULL).put("observation", step.observation?.take(1_500) ?: JSONObject.NULL).put("millis", step.millis)
+                                steps.put(j)
+                                omega.db.updateTask(taskId, "running", steps.length(), null)
+                                Events.emit("step", j)
+                            }
+                        }, s.rates, s.userName.ifBlank { null })
+                    } catch (e: Exception) {
+                        omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
+                        throw e
+                    }
+                    omega.db.updateTask(taskId, if (r.finish == "done") "done" else "partial", steps.length(), r.answer)
+                    meta = JSONObject().put("mode", "agent").put("engine", r.engineLabel).put("model", r.model).put("millis", r.millis)
+                        .put("route", route.reason).put("steps", steps).put("finish", r.finish).put("taskId", taskId)
+                    answer = r.answer
+                }
+                Router.Mode.CHAT -> {
+                    val engine = omega.resolve(route.engine)
+                    listener.onPhase("Probouzím ${engine.label}…")
+                    val passes = if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
+                    val r = omega.orchestrator().run(
+                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, s.thinking, true, s.rates, s.userName.ifBlank { null }),
+                        engine, cancel, listener,
+                    )
+                    omega.rememberConfidence(r.confidence)
+                    meta = metaOf(r).put("route", route.reason); answer = r.answer
+                }
+            }
+            val id = omega.db.addMessage(threadId, "assistant", answer, meta)
+            Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", answer).put("meta", meta))
         } catch (e: CancelledException) {
             val partial = job.partial.toString().trim()
             if (partial.isNotEmpty()) {
@@ -185,13 +236,13 @@ class OmegaService : Service() {
 
     // ------------------------------------------------------------------ mozky
 
-    private fun download(id: String, cancel: CancelToken) {
+    private fun download(id: String?, specJson: String?, cancel: CancelToken) {
         val job = omega.job
         job.reset("download")
-        val spec = omega.brains.catalog().first { it.id == id }
+        val spec = specJson?.let { omega.brains.addCustom(it) } ?: omega.brains.catalog().first { it.id == id }
         job.detail = spec.name
         try {
-            omega.brains.download(id, cancel) { p ->
+            omega.brains.download(spec.id, cancel) { p ->
                 job.progress = p.percent
                 job.phase = "${p.phase} · ${spec.name}"
                 val speed = if (p.bytesPerSec > 0) " · ${"%.1f".format(p.bytesPerSec / 1e6)} MB/s" else ""
@@ -200,11 +251,102 @@ class OmegaService : Service() {
                 Events.emit("progress", job.toJson())
             }
             Events.emit("brains", omega.brains.toJson())
-            Events.note("Mozek ${spec.name} je stažený, ověřený (SHA-256) a aktivní.")
+            if (spec.kind == "embedding") {
+                Events.note("${spec.name} je stažený. Stavím sémantický index…")
+                index(cancel)
+            } else {
+                Events.note("${spec.name} je stažený, ověřený a aktivní.")
+            }
         } catch (e: CancelledException) {
             Events.note("Stahování pozastaveno. Příště naváže tam, kde skončilo.")
             Events.emit("brains", omega.brains.toJson())
         }
+    }
+
+    /** Sémantický index: vektor pro každý úsek znalostní databáze (OMEGA Sense). */
+    private fun index(cancel: CancelToken) {
+        val job = omega.job
+        job.reset("index")
+        if (!omega.ensureEmbedder()) throw IllegalStateException("Nejdřív stáhni rozšíření OMEGA Sense (Moduly).")
+        val db = omega.db
+        db.pruneVectors()
+        val total = db.chunksWithoutVectors(1_000_000).size
+        var done = 0
+        while (true) {
+            cancel.check()
+            val batch = db.chunksWithoutVectors(24)
+            if (batch.isEmpty()) break
+            for ((id, title, body) in batch) {
+                cancel.check()
+                val v = Embedder.embed("$title\n$body") ?: FloatArray(1)
+                db.putVector(id, v)
+                done++
+            }
+            job.progress = if (total > 0) done * 100 / total else 100
+            job.phase = "Sémantický index"
+            job.detail = "$done / $total úseků"
+            updateNotification("Sémantický index $done / $total", job.progress)
+            Events.emit("progress", job.toJson())
+        }
+        Events.emit("kb", JSONObject())
+        Events.note("Sémantický index hotov ($done nových úseků). Hledám teď i podle významu.")
+    }
+
+    /** Dataset z Hugging Face → offline znalosti. */
+    private fun dataset(intent: Intent, cancel: CancelToken) {
+        val job = omega.job
+        job.reset("download")
+        val ds = intent.getStringExtra("dataset")!!
+        val count = intent.getIntExtra("count", 200).coerceIn(1, 5_000)
+        val query = intent.getStringExtra("query")
+        val hub = HfHub()
+        val split = intent.getStringExtra("config")?.takeIf { it.isNotBlank() }?.let { cfg -> HfHub.DatasetSplit(cfg, intent.getStringExtra("split") ?: "train") }
+            ?: hub.splits(ds).firstOrNull { it.split == "train" } ?: hub.splits(ds).first()
+        var added = 0
+        var offset = 0
+        while (added < count) {
+            cancel.check()
+            val rows = hub.rows(ds, split.config, split.split, offset, minOf(100, count - added + 20), query)
+            if (rows.isEmpty()) break
+            for (r in rows) {
+                val doc = HfHub.rowToDoc(r, ds) ?: continue
+                omega.db.addDocument(doc.first.take(200), doc.second.take(200_000), "hf:$ds")
+                added++
+                if (added >= count) break
+            }
+            offset += rows.size
+            job.progress = added * 100 / count
+            job.phase = "Dataset $ds"
+            job.detail = "$added / $count záznamů"
+            Events.emit("progress", job.toJson())
+            if (rows.size < 20) break
+        }
+        Events.emit("kb", JSONObject())
+        Events.note("Z datasetu $ds uloženo $added záznamů do offline databáze.")
+        if (omega.settings.semantic && omega.embedderFile() != null) index(cancel)
+    }
+
+    /** Články z Wikipedie k tématu → offline znalosti. */
+    private fun wiki(intent: Intent, cancel: CancelToken) {
+        val job = omega.job
+        job.reset("download")
+        val topic = intent.getStringExtra("topic")!!
+        val lang = intent.getStringExtra("lang")?.takeIf { it.matches(Regex("[a-z]{2,3}")) } ?: "cs"
+        val count = intent.getIntExtra("count", 10).coerceIn(1, 50)
+        val titles = Web.wikiSearch(topic, lang, count)
+        var added = 0
+        for ((i, t) in titles.withIndex()) {
+            cancel.check()
+            Web.wikiPage(t, lang)?.let { omega.db.addDocument("Wikipedie: ${it.title}", it.text + "\n\nZdroj: ${it.url} (CC BY-SA)", "wikipedia:$lang"); added++ }
+            job.progress = (i + 1) * 100 / titles.size.coerceAtLeast(1)
+            job.phase = "Wikipedie · $topic"
+            job.detail = "$added / ${titles.size} článků"
+            Events.emit("progress", job.toJson())
+            Thread.sleep(250)
+        }
+        Events.emit("kb", JSONObject())
+        Events.note("Z Wikipedie uloženo $added článků k tématu „$topic“.")
+        if (omega.settings.semantic && omega.embedderFile() != null) index(cancel)
     }
 
     private fun import(uri: Uri, cancel: CancelToken) {
@@ -269,6 +411,9 @@ class OmegaService : Service() {
         const val ACTION_DOWNLOAD = "cz.axiom.omega.DOWNLOAD"
         const val ACTION_IMPORT = "cz.axiom.omega.IMPORT"
         const val ACTION_CANCEL = "cz.axiom.omega.CANCEL"
+        const val ACTION_INDEX = "cz.axiom.omega.INDEX"
+        const val ACTION_DATASET = "cz.axiom.omega.DATASET"
+        const val ACTION_WIKI = "cz.axiom.omega.WIKI"
         private const val NOTIF_ID = 7
         val RUNNING = AtomicBoolean(false)
         @Volatile private var current: CancelToken? = null

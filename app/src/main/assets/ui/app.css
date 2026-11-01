@@ -253,3 +253,31 @@ nav.tabs button.on { color: var(--text); }
 .mem:last-child { border-bottom: 0; }
 .mem .t { flex: 1; font-size: .9rem; line-height: 1.45; }
 .empty { border: 1px dashed var(--line2); border-radius: 16px; padding: 22px; text-align: center; color: var(--muted); line-height: 1.6; }
+
+/* ---------- v3.1: jednodušší UI ---------- */
+.composer .box { padding-left: 6px; }
+.kind { flex: none; align-self: center; padding: 8px 10px; border-radius: 12px; font: 10px var(--mono); letter-spacing: 1px; color: var(--muted); border: 1px solid var(--line2); white-space: nowrap; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+.kind.on { color: var(--text); border-color: var(--text); }
+.tools { align-items: center; }
+.tools button { min-width: 38px; display: inline-grid; place-items: center; }
+.tools button.bad { color: var(--bad); border-color: var(--bad); }
+details.more { flex-basis: 100%; margin-top: 6px; }
+details.more summary { font: 10px var(--mono); letter-spacing: 1px; color: var(--muted); cursor: pointer; list-style: none; padding: 6px 2px; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary:before { content: "▸ "; }
+details.more[open] summary:before { content: "▾ "; }
+details.more .in { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg2); }
+.sub { font: 9px var(--mono); letter-spacing: 2px; color: var(--dim); margin: 12px 0 4px; }
+.fact { font-family: var(--mono); font-size: .74rem; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.step { font-size: .84rem; padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+.step b { color: var(--text); font-weight: 600; }
+.step.done b { color: var(--good); }
+.step .obs { font-family: var(--mono); font-size: .72rem; margin-top: 4px; white-space: pre-wrap; max-height: 9em; overflow: hidden; color: var(--dim); }
+.hfrow { padding: 10px 0; border-bottom: 1px solid var(--line); gap: 8px; }
+.pack { padding: 10px 2px; border-bottom: 1px solid var(--line); gap: 10px; }
+.task { cursor: pointer; }
+details.conn { padding: 0; }
+details.conn > summary { list-style: none; padding: 12px 14px; cursor: pointer; gap: 12px; }
+details.conn > summary::-webkit-details-marker { display: none; }
+details.conn > div { padding: 0 14px 14px; }
+.suggest button { text-align: left; max-width: 100%; }

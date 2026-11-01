@@ -34,7 +34,8 @@ class Downloader(
     class DownloadException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
     fun download(spec: BrainSpec, target: File, cancel: CancelToken, onProgress: (Progress) -> Unit): File {
-        if (target.exists() && target.length() == spec.sizeBytes && verify(target, spec.sha256, cancel, null)) return target
+        val checkSha = spec.sha256.isNotBlank()
+        if (target.exists() && target.length() == spec.sizeBytes && (!checkSha || verify(target, spec.sha256, cancel, null))) return target
         target.parentFile?.mkdirs()
         val part = File(target.parentFile, target.name + ".part")
         val free = target.parentFile?.usableSpace ?: Long.MAX_VALUE
@@ -52,10 +53,15 @@ class Downloader(
             try {
                 fetch(url, spec, part, attempt, cancel, onProgress)
                 if (part.length() != spec.sizeBytes) throw DownloadException("Neúplný soubor (${part.length()} z ${spec.sizeBytes} B).")
-                onProgress(Progress(part.length(), spec.sizeBytes, 0, attempt, "Ověřuji SHA-256…"))
-                if (!verify(part, spec.sha256, cancel, onProgress)) {
+                if (checkSha) {
+                    onProgress(Progress(part.length(), spec.sizeBytes, 0, attempt, "Ověřuji SHA-256…"))
+                    if (!verify(part, spec.sha256, cancel, onProgress)) {
+                        part.delete()
+                        throw DownloadException("Kontrolní součet SHA-256 nesouhlasí – soubor byl smazán a stáhne se znovu.")
+                    }
+                } else if (!isGguf(part)) {
                     part.delete()
-                    throw DownloadException("Kontrolní součet SHA-256 nesouhlasí – soubor byl smazán a stáhne se znovu.")
+                    throw DownloadException("Stažený soubor není GGUF model.")
                 }
                 if (target.exists()) target.delete()
                 if (!part.renameTo(target)) throw DownloadException("Nelze přejmenovat staženou část na ${target.name}.")
@@ -136,6 +142,28 @@ class Downloader(
     }
 
     companion object {
+        fun isGguf(f: File): Boolean = runCatching {
+            FileInputStream(f).use { val b = ByteArray(4); it.read(b) == 4 && String(b, Charsets.US_ASCII) == "GGUF" }
+        }.getOrDefault(false)
+
+        /** Velikost souboru na URL (HEAD, sleduje přesměrování) – pro vlastní odkaz bez katalogu. */
+        fun remoteSize(url: String): Long {
+            var u = url
+            repeat(8) {
+                val c = Http.open(u, "HEAD", readMs = 20_000)
+                c.instanceFollowRedirects = false
+                try {
+                    val code = c.responseCode
+                    if (code in 300..399) { u = URL(URL(u), c.getHeaderField("Location") ?: throw DownloadException("Přesměrování bez cíle.")).toString(); return@repeat }
+                    if (code !in 200..299) throw DownloadException("HTTP $code")
+                    val len = c.getHeaderFieldLong("X-Linked-Size", -1).takeIf { it > 0 } ?: c.contentLengthLong
+                    if (len <= 0) throw DownloadException("Server neuvádí velikost souboru.")
+                    return len
+                } finally { c.disconnect() }
+            }
+            throw DownloadException("Příliš mnoho přesměrování.")
+        }
+
         fun verify(file: File, sha256: String, cancel: CancelToken, onProgress: ((Progress) -> Unit)?): Boolean {
             val md = MessageDigest.getInstance("SHA-256")
             val total = file.length()

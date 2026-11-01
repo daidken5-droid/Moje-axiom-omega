@@ -8,45 +8,37 @@ Nástupce **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5**. Zachovává jejich DNA 
 a přidává funkční sebemodel, dlouhodobou paměť, offline databáze, Kimi K3 a Claude.
 Rozbor původní aplikace a seznam opravených chyb: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Co umí (3.1)
+
+* **Ω Auto – AI si sama vybere moduly.** Router podle zadání rozhodne, jestli odpovědět, nebo spustit
+  aktivního agenta; který mozek použít (jednoduché věci v telefonu, náročné na nejsilnějším dostupném)
+  a jak hluboko myslet (RANDY L0–L6). Výslovná volba uživatele (`/agent`, `/chat`, `/konzilium`, `L4:`,
+  ruční výběr mozku) má vždy přednost. U odpovědi je vidět, proč se tak rozhodl.
+* **Aktivní agenti** (záložka Agenti nebo `/agent …`): sám plánuje a v krocích používá nástroje –
+  web (DuckDuckGo), čtení stránek, Wikipedie, Hugging Face, přesné výpočty a STEP-0, offline databáze,
+  paměť, ukládání poznámek. Běží na pozadí i se zhasnutým displejem, úkoly se ukládají.
+* **Nezávislost:** funguje úplně bez Claude – v telefonu (Gemma 4), na Kimi K3, na vlastním serveru
+  nebo na zdarma AXIOM Node. Claude je jen jeden z volitelných mozků.
+
 ## Mozky
 
-| Režim | Kde běží | Internet |
+| Mozek | Kde | Poznámka |
 |---|---|---|
-| **Kimi K3 · cloud** | `api.moonshot.ai/v1`, model `kimi-k3`, `reasoning_effort` podle RANDY | ano |
-| **Kimi K3 · vlastní server** | tvůj llama-server / vLLM / SGLang v lokální síti | ne |
-| **Mozek v telefonu** | llama.cpp: OMEGA Core (Qwen3.5 4B), OMEGA Lite (Qwen3.5 2B), AXIOM Classic (Qwen3 1.7B), Llama 3.2 3B | ne |
-| **Claude** | oficiální Anthropic Java SDK, `claude-opus-5-5`, adaptivní přemýšlení, web search | ano |
-| **Konzilium** | víc mozků odpoví nezávisle, rozhodčí porovná a složí odpověď | dle mozků |
-| **Auto** | online → Kimi K3 (jinak Claude), offline → mozek v telefonu, jinak K3 server | — |
+| **OMEGA Core · Gemma 4 E4B** | telefon 8+ GB | nejnovější Google model pro zařízení (duben 2026), doporučeno |
+| **OMEGA Lite · Gemma 4 E2B** | telefon 6+ GB | rychlejší Gemma 4 |
+| **OMEGA Max · Qwen3.6-35B-A3B** | telefon 16+ GB / Node | MoE 35B, aktivní 3B – nejsilnější, co se vejde |
+| OMEGA Mini · Qwen3.5 2B, AXIOM Classic | telefon 4 GB | pro starší telefony / kontinuita s 2.1 |
+| **Kimi K3** | `api.moonshot.ai` | 2,8T parametrů – v telefonu fyzicky neběží |
+| **AXIOM Node** | zdarma: HF Spaces / Oracle Free | vlastní cloud server, viz [server/](server) |
+| Vlastní server, Claude | LAN / Anthropic API | volitelné |
+| **Jakýkoli GGUF** | Hugging Face hledání, odkaz, soubor v telefonu | Moduly → Hugging Face |
 
-> Kimi K3 má ~2,8 bilionu parametrů (nejmenší GGUF ~594 GB), takže se do telefonu nevejde.
-> „Offline K3“ = vlastní server bez internetu. V telefonu offline běží menší lokální mozek.
+## Rozšíření z Hugging Face
 
-**Stažení mozku** (Mozky → Stáhnout): katalog [`brains/catalog.json`](brains/catalog.json) s ověřenými
-URL Hugging Face, velikostmi a SHA-256; navazování po výpadku, zrcadlo, kontrola volného místa a RAM.
-Katalog lze aktualizovat bez nové verze aplikace.
-
-## Jak AXIOM Ω myslí
-
-1. **RANDY** určí hloubku (L0 DIRECT … L6 OMNISCIENT; vynucení prefixem `L4:`).
-2. **STEP-0** spočítá vše počitatelné kódem: výrazy, procenta, jednotky a měny (kurzy ČNB),
-   +EV/Kelly, mikrocement a stěrky, import z Japonska, forenzní stopy (IBAN mod 97, IP, hashe, časy).
-3. **Paměť a znalosti** – vybavení relevantních vzpomínek a pasáží z offline databáze (SQLite FTS4).
-4. **Průchody** podle úrovně: návrh → red-team / kvantitativní kontrola → syntéza.
-5. **Sebereflexe** – jistota 0–100 % a poučení do paměti; tvoje ✓/✗ ho posílí nebo oslabí.
-
-„Sebeuvědomění“ je funkční a poctivé: AXIOM Ω zná svůj stav (mozek, síť, baterie, RAM, teplota,
-paměť), své limity a historii – a nepředstírá vědomí ani city.
-
-## Offline databáze
-
-* **Znalostní balíčky** ([`packs/`](packs)) jsou součástí APK a po instalaci se zaindexují bez internetu:
-  metodika AXIOM, jednotky a konstanty SI, stavba a materiály, finance a +EV, Kimi K3 a vlastní server.
-  Nové verze se stahují z repozitáře a ověřují SHA-256 (`tools/update_pack_catalog.py`).
-* Vlastní dokumenty: import TXT / Markdown / CSV / JSON nebo poznámky.
-* **Import paměti z Gemini** (Paměť → Import paměti z Gemini): zkopírovaný dotaz pro Gemini + vložení odpovědi,
-  seznam „Uložené informace“, nebo Google Takeout (Moje aktivita → Aplikace Gemini: `MyActivity.json`, `.html`, `.zip`).
-* **Záloha a obnova** celé databáze (vlákna, paměť, znalosti) do souboru; API klíče se nezálohují.
+* **OMEGA Sense** (Qwen3-Embedding-0.6B) – sémantická paměť: offline databáze se prohledává podle
+  významu, ne jen podle slov (hybridní hledání).
+* **Vyhledávání modelů na HF** přímo v aplikaci, výpis kvantizací s velikostí a kontrolou RAM, ověřené stažení (SHA-256 z LFS).
+* **Datasety z HF** (datasets-server) a **články z Wikipedie** k tématu → offline databáze.
 
 ## Stažení APK
 
@@ -58,7 +50,7 @@ paměť), své limity a historii – a nepředstírá vědomí ani city.
 ## Vývoj
 
 ```
-./gradlew :core:test                                   # 58 unit testů (JVM, bez Androidu)
+./gradlew :core:test                                   # 66 unit testů (JVM, bez Androidu)
 ./gradlew :app:assembleDebug                           # plné APK včetně llama.cpp (NDK 27.2, CMake 3.22.1)
 ./gradlew :app:assembleDebug -Pomega.native=false      # rychlé APK bez nativní části
 tools/ui-preview/build.sh && node tools/ui-preview/shoot.js /tmp   # náhled UI s mock mostem

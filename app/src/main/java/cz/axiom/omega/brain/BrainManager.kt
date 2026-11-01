@@ -21,9 +21,36 @@ class BrainManager(private val context: Context) {
     private val catalogCache = File(dir, "catalog.json")
     private val settings = Settings(context)
 
+    private val customCatalog = File(dir, "custom-catalog.json")
+
     fun catalog(): List<BrainSpec> {
         val remote = runCatching { if (catalogCache.exists()) BrainCatalog.parse(catalogCache.readText()) else null }.getOrNull()
-        return remote ?: BrainCatalog.parse(context.assets.open("brains/catalog.json").bufferedReader().use { it.readText() })
+        val base = remote ?: BrainCatalog.parse(context.assets.open("brains/catalog.json").bufferedReader().use { it.readText() })
+        return base + custom().filter { c -> base.none { it.id == c.id } }
+    }
+
+    private fun custom(): List<BrainSpec> = runCatching { if (customCatalog.exists()) BrainCatalog.parse(customCatalog.readText()) else emptyList() }.getOrDefault(emptyList())
+
+    /** Přidá mozek z Hugging Face nebo vlastního odkazu (JSON {id,name,url,size,sha256}) do vlastního katalogu. */
+    @Synchronized
+    fun addCustom(json: String): BrainSpec {
+        val o = org.json.JSONObject(json)
+        val url = o.getString("url")
+        require(url.startsWith("https://")) { "Odkaz musí začínat https://" }
+        val size = o.optLong("size", 0).takeIf { it > 0 } ?: Downloader.remoteSize(url)
+        require(size in 50_000_000..60_000_000_000) { "Neobvyklá velikost souboru (${Downloader.fmt(size)})." }
+        val name = o.optString("name").ifBlank { url.substringAfterLast('/').substringBefore('?').removeSuffix(".gguf") }
+        val id = o.optString("id").ifBlank { "url-" + name.lowercase().replace(Regex("[^a-z0-9._-]"), "-") }.take(60).trimEnd('-')
+        val spec = BrainSpec(
+            id = id, name = name.take(80), family = o.optString("family", "vlastní"),
+            description = o.optString("description", "Vlastní mozek z odkazu $url"), urls = listOf(url), sizeBytes = size,
+            sha256 = o.optString("sha256", "").lowercase(), minRamGb = kotlin.math.ceil(size * 1.35 / 1e9).toInt().coerceAtLeast(2),
+            contextTokens = 4096, license = o.optString("license", "viz zdroj"), thinking = true,
+            kind = if (o.optString("kind") == "embedding") "embedding" else "chat",
+        )
+        BrainCatalog.parse(BrainCatalog.toJson(listOf(spec))) // validace
+        customCatalog.writeText(BrainCatalog.toJson(custom().filter { it.id != spec.id } + spec))
+        return spec
     }
 
     /** Stáhne aktuální katalog z repozitáře (nové mozky bez aktualizace aplikace). Při chybě zůstane vestavěný. */
@@ -53,10 +80,10 @@ class BrainManager(private val context: Context) {
     fun active(): Pair<File, BrainSpec?>? {
         val cat = catalog()
         settings.activeBrain?.let { id ->
-            cat.firstOrNull { it.id == id }?.let { s -> if (isInstalled(s)) return fileFor(s) to s }
+            cat.firstOrNull { it.id == id && it.kind == "chat" }?.let { s -> if (isInstalled(s)) return fileFor(s) to s }
             File(dir, id).takeIf { it.exists() && id.endsWith(".gguf") }?.let { return it to null }
         }
-        cat.firstOrNull { isInstalled(it) }?.let { return fileFor(it) to it }
+        cat.firstOrNull { it.kind == "chat" && isInstalled(it) }?.let { return fileFor(it) to it }
         return customFiles().firstOrNull()?.let { it to null }
     }
 
@@ -71,12 +98,14 @@ class BrainManager(private val context: Context) {
         f?.delete()
         f?.let { File(it.parentFile, it.name + ".part").delete() }
         if (settings.activeBrain == id) settings.activeBrain = null
+        if (spec != null && custom().any { it.id == id }) customCatalog.writeText(BrainCatalog.toJson(custom().filter { it.id != id }))
+        if (spec?.kind == "embedding") cz.axiom.omega.engine.Embedder.close()
     }
 
     fun download(id: String, cancel: CancelToken, onProgress: (Downloader.Progress) -> Unit): File {
         val spec = catalog().firstOrNull { it.id == id } ?: throw IOException("Neznámý mozek $id")
         val f = Downloader().download(spec, fileFor(spec), cancel, onProgress)
-        if (settings.activeBrain == null || active()?.second == null) settings.activeBrain = spec.id
+        if (spec.kind == "chat") settings.activeBrain = spec.id
         return f
     }
 
@@ -112,7 +141,7 @@ class BrainManager(private val context: Context) {
         val ram = Introspect.totalRamGb(context)
         val free = dir.usableSpace
         val cat = catalog()
-        val rec = BrainCatalog.recommend(cat, ram, free)
+        val rec = BrainCatalog.recommend(cat.filter { it.sha256.isNotEmpty() }, ram, free)
         val activePair = active()
         val list = JSONArray()
         for (s in cat) {
@@ -123,7 +152,8 @@ class BrainManager(private val context: Context) {
                     .put("thinking", s.thinking).put("installed", isInstalled(s))
                     .put("partial", if (part.exists()) part.length() else 0)
                     .put("recommended", rec?.id == s.id).put("fits", s.minRamGb <= ram + 0.3)
-                    .put("active", activePair?.second?.id == s.id).put("url", s.urls.first()).put("sha256", s.sha256),
+                    .put("active", activePair?.second?.id == s.id).put("url", s.urls.first()).put("sha256", s.sha256)
+                    .put("kind", s.kind).put("verified", s.sha256.isNotEmpty()),
             )
         }
         for (f in customFiles()) {
