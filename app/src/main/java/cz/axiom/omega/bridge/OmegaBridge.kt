@@ -53,7 +53,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val s = omega.settings
         val active = omega.brains.active()
         return JSONObject()
-            .put("version", Identity.VERSION).put("name", Identity.NAME).put("debug", BuildConfig.DEBUG)
+            .put("version", Identity.VERSION).put("name", Identity.NAME).put("debug", BuildConfig.DEBUG).put("build", BuildConfig.VERSION_NAME)
             .put("job", omega.job.toJson())
             .put("settings", s.toJson())
             .put("keys", JSONObject().put("kimi", omega.vault.has(Vault.KIMI)).put("claude", omega.vault.has(Vault.CLAUDE)).put("server", omega.vault.has(Vault.SERVER))
@@ -554,10 +554,86 @@ class OmegaBridge(private val activity: MainActivity) {
 
     // ------------------------------------------------------------------ Kognice (učení z každé otázky)
 
+    // ------------------------------------------------------------------ aktualizace
+
+    /** Zkontroluje novou verzi (ručně, nebo automaticky jednou denně při startu). */
+    @JavascriptInterface
+    fun checkUpdate(manual: Boolean) = async {
+        val p = activity.getSharedPreferences("omega", Context.MODE_PRIVATE)
+        if (!manual && System.currentTimeMillis() - p.getLong("updateCheckAt", 0) < 20 * 3_600_000L) return@async
+        if (!Introspect.online(activity)) { if (manual) Events.note("Jsem offline – aktualizace zkontroluji, až bude internet."); return@async }
+        val l = runCatching { cz.axiom.omega.core.update.Updates.latest() }.getOrNull()
+        p.edit().putLong("updateCheckAt", System.currentTimeMillis()).apply()
+        val local = BuildConfig.VERSION_NAME
+        if (l != null && cz.axiom.omega.core.update.Updates.newer(l.version, local)) {
+            Events.emit("update", JSONObject().put("version", l.version).put("apk", l.apkUrl).put("page", l.pageUrl).put("current", local))
+        } else if (manual) Events.note(if (l == null) "Nepodařilo se ověřit aktualizace." else "Máš nejnovější verzi ($local).")
+    }
+
     @JavascriptInterface fun cognition(): String = omega.cognition.toJson().toString()
 
-    @JavascriptInterface fun learnRate(question: String, good: Boolean, confidence: Int) =
+    @JavascriptInterface
+    fun learnRate(question: String, answer: String, good: Boolean, confidence: Int) {
         omega.cognition.rate(question, good, confidence.takeIf { it >= 0 })
+        omega.cognition.exemplarRated(question, answer, good)
+    }
+
+    // ------------------------------------------------------------------ Doladění (LoRA + trénovací data)
+
+    @JavascriptInterface
+    fun tuning(): String {
+        val dir = omega.loraDir()
+        val files = dir.listFiles { f -> f.name.endsWith(".gguf") }?.sortedBy { it.name } ?: emptyList()
+        return JSONObject().put("active", omega.settings.lora).put("scale", omega.settings.loraScale)
+            .put("adapters", JSONArray().apply { files.forEach { put(JSONObject().put("name", it.name).put("mb", it.length() / 1_048_576)) } })
+            .put("training", omega.cognition.trainingCount())
+            .put("base", omega.brains.active()?.second?.name ?: JSONObject.NULL)
+            .put("loaded", cz.axiom.omega.engine.LocalEngine.loadedLabel() ?: JSONObject.NULL).toString()
+    }
+
+    @JavascriptInterface fun loraImport() = activity.runOnUiThread { activity.pickLora.launch(arrayOf("*/*")) }
+
+    fun onLoraFile(uri: android.net.Uri) = async {
+        val display = runCatching {
+            activity.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull()
+        val name = (display ?: "adapter.gguf")
+            .replace(Regex("[^A-Za-z0-9._ -]"), "_").let { if (it.endsWith(".gguf")) it else "$it.gguf" }
+        val out = java.io.File(omega.loraDir(), name)
+        activity.contentResolver.openInputStream(uri)!!.use { i -> out.outputStream().use { i.copyTo(it) } }
+        if (!cz.axiom.omega.core.brain.Downloader.isGguf(out)) { out.delete(); Events.note("Soubor není GGUF adaptér."); return@async }
+        omega.settings.lora = name
+        cz.axiom.omega.engine.LocalEngine.release() // nasadí se při dalším dotazu nad aktivním mozkem
+        Events.emit("config", JSONObject(state()))
+        Events.note("Adaptér $name nahrán a zapnut – projeví se u dalšího dotazu.")
+    }
+
+    @JavascriptInterface
+    fun loraUse(name: String) {
+        omega.settings.lora = name.takeIf { it.isEmpty() || java.io.File(omega.loraDir(), it).exists() } ?: ""
+        cz.axiom.omega.engine.LocalEngine.release()
+        Events.emit("config", JSONObject(state()))
+        Events.note(if (name.isEmpty()) "Doladění vypnuto – základní mozek." else "Doladění $name zapnuto.")
+    }
+
+    @JavascriptInterface
+    fun loraDelete(name: String) = async {
+        java.io.File(omega.loraDir(), name).delete()
+        if (omega.settings.lora == name) { omega.settings.lora = ""; cz.axiom.omega.engine.LocalEngine.release() }
+        Events.emit("config", JSONObject(state()))
+    }
+
+    /** Export trénovacích dat (JSONL): oceněné odpovědi + vestavěná sada dovedností AVIORu. */
+    @JavascriptInterface
+    fun trainingExport() = async {
+        val system = "Jsi AVIOR – česká AI v telefonu. Odpovídáš česky, věcně a přesně, rozlišuješ fakta a odhady, " +
+            "čísla bereš ze STEP-0, jako agent používáš protokol MYŠLENKA/AKCE/OBSAH/HOTOVO."
+        val lines = omega.cognition.trainingJsonl(system).toMutableList()
+        runCatching { activity.assets.open("finetune/skills.jsonl").bufferedReader().readLines().filter { it.isNotBlank() } }.getOrNull()?.let { lines += it }
+        if (lines.isEmpty()) { Events.note("Zatím nemám data – hodnoť odpovědi ✓."); return@async }
+        val msg = omega.forge.save("avior-trenink.jsonl", "application/jsonl", lines.joinToString("\n").toByteArray())
+        Events.note("Trénovací data: ${lines.size} příkladů. $msg Návod: finetune/README.md v repozitáři.")
+    }
 
     @JavascriptInterface
     fun selfStudy() {

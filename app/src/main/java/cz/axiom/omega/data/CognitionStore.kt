@@ -84,6 +84,55 @@ class CognitionStore(context: Context, private val db: Db) {
         save(o)
     }
 
+    /**
+     * Uživatel odpověď ocenil (✓) → uloží se jako vzorová ukázka oblasti (few-shot v telefonu)
+     * a jako trénovací příklad pro doladění modelu (LoRA). Hodnocení ✗ ukázku z oblasti odstraní.
+     */
+    @Synchronized
+    fun exemplarRated(question: String, answer: String, good: Boolean) {
+        if (question.isBlank() || answer.isBlank()) return
+        val o = root()
+        val d = Cognition.domainOf(question)
+        val ex = o.optJSONObject("exemplars") ?: JSONObject()
+        val list = ex.optJSONArray(d.name) ?: JSONArray()
+        val k = Cognition.key(question)
+        val keep = JSONArray()
+        for (i in 0 until list.length()) list.getJSONObject(i).let { if (it.optString("key") != k) keep.put(it) }
+        if (good && answer.length in 40..4_000) keep.put(JSONObject().put("key", k).put("q", question.take(600)).put("a", answer.take(4_000)))
+        while (keep.length() > 5) keep.remove(0)
+        ex.put(d.name, keep); o.put("exemplars", ex)
+        val train = o.optJSONArray("training") ?: JSONArray()
+        if (good && answer.length in 40..8_000) {
+            train.put(JSONObject().put("q", question.take(2_000)).put("a", answer.take(8_000)).put("domain", d.name).put("time", System.currentTimeMillis()))
+            while (train.length() > 500) train.remove(0)
+        }
+        o.put("training", train)
+        save(o)
+    }
+
+    /** Nejnovější oceněná ukázka z oblasti – pro few-shot (zkrácená, aby šetřila kontext). */
+    fun exemplar(d: Domain): String? {
+        val list = root().optJSONObject("exemplars")?.optJSONArray(d.name) ?: return null
+        if (list.length() == 0) return null
+        val e = list.getJSONObject(list.length() - 1)
+        val a = e.getString("a")
+        if (a.length > 1_500) return null
+        return "UKÁZKA ODPOVĚDI, KTEROU UŽIVATEL OCENIL (napodob kvalitu, strukturu a styl – ne obsah):\nOtázka: ${e.getString("q").take(300)}\nOdpověď: $a"
+    }
+
+    fun trainingCount(): Int = root().optJSONArray("training")?.length() ?: 0
+
+    /** Trénovací data ve formátu chat JSONL (OpenAI/Unsloth/HF) – oceněné odpovědi. */
+    fun trainingJsonl(system: String): List<String> {
+        val t = root().optJSONArray("training") ?: return emptyList()
+        return (0 until t.length()).map { t.getJSONObject(it) }.map { e ->
+            JSONObject().put("messages", JSONArray()
+                .put(JSONObject().put("role", "system").put("content", system))
+                .put(JSONObject().put("role", "user").put("content", e.getString("q")))
+                .put(JSONObject().put("role", "assistant").put("content", e.getString("a")))).toString()
+        }
+    }
+
     fun openQuestions(): List<JSONObject> = root().optJSONArray("open")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } } ?: emptyList()
 
     @Synchronized
@@ -122,6 +171,7 @@ class CognitionStore(context: Context, private val db: Db) {
             .put("studied", o.optInt("studied")).put("domains", domains)
             .put("open", JSONArray().apply { openQuestions().forEach { put(it) } })
             .put("journal", o.optJSONArray("journal") ?: JSONArray())
+            .put("training", o.optJSONArray("training")?.length() ?: 0)
     }
 
     fun reset() = p.edit().clear().apply()

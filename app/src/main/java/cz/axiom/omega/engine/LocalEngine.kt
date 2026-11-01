@@ -50,6 +50,7 @@ object NativeLlama {
     external fun nativeCancel(handle: Long)
     external fun nativeStats(handle: Long): String
     external fun nativeFree(handle: Long)
+    external fun nativeSetLora(handle: Long, path: String, scale: Float): String
     external fun nativeLoadEmbedder(path: String, nThreads: Int): Long
     external fun nativeEmbed(handle: Long, text: String): FloatArray?
 }
@@ -108,7 +109,7 @@ class LocalEngine private constructor(
 ) : LlmEngine {
 
     override val id = "local:${file.name}"
-    override val label = spec?.name ?: file.nameWithoutExtension
+    override val label get() = (spec?.name ?: file.nameWithoutExtension) + (loraLabel?.let { " + $it" } ?: "")
     override val kind = EngineKind.LOCAL
     /** čeština ≈ 2,5 znaku/token; část kontextu nechat na odpověď */
     override val contextBudgetChars = (ctxTokens * 2.5 * 0.6).toInt()
@@ -161,6 +162,26 @@ class LocalEngine private constructor(
         )
     }
 
+    @Volatile private var loraKey = ""
+    /** Popis nasazeného LoRA adaptéru (doladění), nebo null. */
+    @Volatile var loraLabel: String? = null
+        private set
+
+    /** Nasadí/odebere LoRA adaptér; při chybě adaptér vypne a ohlásí důvod. */
+    fun applyLora(file: File?, scale: Float) {
+        val key = if (file != null && file.exists()) "${file.path}@$scale" else ""
+        if (key == loraKey) return
+        val err = runCatching { NativeLlama.nativeSetLora(handle, if (key.isEmpty()) "" else file!!.path, scale) }.getOrElse { it.message ?: "chyba" }
+        if (err.isEmpty()) {
+            loraKey = key
+            loraLabel = if (key.isEmpty()) null else file!!.nameWithoutExtension
+        } else {
+            runCatching { NativeLlama.nativeSetLora(handle, "", 0f) }
+            loraKey = ""; loraLabel = null
+            cz.axiom.omega.Events.note("Doladění (LoRA) se nepodařilo nasadit: $err")
+        }
+    }
+
     fun stats(): String = runCatching { NativeLlama.nativeStats(handle) }.getOrDefault("")
 
     fun close() = NativeLlama.nativeFree(handle)
@@ -169,8 +190,8 @@ class LocalEngine private constructor(
         @Volatile private var current: LocalEngine? = null
 
         @Synchronized
-        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int): LocalEngine {
-            current?.let { if (it.file == file && it.requestedCtx == ctxTokens) return it }
+        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int, lora: File? = null, loraScale: Float = 1f): LocalEngine {
+            current?.let { if (it.file == file && it.requestedCtx == ctxTokens) { it.applyLora(lora, loraScale); return it } }
             release()
             if (!NativeLlama.available(context)) {
                 throw EngineException("Lokální mozek není v tomto sestavení dostupný (${NativeLlama.loadError ?: "bez nativní knihovny"}).")
@@ -185,7 +206,7 @@ class LocalEngine private constructor(
             if (freeMb in 1..1_200 && ctx > 2048) ctx = 2048
             val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads)
             if (h == 0L) throw EngineException("Mozek se nepodařilo načíst (poškozený soubor nebo málo paměti RAM).")
-            return LocalEngine(h, spec, file, ctx, ctxTokens).also { current = it }
+            return LocalEngine(h, spec, file, ctx, ctxTokens).also { current = it; it.applyLora(lora, loraScale) }
         }
 
         @Synchronized

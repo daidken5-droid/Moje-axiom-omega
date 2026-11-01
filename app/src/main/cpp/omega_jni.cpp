@@ -55,6 +55,10 @@ struct Omega {
     std::mutex mu;
     int n_ctx = 0;
     int n_batch = 512;
+    // LoRA adaptér (doladění dovedností) – volitelný, nad základním modelem
+    llama_adapter_lora *lora = nullptr;
+    std::string lora_path;
+    float lora_scale = 0.f;
     // statistiky posledního běhu
     int st_prompt = 0, st_reused = 0, st_gen = 0, st_dropped = 0;
     double st_prompt_ms = 0, st_gen_ms = 0;
@@ -508,6 +512,44 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeEmbed(JNIEnv *env, jobject, jlong h
     }
     llama_batch_free(batch);
     return out;
+}
+
+/**
+ * Nasadí (nebo s prázdnou cestou odebere) LoRA adaptér GGUF nad načtený mozek.
+ * Adaptér musí být natrénovaný pro stejný základní model. Vrací "" = OK, jinak popis chyby.
+ */
+JNIEXPORT jstring JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeSetLora(JNIEnv *env, jobject, jlong h, jstring jpath, jfloat scale) {
+    auto *o = reinterpret_cast<Omega *>(h);
+    if (!o || !o->ctx) return env->NewStringUTF("mozek není načtený");
+    const char *cp = env->GetStringUTFChars(jpath, nullptr);
+    std::string path = cp ? cp : "";
+    env->ReleaseStringUTFChars(jpath, cp);
+    std::lock_guard<std::mutex> lk(o->mu);
+    if (path.empty()) {
+        llama_set_adapters_lora(o->ctx, nullptr, 0, nullptr);
+        if (o->lora) { llama_adapter_lora_free(o->lora); o->lora = nullptr; }
+        o->lora_path.clear();
+    } else {
+        if (path != o->lora_path) {
+            llama_adapter_lora *a = llama_adapter_lora_init(o->model, path.c_str());
+            if (!a) return env->NewStringUTF("adaptér nejde načíst (jiný základní model nebo poškozený soubor)");
+            llama_set_adapters_lora(o->ctx, nullptr, 0, nullptr);
+            if (o->lora) llama_adapter_lora_free(o->lora);
+            o->lora = a;
+            o->lora_path = path;
+        }
+        float sc = scale;
+        llama_adapter_lora *arr[1] = {o->lora};
+        if (llama_set_adapters_lora(o->ctx, arr, 1, &sc) != 0) return env->NewStringUTF("adaptér nejde nasadit");
+    }
+    o->lora_scale = scale;
+    // výstupy se mění → KV cache neplatí
+    llama_memory_t mem = llama_get_memory(o->ctx);
+    if (mem) llama_memory_clear(mem, true);
+    o->cached.clear();
+    LOGI("LoRA: %s (%.2f)", path.empty() ? "vypnuto" : path.c_str(), (double) scale);
+    return env->NewStringUTF("");
 }
 
 JNIEXPORT void JNICALL

@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     val pickMemory = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onMemoryFile) }
     val exportDb = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-sqlite3")) { uri -> uri?.let(bridge::onExport) }
     val importDb = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onRestore) }
+    val pickLora = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onLoraFile) }
     /** Hlasové zadávání: systémové rozpoznávání řeči (offline, pokud má telefon stažený český balík). */
     val voice = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val text = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
@@ -112,6 +113,7 @@ class MainActivity : ComponentActivity() {
         dispatch("resume", JSONObject())
         // samostudium otevřených otázek, když se telefon nabíjí na Wi-Fi
         window.decorView.postDelayed({ runCatching { bridge.maybeSelfStudy() } }, 4_000)
+        window.decorView.postDelayed({ runCatching { bridge.checkUpdate(false) } }, 6_000)
     }
 
     override fun onStop() {

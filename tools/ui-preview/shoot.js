@@ -26,6 +26,8 @@ const path = require('path');
   await p.evaluate(() => { go('chat'); kindSheet(); }); await shot('11-kind');
   await p.evaluate(() => { closeSheet(); selfSheet(); }); await shot('12-self');
   await p.evaluate(() => { closeSheet(); loadThread(4); live = null; go('chat'); }); await shot('15-apk');
+  await p.evaluate(() => { loadThread(5); go('chat'); }); await shot('21-pipeline');
+  await p.evaluate(() => { go('modules'); const d = [...document.querySelectorAll('.eyebrow')].find(e => e.textContent.includes('DOLADĚNÍ')); d && d.scrollIntoView(); }); await shot('22-doladeni');
   await p.evaluate(() => { variant = 'STUDIO'; kindSheet(); }); await shot('16-variants');
   await p.evaluate(() => { const o = Omega.state; Omega.state = () => { const j = JSON.parse(o()); j.job.busy = false; return JSON.stringify(j); }; closeSheet(); variant = 'AUTO'; threadId = 0; msgs = []; live = null; go('chat'); });
   await p.fill('#input', 'Vytvoř mi aplikaci APK na evidenci tankování'); await p.waitForTimeout(500); await shot('17-randy-hint');

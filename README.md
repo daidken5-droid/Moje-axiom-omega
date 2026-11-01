@@ -8,6 +8,20 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 4.1
+
+* **RANDY kombinuje podmodely.** Když úloha potřebuje víc dovedností, RANDY sestaví řetězec (max. 3 fáze) v logickém
+  pořadí *sběr → analýza → tvorba → kritika*; každá fáze navazuje na výstup předchozí. Příklady:
+  „rešerše … a Word dokument“ → Ω Deep Research → Ω Office; „navrhni a vytvoř aplikaci“ → Ω Think → Ω Studio;
+  „ověř, jestli hypotéka … stojí …“ → Ω Veritas → Ω Quant; „napiš skript a najdi slabiny“ → Ω Code → Ω Nemesis;
+  u rozhodnutí s penězi (plná pravomoc) → Ω Quant → Ω Nemesis (oponentura). Při slabé baterii jen 2 fáze.
+* **Doladění modelu a dovedností** ve třech vrstvách (viz [finetune/README.md](finetune/README.md)):
+  1. učení z každé otázky (4.0), 2. **ukázky** – odpověď oceněná ✓ se stane vzorem oblasti (few-shot v telefonu),
+  3. **LoRA**: export trénovacích dat (tvé ✓ odpovědi + sada ~90 dovedností `finetune/skills.jsonl`), trénink zdarma
+  na Kaggle (`finetune/train_lora.py`, Unsloth) a nahrání adaptéru `.gguf` do telefonu (llama.cpp `llama_set_adapters_lora`),
+  se zapnutím/vypnutím a silou 10–200 %.
+* **APK ke stažení** na stálém odkazu (níže) + kontrola aktualizací v aplikaci.
+
 ## Novinky 4.0 – AVIOR se učí z každé otázky
 
 Učební smyčka po každé odpovědi (`core/self/Cognition.kt`):
@@ -129,10 +143,13 @@ Klíč se do repozitáře nikdy neukládá.
 
 ## Stažení APK
 
-* **Actions → Build AXIOM Ω APK → artefakt `AXIOM-Omega-APK`** (každý push).
-* **Releases** – při tagu `v*` (např. `git tag v3.0.0 && git push --tags`) se APK přiloží k vydání.
-* Stabilní podpis (aktualizace bez odinstalace): přidej GitHub Secrets `OMEGA_KEYSTORE_B64`,
-  `OMEGA_KEYSTORE_PASSWORD`, `OMEGA_KEY_ALIAS`, `OMEGA_KEY_PASSWORD`. Bez nich se release podepíše debug klíčem.
+**Nejnovější verze vždy na stejném odkazu:**
+https://github.com/daidken5-droid/Moje-axiom-omega/releases/latest/download/AVIOR.apk
+
+* Každý push sestaví APK (GitHub Actions) a zveřejní ho v **Releases** jako `AVIOR.apk` (+ `AVIOR-<verze>.apk`, SHA-256, otisk podpisu).
+* Aplikace sama jednou denně zkontroluje novou verzi a nabídne stažení (Nastavení → Zkontrolovat aktualizace).
+* Podpis: s GitHub Secrets `OMEGA_KEYSTORE_B64`, `OMEGA_KEYSTORE_PASSWORD`, `OMEGA_KEY_ALIAS`, `OMEGA_KEY_PASSWORD`
+  tvým soukromým klíčem (doporučeno, návod v `ci/README.md`); bez nich náhradním klíčem ze soukromé cache CI.
 
 ## Vývoj
 

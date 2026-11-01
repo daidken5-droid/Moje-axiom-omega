@@ -130,7 +130,9 @@ class OmegaService : Service() {
         val competence = omega.cognition.competence(domain)
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
             weakDomain = if (learning && competence?.weak == true) domain.label else null), device, omega.randy.stats(), authority)
-        val insight = if (learning) selfInsight else null
+        // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
+        val exemplar = if (learning && omega.settings.ctxTokens >= 8192) omega.cognition.exemplar(domain) else null
+        val insight = if (learning) listOfNotNull(selfInsight, exemplar).joinToString("\n\n") else null
         val variant = plan.variant
         val forced = plan.level
         val job = omega.job
@@ -181,7 +183,11 @@ class OmegaService : Service() {
             var escalatedTo: cz.axiom.omega.core.agent.Variant? = null
             val meta: JSONObject
             val answer: String
-            when (route.mode) {
+            if (plan.pipeline.size >= 2 && route.mode != Router.Mode.COUNCIL) {
+                // RANDY ŘETĚZEC: víc podmodelů za sebou, každý navazuje na výstup předchozího
+                val (a, m) = runPipeline(plan, route.prompt, route.engine, route.reason, history, insight, watchdog, threadId, listener, cancel)
+                meta = m; answer = a
+            } else when (route.mode) {
                 Router.Mode.COUNCIL -> {
                     val (members, judge) = omega.councilMembers()
                     val r = omega.orchestrator().council(
@@ -248,7 +254,7 @@ class OmegaService : Service() {
                 .put("decisions", JSONArray().apply { plan.decisions.forEach { put(it) } })
                 .put("interventions", JSONArray().apply { watchdog.interventions.forEach { put(it) }; escalatedTo?.let { put("eskalace na ${it.title}") } })
             meta.put("randy", randyMeta)
-            omega.randy.record(finalVariant, meta.optLong("millis"), meta.optInt("confidence", -1).takeIf { it >= 0 }, escalatedTo != null)
+            if (meta.optString("mode") != "pipeline") omega.randy.record(finalVariant, meta.optLong("millis"), meta.optInt("confidence", -1).takeIf { it >= 0 }, escalatedTo != null)
             omega.randy.log(JSONObject().put("prompt", text.take(80)).put("summary", plan.summary).put("decisions", randyMeta.getJSONArray("decisions"))
                 .put("interventions", randyMeta.getJSONArray("interventions")).put("ms", meta.optLong("millis")))
             agentRole?.takeIf { route.mode == Router.Mode.AGENT }?.let { meta.put("role", it.title) }
@@ -277,6 +283,80 @@ class OmegaService : Service() {
             omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("error", true))
             Events.emit("error", JSONObject().put("threadId", threadId).put("message", msg))
         }
+    }
+
+    /** Provede řetězec podmodelů naplánovaný RANDY Supervisorem. */
+    private fun runPipeline(
+        plan: Sup.Plan, prompt: String, engineId: String, reason: String, history: List<ChatMessage>, insight: String?,
+        watchdog: Sup.Watchdog, threadId: Long, listener: AskListener, cancel: CancelToken,
+    ): Pair<String, JSONObject> {
+        val s = omega.settings
+        val engine = omega.resolve(engineId)
+        val local = engine.kind == EngineKind.LOCAL
+        val n = plan.pipeline.size
+        val taskId = omega.db.addTask(threadId, prompt, engine.label)
+        omega.job.kind = "agent"
+        val allSteps = JSONArray()
+        val stagesMeta = JSONArray()
+        var prev: Pair<Sup.Stage, String>? = null
+        var lastChat: AskResult? = null
+        var answer = ""
+        val started = System.currentTimeMillis()
+        try {
+            for ((i, stage) in plan.pipeline.withIndex()) {
+                cancel.check()
+                if (i > 0 && watchdog.overBudget()) break
+                val v = stage.variant
+                listener.onPhase("RANDY řetězec ${i + 1}/$n · ${v.title} · ${stage.purpose}")
+                val stagePrompt = if (prev == null) "$prompt\n\nTVOJE FÁZE 1/$n: ${stage.purpose}."
+                else buildString {
+                    append(prompt)
+                    append("\n\nVÝSTUP PŘEDCHOZÍ FÁZE (${prev!!.first.variant.title} – ${prev!!.first.purpose}), použij ho jako podklad:\n")
+                    append(cz.axiom.omega.core.util.TextUtil.clip(prev!!.second, if (local) 2_500 else 8_000))
+                    append("\n\nTVOJE FÁZE ${i + 1}/$n: ${stage.purpose}. Navaž na podklady, neopakuj je zbytečně.")
+                    if (i == n - 1) append(" Toto je poslední fáze – výsledek je finální odpověď pro uživatele.")
+                }
+                val t0 = System.currentTimeMillis()
+                val out: String
+                if (v.mode == Router.Mode.AGENT) {
+                    val r = omega.agent().run(stagePrompt, if (i == 0) history else emptyList(), engine, minOf(v.steps ?: s.agentSteps, 10), cancel, object : AgentListener {
+                        override fun onPhase(text: String) = listener.onPhase("${v.title} · $text")
+                        override fun onDelta(delta: Delta) = listener.onDelta(allSteps.length() + 1, 0, delta)
+                        override fun onStep(step: AgentStep) {
+                            val j = JSONObject().put("index", allSteps.length() + 1).put("thought", "[${v.title}] ${step.thought}").put("tool", step.tool ?: JSONObject.NULL)
+                                .put("args", step.args ?: JSONObject.NULL).put("observation", step.observation?.take(1_500) ?: JSONObject.NULL).put("millis", step.millis)
+                            allSteps.put(j)
+                            omega.db.updateTask(taskId, "running", allSteps.length(), null)
+                            Events.emit("step", j)
+                        }
+                    }, s.rates, s.userName.ifBlank { null }, v.role, listOfNotNull(v.style, insight).joinToString("\n").ifBlank { null }, v.temperature ?: 0.4f, watchdog)
+                    out = r.answer
+                } else {
+                    val r = omega.orchestrator().run(
+                        AskRequest(stagePrompt, if (i == 0) history else emptyList(), v.level, v.passes ?: if (local) s.localMaxPasses else s.maxPasses,
+                            s.reflect && i == n - 1, false, v.thinking ?: s.thinking, true, s.rates, s.userName.ifBlank { null }, v.style, v.temperature, insight),
+                        engine, cancel, listener,
+                    )
+                    lastChat = r
+                    out = r.answer
+                    allSteps.put(JSONObject().put("index", allSteps.length() + 1).put("thought", "[${v.title}] ${stage.purpose}").put("tool", JSONObject.NULL)
+                        .put("observation", out.take(600)).put("millis", r.millis))
+                }
+                val ms = System.currentTimeMillis() - t0
+                omega.randy.record(v, ms, if (v.mode == Router.Mode.AGENT) null else lastChat?.confidence, false)
+                stagesMeta.put(JSONObject().put("variant", v.title).put("purpose", stage.purpose).put("millis", ms).put("preview", out.take(240)))
+                prev = stage to out
+                answer = out
+            }
+        } catch (e: Exception) {
+            omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", allSteps.length(), e.message)
+            throw e
+        }
+        omega.db.updateTask(taskId, "done", allSteps.length(), answer)
+        val meta = (lastChat?.takeIf { plan.pipeline.last().variant.mode != Router.Mode.AGENT }?.let { metaOf(it) } ?: JSONObject())
+            .put("mode", "pipeline").put("engine", engine.label).put("millis", System.currentTimeMillis() - started)
+            .put("route", reason).put("steps", allSteps).put("pipeline", stagesMeta).put("taskId", taskId)
+        return answer to meta
     }
 
     private fun metaOf(r: AskResult): JSONObject = JSONObject()

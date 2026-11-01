@@ -134,6 +134,8 @@ class Omega private constructor(val app: Context) {
         }
     }
 
+    fun loraDir() = java.io.File(app.filesDir, "lora").apply { mkdirs() }
+
     val randy by lazy { cz.axiom.omega.data.RandyStore(app) }
     val cognition by lazy { cz.axiom.omega.data.CognitionStore(app, db) }
 
@@ -175,7 +177,8 @@ class Omega private constructor(val app: Context) {
 
     fun local(): LocalEngine {
         val (file, spec) = brains.active() ?: throw EngineException("Lokální mozek není stažený. Otevři Mozky a stáhni doporučený.")
-        return LocalEngine.obtain(app, file, spec, settings.ctxTokens)
+        val lora = settings.lora.takeIf { it.isNotBlank() }?.let { java.io.File(loraDir(), it) }?.takeIf { it.exists() }
+        return LocalEngine.obtain(app, file, spec, settings.ctxTokens, lora, settings.loraScale / 100f)
     }
 
     fun kimi(): KimiEngine {

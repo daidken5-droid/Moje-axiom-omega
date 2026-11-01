@@ -95,6 +95,13 @@ class Settings(context: Context) {
     var selfStudy: Boolean
         get() = p.getBoolean("selfStudy", true)
         set(v) = p.edit().putBoolean("selfStudy", v).apply()
+    /** Doladění: aktivní LoRA adaptér (název souboru v files/lora) a jeho síla v %. */
+    var lora: String
+        get() = p.getString("lora", "")!!
+        set(v) = p.edit().putString("lora", v).apply()
+    var loraScale: Int
+        get() = p.getInt("loraScale", 100)
+        set(v) = p.edit().putInt("loraScale", v.coerceIn(10, 200)).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
         set(v) = p.edit().putBoolean("onboarded", v).apply()
@@ -118,7 +125,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("learning", learning).put("selfStudy", selfStudy)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -146,6 +153,8 @@ class Settings(context: Context) {
         if (o.has("randyAuthority")) randyAuthority = o.getString("randyAuthority")
         if (o.has("learning")) learning = o.getBoolean("learning")
         if (o.has("selfStudy")) selfStudy = o.getBoolean("selfStudy")
+        if (o.has("lora")) lora = o.getString("lora").takeIf { it.isEmpty() || it.matches(Regex("[A-Za-z0-9._ -]{1,120}")) } ?: ""
+        if (o.has("loraScale")) loraScale = o.getInt("loraScale")
     }
 
     private fun checkModelId(id: String) {

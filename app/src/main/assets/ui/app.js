@@ -227,6 +227,8 @@ function renderChat() {
     const ready = (S.engines || []).length > 0;
     main.innerHTML = `<div class="wrap"><section class="hero">
       <div class="orbit">${appIcon()}</div>
+      ${S.update ? `<div class="card glow" style="text-align:left"><b>Nová verze AVIOR ${esc(S.update.version)}</b><p class="small muted" style="margin:4px 0 10px">Máš ${esc(S.update.current)}. Aktualizace zachová mozek, Wikipedii i paměť.</p>
+        <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
       ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
@@ -257,14 +259,16 @@ function msgHtml(m, last) {
     return `<div class="msg ai error"><div class="head">${logo()}<span class="meta">CHYBA</span></div><div class="body">${esc(m.content)}</div>
       <div class="tools"><button data-retry="${m.id}">Zkusit znovu</button><button data-go="modules">Moduly</button></div></div>`;
   }
-  const agent = meta.mode === 'agent';
-  const label = [meta.randy && meta.randy.chosen && meta.variant ? 'RANDY → ' + meta.variant : meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
+  const agent = meta.mode === 'agent' || meta.mode === 'pipeline';
+  const chain = meta.mode === 'pipeline' && meta.pipeline ? meta.pipeline : null;
+  const label = chain ? 'RANDY → ' + chain.map(c => c.variant).join(' → ') : [meta.randy && meta.randy.chosen && meta.variant ? 'RANDY → ' + meta.variant : meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
   const files = (meta.files || []).map(f => fileCard(f, f.local || f.uri)).join('');
   const headTxt = [label, meta.engine, secs(meta.millis)].filter(Boolean).join(' · ');
   const det = [];
   const rd = meta.randy;
   if (rd) det.unshift(`<div class="sub">RANDY · DOHLED (${esc(rd.authority || '')})</div><div class="randy-log"><b>${esc(rd.summary)}</b>` +
     [...(rd.decisions || []).map(x => `<span>› ${esc(x)}</span>`), ...(rd.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`)].join('') + '</div>');
+  if (chain) det.push(`<div class="sub">ŘETĚZEC PODMODELŮ</div>` + chain.map((c, i) => `<div class="step"><b>${i + 1}. ${esc(c.variant)}</b> · ${esc(c.purpose)} · ${secs(c.millis)}<div class="obs">${esc(c.preview || '')}</div></div>`).join(''));
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
@@ -429,6 +433,9 @@ function renderModules() {
     <div class="eyebrow">ROZŠÍŘENÍ</div>
     ${sense.map(b => brainCard(b, job, `Indexováno: ${(J('packs') || { stats: {} }).stats.vectors || 0} úseků`)).join('')}
 
+    <div class="eyebrow">DOLADĚNÍ · DOVEDNOSTI A LoRA</div>
+    ${tuningHtml()}
+
     <div class="eyebrow">HUGGING FACE</div>
     ${card(`<div class="row"><input type="search" id="hfq" placeholder="Hledat GGUF model (např. gemma 4)" value="${esc(hf.q)}"><button class="btn sm" data-hf-search>Hledat</button></div>
       <div id="hfres">${hfHtml()}</div>
@@ -464,6 +471,22 @@ function renderModules() {
       <div id="models-claude"></div>
       <div class="grid2"><button class="btn sm" data-save-key="claude">Uložit</button><button class="btn sm" data-test="claude">Ověřit</button></div>`)}
   </div>`;
+}
+
+function tuningHtml() {
+  const t = J('tuning') || { adapters: [], training: 0 };
+  const st = S.settings || {};
+  return card(`<div class="row" style="gap:12px"><span class="v-ic">◆</span><span class="grow"><b>Doladění mozku</b>
+      <small class="muted" style="display:block">${t.base ? 'Základ: ' + esc(t.base) : 'Nejdřív stáhni mozek do telefonu.'}</small></span></div>
+    <p class="small">Každá odpověď, kterou oceníš ✓, se stane vzorem pro danou oblast (doladění v telefonu). Pro skutečné doladění vah natrénuj LoRA adaptér zdarma na Kaggle a nahraj ho sem.</p>
+    <div class="grid2"><div class="stat"><b>${t.training}</b><small>OCENĚNÝCH ODPOVĚDÍ</small></div><div class="stat"><b>${t.adapters.length}</b><small>ADAPTÉRŮ</small></div></div>
+    ${t.adapters.map(a => `<div class="row pack"><span class="grow small"><b>${esc(a.name)}</b><br><span class="muted">${a.mb} MB</span></span>
+      ${t.active === a.name ? '<span class="badge good">ZAPNUTO</span>' : `<button class="btn sm" data-lora-use="${esc(a.name)}">Zapnout</button>`}
+      <button class="icon-btn" data-lora-del="${esc(a.name)}" aria-label="Smazat">${ICONS.trash}</button></div>`).join('')}
+    ${t.active ? `<label>Síla doladění · ${st.loraScale || t.scale} %</label><input type="range" min="10" max="200" step="10" value="${st.loraScale || t.scale}" data-range="loraScale" style="width:100%">
+      <button class="link" data-lora-use="">Vypnout doladění</button>` : ''}
+    <div class="grid2" style="margin-top:10px"><button class="btn sm" data-lora-import>Nahrát adaptér</button><button class="btn sm primary" data-training-export>Exportovat data</button></div>
+    <button class="link" data-open="https://github.com/daidken5-droid/Moje-axiom-omega/tree/claude/reverse-engineer-ai-app-o5jhyd/finetune">Návod: trénink zdarma na Kaggle ↗</button>`);
 }
 
 function conn(id, ic, title, ok, body) {
@@ -602,6 +625,7 @@ function renderSystem() {
       <label>Písmo · ${st.font}px</label><input type="range" min="13" max="21" value="${st.font}" data-range="font" style="width:100%">
       <label>Jak ti mám říkat</label><input type="text" data-text="userName" value="${esc(st.userName)}">`)}
     <button class="btn wide" data-self>Vědomí AVIORu</button>
+    ${S.update ? `<button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout AVIOR ${esc(S.update.version)}</button>` : '<button class="btn wide" data-check-update>Zkontrolovat aktualizace</button>'}
     <button class="btn danger wide" data-cognition-reset>Vymazat paměť učení</button>
     <button class="btn danger wide" data-forget-keys>Odstranit všechny klíče</button>
     <p class="small mono muted" style="text-align:center;margin-top:16px">${esc(S.name)} ${esc(S.version)} · kurzy ${esc(st.rates)}</p>
@@ -724,6 +748,7 @@ window.omegaReceive = function (type, d) {
       break;
     }
     case 'note': toast(d.text); break;
+    case 'update': S.update = d; if (view === 'chat' && !msgs.length) renderChat(); if (view === 'system') renderSystem(); toast('Nová verze AVIOR ' + d.version + ' je k dispozici.'); break;
     case 'file': toast('Vytvořeno: ' + d.name); haptic(); if (view === 'agents') renderAgents(); break;
     case 'config': S = d; refresh(); if (view === 'system') renderSystem(); break;
     case 'tasks': if (view === 'agents') renderAgents(); break;
@@ -777,7 +802,7 @@ document.addEventListener('click', e => {
   if (ds.rate) {
     const m = msgs.find(x => x.id === Number(ds.rate));
     if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1');
-      { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
+      { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, m.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
   if (ds.retry) { const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
@@ -818,6 +843,11 @@ document.addEventListener('click', e => {
   if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
+  if (ds.checkUpdate !== undefined) { toast('Kontroluji…'); call('checkUpdate', true); return; }
+  if (ds.loraImport !== undefined) { call('loraImport'); return; }
+  if (ds.loraUse !== undefined) { call('loraUse', ds.loraUse); setTimeout(() => view === 'modules' && renderModules(), 200); return; }
+  if (ds.loraDel) { if (confirm('Smazat adaptér ' + ds.loraDel + '?')) { call('loraDelete', ds.loraDel); setTimeout(() => view === 'modules' && renderModules(), 300); } return; }
+  if (ds.trainingExport !== undefined) { toast('Připravuji trénovací data…'); call('trainingExport'); return; }
   if (ds.study !== undefined) { call('selfStudy'); closeSheet(); return; }
   if (ds.cognitionReset !== undefined) { if (confirm('Vymazat vše, co jsem se naučil (kompetence, deník, otevřené otázky)? Poznatky ve znalostech zůstanou.')) call('cognitionReset'); return; }
   if (ds.randyReset !== undefined) { if (confirm('Vynulovat statistiky RANDY?')) { call('randyReset'); renderSystem(); } return; }

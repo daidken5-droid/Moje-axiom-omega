@@ -31,8 +31,8 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 400
-        versionName = "4.0.0-avior"
+        versionCode = 410
+        versionName = "4.1.0"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
         if (withNative) {
@@ -112,6 +112,7 @@ android {
 val omegaAssets by tasks.registering(Sync::class) {
     from(rootProject.file("brains")) { into("brains") }
     from(rootProject.file("packs")) { into("packs"); include("*.md", "catalog.json") }
+    from(rootProject.file("finetune")) { into("finetune"); include("skills.jsonl") }
     into(layout.buildDirectory.dir("generated/omegaAssets"))
 }
 // Šablona pro aplikace vyráběné v telefonu (modul :shell) → assets/forge/shell.apk

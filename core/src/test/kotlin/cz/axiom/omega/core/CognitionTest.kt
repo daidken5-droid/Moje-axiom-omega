@@ -51,3 +51,14 @@ class CognitionTest {
         assertEquals(Variant.THINK, p.variant)
     }
 }
+
+class UpdatesTest {
+    @Test fun comparesVersions() {
+        val U = cz.axiom.omega.core.update.Updates
+        assertTrue(U.newer("avior-v4.1.0", "4.0.0"))
+        assertTrue(U.newer("avior-v4.10.0", "4.9.3"))
+        assertFalse(U.newer("avior-v4.1.0", "4.1.0"))
+        assertFalse(U.newer("avior-v4.0.9", "4.1.0-debug"))
+        assertEquals(listOf(4, 1, 0), U.parse("avior-v4.1.0"))
+    }
+}

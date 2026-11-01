@@ -84,9 +84,15 @@ object Supervisor {
         val decisions: List<String>,
         val chosenByRandy: Boolean,
         val authority: Authority,
+        /** Řetězec podmodelů (2–3 fáze), když úloha potřebuje víc dovedností za sebou. Prázdný = jedna varianta. */
+        val pipeline: List<Stage> = emptyList(),
     ) {
-        val summary get() = "RANDY → ${variant.title}" + (role?.let { " · ${it.title}" } ?: "") + (level?.let { " · ${it.code}" } ?: "")
+        val summary get() = if (pipeline.size >= 2) "RANDY → " + pipeline.joinToString(" → ") { it.variant.title }
+        else "RANDY → ${variant.title}" + (role?.let { " · ${it.title}" } ?: "") + (level?.let { " · ${it.code}" } ?: "")
     }
+
+    /** Jedna fáze řetězce: varianta + co má v řetězci udělat. */
+    data class Stage(val variant: Variant, val purpose: String)
 
     // ------------------------------------------------------------------ 1) plán
 
@@ -99,6 +105,8 @@ object Supervisor {
     private val code = Regex("(?i)\\b(kod|skript\\w*|program\\w*|python|kotlin|javascript|funkc\\w* v|regex|sql|bug)")
     private val app = Regex("(?i)\\b(apk|aplikac\\w*|appk\\w*)")
     private val office = Regex("(?i)\\b(docx|word\\w*|pdf|smlouv\\w*|dopis\\w*|faktur\\w*|zadost\\w*|vypoved\\w*|plnou moc|zapis z)")
+    private val critique = Regex("(?i)\\b(kritik\\w*|slabin\\w*|rizik\\w*|red.?team|oponentur\\w*|co muze selhat|najdi chyby|zkontroluj|over spravnost)")
+    private val decision = Regex("(?i)\\b(vyplati|mam (si )?(koupit|vsadit|investovat|vzit)|rozhodni|doporuc\\w*|stoji (to )?za to)")
     private val make = Regex("(?i)\\b(vytvor|vygeneruj|udelej|naprogramuj|napis|uloz|exportuj|priprav|sestav|vyrob)")
 
     fun plan(req: Request, device: Device, stats: Map<Variant, VariantStat>, authority: Authority): Plan {
@@ -178,13 +186,53 @@ object Supervisor {
             }
         }
 
-        val mayEscalate = authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !(device.local && (device.lowPower || device.hot))
+        // e) KOMBINACE PODMODELŮ: úloha potřebuje víc dovedností za sebou → řetězec
+        var pipeline = emptyList<Stage>()
+        if (!explicitAny && authority != Authority.ADVISORY) {
+            pipeline = pipelineFor(f, req.toolsOnline, authority, device.local && (device.lowPower || device.hot))
+            if (pipeline.size >= 2) {
+                why += "úloha potřebuje víc dovedností → řetězec " + pipeline.joinToString(" → ") { it.variant.title }
+                v = pipeline.last().variant
+                budget = (budget * pipeline.size).coerceAtMost(12 * 60_000L)
+            }
+        }
+
+        val mayEscalate = pipeline.isEmpty() && authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !(device.local && (device.lowPower || device.hot))
         if (authority == Authority.ADVISORY) {
             // poradní režim: nic nemění, jen radí
             return Plan(req.variant, req.kind ?: req.variant.mode, req.role ?: req.variant.role, req.level ?: req.variant.level, req.variant.passes,
                 req.variant.thinking, req.variant.steps, budget, false, why.ifEmpty { listOf("poradní režim – bez zásahu") }, false, authority)
         }
-        return Plan(v, mode, role, level, passes, thinking, steps, budget, mayEscalate, why, chosen, authority)
+        return Plan(v, if (pipeline.size >= 2) v.mode else mode, if (pipeline.size >= 2) v.role else role, if (pipeline.size >= 2) v.level else level,
+            passes, thinking, steps, budget, mayEscalate, why, chosen || pipeline.size >= 2, authority, pipeline)
+    }
+
+    /**
+     * Rozpozná, že úloha potřebuje víc podmodelů, a seřadí je logicky:
+     * sběr (rešerše, ověření) → analýza (výpočet, úvaha) → tvorba (text, kód, aplikace, dokument) → kritika.
+     */
+    fun pipelineFor(f: String, online: Boolean, authority: Authority, saving: Boolean): List<Stage> {
+        val makes = make.containsMatchIn(f)
+        val found = LinkedHashMap<Variant, String>()
+        if (research.containsMatchIn(f)) found[if (online) Variant.RESEARCH else Variant.THINK] = if (online) "sběr a ověření podkladů z více zdrojů" else "promyšlení z offline knihovny"
+        if (verify.containsMatchIn(f)) found[Variant.VERITAS] = "ověření tvrzení a důkazů"
+        if (quant.containsMatchIn(f) && Regex("\\d").containsMatchIn(f)) found[Variant.QUANT] = "přesný výpočet a čísla"
+        if (deep.containsMatchIn(f) && (makes || found.isNotEmpty())) found.putIfAbsent(Variant.THINK, "návrh a promyšlení řešení")
+        if (creative.containsMatchIn(f)) found[Variant.MUSE] = "tvůrčí text"
+        if (makes && code.containsMatchIn(f) && !app.containsMatchIn(f)) found[Variant.CODE] = "napsání a uložení kódu"
+        if (makes && app.containsMatchIn(f)) found[Variant.STUDIO] = "výroba aplikace (APK)"
+        if (makes && office.containsMatchIn(f)) found[Variant.OFFICE] = "zpracování do dokumentu"
+        if (critique.containsMatchIn(f) && found.isNotEmpty()) found[Variant.NEMESIS] = "kritická kontrola a rizika"
+        // vysoké sázky: výpočet + rozhodnutí → s plnou pravomocí přidej oponenturu
+        if (authority == Authority.FULL && Variant.QUANT in found && decision.containsMatchIn(f) && Variant.NEMESIS !in found) {
+            found[Variant.NEMESIS] = "oponentura rozhodnutí (vysoké sázky)"
+        }
+        if (found.size < 2) return emptyList()
+        val order = listOf(Variant.RESEARCH, Variant.VERITAS, Variant.QUANT, Variant.THINK, Variant.MUSE, Variant.CODE, Variant.STUDIO, Variant.OFFICE, Variant.NEMESIS)
+        val stages = order.filter { it in found }.map { Stage(it, found.getValue(it)) }
+        val max = if (saving) 2 else 3
+        // drž poslední (výstupní) fázi: když je moc fází, vynech prostřední
+        return if (stages.size <= max) stages else stages.take(max - 1) + stages.last()
     }
 
     // ------------------------------------------------------------------ 2) eskalace

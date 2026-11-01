@@ -56,19 +56,48 @@ jobs:
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/omega.jks"
             echo "OMEGA_KEYSTORE_PATH=$RUNNER_TEMP/omega.jks" >> "$GITHUB_ENV"
+            echo "Podpis: vlastní klíč z GitHub Secrets"
+          else
+            echo "OMEGA_FALLBACK_SIGNING=1" >> "$GITHUB_ENV"
+            echo "Podpis: náhradní klíč ze soukromé cache CI (viz ci/README.md)"
           fi
+      - name: Náhradní podpisový klíč (soukromá cache CI, jen bez Secrets)
+        if: env.OMEGA_FALLBACK_SIGNING == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.avior-signing
+          key: avior-signing-v1
+      - name: Příprava náhradního klíče
+        if: env.OMEGA_FALLBACK_SIGNING == '1'
+        run: |
+          mkdir -p ~/.avior-signing
+          if [ ! -f ~/.avior-signing/key.p12 ]; then
+            openssl rand -hex 24 > ~/.avior-signing/pass
+            keytool -genkeypair -alias avior -keyalg RSA -keysize 2048 -validity 12000 -dname "CN=AVIOR CI, O=AVIOR" \
+              -storetype PKCS12 -keystore ~/.avior-signing/key.p12 -storepass "$(cat ~/.avior-signing/pass)" -keypass "$(cat ~/.avior-signing/pass)"
+          fi
+          echo "OMEGA_KEYSTORE_PATH=$HOME/.avior-signing/key.p12" >> "$GITHUB_ENV"
       - name: Sestavení APK
         env:
-          OMEGA_KEYSTORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}
-          OMEGA_KEY_ALIAS: ${{ secrets.OMEGA_KEY_ALIAS }}
-          OMEGA_KEY_PASSWORD: ${{ secrets.OMEGA_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease :app:assembleDebug --no-daemon -Pomega.abis=arm64-v8a
+          SECRET_STORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.OMEGA_KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.OMEGA_KEY_PASSWORD }}
+        run: |
+          if [ "$OMEGA_FALLBACK_SIGNING" = "1" ]; then
+            P="$(cat ~/.avior-signing/pass)"; echo "::add-mask::$P"
+            export OMEGA_KEYSTORE_PASSWORD="$P" OMEGA_KEY_ALIAS=avior OMEGA_KEY_PASSWORD="$P"
+          else
+            export OMEGA_KEYSTORE_PASSWORD="$SECRET_STORE_PASSWORD" OMEGA_KEY_ALIAS="$SECRET_KEY_ALIAS" OMEGA_KEY_PASSWORD="$SECRET_KEY_PASSWORD"
+          fi
+          ./gradlew :app:assembleRelease :app:assembleDebug --no-daemon -Pomega.abis=arm64-v8a
       - name: Pojmenování
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk "dist/AVIOR-${GITHUB_SHA::7}.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/AVIOR-${GITHUB_SHA::7}-debug.apk"
           (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "dist/AVIOR-${GITHUB_SHA::7}.apk" | tee dist/SIGNING.txt
           unzip -l dist/AVIOR-*-debug.apk | grep -E "lib/arm64-v8a/.*\.so" || (echo "Chybí nativní knihovny" && exit 1)
       - name: APK ke stažení
         uses: actions/upload-artifact@v4
@@ -95,3 +124,45 @@ jobs:
             dist/*.apk
             dist/SHA256SUMS.txt
           generate_release_notes: true
+
+  publish:
+    name: APK ke stažení (GitHub Releases)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+    needs: apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: AVIOR-APK
+          path: dist
+      - name: Verze a soubory
+        run: |
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          mkdir -p rel
+          cp dist/AVIOR-${GITHUB_SHA::7}.apk rel/AVIOR.apk
+          cp dist/AVIOR-${GITHUB_SHA::7}.apk "rel/AVIOR-$VER.apk"
+          (cd rel && sha256sum *.apk > SHA256SUMS.txt)
+          cp dist/SIGNING.txt rel/ || true
+          cat rel/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: avior-v${{ env.VER }}
+          target_commitish: ${{ github.sha }}
+          name: "AVIOR ${{ env.VER }}"
+          make_latest: true
+          body: |
+            **AVIOR ${{ env.VER }}** – sestaveno z ${{ github.sha }} (větev ${{ github.ref_name }}).
+
+            Stáhni **AVIOR.apk** a nainstaluj (povol instalaci z prohlížeče / správce souborů).
+            Stálý odkaz na nejnovější verzi: https://github.com/${{ github.repository }}/releases/latest/download/AVIOR.apk
+
+            Mozek, Wikipedie a doladění se stahují v aplikaci. Otisk podpisu je v SIGNING.txt.
+          files: |
+            rel/AVIOR.apk
+            rel/AVIOR-${{ env.VER }}.apk
+            rel/SHA256SUMS.txt
+            rel/SIGNING.txt

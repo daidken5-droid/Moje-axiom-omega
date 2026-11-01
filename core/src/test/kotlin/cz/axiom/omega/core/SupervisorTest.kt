@@ -91,3 +91,37 @@ class SupervisorTest {
         assertTrue(st.efficiency!! in 0..100)
     }
 }
+
+class PipelineTest {
+    private val ok = Device(batteryPct = 80, charging = false, online = true)
+    private fun plan(t: String, a: Authority = Authority.GOVERN, d: Device = ok, online: Boolean = true) =
+        Supervisor.plan(Request(t, toolsOnline = online), d, emptyMap(), a)
+
+    @Test fun combinesSubModels() {
+        assertEquals(listOf(Variant.RESEARCH, Variant.OFFICE), plan("Udělej rešerši trhu s tepelnými čerpadly a připrav z toho Word dokument").pipeline.map { it.variant })
+        assertEquals(listOf(Variant.THINK, Variant.STUDIO), plan("Navrhni a vytvoř aplikaci APK na evidenci tankování").pipeline.map { it.variant })
+        assertEquals(listOf(Variant.VERITAS, Variant.QUANT), plan("Ověř, jestli je pravda, že hypotéka 4 000 000 na 30 let při 5 % stojí 21 500 měsíčně").pipeline.map { it.variant })
+        assertEquals(listOf(Variant.CODE, Variant.NEMESIS), plan("Napiš Python skript na zálohu fotek a zkontroluj jeho slabiny").pipeline.map { it.variant })
+        val p = plan("Udělej rešerši trhu s tepelnými čerpadly a připrav z toho Word dokument")
+        assertEquals(Variant.OFFICE, p.variant)
+        assertTrue(p.summary.contains("Ω Deep Research → Ω Office"))
+    }
+
+    @Test fun highStakesGetCritiqueWithFullAuthority() {
+        assertEquals(listOf(Variant.QUANT, Variant.NEMESIS), plan("Vyplatí se mi koupit byt za 5 000 000 při úroku 4,9 %?", Authority.FULL).pipeline.map { it.variant })
+        assertTrue(plan("Vyplatí se mi koupit byt za 5 000 000 při úroku 4,9 %?", Authority.GOVERN).pipeline.isEmpty())
+    }
+
+    @Test fun simpleQuestionsStaySingle() {
+        assertTrue(plan("Jak funguje tepelné čerpadlo?").pipeline.isEmpty())
+        assertTrue(plan("Vytvoř mi aplikaci APK na poznámky").pipeline.isEmpty())
+        assertTrue(Supervisor.plan(Request("Udělej rešerši a připrav Word dokument", Variant.QUANT), ok, emptyMap(), Authority.FULL).pipeline.isEmpty())
+    }
+
+    @Test fun savingModeShortensChain() {
+        val low = Device(batteryPct = 10, charging = false)
+        val p = plan("Udělej rešerši, ověř tvrzení, navrhni řešení a vytvoř aplikaci APK a najdi slabiny", d = low)
+        assertTrue(p.pipeline.size <= 2)
+        assertEquals(Variant.NEMESIS, p.pipeline.last().variant)
+    }
+}

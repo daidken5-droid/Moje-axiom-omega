@@ -20,3 +20,6 @@ Po každé odpovědi proběhne učební smyčka: otázka se zařadí do oblasti 
 
 ## RANDY Supervisor
 RANDY je nadřazený řídicí modul: před každým dotazem zvolí Ω variantu, režim, roli agenta, hloubku a zdroje; řídí výkon podle baterie, teploty a RAM; hlídá agenty (smyčky, selhávající nástroje, čas); nejistou odpověď eskaluje na silnější variantu a učí se z výsledků. Ve slabé oblasti (podle sebepoznání) volí důkladnější postup.
+
+## Řetězce podmodelů
+Když úloha potřebuje víc dovedností, RANDY spojí podmodely do řetězce (max. 3 fáze) v pořadí sběr → analýza → tvorba → kritika, např. Ω Deep Research → Ω Office nebo Ω Think → Ω Studio. Každá fáze dostane výstup předchozí jako podklad; poslední fáze dává finální odpověď.
