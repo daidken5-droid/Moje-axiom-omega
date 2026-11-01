@@ -364,3 +364,94 @@ button, .btn, .opt { -webkit-tap-highlight-color: transparent; }
 .btn:active, .opt:active, .tools button:active { transform: scale(.98); }
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation: none !important; transition: none !important; } }
 body.platinum .composer .box { box-shadow: 0 6px 24px rgba(20, 22, 26, .08); }
+
+/* ---------- v3.4: TITAN – kartáčovaný kov, jemné hrany, hloubka ---------- */
+:root {
+  --ti-grad: linear-gradient(135deg, #fbfcfd 0%, #c3c8cf 18%, #f1f3f5 36%, #8d939c 58%, #dfe2e6 78%, #a6acb4 100%);
+  --ti-edge: linear-gradient(140deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .06) 30%, rgba(255, 255, 255, .02) 60%, rgba(255, 255, 255, .28));
+  --ti-brush: repeating-linear-gradient(90deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px);
+  --glass: rgba(14, 17, 24, .72);
+}
+body.platinum {
+  --ti-grad: linear-gradient(135deg, #2a2f37 0%, #50565f 22%, #1b1f25 45%, #6a7079 70%, #2c3138 100%);
+  --ti-edge: linear-gradient(140deg, rgba(0, 0, 0, .28), rgba(0, 0, 0, .05) 35%, rgba(0, 0, 0, .02) 60%, rgba(0, 0, 0, .18));
+  --ti-brush: repeating-linear-gradient(90deg, rgba(0, 0, 0, .02) 0 1px, transparent 1px 3px);
+  --glass: rgba(255, 255, 255, .78);
+}
+body { background: radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, .06), transparent 60%), var(--bg); }
+body.platinum { background: radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, .9), transparent 60%), var(--bg); }
+
+/* hlavička a lišta: sklo + titanová linka */
+header.top { background: var(--glass); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4); border-bottom: 0; position: relative; }
+header.top:after, nav.tabs:before {
+  content: ""; position: absolute; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--ti3) 20%, var(--ti1) 50%, var(--ti3) 80%, transparent); opacity: .55;
+}
+header.top:after { bottom: 0; }
+nav.tabs { position: relative; border-top: 0; background: var(--glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+nav.tabs:before { top: 0; }
+nav.tabs button { position: relative; transition: color .2s; }
+nav.tabs button.on:before {
+  content: ""; position: absolute; top: 2px; width: 46px; height: 30px; border-radius: 12px; z-index: -1;
+  background: linear-gradient(var(--panel2), var(--panel2)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent;
+}
+.chip { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
+header.top .brand b { background: var(--ti-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* karty s kovovou hranou */
+.card, .suggest button, .vcard, .rcard, .file {
+  border: 1px solid transparent;
+  background: var(--ti-brush), linear-gradient(180deg, var(--panel), var(--bg2)) padding-box, var(--ti-edge) border-box;
+}
+.card.glow { box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 18px 50px -24px rgba(255, 255, 255, .35); }
+
+/* titanová tlačítka: kov + odlesk */
+.btn.primary, .send:not(.stop) {
+  background: var(--ti-grad); color: #07080c; border: 0; position: relative; overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), inset 0 -1px 0 rgba(0, 0, 0, .25), 0 6px 18px -8px rgba(0, 0, 0, .6);
+}
+body.platinum .btn.primary, body.platinum .send:not(.stop) { color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 6px 18px -8px rgba(0, 0, 0, .4); }
+.btn.primary:after, .send:not(.stop):after {
+  content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .55) 48%, transparent 66%);
+  transform: translateX(-120%); animation: sheen 5.5s ease-in-out infinite;
+}
+@keyframes sheen { 0%, 70% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.send.stop { background: var(--bad); }
+
+/* Ω varianty a role agentů */
+.vgrid, .rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rgrid { margin: 4px 0 4px; }
+.vcard, .rcard { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 11px 12px; border-radius: 16px; min-height: 84px; transition: transform .15s; }
+.vcard b, .rcard b { font-size: .88rem; margin-top: 5px; }
+.vcard small, .rcard small { font-size: .72rem; color: var(--muted); line-height: 1.3; }
+.vcard i { position: absolute; top: 10px; right: 10px; font: 8px var(--mono); letter-spacing: 1px; font-style: normal; color: var(--muted); border: 1px solid var(--line2); border-radius: 5px; padding: 2px 4px; }
+.vcard.on, .rcard.on { background: var(--ti-brush), linear-gradient(180deg, var(--panel2), var(--panel)) padding-box, var(--ti-grad) border-box; box-shadow: 0 10px 30px -18px rgba(255, 255, 255, .5); }
+.vcard:active, .rcard:active { transform: scale(.97); }
+.v-ic { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font: 600 11px var(--mono); color: #07080c; background: var(--ti-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7); }
+body.platinum .v-ic { color: #fff; }
+.s-ic { color: #07080c; background: var(--ti-grad); border: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7); }
+body.platinum .s-ic { color: #fff; }
+.kind.on { background: var(--ti-grad); color: #07080c; border-color: transparent; }
+body.platinum .kind.on { color: #fff; }
+
+/* vytvořené soubory */
+.files { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.file { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; }
+.file b { display: block; font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file small { color: var(--muted); font-size: .72rem; }
+.file .grow { min-width: 0; }
+.f-ic { width: 40px; height: 40px; border-radius: 11px; flex: none; display: grid; place-items: center; font: 600 10px var(--mono); color: var(--text); background: var(--panel2); border: 1px solid var(--line2); }
+.file.apk .f-ic { background: var(--ti-grad); color: #07080c; border: 0; font-size: 16px; }
+
+/* logo v hero: titanový prstenec */
+.hero .orbit:before { border-color: transparent; background: conic-gradient(from 200deg, transparent, rgba(255, 255, 255, .35), transparent 40%) border-box; -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 0); mask: radial-gradient(farthest-side, transparent calc(100% - 1px), #000 0); animation: spin 18s linear infinite; }
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(338deg); } }
+.composer .box { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
+.composer .box:focus-within { background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--ti-grad) border-box; }
+.progress i { background: var(--ti-grad) !important; }
+.sheet { background: var(--glass); backdrop-filter: blur(24px) saturate(1.3); -webkit-backdrop-filter: blur(24px) saturate(1.3); }
+.rgrid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.rcard { min-height: 0; padding: 10px; border-radius: 14px; }
+.rcard b { font-size: .8rem; line-height: 1.2; }
+.rcard small { font-size: .66rem; }
+.rcard .v-ic { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
+nav.tabs button.on:before { top: 3px; height: 28px; width: 52px; }

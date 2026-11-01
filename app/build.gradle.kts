@@ -31,8 +31,8 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 330
-        versionName = "3.3.0-omega"
+        versionCode = 340
+        versionName = "3.4.0-omega"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
         if (withNative) {
@@ -92,6 +92,9 @@ android {
 
     // katalog mozků + offline znalostní balíčky z kořene repozitáře → assets/brains, assets/packs
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/omegaAssets"))
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/omegaShell"))
+
+    androidResources { noCompress += "apk" }
 
     packaging {
         // llama.cpp backendy se načítají z nativeLibraryDir → knihovny musí být rozbalené
@@ -111,7 +114,14 @@ val omegaAssets by tasks.registering(Sync::class) {
     from(rootProject.file("packs")) { into("packs"); include("*.md", "catalog.json") }
     into(layout.buildDirectory.dir("generated/omegaAssets"))
 }
-tasks.named("preBuild") { dependsOn(omegaAssets) }
+// Šablona pro aplikace vyráběné v telefonu (modul :shell) → assets/forge/shell.apk
+val omegaShell by tasks.registering(Copy::class) {
+    dependsOn(":shell:assembleRelease")
+    from(project(":shell").layout.buildDirectory.file("outputs/apk/release/shell-release-unsigned.apk"))
+    rename { "shell.apk" }
+    into(layout.buildDirectory.dir("generated/omegaShell/forge"))
+}
+tasks.named("preBuild") { dependsOn(omegaAssets, omegaShell) }
 
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }

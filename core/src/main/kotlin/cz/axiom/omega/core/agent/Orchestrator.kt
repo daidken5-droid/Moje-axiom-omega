@@ -48,6 +48,9 @@ data class AskRequest(
     val useKnowledge: Boolean = true,
     val rates: Rates = Rates.FALLBACK,
     val userName: String? = null,
+    /** Styl Ω varianty (např. Ω Muse, Ω Quant) – přidá se do systémového promptu. */
+    val style: String? = null,
+    val temperature: Float? = null,
 )
 
 data class PassTrace(val index: Int, val pass: RandyPass, val text: String, val millis: Long, val model: String)
@@ -113,7 +116,8 @@ class Orchestrator(
         val memories = MemoryRanker.rank(prompt, memory.all(), if (local) 4 else 10)
         memory.touch(memories.map { it.id })
 
-        val system = SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName)
+        val system = SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
+            (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "")
         val grounded = groundedPrompt(prompt, facts, snippets, local)
         val history = trimHistory(req.history, engine.contextBudgetChars - system.length - grounded.length - 4_000)
 
@@ -144,6 +148,7 @@ class Orchestrator(
                 effort = level.effort,
                 webSearch = req.webSearch && i == 0,
                 thinking = req.thinking,
+                temperature = req.temperature ?: 0.6f,
             )
             val t0 = System.currentTimeMillis()
             val res = generateWithRetry(engine, msgs, opts, cancel) { d -> listener.onDelta(n, passes.size, d) }

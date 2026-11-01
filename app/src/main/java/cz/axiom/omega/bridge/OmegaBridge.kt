@@ -126,6 +126,7 @@ class OmegaBridge(private val activity: MainActivity) {
             Intent(OmegaService.ACTION_ASK).putExtra("threadId", threadId).putExtra("text", text).putExtra("mode", mode)
                 .putExtra("kind", o.optString("kind", "").takeIf { it in setOf("agent", "chat", "council") })
                 .putExtra("role", o.optString("role", "").takeIf { cz.axiom.omega.core.agent.AgentRole.of(it) != null })
+                .putExtra("variant", o.optString("variant", "").takeIf { it.isNotBlank() })
                 .putExtra("level", o.optString("level", "").takeIf { RandyLevel.fromCode(it) != null }),
         )
         return threadId
@@ -540,6 +541,52 @@ class OmegaBridge(private val activity: MainActivity) {
     // ------------------------------------------------------------------ systémové
 
     @JavascriptInterface fun open(url: String) = activity.openExternal(url)
+
+    // ------------------------------------------------------------------ Ω varianty, agenti, vytvořené soubory
+
+    @JavascriptInterface
+    fun variants(): String = JSONArray().apply {
+        cz.axiom.omega.core.agent.Variant.entries.forEach {
+            put(JSONObject().put("id", it.name).put("title", it.title).put("icon", it.icon).put("tagline", it.tagline).put("inspired", it.inspiredBy)
+                .put("agent", it.mode == cz.axiom.omega.core.agent.Router.Mode.AGENT))
+        }
+    }.toString()
+
+    @JavascriptInterface
+    fun roles(): String = JSONArray().apply {
+        cz.axiom.omega.core.agent.AgentRole.entries.forEach { put(JSONObject().put("id", it.name).put("title", it.title).put("icon", it.icon).put("tagline", it.tagline)) }
+    }.toString()
+
+    @JavascriptInterface fun createdFiles(): String = omega.forge.list().toString()
+
+    /** Otevře/nainstaluje soubor podle URI (z karty u odpovědi) nebo indexu v seznamu. */
+    @JavascriptInterface
+    fun openFile(ref: String) = activity.runOnUiThread {
+        val e = fileEntry(ref) ?: return@runOnUiThread Events.note("Soubor už neexistuje.")
+        if (e.optString("mime") == "application/vnd.android.package-archive" && android.os.Build.VERSION.SDK_INT >= 26 &&
+            !activity.packageManager.canRequestPackageInstalls()
+        ) {
+            Events.note("Povol AXIOMu instalaci aplikací a pak klepni na Instalovat znovu.")
+            runCatching {
+                activity.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + activity.packageName)))
+            }
+            return@runOnUiThread
+        }
+        runCatching { activity.startActivity(omega.forge.openIntent(e)) }.onFailure { Events.note("Pro tento typ souboru není v telefonu aplikace.") }
+    }
+
+    @JavascriptInterface
+    fun shareFile(ref: String) = activity.runOnUiThread {
+        val e = fileEntry(ref) ?: return@runOnUiThread
+        runCatching { activity.startActivity(omega.forge.shareIntent(e)) }
+    }
+
+    private fun fileEntry(ref: String): JSONObject? {
+        ref.toIntOrNull()?.let { return omega.forge.entry(it) }
+        val arr = omega.forge.list()
+        for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("uri") == ref || it.optString("local") == ref) return it }
+        return null
+    }
 
     @JavascriptInterface
     fun voice() = activity.runOnUiThread {

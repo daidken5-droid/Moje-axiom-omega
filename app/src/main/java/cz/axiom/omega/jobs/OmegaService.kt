@@ -108,7 +108,9 @@ class OmegaService : Service() {
         val threadId = intent.getLongExtra("threadId", 0)
         val text = intent.getStringExtra("text").orEmpty()
         val mode = intent.getStringExtra("mode") ?: omega.settings.mode
-        val forced = RandyLevel.fromCode(intent.getStringExtra("level"))
+        // Ω varianta (podmodel): výchozí nastavení, výslovná volba uživatele má přednost
+        val variant = cz.axiom.omega.core.agent.Variant.of(intent.getStringExtra("variant"))
+        val forced = RandyLevel.fromCode(intent.getStringExtra("level")) ?: variant.level
         val job = omega.job
         job.reset("ask", threadId)
         Events.emit("state", job.toJson())
@@ -152,10 +154,13 @@ class OmegaService : Service() {
                 "agent" -> Router.Mode.AGENT
                 "chat" -> Router.Mode.CHAT
                 "council" -> Router.Mode.COUNCIL
-                else -> if (mode == "council") Router.Mode.COUNCIL else null
+                else -> if (mode == "council") Router.Mode.COUNCIL else variant.mode
             }
+            val role = cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role")) ?: variant.role
+            synchronized(omega.forge.session) { omega.forge.session.clear() }
             val route = Router.route(text, Router.Context(Introspect.online(this), omega.availableEngines(), userEngine, userMode))
-            listener.onPhase("Ω volí: ${route.mode.label} · ${route.reason}")
+            val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
+            listener.onPhase((if (variant != cz.axiom.omega.core.agent.Variant.AUTO) variant.title + " · " else "Ω volí: ") + "${route.mode.label} · ${route.reason}")
             val meta: JSONObject
             val answer: String
             when (route.mode) {
@@ -174,7 +179,7 @@ class OmegaService : Service() {
                     job.kind = "agent"
                     val steps = JSONArray()
                     val r = try {
-                        omega.agent().run(route.prompt, history, engine, s.agentSteps, cancel, object : AgentListener {
+                        omega.agent().run(route.prompt, history, engine, maxOf(s.agentSteps, variant.steps ?: 0), cancel, object : AgentListener {
                             override fun onPhase(text: String) = listener.onPhase(text)
                             override fun onDelta(delta: Delta) = listener.onDelta(steps.length() + 1, 0, delta)
                             override fun onStep(step: AgentStep) {
@@ -184,7 +189,7 @@ class OmegaService : Service() {
                                 omega.db.updateTask(taskId, "running", steps.length(), null)
                                 Events.emit("step", j)
                             }
-                        }, s.rates, s.userName.ifBlank { null }, cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role")))
+                        }, s.rates, s.userName.ifBlank { null }, agentRole, variant.style, variant.temperature ?: 0.4f)
                     } catch (e: Exception) {
                         omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
                         throw e
@@ -197,15 +202,20 @@ class OmegaService : Service() {
                 Router.Mode.CHAT -> {
                     val engine = omega.resolve(route.engine)
                     listener.onPhase("Probouzím ${engine.label}…")
-                    val passes = if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
+                    val passes = variant.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
                     val r = omega.orchestrator().run(
-                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, s.thinking, true, s.rates, s.userName.ifBlank { null }),
+                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, variant.thinking ?: s.thinking, true, s.rates,
+                            s.userName.ifBlank { null }, variant.style, variant.temperature),
                         engine, cancel, listener,
                     )
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason); answer = r.answer
                 }
             }
+            if (variant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", variant.title)
+            agentRole?.takeIf { route.mode == Router.Mode.AGENT }?.let { meta.put("role", it.title) }
+            val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
+            if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
             val id = omega.db.addMessage(threadId, "assistant", answer, meta)
             Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", answer).put("meta", meta))
         } catch (e: CancelledException) {

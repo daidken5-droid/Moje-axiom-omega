@@ -8,6 +8,22 @@ Nástupce **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5**. Zachovává jejich DNA 
 a přidává výkonný lokální mozek, funkční sebemodel, dlouhodobou paměť, celou offline Wikipedii a aktivní agenty.
 Rozbor původní aplikace a seznam opravených chyb: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 3.4
+
+* **Ω varianty – podmodely** inspirované režimy předních AI: **Ω Flash** (okamžitě), **Ω Think** (hluboké přemýšlení),
+  **Ω Deep Research** (report s citacemi), **Ω Code**, **Ω Studio** (vyrobí aplikaci), **Ω Office** (Word/PDF),
+  **Ω Veritas** (ověřování tvrzení), **Ω Quant**, **Ω Nemesis** (red-team), **Ω Muse** (kreativa), **Ω Mentor**.
+  Stejný lokální mozek, jiné nastavení myšlení (režim, role, hloubka RANDY, průchody, teplota, styl).
+* **14 specializovaných agentů:** nově Programátor, Tvůrce aplikací, Ověřovatel faktů, Finanční analytik,
+  Stavbyvedoucí, Datový analytik, Kancelář, Překladatel. Role se volí i automaticky podle zadání.
+* **AXIOM vyrábí soubory:** TXT, MD, CSV, JSON, HTML, SVG, kód (Python, Kotlin, JS…), kalendář .ics, vizitka .vcf,
+  **PDF**, **Word .docx**, **ZIP** – vše do složky *Stažené/AXIOM*, s tlačítky Otevřít / Sdílet.
+* **AXIOM vyrábí Android aplikace (APK) přímo v telefonu** – bez počítače a SDK: AI napíše HTML/CSS/JS aplikaci,
+  APK kovárna (`core/forge/ApkForge.kt`) ji vloží do předpřipravené šablony (modul `shell/`, 10 kB), přepíše balíček
+  a název v binárním manifestu a podepíše APK (v2+v3, apksig) klíčem z Android Keystore. Stejný název = aktualizace.
+  Ověřeno nástroji Android SDK (aapt2, zipalign, apksigner).
+* **Titanový design:** kartáčovaný kov, kovové hrany karet, titanová tlačítka s odleskem, sklo v hlavičce a liště.
+
 ## Novinky 3.3
 
 * **Celá česká Wikipedie offline jedním klepnutím** – 534 044 článků, předpřipravená databáze

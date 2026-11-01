@@ -39,6 +39,24 @@ object Router {
     )
     private val freshWords = listOf("dnes", "aktuální", "aktualni", "nejnovější", "nejnovejsi", "letos", "teď", "momentálně", "cena", "kurz dne", "zprávy", "novinky", "2026", "2027")
 
+    /** Požadavek na vytvoření souboru nebo aplikace → agent s nástroji tvorby souborů. */
+    private val fileRx = Regex(
+        "(?i)(vytvo[rř]|vygeneruj|ud[eě]lej|naprogramuj|napi[sš]|ulo[zž]|exportuj|p[rř]iprav|sestav|vyrob)[^.?!]{0,60}" +
+            "(apk|aplikac|appk|soubor|pdf|docx|wordu|word|csv|excel|tabulk[uy] do|zip|html|webov|str[aá]nk|skript|program|k[oó]d|kalend[aá][rř]|\\.ics|vizitk)",
+    )
+
+    /** Automatická role agenta podle zadání (když ji nezvolil uživatel ani varianta). */
+    fun autoRole(prompt: String): AgentRole? {
+        val f = TextUtil.fold(prompt)
+        return when {
+            Regex("\\b(apk|aplikac\\w*|appk\\w*)\\b").containsMatchIn(f) && fileRx.containsMatchIn(prompt) -> AgentRole.APPS
+            Regex("\\b(docx|word\\w*|pdf|smlouv\\w*|dopis\\w*|faktur\\w*|zadost\\w*|vypoved\\w*|plnou moc|zapis\\w*)\\b").containsMatchIn(f) -> AgentRole.OFFICE
+            Regex("\\b(kod|skript\\w*|program\\w*|python|kotlin|javascript|funkc\\w*|bug|chyb\\w* v kodu)\\b").containsMatchIn(f) && fileRx.containsMatchIn(prompt) -> AgentRole.CODER
+            Regex("\\b(je pravda|over\\w*|konspira\\w*|hoax\\w*|fake|dezinforma\\w*)\\b").containsMatchIn(f) -> AgentRole.FACTCHECK
+            else -> null
+        }
+    }
+
     fun route(text: String, ctx: Context): Route {
         var prompt = text.trim()
         var mode: Mode? = ctx.userMode
@@ -57,6 +75,7 @@ object Router {
             val wantsFresh = freshWords.any { " ${TextUtil.fold(it)}" in folded }
             val hasUrl = Regex("https?://").containsMatchIn(prompt)
             mode = when {
+                fileRx.containsMatchIn(prompt) -> { why += "vytvoření souboru"; Mode.AGENT }
                 hasUrl && ctx.online -> { why += "obsahuje odkaz"; Mode.AGENT }
                 wantsAction && (ctx.online || level.ordinal >= RandyLevel.L2_DEEP.ordinal) -> { why += "úkol vyžaduje kroky a nástroje"; Mode.AGENT }
                 wantsFresh && ctx.online -> { why += "potřebuje aktuální informace"; Mode.AGENT }

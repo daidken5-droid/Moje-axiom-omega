@@ -25,6 +25,8 @@ const path = require('path');
   await p.evaluate(() => go('system')); await shot('10-system');
   await p.evaluate(() => { go('chat'); kindSheet(); }); await shot('11-kind');
   await p.evaluate(() => { closeSheet(); selfSheet(); }); await shot('12-self');
+  await p.evaluate(() => { closeSheet(); loadThread(4); live = null; go('chat'); }); await shot('15-apk');
+  await p.evaluate(() => { variant = 'STUDIO'; kindSheet(); }); await shot('16-variants');
   await p.goto(base + '?theme=platinum'); await shot('13-platinum');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no js errors');
   await b.close();

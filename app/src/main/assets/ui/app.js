@@ -98,16 +98,32 @@ const KINDS = [
 ];
 const ROLES = [
   { id: '', name: 'Auto' }, { id: 'RESEARCHER', name: 'Rešeršér' }, { id: 'ANALYST', name: 'Analytik' }, { id: 'PLANNER', name: 'Plánovač' },
-  { id: 'WRITER', name: 'Pisatel' }, { id: 'SECURITY', name: 'Bezpečnost' }, { id: 'TUTOR', name: 'Učitel' },
+  { id: 'WRITER', name: 'Pisatel' }, { id: 'CODER', name: 'Programátor' }, { id: 'APPS', name: 'Tvůrce aplikací' }, { id: 'FACTCHECK', name: 'Ověřovatel' },
+  { id: 'OFFICE', name: 'Kancelář' }, { id: 'SECURITY', name: 'Bezpečnost' }, { id: 'TUTOR', name: 'Učitel' },
 ];
 let agentRole = '';
+let variant = 'AUTO';
+let goalDraft = '';
+let VARIANTS = null, ROLE_LIST = null;
+const variants = () => VARIANTS || (VARIANTS = J('variants') || [{ id: 'AUTO', title: 'Ω Auto', icon: 'Ω', tagline: 'Sám zvolí hloubku, nástroje i agenta' }]);
+const roleList = () => ROLE_LIST || (ROLE_LIST = J('roles') || ROLES.filter(r => r.id).map(r => ({ id: r.id, title: r.name, icon: r.name[0], tagline: '' })));
+const EXT_IC = { apk: '▣', pdf: 'PDF', docx: 'W', zip: 'ZIP', csv: 'CSV', html: '</>', md: 'MD', json: '{}', svg: 'SVG', ics: '◷' };
+function fileCard(f, ref) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const apk = ext === 'apk';
+  const size = f.size >= 1048576 ? (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' kB';
+  return `<div class="file ${apk ? 'apk' : ''}"><span class="f-ic">${EXT_IC[ext] || ext.toUpperCase().slice(0, 4)}</span>
+    <span class="grow"><b>${esc(f.label || f.name)}</b><small>${apk ? 'Android aplikace · ' : ''}${size} · Stažené/AXIOM</small></span>
+    <button class="btn sm ${apk ? 'primary' : ''}" data-file-open="${esc(ref)}">${apk ? 'Instalovat' : 'Otevřít'}</button>
+    <button class="icon-btn" data-file-share="${esc(ref)}" aria-label="Sdílet">${ICONS.share}</button></div>`;
+}
 const SUGGEST = [
   { ic: '±', t: 'Spočítej sázku', q: 'Kurz 2,10, odhad 55 %, bankroll 10 000. Vsadit?' },
   { ic: '▦', t: 'Materiál na stavbu', q: 'Kolik materiálu na 24 m2 mikrocementu?' },
   { ic: '⚙', t: 'Agent: rešerše', q: '/agent Najdi nejnovější open-source modely pro telefon a porovnej je' },
   { ic: 'W', t: 'Z offline Wikipedie', q: 'Jak funguje tepelné čerpadlo?' },
   { ic: '?', t: 'Ověř teorii', q: 'Je pravda, že přistání na Měsíci bylo natočené? Ukaž důkazy.' },
-  { ic: 'L4', t: 'Kritická analýza', q: 'L4: Najdi slabiny v plánu otevřít e-shop s kartami' },
+  { ic: '▣', t: 'Vyrob aplikaci', q: 'Vytvoř aplikaci APK „Nákupní seznam“ s kategoriemi a odškrtáváním' },
 ];
 
 function greeting() {
@@ -241,7 +257,8 @@ function msgHtml(m, last) {
       <div class="tools"><button data-retry="${m.id}">Zkusit znovu</button><button data-go="modules">Moduly</button></div></div>`;
   }
   const agent = meta.mode === 'agent';
-  const label = agent ? `AGENT · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '');
+  const label = [meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
+  const files = (meta.files || []).map(f => fileCard(f, f.local || f.uri)).join('');
   const headTxt = [label, meta.engine, secs(meta.millis)].filter(Boolean).join(' · ');
   const det = [];
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
@@ -256,7 +273,7 @@ function msgHtml(m, last) {
   const thought = meta.reasoning ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
   return `<div class="msg ai" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>
-    ${thought}<div class="body answer">${md(m.content)}</div>${cites}
+    ${thought}<div class="body answer">${md(m.content)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
     <div class="tools">
       <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-share="${m.id}" aria-label="Sdílet">${ICONS.share}</button>
       ${last ? `<button data-retry="${m.id}" aria-label="Odpovědět znovu">${ICONS.retry}</button>` : ''}
@@ -296,10 +313,11 @@ function fab() {
 
 function composer() {
   const k = KINDS.find(x => x.id === forcedKind);
-  const chip = (forcedKind ? k.name : 'Ω Auto') + (forcedLevel ? ' · ' + forcedLevel : '');
+  const v = variants().find(x => x.id === variant) || variants()[0];
+  const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '');
   return `<div class="composer"><div class="wrap">
     <div class="box">
-      <button class="kind ${forcedKind || forcedLevel ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
+      <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se nebo zadej úkol…">${esc(draft)}</textarea>
       <button class="mic" id="micBtn" aria-label="Diktovat">${ICONS.mic}</button>
       <button class="send ${thinking() ? 'stop' : ''}" id="sendBtn" aria-label="Odeslat">${thinking() ? ICONS.stop : ICONS.send}</button>
@@ -321,7 +339,7 @@ function send(text, kind, role) {
   if (!text) return;
   refresh();
   if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
-  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '' }));
+  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: kind === 'agent' && role ? '' : variant }));
   if (!id || id < 0) return;
   draft = '';
   forcedLevel = null;
@@ -334,14 +352,31 @@ function send(text, kind, role) {
 
 /* ------------------------------------------------------------------ agenti */
 
+const GOAL_HINT = {
+  '': 'Např. Najdi 3 dodavatele mikrocementu v ČR, porovnej ceny a ulož shrnutí.',
+  APPS: 'Např. Vytvoř aplikaci APK „Nákupní seznam“ s kategoriemi, odškrtáváním a ukládáním.',
+  CODER: 'Např. Napiš Python skript, který přejmenuje fotky podle data pořízení, a ulož ho.',
+  OFFICE: 'Např. Připrav výpověď z nájmu bytu jako Word dokument.',
+  FACTCHECK: 'Např. Ověř tvrzení: „Přistání na Měsíci bylo natočeno ve studiu.“',
+  FINANCE: 'Např. Hypotéka 4 mil. na 30 let při 4,9 % – splátka, celkem zaplaceno, scénáře.',
+  BUILDER: 'Např. Kolik materiálu a za kolik na koupelnu 8 m² s mikrocementem? Ulož rozpočet jako CSV.',
+  DATA: 'Např. Z těchto čísel spočítej trend a ulož tabulku jako CSV: …',
+  TRANSLATOR: 'Např. Přelož tento e-mail do angličtiny, formálně: …',
+  SECURITY: 'Např. Zkontroluj zabezpečení mého webu mojefirma.cz (vlastním ho) – hlavičky, TLS, DNS, SPF/DMARC, subdomény.',
+};
+
 function renderAgents() {
   const tasks = J('tasks') || [];
   const st = { running: ['badge core', 'BĚŽÍ'], done: ['badge good', 'HOTOVO'], partial: ['badge warn', 'ČÁSTEČNĚ'], failed: ['badge warn', 'CHYBA'], stopped: ['badge', 'ZASTAVENO'] };
   $('#main').innerHTML = `<div class="wrap">${head('AKTIVNÍ AGENTI', 'Zadej cíl.<br>Zbytek udělám sám.')}
-    ${card(`<div class="chips">${ROLES.map(r => `<button class="chipbtn ${agentRole === r.id ? 'on' : ''}" data-role="${r.id}">${r.name}</button>`).join('')}</div>
-      <textarea id="goal" rows="3" placeholder="${agentRole === 'SECURITY' ? 'Např. Zkontroluj zabezpečení mého webu mojefirma.cz (vlastním ho) – hlavičky, TLS, DNS, SPF/DMARC, subdomény.' : 'Např. Najdi 3 dodavatele mikrocementu v ČR, porovnej ceny a ulož shrnutí.'}"></textarea>
+    ${card(`
+      <textarea id="goal" rows="3" placeholder="${esc(GOAL_HINT[agentRole] || GOAL_HINT[''])}">${esc(goalDraft)}</textarea>
       <button class="btn primary wide" data-agent-start>Spustit agenta</button>
       ${agentRole === 'SECURITY' ? '<p class="small muted" style="margin-bottom:0">Jen pasivní průzkum a obranné audity. Testuj pouze systémy, které vlastníš nebo máš písemné povolení.</p>' : ''}`)}
+    <div class="eyebrow">SPECIALIZACE · ${roleList().length}</div>
+    <div class="rgrid">${[{ id: '', title: 'Auto', icon: 'Ω', tagline: 'Role podle zadání' }, ...roleList()].map(r => `<button class="rcard ${agentRole === r.id ? 'on' : ''}" data-role="${r.id}">
+      <span class="v-ic">${esc(r.icon)}</span><b>${esc(r.title)}</b><small>${esc(r.tagline)}</small></button>`).join('')}</div>
+    ${(() => { const fl = J('createdFiles') || []; return fl.length ? `<div class="eyebrow">VYTVOŘENÉ SOUBORY · ${fl.length}</div><div class="files">${fl.slice(0, 12).map((f, i) => fileCard(f, String(i))).join('')}</div>` : ''; })()}
     <div class="eyebrow">ÚKOLY</div>
     ${tasks.length ? tasks.map(t => `<div class="card row task" data-thread="${t.threadId}">
       <div class="grow"><b>${esc(t.goal)}</b><div class="meta"><span class="${(st[t.status] || st.stopped)[0]}">${(st[t.status] || st.stopped)[1]}</span> · ${t.steps} KROKŮ · ${esc(t.engine)}</div>
@@ -555,9 +590,12 @@ function closeSheet() { $('#sheet').innerHTML = ''; }
 
 function kindSheet() {
   const lv = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
-  sheet(`<div class="eyebrow" style="margin-top:4px">JAK PRACOVAT</div>` +
+  sheet(`<div class="eyebrow" style="margin-top:4px">Ω VARIANTY · PODMODELY</div>
+    <div class="vgrid">${variants().map(v => `<button class="vcard ${variant === v.id ? 'on' : ''}" data-variant="${v.id}"><span class="v-ic">${esc(v.icon)}</span>
+      <b>${esc(v.title)}</b><small>${esc(v.tagline)}</small>${v.agent ? '<i>AGENT</i>' : ''}</button>`).join('')}</div>
+    <details class="x"><summary>POKROČILÉ · REŽIM A HLOUBKA RANDY</summary><div class="in" style="white-space:normal">` +
     KINDS.map(k => `<button class="opt ${forcedKind === k.id ? 'on' : ''}" data-kind="${k.id}"><span class="grow"><b>${k.name}</b><small>${k.desc}</small></span></button>`).join('') +
-    `<div class="eyebrow">HLOUBKA RANDY</div><div class="seg"><button data-level="" class="${!forcedLevel ? 'on' : ''}">Auto</button>${lv.map(l => `<button data-level="${l}" class="${forcedLevel === l ? 'on' : ''}">${l}</button>`).join('')}</div>`);
+    `<div class="seg" style="margin-top:8px"><button data-level="" class="${!forcedLevel ? 'on' : ''}">Auto</button>${lv.map(l => `<button data-level="${l}" class="${forcedLevel === l ? 'on' : ''}">${l}</button>`).join('')}</div></div></details>`);
 }
 
 function modeSheet() {
@@ -629,6 +667,7 @@ window.omegaReceive = function (type, d) {
       break;
     }
     case 'note': toast(d.text); break;
+    case 'file': toast('Vytvořeno: ' + d.name); haptic(); if (view === 'agents') renderAgents(); break;
     case 'config': S = d; refresh(); if (view === 'system') renderSystem(); break;
     case 'tasks': if (view === 'agents') renderAgents(); break;
     case 'state':
@@ -672,6 +711,9 @@ document.addEventListener('click', e => {
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
   if (ds.newThread !== undefined) { threadId = 0; msgs = []; live = null; closeDrawer(); go('chat'); return; }
   if (ds.delThread) { if (confirm('Smazat vlákno?')) { call('deleteThread', Number(ds.delThread)); if (Number(ds.delThread) === threadId) { threadId = 0; msgs = []; } openDrawer(); if (view === 'chat') renderChat(); } return; }
+  if (ds.variant) { variant = ds.variant; forcedKind = ''; haptic(); closeSheet(); render(); return; }
+  if (ds.fileOpen !== undefined) { call('openFile', ds.fileOpen); return; }
+  if (ds.fileShare !== undefined) { call('shareFile', ds.fileShare); return; }
   if (ds.copyCode !== undefined) { const c = t.closest('pre')?.querySelector('code'); if (c) { call('copy', c.textContent); haptic(); } return; }
   if (ds.copy) { const m = msgs.find(x => x.id === Number(ds.copy)); m && call('copy', m.content); return; }
   if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AXIOM Ω'); return; }
@@ -681,8 +723,8 @@ document.addEventListener('click', e => {
     return;
   }
   if (ds.retry) { const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
-  if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }
-  if (ds.role !== undefined && t.classList.contains('chipbtn')) { agentRole = ds.role; renderAgents(); return; }
+  if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); goalDraft = ''; threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }
+  if (ds.role !== undefined && t.classList.contains('rcard')) { goalDraft = val('goal'); agentRole = ds.role; haptic(); renderAgents(); return; }
   if (ds.libStart) { call('libraryStart', ds.libStart); setTimeout(() => { refresh(); renderMemory(); }, 500); return; }
   if (ds.libRemove) { if (confirm('Smazat knihovnu z telefonu?')) call('libraryRemove', ds.libRemove); return; }
   if (ds.taskDel) { e.stopPropagation(); call('deleteTask', Number(ds.taskDel)); renderAgents(); return; }

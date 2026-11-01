@@ -126,4 +126,53 @@ object Tools {
             hub.searchModels(a.arg("q", "query"), 8).joinToString("\n") { "- ${it.id} · ${it.downloads} stažení · ${it.updated}" }.ifBlank { "Nic nenalezeno." }
         },
     )
+
+    /**
+     * TVORBA SOUBORŮ: dokumenty, data, kód, PDF, Word, ZIP – a instalovatelné Android aplikace (APK).
+     * Dlouhý obsah model posílá za řádkem OBSAH: (viz protokol agenta), ne uvnitř JSONu.
+     */
+    fun files(sink: cz.axiom.omega.core.forge.FileSink): List<AgentTool> {
+        val F = cz.axiom.omega.core.forge.FileForge
+        fun JsonObject.opt(k: String) = (this[k] as? JsonPrimitive)?.contentOrNull
+        fun filesArg(a: JsonObject): Map<String, ByteArray> {
+            val out = LinkedHashMap<String, ByteArray>()
+            (a["files"] as? JsonObject)?.forEach { (k, v) -> (v as? JsonPrimitive)?.contentOrNull?.let { out[k] = it.toByteArray() } }
+            return out
+        }
+        val types = F.TEXT_TYPES.keys.joinToString(", ")
+        return listOf(
+            tool("create_file", """{"name": "rozpocet.csv"} + OBSAH""", "vytvoří soubor ve složce Stažené/AXIOM (formáty: $types)") { a, _ ->
+                val name = F.safeName(a.arg("name", "filename", "title"))
+                val content = a.arg("content", "text", "body")
+                require(name.substringAfterLast('.').lowercase() in F.TEXT_TYPES) { "Pro .${name.substringAfterLast('.')} použij create_pdf / create_docx / create_zip / build_apk." }
+                sink.save(name, F.mimeOf(name), content.toByteArray(Charsets.UTF_8))
+            },
+            tool("create_pdf", """{"name": "zprava.pdf", "title": "Nadpis"} + OBSAH""", "vytvoří PDF dokument z textu (A4, česká diakritika)") { a, _ ->
+                val name = F.safeName(a.arg("name", "filename", "title").substringBeforeLast(".pdf") + ".pdf", "pdf")
+                val title = a.opt("title") ?: name.substringBeforeLast('.')
+                sink.save(name, "application/pdf", sink.pdf(title, a.arg("content", "text", "body")))
+            },
+            tool("create_docx", """{"name": "smlouva.docx", "title": "Nadpis"} + OBSAH""", "vytvoří dokument Word (.docx); # nadpisy, - odrážky, **tučně**") { a, _ ->
+                val name = F.safeName(a.arg("name", "filename", "title").substringBeforeLast(".docx") + ".docx", "docx")
+                val title = a.opt("title") ?: ""
+                sink.save(name, F.BINARY_TYPES.getValue("docx"), F.docx(title, a.arg("content", "text", "body")))
+            },
+            tool("create_zip", """{"name": "projekt.zip", "files": {"README.md": "…", "src/main.py": "…"}}""", "zabalí více souborů (projekt) do ZIP") { a, _ ->
+                val name = F.safeName(a.arg("name", "filename").substringBeforeLast(".zip") + ".zip", "zip")
+                val files = filesArg(a)
+                require(files.isNotEmpty()) { "Chybí files: {\"cesta\": \"obsah\"}." }
+                sink.save(name, "application/zip", F.zip(files))
+            },
+            tool("build_apk", """{"name": "Kalkulačka"} + OBSAH = celé index.html (CSS a JS uvnitř)""",
+                "vyrobí INSTALOVATELNOU Android aplikaci (APK) z HTML/CSS/JS – offline web-aplikace v telefonu; volitelně files: {\"app.js\": \"…\"}") { a, _ ->
+                val name = a.arg("name", "app", "title")
+                val files = LinkedHashMap<String, ByteArray>()
+                a.opt("content")?.let { files["index.html"] = it.toByteArray() }
+                a.opt("html")?.let { files["index.html"] = it.toByteArray() }
+                files.putAll(filesArg(a))
+                require("index.html" in files) { "Chybí obsah index.html (pošli ho za řádkem OBSAH:)." }
+                sink.apk(name, files)
+            },
+        )
+    }
 }

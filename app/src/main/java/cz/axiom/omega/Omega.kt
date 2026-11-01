@@ -118,7 +118,7 @@ class Omega private constructor(val app: Context) {
     /** Nástroje aktivního agenta (síťové jen online). */
     fun agentTools(): List<AgentTool> {
         val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") } +
-            Tools.securityOffline() + libraryTool()
+            Tools.securityOffline() + libraryTool() + Tools.files(forge)
         return if (Introspect.online(app)) offline + Tools.online() + Tools.securityOnline() else offline
     }
 
@@ -133,6 +133,8 @@ class Omega private constructor(val app: Context) {
             return r.joinToString("\n\n") { "${it.title} (${it.source}):\n${it.text.take(1_400)}" }
         }
     }
+
+    val forge by lazy { cz.axiom.omega.forge.AndroidForge(app) }
 
     fun agent() = ActiveAgent(agentTools(), db) { selfState(currentLabel, currentKind) }
 

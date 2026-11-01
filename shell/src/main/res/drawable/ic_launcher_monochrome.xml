@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AXIOM Ω – zdroj: assets/ui/logo.svg -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+<group android:scaleX="0.2" android:scaleY="0.2" android:translateX="2.8" android:translateY="-0.4">
+<path android:pathData="M256,112 L122,344 L176,336 L256,198 Z" android:fillColor="#FFFFFF"/><path android:pathData="M256,112 L256,198 L336,336 L390,344 Z" android:fillColor="#FFFFFF"/>
+<path android:pathData="M58,398 Q256,262 454,398 Q256,278 58,398 Z" android:fillColor="#FFFFFF"/><path android:pathData="M256,244 L260.5,325.5 L306,330 L260.5,334.5 L256,432 L251.5,334.5 L206,330 L251.5,325.5 Z" android:fillColor="#FFFFFF"/>
+</group>
+</vector>

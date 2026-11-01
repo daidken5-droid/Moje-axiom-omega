@@ -128,7 +128,7 @@ class LocalEngine private constructor(
         val contents = messages.map { it.content }.toTypedArray()
         val rc = NativeLlama.nativeGenerate(
             handle, roles, contents, options.maxTokens,
-            temp = if (options.effort == "low") 0.4f else 0.6f, topP = 0.95f, minP = 0.05f, repeatPenalty = 1.08f,
+            temp = if (options.temperature != 0.6f) options.temperature else if (options.effort == "low") 0.4f else 0.6f, topP = 0.95f, minP = 0.05f, repeatPenalty = 1.08f,
             thinking = options.thinking && spec?.thinking != false,
         ) { bytes ->
             splitter.feed(String(bytes, Charsets.UTF_8))
