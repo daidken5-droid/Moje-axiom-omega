@@ -774,6 +774,12 @@ window.omegaReceive = function (type, d) {
       break;
     }
     case 'note': toast(d.text); break;
+    case 'quick':
+      if (d.what === 'self') { refresh(); selfSheet(); break; }
+      if (d.what === 'sherlock') { S.settings = Object.assign({}, S.settings, { power: 'SHERLOCK' }); toast('Výkon: Sherlock – maximum'); }
+      closeSheet(); threadId = 0; msgs = []; live = null; go('chat');
+      setTimeout(() => { const ta = $('#input'); if (ta && d.what !== 'voice') ta.focus(); }, 120);
+      break;
     case 'update': S.update = d; if (view === 'chat' && !msgs.length) renderChat(); if (view === 'system') renderSystem(); toast('Nová verze AVIOR ' + d.version + ' je k dispozici.'); break;
     case 'file': toast('Vytvořeno: ' + d.name); haptic(); if (view === 'agents') renderAgents(); break;
     case 'config': S = d; refresh(); if (view === 'system') renderSystem(); break;

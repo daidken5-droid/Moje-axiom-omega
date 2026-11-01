@@ -156,7 +156,9 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface
     fun configure(json: String) {
         try {
-            omega.settings.apply(JSONObject(json))
+            val o = JSONObject(json)
+            omega.settings.apply(o)
+            if (o.has("power")) cz.axiom.omega.widget.AviorWidget.refresh(activity)
             Events.emit("config", JSONObject(state()))
         } catch (e: Exception) {
             Events.note(e.message ?: "Neplatné nastavení.")

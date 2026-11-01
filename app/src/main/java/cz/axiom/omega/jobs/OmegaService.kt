@@ -273,6 +273,11 @@ class OmegaService : Service() {
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
             val id = omega.db.addMessage(threadId, "assistant", answer, meta)
+            runCatching {
+                val cg = omega.cognition
+                cz.axiom.omega.widget.AviorWidget.publish(this, text, answer,
+                    "${cg.totalQuestions()} otázek · ${plan.power.label}" + (meta.optString("variant").takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""))
+            }
             Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", answer).put("meta", meta))
         } catch (e: CancelledException) {
             val partial = job.partial.toString().trim()

@@ -114,6 +114,7 @@ class MainActivity : ComponentActivity() {
         // samostudium otevřených otázek, když se telefon nabíjí na Wi-Fi
         window.decorView.postDelayed({ runCatching { bridge.maybeSelfStudy() } }, 4_000)
         window.decorView.postDelayed({ runCatching { bridge.checkUpdate(false) } }, 6_000)
+        publishShortcuts()
     }
 
     override fun onStop() {
@@ -127,7 +128,36 @@ class MainActivity : ComponentActivity() {
         if (pageReady) handleShare(intent)
     }
 
+    /** Widget na ploše a zkratky ikony: zeptat se, hlasem, Sherlock, Vědomí. */
+    private fun handleQuick(i: Intent?): Boolean {
+        val a = i?.action ?: return false
+        val w = cz.axiom.omega.widget.AviorWidget
+        val what = when (a) {
+            w.ACTION_ASK -> "ask"; w.ACTION_VOICE -> "voice"; w.ACTION_SELF -> "self"; ACTION_SHERLOCK -> "sherlock"
+            else -> return false
+        }
+        if (what == "sherlock") Omega.get(this).settings.power = "SHERLOCK"
+        dispatch("quick", JSONObject().put("what", what))
+        if (what == "voice") bridge.voice()
+        i.action = null
+        return true
+    }
+
+    /** Dynamické zkratky (dlouhé podržení ikony) – fungují i s balíčkem .debug. */
+    private fun publishShortcuts() = runCatching {
+        fun sc(id: String, label: Int, action: String) = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, id)
+            .setShortLabel(getString(label))
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this, R.mipmap.ic_launcher))
+            .setIntent(Intent(this, MainActivity::class.java).setAction(action)).build()
+        val w = cz.axiom.omega.widget.AviorWidget
+        androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(this, listOf(
+            sc("ask", R.string.shortcut_ask, w.ACTION_ASK), sc("voice", R.string.shortcut_voice, w.ACTION_VOICE),
+            sc("sherlock", R.string.shortcut_sherlock, ACTION_SHERLOCK), sc("self", R.string.shortcut_vedomi, w.ACTION_SELF),
+        ))
+    }
+
     private fun handleShare(i: Intent?) {
+        if (handleQuick(i)) return
         if (i?.action == Intent.ACTION_SEND) {
             val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return
             dispatch("shared", JSONObject().put("text", text.take(16_000)))
@@ -154,4 +184,6 @@ class MainActivity : ComponentActivity() {
         web.destroy()
         super.onDestroy()
     }
+
+    companion object { const val ACTION_SHERLOCK = "cz.axiom.omega.SHERLOCK" }
 }

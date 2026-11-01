@@ -3,4 +3,13 @@
     <string name="app_name">AVIOR</string>
     <string name="channel_work">Práce AVIOR</string>
     <string name="channel_work_desc">Běžící myšlení a stahování mozku</string>
+    <string name="widget_description">AVIOR na ploše: zeptej se, mluv, přepni výkon, poslední odpověď.</string>
+    <string name="widget_status_default">UČÍM SE Z KAŽDÉ OTÁZKY</string>
+    <string name="widget_hint">Klepni a zeptej se. Přepínač vpravo nahoře mění výkon: Základ · Pokročilé · Sherlock.</string>
+    <string name="widget_ask">Zeptej se AVIORu…</string>
+    <string name="widget_voice">Zeptat se hlasem</string>
+    <string name="shortcut_ask">Nová otázka</string>
+    <string name="shortcut_voice">Zeptat se hlasem</string>
+    <string name="shortcut_sherlock">Sherlock</string>
+    <string name="shortcut_vedomi">Vědomí AVIORu</string>
 </resources>

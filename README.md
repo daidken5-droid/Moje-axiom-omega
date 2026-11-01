@@ -10,6 +10,11 @@ Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERIN
 
 ## Novinky 4.2 – finální verze
 
+* **Widget na plochu** (4×2, měnitelná velikost): černé sklo s titanovou hranou a logem, stav učení, poslední
+  odpověď, „Zeptej se AVIORu…“, hlasový dotaz a **přepínač výkonu přímo na ploše** (Základ → Pokročilé → Sherlock,
+  bez otevření aplikace). Náhled: `docs/screenshots/24-widget-nahled.png`.
+* **Zkratky ikony** (dlouhé podržení): Nová otázka, Zeptat se hlasem, Sherlock, Vědomí AVIORu.
+
 * **Přepínač výkonu** (úvodní obrazovka, výběr variant, Nastavení):
   **Základ** – rychle a úsporně (1 průchod, bez řetězců) · **Pokročilé** – vyvážené, RANDY volí ·
   **Sherlock** – maximum: metoda dedukce (pozorování → hypotézy → důkazy → vyloučení → závěr), 3 průchody,
