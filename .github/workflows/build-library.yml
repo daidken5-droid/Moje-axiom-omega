@@ -1,11 +1,12 @@
 name: Build offline knihovny (Wikipedie)
 
-# Spuštění: změna souboru library-requests/build.txt (obsahuje id knihovny, např. wiki-cs),
-# push tagu build-library-<lib>, nebo ručně v Actions (po sloučení do main).
+# Spuštění: změna souboru library-requests/build.txt (obsahuje id knihovny, např. wiki-cs)
+# na libovolné větvi, nebo ručně v Actions (po sloučení do main).
+# Pozor: kdyby byl u push uveden jen filtr `tags`, GitHub by pushe do větví ignoroval.
 on:
   push:
-    tags: ["build-library-*"]
-    paths: ["library-requests/**"]
+    branches: ["**"]
+    paths: ["library-requests/**", ".github/workflows/build-library.yml"]
   workflow_dispatch:
     inputs:
       lib:
@@ -24,8 +25,7 @@ jobs:
       - name: Výběr knihovny
         run: |
           LIB="${{ github.event.inputs.lib }}"
-          if [ -z "$LIB" ] && [ -f library-requests/build.txt ] && [[ "$GITHUB_REF" != refs/tags/* ]]; then LIB=$(head -n1 library-requests/build.txt | tr -d '[:space:]'); fi
-          if [ -z "$LIB" ]; then LIB="${GITHUB_REF_NAME#build-library-}"; fi
+          if [ -z "$LIB" ] && [ -f library-requests/build.txt ]; then LIB=$(head -n1 library-requests/build.txt | tr -d '[:space:]'); fi
           case "$LIB" in
             wiki-cs) CFG=20231101.cs ;;
             wiki-sk) CFG=20231101.sk ;;
