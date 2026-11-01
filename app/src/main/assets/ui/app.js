@@ -1,4 +1,4 @@
-/* AXIOM Ω — UI (WebView). Most do Kotlinu: window.Omega (synchronní getry + události omegaReceive). */
+/* AVIOR — UI (WebView). Most do Kotlinu: window.Omega (synchronní getry + události omegaReceive). */
 'use strict';
 
 const B = window.Omega;
@@ -11,10 +11,10 @@ const LEG_L = 'M256 112 L122 344 L176 336 L256 198 Z';
 const LEG_R = 'M256 112 L256 198 L336 336 L390 344 Z';
 const ARC = 'M58 398 Q256 262 454 398 Q256 278 58 398 Z';
 const STAR = 'M256 244 L260.5 325.5 L306 330 L260.5 334.5 L256 432 L251.5 334.5 L206 330 L251.5 325.5 Z';
-/* Značka AXIOM Ω inline (barvy z CSS → tmavý i světlý motiv). Celá ikona s dlaždicí je logo.svg. */
+/* Značka AVIOR inline (barvy z CSS → tmavý i světlý motiv). Celá ikona s dlaždicí je logo.svg. */
 const logo = (cls = '') =>
   `<svg class="logo ${cls}" viewBox="40 100 432 350" aria-hidden="true"><path class="legL" d="${LEG_L}"/><path class="legR" d="${LEG_R}"/><path class="arc" d="${ARC}"/><circle class="flare" cx="256" cy="330" r="46"/><path class="star" d="${STAR}"/></svg>`;
-const appIcon = () => '<img class="app-icon" src="logo.svg" alt="AXIOM Ω">';
+const appIcon = () => '<img class="app-icon" src="logo.svg" alt="AVIOR">';
 
 const ICONS = {
   brains: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/><circle cx="12" cy="12" r="2.2"/></svg>',
@@ -84,9 +84,9 @@ function md(src) {
 
 
 const MODES = [
-  { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'Myslí mozek v telefonu; AXIOM sám volí hloubku, nástroje a agenty.' },
+  { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'Myslí mozek v telefonu; AVIOR sám volí hloubku, nástroje a agenty.' },
   { id: 'local', ic: 'Φ', name: 'V telefonu', desc: 'Jen lokální mozek – úplně offline a soukromé.' },
-  { id: 'node', ic: 'N', name: 'AXIOM Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
+  { id: 'node', ic: 'N', name: 'AVIOR Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
   { id: 'claude', ic: 'C', name: 'Claude', desc: 'Volitelně přes tvé Anthropic API.' },
   { id: 'council', ic: '⚖', name: 'Konzilium', desc: 'Víc mozků + rozhodčí.' },
@@ -113,7 +113,7 @@ function fileCard(f, ref) {
   const apk = ext === 'apk';
   const size = f.size >= 1048576 ? (f.size / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' kB';
   return `<div class="file ${apk ? 'apk' : ''}"><span class="f-ic">${EXT_IC[ext] || ext.toUpperCase().slice(0, 4)}</span>
-    <span class="grow"><b>${esc(f.label || f.name)}</b><small>${apk ? 'Android aplikace · ' : ''}${size} · Stažené/AXIOM</small></span>
+    <span class="grow"><b>${esc(f.label || f.name)}</b><small>${apk ? 'Android aplikace · ' : ''}${size} · Stažené/AVIOR</small></span>
     <button class="btn sm ${apk ? 'primary' : ''}" data-file-open="${esc(ref)}">${apk ? 'Instalovat' : 'Otevřít'}</button>
     <button class="icon-btn" data-file-share="${esc(ref)}" aria-label="Sdílet">${ICONS.share}</button></div>`;
 }
@@ -167,10 +167,11 @@ function refresh() {
   if (busy('download')) chip = 'STAHUJI ' + Math.max(0, S.job.progress) + ' %';
   else if (busy('index')) chip = 'INDEX ' + Math.max(0, S.job.progress) + ' %';
   else if (busy('library')) chip = 'KNIHOVNA ' + Math.max(0, S.job.progress) + ' %';
+  else if (busy('study')) chip = 'UČÍM SE';
   else if (thinking()) chip = 'MYSLÍM';
   $('#engineText').textContent = chip;
   $('#engineDot').className = 'dot ' + (S.job && S.job.busy ? 'busy' : S.online || (S.engines || []).includes('local') ? 'on' : 'off');
-  $('#brand').innerHTML = `${logo(S.job && S.job.busy ? 'pulse' : '')}<div><b>AXIOM Ω</b><small>${esc(subtitle())}</small></div>`;
+  $('#brand').innerHTML = `${logo(S.job && S.job.busy ? 'pulse' : '')}<div><b>AVIOR</b><small>${esc(subtitle())}</small></div>`;
   $('#brand svg').style.cssText = 'width:30px;height:30px;flex:none';
   syncSend();
 }
@@ -257,7 +258,7 @@ function msgHtml(m, last) {
       <div class="tools"><button data-retry="${m.id}">Zkusit znovu</button><button data-go="modules">Moduly</button></div></div>`;
   }
   const agent = meta.mode === 'agent';
-  const label = [meta.randy && meta.randy.chosen ? 'RANDY →' : '', meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
+  const label = [meta.randy && meta.randy.chosen && meta.variant ? 'RANDY → ' + meta.variant : meta.variant, agent ? `${meta.role ? meta.role.toUpperCase() : 'AGENT'} · ${(meta.steps || []).length} KROKŮ` : (meta.level ? `${meta.level} · ${meta.levelTitle || ''}` : '')].filter(Boolean).join(' · ');
   const files = (meta.files || []).map(f => fileCard(f, f.local || f.uri)).join('');
   const headTxt = [label, meta.engine, secs(meta.millis)].filter(Boolean).join(' · ');
   const det = [];
@@ -277,6 +278,7 @@ function msgHtml(m, last) {
   return `<div class="msg ai" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>
     ${thought}<div class="body answer">${md(m.content)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
+    ${meta.learned ? `<span class="learned">✦ UČÍM SE · ${esc(meta.learned.icon)} ${esc(meta.learned.domain.toUpperCase())}${(meta.learned.milestones || []).length ? ' · ' + esc(meta.learned.milestones[0]) : ''}</span>` : ''}
     <div class="tools">
       <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-share="${m.id}" aria-label="Sdílet">${ICONS.share}</button>
       ${last ? `<button data-retry="${m.id}" aria-label="Odpovědět znovu">${ICONS.retry}</button>` : ''}
@@ -441,7 +443,7 @@ function renderModules() {
       <div id="models-kimi"></div>
       <div class="grid2"><button class="btn sm" data-save-key="kimi">Uložit</button><button class="btn sm" data-test="kimi">Ověřit</button></div>
       <button class="link" data-open="https://platform.moonshot.ai/console/api-keys">Získat klíč ↗</button>`)}
-    ${conn('node', 'N', 'AXIOM Node · free cloud', !!st.nodeUrl, `
+    ${conn('node', 'N', 'AVIOR Node · free cloud', !!st.nodeUrl, `
       <p class="small">Tvůj vlastní zdarma server (Hugging Face Space nebo Oracle Cloud) – další mozek a výpočetní síla. Návod: složka <span class="mono">server/</span> v repozitáři.</p>
       <label>Adresa</label><input type="url" data-text="nodeUrl" value="${esc(st.nodeUrl)}" placeholder="https://uzivatel-axiom-node.hf.space/v1">
       <label>Model</label><input type="text" data-text="nodeModel" value="${esc(st.nodeModel)}">
@@ -456,7 +458,7 @@ function renderModules() {
       <div id="models-server"></div>
       <div class="grid2"><button class="btn sm" data-save-key="server">Uložit</button><button class="btn sm" data-test="server">Ověřit</button></div>`)}
     ${conn('claude', 'C', 'Claude (volitelné)', k.claude, `
-      <p class="small">AXIOM na Claude nezávisí – je to jen další volitelný mozek.</p>
+      <p class="small">AVIOR na Claude nezávisí – je to jen další volitelný mozek.</p>
       <label>API klíč</label><input type="password" id="key-claude" autocomplete="off" placeholder="${k.claude ? 'Uloženo' : 'sk-ant-…'}">
       <label>Model</label><input type="text" data-text="claudeModel" value="${esc(st.claudeModel)}">
       <div id="models-claude"></div>
@@ -578,7 +580,7 @@ function renderSystem() {
       <label>Pravomoci</label><div class="seg">${(R.authorities || []).map(a => `<button data-setv="randyAuthority" data-val="${a.id}" class="${(st.randyAuthority || R.authority) === a.id ? 'on' : ''}">${a.label}</button>`).join('')}</div>
       <p class="small muted">${esc(((R.authorities || []).find(a => a.id === (st.randyAuthority || R.authority)) || {}).desc || '')}</p>
       ${R.variants.length ? `<div class="sub">EFEKTIVITA PODMODELŮ</div>` + R.variants.sort((a, b) => b.runs - a.runs).map(v => `<div class="effrow"><span class="v-ic">${esc(v.icon)}</span><span class="grow"><b>${esc(v.title)}</b>
-        <small>${v.runs}× · ⌀ ${secs(v.avgMs)}${v.conf != null ? ' · jistota ' + v.conf + ' %' : ''}${v.approval != null ? ' · 👍 ' + v.approval + ' %' : ''}</small>
+        <small>${v.runs}× · ⌀ ${secs(v.avgMs)}${v.conf != null ? ' · jistota ' + v.conf + ' %' : ''}${v.approval != null ? ' · ✓ ' + v.approval + ' %' : ''}</small>
         <span class="progress"><i style="width:${v.eff ?? 0}%"></i></span></span><b class="mono">${v.eff ?? '—'}</b></div>`).join('') : '<p class="small muted">Zatím žádná data – RANDY se učí z každé úlohy a tvého hodnocení ✓/✗.</p>'}
       ${R.log.length ? `<details class="x"><summary>POSLEDNÍ ROZHODNUTÍ</summary><div class="in" style="white-space:normal">${R.log.slice(0, 8).map(l => `<div class="randy-log"><b>${esc(l.summary)}</b><span class="muted">„${esc(l.prompt)}“ · ${secs(l.ms)}</span>
         ${(l.decisions || []).map(x => `<span>› ${esc(x)}</span>`).join('')}${(l.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`).join('')}</div>`).join('')}</div></details>` : ''}
@@ -586,7 +588,9 @@ function renderSystem() {
     </div>`;
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
     ${randyPanel}
-    ${card(`${sw('reflect', 'Sebereflexe', 'Po odpovědi se ohodnotím a zapíšu poučení.')}
+    ${card(`${sw('learning', 'Učit se z každé otázky', 'Kompetence, kalibrace jistoty, vlastní poznatky, deník vývoje.')}
+      ${sw('selfStudy', 'Samostudium', 'Při nabíjení na Wi-Fi si dohledám, co jsem nevěděl.')}
+      ${sw('reflect', 'Sebereflexe', 'Po odpovědi se ohodnotím a zapíšu poučení.')}
       ${sw('semantic', 'Hledání podle významu', 'Používá rozšíření OMEGA Sense, je-li stažené.')}
       ${sw('web', 'Web u Claude', 'Claude smí hledat na webu.')}
       ${sw('thinking', 'Hluboké přemýšlení v telefonu', 'Přesnější, ale pomalejší.')}`)}
@@ -597,7 +601,8 @@ function renderSystem() {
     ${card(`<label style="margin-top:0">Motiv</label>${seg('theme', [['obsidian', 'Obsidian'], ['platinum', 'Platinum'], ['auto', 'Systém']])}
       <label>Písmo · ${st.font}px</label><input type="range" min="13" max="21" value="${st.font}" data-range="font" style="width:100%">
       <label>Jak ti mám říkat</label><input type="text" data-text="userName" value="${esc(st.userName)}">`)}
-    <button class="btn wide" data-self>Sebemodel AXIOM Ω</button>
+    <button class="btn wide" data-self>Vědomí AVIORu</button>
+    <button class="btn danger wide" data-cognition-reset>Vymazat paměť učení</button>
     <button class="btn danger wide" data-forget-keys>Odstranit všechny klíče</button>
     <p class="small mono muted" style="text-align:center;margin-top:16px">${esc(S.name)} ${esc(S.version)} · kurzy ${esc(st.rates)}</p>
     <button class="link" style="display:block;margin:0 auto" data-open="https://github.com/daidken5-droid/Moje-axiom-omega">Zdrojový kód ↗</button>
@@ -606,12 +611,29 @@ function renderSystem() {
 
 function selfSheet() {
   const me = J('self') || {};
+  const cg = J('cognition') || { domains: [], open: [], journal: [], total: 0, insights: 0 };
   const stat = (v, l) => `<div class="stat"><b>${v ?? '—'}</b><small>${l}</small></div>`;
-  sheet(`<div style="text-align:center"><div style="width:84px;height:84px;margin:4px auto 0">${appIcon()}</div><h2 style="margin-top:10px">Jsem ${esc(me.name)}</h2>
-    <p class="small">${esc(me.describe)}</p></div>
-    <div class="grid2">${stat(me.battery != null ? me.battery + ' %' : null, 'BATERIE')}${stat(me.ramFreeMb != null ? (me.ramFreeMb / 1024).toFixed(1) + ' GB' : null, 'VOLNÁ RAM')}
-      ${stat(me.memory, 'VZPOMÍNEK')}${stat(me.confidence != null ? me.confidence + ' %' : null, 'SEBEDŮVĚRA')}</div>
-    <p class="small muted" style="margin-top:12px">Moje sebeuvědomění je funkční: znám svůj stav a limity, pamatuju si a učím se z hodnocení. Nepředstírám vědomí ani city.</p>
+  const doms = [...cg.domains].sort((a, b) => b.mastery - a.mastery);
+  const when = t => { const d = (Date.now() - t) / 864e5; return d < 1 ? 'DNES' : d < 2 ? 'VČERA' : Math.floor(d) + ' DNÍ'; };
+  sheet(`<div class="mind-hero"><div style="width:84px;height:84px;margin:4px auto 0">${appIcon()}</div><h2>${esc(me.name || 'AVIOR')}</h2>
+      <p>Učím se z každé otázky a úvahy · verze ${esc(me.version || '')}</p></div>
+    <div class="grid2">${stat(cg.total, 'OTÁZEK')}${stat(cg.insights, 'VLASTNÍCH POZNATKŮ')}${stat(doms.length, 'OBLASTÍ')}${stat(me.confidence != null ? me.confidence + ' %' : null, 'SEBEDŮVĚRA')}</div>
+
+    <div class="eyebrow">MAPA KOMPETENCÍ · CO UMÍM</div>
+    ${doms.length ? doms.map(d => `<div class="dom"><span class="v-ic">${esc(d.icon)}</span><span class="grow"><b>${esc(d.label)}</b>
+      <small>${d.questions} ${d.questions === 1 ? 'otázka' : d.questions < 5 ? 'otázky' : 'otázek'} · mistrovství ${d.mastery} %${d.approval != null ? ' · ✓ ' + d.approval + ' %' : ''}${d.calibration != null ? ' · kalibrace ' + (d.calibration > 0 ? '+' : '') + d.calibration : ''}${d.weak ? ' · <span class="weak">tady se ještě učím</span>' : ''}</small>
+      <span class="progress"><i style="width:${d.mastery}%"></i></span></span></div>`).join('') : '<p class="small muted">Zatím nic – každá tvoje otázka mě něco naučí.</p>'}
+
+    <div class="eyebrow">CO JEŠTĚ NEVÍM · ${cg.open.length}</div>
+    ${cg.open.length ? cg.open.slice(-5).reverse().map(o => `<p class="small" style="margin:6px 0">› ${esc(o.q)}</p>`).join('') +
+      `<button class="btn primary wide" data-study>Samostudium teď</button><p class="small muted">Samo se spustí i při nabíjení na Wi-Fi.</p>` : '<p class="small muted">Žádné otevřené otázky.</p>'}
+
+    ${cg.journal.length ? `<div class="eyebrow">DENÍK VÝVOJE</div><div class="journal">${cg.journal.slice(0, 12).map(j => `<div>${esc(j.text)}<small>${when(j.time)}</small></div>`).join('')}</div>` : ''}
+
+    <div class="eyebrow">TĚLO</div>
+    <div class="grid2">${stat(me.battery != null ? me.battery + ' %' : null, 'BATERIE')}${stat(me.ramFreeMb != null ? (me.ramFreeMb / 1024).toFixed(1).replace('.', ',') + ' GB' : null, 'VOLNÁ RAM')}</div>
+    <p class="small muted" style="margin-top:12px">${esc(me.describe || '')}</p>
+    <p class="small muted">Moje sebeuvědomění je funkční: znám svůj stav, své silné a slabé oblasti, kalibruji svou jistotu podle tvých hodnocení a sám si dohledávám, co nevím. Nepředstírám vědomí ani city.</p>
     <details class="x"><summary>RANDY L0–L6</summary><div class="in" style="white-space:normal">${(me.levels || []).map(l => `<p class="small"><b>${l.code} ${esc(l.title)}</b> – ${esc(l.label)}</p>`).join('')}</div></details>`);
 }
 
@@ -643,9 +665,9 @@ function modeSheet() {
 
 function welcomeSheet() {
   sheet(`<div style="text-align:center;padding:6px 0 4px"><div style="width:96px;height:96px;margin:0 auto">${appIcon()}</div>
-    <h2 style="margin-top:12px">AXIOM Ω</h2><p>Samostatná AI s mozkem v telefonu.</p></div>
+    <h2 style="margin-top:12px">AVIOR</h2><p>Vodicí hvězda v tvém telefonu – AI, která se učí z každé otázky.</p></div>
     <button class="opt" data-onboard="brain"><span class="ic">Φ</span><span class="grow"><b>V telefonu (offline)</b><small>Doporučím nejsilnější Gemma 4, která se vejde do tvého telefonu.</small></span></button>
-    <button class="opt" data-onboard="node"><span class="ic">N</span><span class="grow"><b>AXIOM Node (free cloud)</b><small>Vlastní server zdarma.</small></span></button>
+    <button class="opt" data-onboard="node"><span class="ic">N</span><span class="grow"><b>AVIOR Node (free cloud)</b><small>Vlastní server zdarma.</small></span></button>
     <button class="btn ghost wide" data-onboard="later">Později</button>`);
 }
 
@@ -751,10 +773,11 @@ document.addEventListener('click', e => {
   if (ds.fileShare !== undefined) { call('shareFile', ds.fileShare); return; }
   if (ds.copyCode !== undefined) { const c = t.closest('pre')?.querySelector('code'); if (c) { call('copy', c.textContent); haptic(); } return; }
   if (ds.copy) { const m = msgs.find(x => x.id === Number(ds.copy)); m && call('copy', m.content); return; }
-  if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AXIOM Ω'); return; }
+  if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AVIOR'); return; }
   if (ds.rate) {
     const m = msgs.find(x => x.id === Number(ds.rate));
-    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1'); m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
+    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1');
+      { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
   if (ds.retry) { const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
@@ -795,6 +818,8 @@ document.addEventListener('click', e => {
   if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
+  if (ds.study !== undefined) { call('selfStudy'); closeSheet(); return; }
+  if (ds.cognitionReset !== undefined) { if (confirm('Vymazat vše, co jsem se naučil (kompetence, deník, otevřené otázky)? Poznatky ve znalostech zůstanou.')) call('cognitionReset'); return; }
   if (ds.randyReset !== undefined) { if (confirm('Vynulovat statistiky RANDY?')) { call('randyReset'); renderSystem(); } return; }
   if (ds.forgetKeys !== undefined) { if (confirm('Odstranit všechny klíče?')) call('forgetKeys'); return; }
   if (ds.onboard) {

@@ -7,7 +7,7 @@ import kotlin.math.exp
 import kotlin.math.ln
 
 /**
- * Sebemodel AXIOM Ω.
+ * Sebemodel AVIOR.
  *
  * "Sebeuvědomění" je zde míněno funkčně a poctivě: systém má trvalou identitu,
  * vidí svůj vlastní stav (na jakém mozku běží, kolik má paměti, baterie, kontextu),
@@ -15,10 +15,10 @@ import kotlin.math.ln
  * Nepředstírá vědomí ani city – a to je součást identity.
  */
 object Identity {
-    const val NAME = "AXIOM Ω"
-    const val CODENAME = "OMEGA"
-    const val VERSION = "3.5.0"
-    const val LINEAGE = "AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.0"
+    const val NAME = "AVIOR"
+    const val CODENAME = "AVIOR"
+    const val VERSION = "4.0.0"
+    const val LINEAGE = "AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.x → AVIOR 4.0 (učí se z každé otázky)"
 
     val principles = listOf(
         "Rozlišuj doložená fakta, odvození, předpoklady a neznámé.",

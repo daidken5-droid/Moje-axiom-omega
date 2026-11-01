@@ -69,7 +69,7 @@ class OmegaService : Service() {
             Events.note("Právě probíhá jiná úloha – počkej nebo ji zastav.")
             return START_NOT_STICKY
         }
-        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY)
+        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_STUDY)
         val type = if (download) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         else if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         ServiceCompat.startForeground(this, NOTIF_ID, notification("Připravuji…", -1), type)
@@ -82,6 +82,7 @@ class OmegaService : Service() {
                     ACTION_ASK -> ask(intent, cancel)
                     ACTION_DOWNLOAD -> download(intent.getStringExtra("id"), intent.getStringExtra("spec"), cancel)
                     ACTION_INDEX -> index(cancel)
+                    ACTION_STUDY -> study(cancel)
                     ACTION_DATASET -> dataset(intent, cancel)
                     ACTION_WIKI -> wiki(intent, cancel)
                     ACTION_LIBRARY -> library(intent.getStringExtra("id")!!, cancel)
@@ -123,7 +124,13 @@ class OmegaService : Service() {
         val engines = omega.availableEngines()
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
             local = mode == "local" || (mode == "auto" && engines.firstOrNull() == "local"))
-        val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this)), device, omega.randy.stats(), authority)
+        // SEBEPOZNÁNÍ: co o sobě vím v oblasti této otázky (z každé předchozí otázky a úvahy)
+        val learning = omega.settings.learning
+        val (domain, selfInsight) = omega.cognition.brief(text)
+        val competence = omega.cognition.competence(domain)
+        val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
+            weakDomain = if (learning && competence?.weak == true) domain.label else null), device, omega.randy.stats(), authority)
+        val insight = if (learning) selfInsight else null
         val variant = plan.variant
         val forced = plan.level
         val job = omega.job
@@ -200,7 +207,7 @@ class OmegaService : Service() {
                                 omega.db.updateTask(taskId, "running", steps.length(), null)
                                 Events.emit("step", j)
                             }
-                        }, s.rates, s.userName.ifBlank { null }, agentRole, variant.style, variant.temperature ?: 0.4f, watchdog)
+                        }, s.rates, s.userName.ifBlank { null }, agentRole, listOfNotNull(variant.style, insight).joinToString("\n").ifBlank { null }, variant.temperature ?: 0.4f, watchdog)
                     } catch (e: Exception) {
                         omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
                         throw e
@@ -216,7 +223,7 @@ class OmegaService : Service() {
                     val passes = plan.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
                     var r = omega.orchestrator().run(
                         AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
-                            s.userName.ifBlank { null }, variant.style, variant.temperature),
+                            s.userName.ifBlank { null }, variant.style, variant.temperature, insight),
                         engine, cancel, listener,
                     )
                     // RANDY eskalace: nejistá odpověď → silnější varianta (jen s plnou pravomocí)
@@ -225,7 +232,7 @@ class OmegaService : Service() {
                         omega.randy.record(variant, r.millis, r.confidence, true)
                         val r2 = omega.orchestrator().run(
                             AskRequest(route.prompt, history, up.level ?: forced, up.passes ?: 3, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, up.thinking ?: true, true,
-                                s.rates, s.userName.ifBlank { null }, up.style, up.temperature),
+                                s.rates, s.userName.ifBlank { null }, up.style, up.temperature, insight),
                             engine, cancel, listener,
                         )
                         if ((r2.confidence ?: 0) >= (r.confidence ?: 0)) { r = r2; escalatedTo = up }
@@ -245,6 +252,16 @@ class OmegaService : Service() {
             omega.randy.log(JSONObject().put("prompt", text.take(80)).put("summary", plan.summary).put("decisions", randyMeta.getJSONArray("decisions"))
                 .put("interventions", randyMeta.getJSONArray("interventions")).put("ms", meta.optLong("millis")))
             agentRole?.takeIf { route.mode == Router.Mode.AGENT }?.let { meta.put("role", it.title) }
+            // UČEBNÍ SMYČKA: kalibrace jistoty, kompetence, vlastní poznatek, otevřené otázky, milníky
+            if (learning) {
+                val raw = meta.optInt("confidence", -1).takeIf { it >= 0 }
+                cz.axiom.omega.core.self.Cognition.calibrated(raw, competence)?.let { cal ->
+                    if (cal != raw) { meta.put("rawConfidence", raw); meta.put("confidence", cal) }
+                }
+                val milestones = omega.cognition.learn(route.prompt, answer, raw, ok = true)
+                meta.put("learned", JSONObject().put("domain", domain.label).put("icon", domain.icon).put("milestones", JSONArray(milestones)))
+                milestones.firstOrNull()?.let { Events.note("✦ $it") }
+            }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
             val id = omega.db.addMessage(threadId, "assistant", answer, meta)
@@ -476,6 +493,43 @@ class OmegaService : Service() {
         Events.note("${spec.name} je stažená a funguje offline (%,d článků).".format(m.articles).replace(',', ' '))
     }
 
+    /**
+     * SAMOSTUDIUM: AVIOR se vrátí k otázkám, na které neznal odpověď, dohledá je (online agentem,
+     * offline z knihovny a poznatků), uloží si závěr jako poznatek a zapíše to do deníku.
+     */
+    private fun study(cancel: CancelToken) {
+        val job = omega.job
+        job.reset("study")
+        val open = omega.cognition.openQuestions().takeLast(3)
+        if (open.isEmpty()) { Events.note("Nemám žádné otevřené otázky – vše, na co jsem narazil, už vím."); return }
+        val online = Introspect.online(this)
+        val engine = omega.resolve(if ("local" in omega.availableEngines()) "local" else omega.availableEngines().firstOrNull() ?: "local")
+        var learned = 0
+        for ((i, q) in open.withIndex()) {
+            cancel.check()
+            val question = q.getString("q")
+            job.phase = "Samostudium ${i + 1}/${open.size}"
+            job.detail = question.take(80)
+            updateNotification("Samostudium: ${question.take(60)}", (i * 100) / open.size)
+            Events.emit("progress", job.toJson())
+            val answer = runCatching {
+                if (online) {
+                    omega.agent().run("Samostudium – dohledej a ověř odpověď, stručně se zdroji: $question", emptyList(), engine, 6, cancel,
+                        role = cz.axiom.omega.core.agent.AgentRole.RESEARCHER,
+                        watchdog = Sup.Watchdog(3 * 60_000L, Sup.Authority.GOVERN)).answer
+                } else {
+                    omega.orchestrator().run(AskRequest(question, maxPasses = 2, reflect = true, thinking = true, rates = omega.settings.rates), engine, cancel).answer
+                }
+            }.getOrElse { if (it is CancelledException) throw it else null } ?: continue
+            if (cz.axiom.omega.core.self.Cognition.isOpen(answer, null)) continue
+            omega.cognition.learn(question, answer, 75, ok = true)
+            omega.cognition.resolve(q.getString("key"), "Samostudium: dohledal jsem „${question.take(70)}“.")
+            learned++
+        }
+        Events.emit("kb", JSONObject())
+        Events.note(if (learned > 0) "✦ Samostudium hotovo: naučil jsem se $learned ${if (learned == 1) "novou věc" else "nové věci"}." else "Samostudium: zatím jsem odpovědi nenašel, zkusím to příště.")
+    }
+
     /** Články z Wikipedie k tématu → offline znalosti. */
     private fun wiki(intent: Intent, cancel: CancelToken) {
         val job = omega.job
@@ -518,7 +572,7 @@ class OmegaService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, OmegaService::class.java).setAction(ACTION_CANCEL), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK)
             .setSmallIcon(R.drawable.ic_stat_omega)
-            .setContentTitle("AXIOM Ω")
+            .setContentTitle("AVIOR")
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setOngoing(true)
@@ -565,6 +619,7 @@ class OmegaService : Service() {
         const val ACTION_DATASET = "cz.axiom.omega.DATASET"
         const val ACTION_WIKI = "cz.axiom.omega.WIKI"
         const val ACTION_LIBRARY = "cz.axiom.omega.LIBRARY"
+        const val ACTION_STUDY = "cz.axiom.omega.STUDY"
         private const val NOTIF_ID = 7
         val RUNNING = AtomicBoolean(false)
         @Volatile private var current: CancelToken? = null

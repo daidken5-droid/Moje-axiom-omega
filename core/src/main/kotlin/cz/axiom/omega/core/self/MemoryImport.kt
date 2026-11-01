@@ -18,7 +18,7 @@ import kotlinx.serialization.json.contentOrNull
  */
 object MemoryImport {
 
-    /** Dotaz, který si uživatel zkopíruje do Gemini. Odpověď pak vloží do AXIOM Ω. */
+    /** Dotaz, který si uživatel zkopíruje do Gemini. Odpověď pak vloží do AVIOR. */
     val PROMPT = """
         Vypiš prosím všechno, co si o mně pamatuješ nebo víš z našich konverzací – uložené informace,
         moje preference, práci, projekty, zájmy a důležitá fakta. Každou položku napiš na samostatný řádek

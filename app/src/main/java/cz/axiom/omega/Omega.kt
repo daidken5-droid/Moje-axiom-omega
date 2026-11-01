@@ -135,6 +135,7 @@ class Omega private constructor(val app: Context) {
     }
 
     val randy by lazy { cz.axiom.omega.data.RandyStore(app) }
+    val cognition by lazy { cz.axiom.omega.data.CognitionStore(app, db) }
 
     val forge by lazy { cz.axiom.omega.forge.AndroidForge(app) }
 
@@ -189,12 +190,12 @@ class Omega private constructor(val app: Context) {
     }
 
     fun node(): KimiEngine {
-        val url = settings.nodeUrl.ifBlank { throw EngineException("Není nastavená adresa AXIOM Node (Moduly → AXIOM Node).") }
+        val url = settings.nodeUrl.ifBlank { throw EngineException("Není nastavená adresa AVIOR Node (Moduly → AVIOR Node).") }
         Http.requireAllowed(url)
         return KimiEngine(url, vault.read(Vault.NODE), settings.nodeModel, EngineKind.NODE)
     }
 
-    /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AXIOM na něm nezávisí). */
+    /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AVIOR na něm nezávisí). */
     fun availableEngines(): List<String> {
         val online = Introspect.online(app)
         // Primární je výkonný mozek v telefonu; cloudy jsou jen volitelné doplňky.

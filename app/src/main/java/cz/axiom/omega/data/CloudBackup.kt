@@ -62,7 +62,7 @@ class CloudBackup(private val context: Context, private val token: String) {
         if (text.length > 9_500_000) throw IOException("Záloha je po kompresi ${text.length / 1_000_000} MB – limit cloudu je 9,5 MB. Použij místní zálohu do souboru.")
         val content = Base64.encodeToString(text.toByteArray(), Base64.NO_WRAP)
         val ndjson = buildString {
-            append(JSONObject().put("key", "header").put("value", JSONObject().put("summary", "AXIOM Ω záloha").put("description", "")).toString()).append('\n')
+            append(JSONObject().put("key", "header").put("value", JSONObject().put("summary", "AVIOR záloha").put("description", "")).toString()).append('\n')
             append(JSONObject().put("key", "file").put("value", JSONObject().put("content", content).put("path", file).put("encoding", "base64")).toString()).append('\n')
         }
         val (code, body) = req("POST", "$base/api/datasets/$repo/commit/main", ndjson.toByteArray(), "application/x-ndjson")

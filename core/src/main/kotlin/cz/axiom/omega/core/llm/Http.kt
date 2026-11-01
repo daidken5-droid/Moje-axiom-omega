@@ -9,7 +9,7 @@ import java.net.URI
 import java.net.URL
 
 object Http {
-    const val USER_AGENT = "AXIOM-Omega/3.0 (Android; +https://github.com/daidken5-droid/Moje-axiom-omega)"
+    const val USER_AGENT = "AVIOR/4.0 (Android; +https://github.com/daidken5-droid/Moje-axiom-omega)"
 
     fun open(url: String, method: String = "GET", connectMs: Int = 20_000, readMs: Int = 180_000): HttpURLConnection {
         requireAllowed(url)

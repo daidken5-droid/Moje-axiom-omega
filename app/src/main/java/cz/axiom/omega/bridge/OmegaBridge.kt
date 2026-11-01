@@ -68,7 +68,7 @@ class OmegaBridge(private val activity: MainActivity) {
             .toString()
     }
 
-    /** Sebemodel pro obrazovku "Já" – co o sobě AXIOM Ω ví. */
+    /** Sebemodel pro obrazovku "Já" – co o sobě AVIOR ví. */
     @JavascriptInterface
     fun self(): String {
         val st = omega.selfState()
@@ -552,6 +552,32 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun randyRate(variantId: String, good: Boolean) = omega.randy.rate(variantId, good)
 
+    // ------------------------------------------------------------------ Kognice (učení z každé otázky)
+
+    @JavascriptInterface fun cognition(): String = omega.cognition.toJson().toString()
+
+    @JavascriptInterface fun learnRate(question: String, good: Boolean, confidence: Int) =
+        omega.cognition.rate(question, good, confidence.takeIf { it >= 0 })
+
+    @JavascriptInterface
+    fun selfStudy() {
+        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        OmegaService.start(activity, Intent(OmegaService.ACTION_STUDY))
+    }
+
+    @JavascriptInterface fun cognitionReset() { omega.cognition.reset(); Events.note("Paměť učení vymazána – začínám znovu.") }
+
+    /** Automatické samostudium: nabíjí se, Wi-Fi, aspoň 2 otevřené otázky, naposledy před 6 h. */
+    fun maybeSelfStudy() {
+        val s = omega.settings
+        if (!s.selfStudy || OmegaService.RUNNING.get()) return
+        val (_, charging) = Introspect.battery(activity)
+        if (charging != true || !Introspect.unmetered(activity)) return
+        if (omega.cognition.openQuestions().size < 2) return
+        if (System.currentTimeMillis() - omega.cognition.lastStudy() < 6 * 3_600_000L) return
+        OmegaService.start(activity, Intent(OmegaService.ACTION_STUDY))
+    }
+
     @JavascriptInterface fun randyReset() { omega.randy.reset(); Events.note("Statistiky RANDY vynulovány.") }
 
     /** Náhled plánu RANDY během psaní (co by aktivoval). */
@@ -586,7 +612,7 @@ class OmegaBridge(private val activity: MainActivity) {
         if (e.optString("mime") == "application/vnd.android.package-archive" && android.os.Build.VERSION.SDK_INT >= 26 &&
             !activity.packageManager.canRequestPackageInstalls()
         ) {
-            Events.note("Povol AXIOMu instalaci aplikací a pak klepni na Instalovat znovu.")
+            Events.note("Povol AVIORu instalaci aplikací a pak klepni na Instalovat znovu.")
             runCatching {
                 activity.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + activity.packageName)))
             }
@@ -613,7 +639,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val i = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ")
-            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Mluv – AXIOM poslouchá")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Mluv – AVIOR poslouchá")
         runCatching { activity.voice.launch(i) }.onFailure { Events.note("Rozpoznávání řeči není v telefonu dostupné.") }
     }
 
@@ -629,7 +655,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun copy(text: String) = activity.runOnUiThread {
-        (activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("AXIOM Ω", text))
+        (activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("AVIOR", text))
         Events.note("Zkopírováno.")
     }
 }

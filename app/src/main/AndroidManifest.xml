@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- instalace aplikací, které AXIOM vyrobí (Ω Studio / build_apk); Android se uživatele zeptá -->
+    <!-- instalace aplikací, které AVIOR vyrobí (Ω Studio / build_apk); Android se uživatele zeptá -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
 

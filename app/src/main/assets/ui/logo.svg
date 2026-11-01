@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AXIOM Ω">
-  <!-- AXIOM Ω: titanový chevron (A) nad světelným horizontem se zábleskem – černá × titan -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AVIOR">
+  <!-- AVIOR: titanový chevron (A) a hvězda vycházející nad horizontem – jen titan na černé -->
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#2A2B2F"/><stop offset=".45" stop-color="#0C0D10"/><stop offset="1" stop-color="#040405"/>
@@ -11,7 +11,7 @@
       <stop offset="0" stop-color="#FFFFFF" stop-opacity=".16"/><stop offset=".42" stop-color="#FFFFFF" stop-opacity=".03"/><stop offset=".43" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
     <radialGradient id="warm" cx="256" cy="176" r="170" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#E9D6B8" stop-opacity=".42"/><stop offset=".5" stop-color="#8C7A62" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".2"/><stop offset=".5" stop-color="#8E949D" stop-opacity=".07"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="legL" x1="140" y1="340" x2="256" y2="120" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#8E949D"/><stop offset=".45" stop-color="#E9ECF0"/><stop offset="1" stop-color="#FFFFFF"/>

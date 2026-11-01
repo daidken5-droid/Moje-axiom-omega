@@ -11,7 +11,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 /**
- * Aplikace vytvořená AXIOM Ω: celé UI je v assets/www (HTML, CSS, JS), které napsal AXIOM.
+ * Aplikace vytvořená AVIOR: celé UI je v assets/www (HTML, CSS, JS), které napsal AVIOR.
  * Běží offline; odkazy na web se otevírají v prohlížeči.
  */
 public class MainActivity extends Activity {

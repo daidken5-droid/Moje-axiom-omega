@@ -141,7 +141,7 @@ object Tools {
         }
         val types = F.TEXT_TYPES.keys.joinToString(", ")
         return listOf(
-            tool("create_file", """{"name": "rozpocet.csv"} + OBSAH""", "vytvoří soubor ve složce Stažené/AXIOM (formáty: $types)") { a, _ ->
+            tool("create_file", """{"name": "rozpocet.csv"} + OBSAH""", "vytvoří soubor ve složce Stažené/AVIOR (formáty: $types)") { a, _ ->
                 val name = F.safeName(a.arg("name", "filename", "title"))
                 val content = a.arg("content", "text", "body")
                 require(name.substringAfterLast('.').lowercase() in F.TEXT_TYPES) { "Pro .${name.substringAfterLast('.')} použij create_pdf / create_docx / create_zip / build_apk." }

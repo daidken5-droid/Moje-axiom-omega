@@ -101,7 +101,7 @@ class RandySelfTest {
             listOf(MemoryItem(1, MemoryKind.PROFILE, "Uživatel se jmenuje Daniel.")),
             compact = true,
         )
-        assertTrue(sp.contains("AXIOM Ω"))
+        assertTrue(sp.contains("AVIOR"))
         assertTrue(sp.contains("SEBEMODEL"))
         assertTrue(sp.contains("Baterie 64 %"))
         assertTrue(sp.contains("RANDY L3"))

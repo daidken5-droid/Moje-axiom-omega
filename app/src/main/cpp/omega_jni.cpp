@@ -1,4 +1,4 @@
-// AXIOM Ω – nativní most k llama.cpp (lokální mozek v telefonu).
+// AVIOR – nativní most k llama.cpp (lokální mozek v telefonu).
 //
 // Oproti libaxiom.so z AXIOM 2.1:
 //  • šablona chatu se bere z modelu (Jinja přes common/chat) – funguje pro Qwen3/3.5, Llama, Gemma…

@@ -3,7 +3,7 @@ package cz.axiom.omega.core.randy
 import cz.axiom.omega.core.util.TextUtil
 
 /**
- * RANDY — hloubkový protokol AXIOMu (DNA z Titanium 5.5), v Omeze povýšený
+ * RANDY — hloubkový protokol AVIORu (DNA z Titanium 5.5), v Omeze povýšený
  * z pouhého štítku na řídicí systém: úroveň určuje instrukce, počet průchodů
  * agenta, úsilí cloudového modelu i délku odpovědi.
  */

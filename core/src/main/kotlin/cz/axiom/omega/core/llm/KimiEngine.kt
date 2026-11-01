@@ -36,7 +36,7 @@ class KimiEngine(
     override val id = "kimi:$model@${baseUrl.trimEnd('/')}"
     override val label = when (kind) {
         EngineKind.KIMI_SERVER -> "Vlastní server ($model)"
-        EngineKind.NODE -> "AXIOM Node ($model)"
+        EngineKind.NODE -> "AVIOR Node ($model)"
         else -> "Kimi K3 · cloud ($model)"
     }
     override val contextBudgetChars = 400_000

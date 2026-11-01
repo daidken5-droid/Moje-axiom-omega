@@ -13,7 +13,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Introspekce zařízení – to, co AXIOM Ω "cítí" o svém těle. */
+/** Introspekce zařízení – to, co AVIOR "cítí" o svém těle. */
 object Introspect {
 
     fun totalRamGb(context: Context): Double {

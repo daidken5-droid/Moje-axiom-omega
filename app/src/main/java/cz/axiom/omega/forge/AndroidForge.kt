@@ -31,7 +31,7 @@ import java.util.Calendar
 import javax.security.auth.x500.X500Principal
 
 /**
- * Výroba souborů v telefonu: Stažené/AXIOM (viditelné ve Správci souborů), PDF přes PdfDocument,
+ * Výroba souborů v telefonu: Stažené/AVIOR (viditelné ve Správci souborů), PDF přes PdfDocument,
  * APK přes [ApkForge] s podpisovým klíčem v Android Keystore (klíč nikdy neopustí telefon).
  * Seznam vytvořených souborů je v files/forge/index.json.
  */
@@ -48,7 +48,7 @@ class AndroidForge(private val context: Context) : FileSink {
         val uri = publish(name, mime, bytes)
         val e = JSONObject().put("name", name).put("mime", mime).put("size", bytes.size).put("uri", uri.toString()).put("time", System.currentTimeMillis())
         record(e)
-        return "Soubor $name (${kb(bytes.size)}) uložen do složky Stažené/AXIOM."
+        return "Soubor $name (${kb(bytes.size)}) uložen do složky Stažené/AVIOR."
     }
 
     override fun apk(appName: String, files: Map<String, ByteArray>): String {
@@ -66,8 +66,8 @@ class AndroidForge(private val context: Context) : FileSink {
             JSONObject().put("name", fileName).put("mime", "application/vnd.android.package-archive").put("size", bytes.size)
                 .put("uri", uri?.toString() ?: "").put("local", out.path).put("pkg", r.packageName).put("label", r.label).put("time", System.currentTimeMillis()),
         )
-        return "APK „${r.label}“ vyrobeno (${kb(bytes.size)}, balíček ${r.packageName}, podepsáno v2+v3). Uloženo do Stažené/AXIOM/$fileName. " +
-            "Instalace: tlačítko Instalovat u odpovědi nebo v Agenti → Vytvořené soubory (Android se jednou zeptá na povolení instalace z AXIOMu)."
+        return "APK „${r.label}“ vyrobeno (${kb(bytes.size)}, balíček ${r.packageName}, podepsáno v2+v3). Uloženo do Stažené/AVIOR/$fileName. " +
+            "Instalace: tlačítko Instalovat u odpovědi nebo v Agenti → Vytvořené soubory (Android se jednou zeptá na povolení instalace z AVIORu)."
     }
 
     override fun pdf(title: String, text: String): ByteArray {
@@ -102,7 +102,7 @@ class AndroidForge(private val context: Context) : FileSink {
                 layout.draw(c)
                 c.restore()
             }
-            c.drawText("AXIOM Ω · strana $pageNo", margin.toFloat(), (h - margin / 2).toFloat(), foot)
+            c.drawText("AVIOR · strana $pageNo", margin.toFloat(), (h - margin / 2).toFloat(), foot)
             doc.finishPage(page)
             line = end
             if (layout.lineCount == 0) break
@@ -155,7 +155,7 @@ class AndroidForge(private val context: Context) : FileSink {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
                 put(MediaStore.Downloads.MIME_TYPE, mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/AXIOM")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/AVIOR")
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
             val uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("Nelze vytvořit soubor ve Stažených.")
@@ -168,7 +168,7 @@ class AndroidForge(private val context: Context) : FileSink {
             return uri
         }
         // Android 8–9: složka aplikace (bez oprávnění k úložišti)
-        val d = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir, "AXIOM").apply { mkdirs() }
+        val d = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir, "AVIOR").apply { mkdirs() }
         val f = uniqueFile(d, name)
         f.writeBytes(bytes)
         return FileProvider.getUriForFile(context, context.packageName + ".files", f)
@@ -191,7 +191,7 @@ class AndroidForge(private val context: Context) : FileSink {
                         .setKeySize(2048)
                         .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
                         .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                        .setCertificateSubject(X500Principal("CN=AXIOM Omega App Forge, O=AXIOM"))
+                        .setCertificateSubject(X500Principal("CN=AVIOR Omega App Forge, O=AVIOR"))
                         .setCertificateSerialNumber(BigInteger.valueOf(System.currentTimeMillis()))
                         .setCertificateNotBefore(from.time)
                         .setCertificateNotAfter(to.time)

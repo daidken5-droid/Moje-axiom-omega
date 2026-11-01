@@ -1,6 +1,6 @@
 # Vládní a tajné projekty – co je doložené
 
-Tento balíček shrnuje programy, jejichž existence je doložená odtajněnými dokumenty, vyšetřováním (komise, soudy, Kongres) nebo oficiálním přiznáním. U každého je uvedeno, co je prokázané a kde končí doložená fakta. Zásada AXIOM: doložená skutečnost ≠ automaticky pravdivá každá navazující teorie.
+Tento balíček shrnuje programy, jejichž existence je doložená odtajněnými dokumenty, vyšetřováním (komise, soudy, Kongres) nebo oficiálním přiznáním. U každého je uvedeno, co je prokázané a kde končí doložená fakta. Zásada AVIOR: doložená skutečnost ≠ automaticky pravdivá každá navazující teorie.
 
 ## Projekt Manhattan (USA, 1942–1946)
 Tajný vývoj jaderné zbraně (Los Alamos, Oak Ridge, Hanford), vedli gen. Leslie Groves a J. Robert Oppenheimer. Pracovalo na něm přes 125 000 lidí, většina nevěděla, na čem pracuje. Test Trinity 16. 7. 1945, bomby na Hirošimu (6. 8. 1945) a Nagasaki (9. 8. 1945). Přesto pronikl sovětská špionáž (Klaus Fuchs, Theodore Hall, manželé Rosenbergovi). Poučení: i obří projekt lze utajit, ale ne dokonale – úniky se nakonec vždy objevily.
@@ -50,5 +50,5 @@ Akce Kámen (1948–1951): StB provozovala falešné hraniční přechody s make
 ## Další doložené programy
 Operace Mockingbird – vztahy CIA s novináři (Churchova komise ji zmiňuje, rozsah je sporný). Projekt Azorian (1974) – CIA tajně vyzvedla část sovětské ponorky K-129 lodí Glomar Explorer („nemůžeme potvrdit ani vyvrátit“ = Glomarova odpověď). Gladio – sítě „stay-behind“ NATO v Evropě, přiznané v roce 1990 italským premiérem Andreottim. Operace Mongoose (1961–1962) – tajné operace proti Castrově Kubě.
 
-## Jak AXIOM ověřuje „tajné projekty“
+## Jak AVIOR ověřuje „tajné projekty“
 1) Existuje primární dokument (odtajněný spis, zpráva komise, soudní rozhodnutí, oficiální přiznání)? 2) Kdo zdroj publikoval a dá se ověřit (archiv NARA, CIA FOIA Reading Room, ABS)? 3) Co přesně dokument tvrdí – a co si k tomu domýšlí výklad? 4) Doložený program neznamená, že platí i každá širší teorie, která se na něj odvolává.

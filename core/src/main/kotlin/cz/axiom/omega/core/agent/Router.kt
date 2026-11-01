@@ -5,9 +5,9 @@ import cz.axiom.omega.core.randy.RandyLevel
 import cz.axiom.omega.core.util.TextUtil
 
 /**
- * AUTONOMNÍ VÝBĚR MODULŮ. Pokud uživatel výslovně neurčí, AXIOM Ω sám rozhodne:
+ * AUTONOMNÍ VÝBĚR MODULŮ. Pokud uživatel výslovně neurčí, AVIOR sám rozhodne:
  *  • JAK pracovat – odpověď (chat), aktivní agent s nástroji, nebo Konzilium,
- *  • KDE myslet – lokální mozek / AXIOM Node / Kimi K3 / vlastní server / Claude,
+ *  • KDE myslet – lokální mozek / AVIOR Node / Kimi K3 / vlastní server / Claude,
  *  • JAK HLUBOKO – úroveň RANDY.
  * Rozhodnutí je deterministické a vysvětlené (ukáže se u odpovědi).
  */
@@ -97,7 +97,7 @@ object Router {
     private fun pickEngine(level: RandyLevel, mode: Router.Mode, prompt: String, ctx: Context, why: MutableList<String>): String {
         val avail = ctx.engines
         if (avail.isEmpty()) return "none"
-        // AXIOM je nezávislý: primárně myslí výkonný mozek v telefonu, cloud jen když v telefonu žádný není.
+        // AVIOR je nezávislý: primárně myslí výkonný mozek v telefonu, cloud jen když v telefonu žádný není.
         if ("local" in avail) { why += "mozek v telefonu"; return "local" }
         if (!ctx.online) { why += "offline"; return avail.firstOrNull { it == "server" } ?: avail.first() }
         why += "v telefonu není mozek → ${avail.first()}"

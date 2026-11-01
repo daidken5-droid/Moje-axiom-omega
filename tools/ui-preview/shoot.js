@@ -30,6 +30,8 @@ const path = require('path');
   await p.evaluate(() => { const o = Omega.state; Omega.state = () => { const j = JSON.parse(o()); j.job.busy = false; return JSON.stringify(j); }; closeSheet(); variant = 'AUTO'; threadId = 0; msgs = []; live = null; go('chat'); });
   await p.fill('#input', 'Vytvoř mi aplikaci APK na evidenci tankování'); await p.waitForTimeout(500); await shot('17-randy-hint');
   await p.evaluate(() => go('system')); await shot('18-randy-panel');
+  await p.evaluate(() => { go('chat'); selfSheet(); }); await shot('19-vedomi');
+  await p.evaluate(() => { const s = document.querySelector('.sheet'); s.scrollTop = 900; }); await shot('20-vedomi-denik');
   await p.goto(base + '?theme=platinum'); await shot('13-platinum');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no js errors');
   await b.close();

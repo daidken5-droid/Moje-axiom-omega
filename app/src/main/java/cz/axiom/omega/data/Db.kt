@@ -14,7 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Jediná SQLite databáze AXIOM Ω: vlákna + zprávy, dlouhodobá paměť, znalostní báze (FTS4).
+ * Jediná SQLite databáze AVIOR: vlákna + zprávy, dlouhodobá paměť, znalostní báze (FTS4).
  *
  * AXIOM 2.1 ukládal celou historii jako JSON do SharedPreferences (až 6 MB, synchronní
  * commit při KAŽDÉM stisku klávesy v poznámkách) → zamrzání UI a ztráta dat při překročení.

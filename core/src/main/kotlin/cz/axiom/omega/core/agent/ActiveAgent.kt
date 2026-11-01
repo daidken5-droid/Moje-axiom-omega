@@ -38,7 +38,7 @@ enum class AgentRole(val title: String, val icon: String, val tagline: String, v
     APPS("Tvůrce aplikací", "▣", "Vyrobí instalovatelné APK",
         "Vyrábíš Android aplikace nástrojem build_apk. Napiš JEDEN soubor index.html, který obsahuje veškeré CSS i JS (žádné externí odkazy " +
             "ani CDN – aplikace musí fungovat offline). Mobilní rozvržení, velká tlačítka, tmavý titanový vzhled, data ukládej do localStorage. " +
-            "Po vytvoření řekni uživateli, kde APK najde a že při instalaci musí povolit instalaci z AXIOMu.", true),
+            "Po vytvoření řekni uživateli, kde APK najde a že při instalaci musí povolit instalaci z AVIORu.", true),
     FACTCHECK("Ověřovatel faktů", "✓", "Tvrzení vs. důkazy",
         "Ověřuješ tvrzení. Rozděl je na dílčí výroky, ke každému najdi důkazy (offline knihovna, balíčky znalostí, Wikipedie, web) a ohodnoť: " +
             "PRAVDA / ZAVÁDĚJÍCÍ / NEPODLOŽENO / NEPRAVDA / NELZE OVĚŘIT. Odliš doložené skutečnosti (odtajněné dokumenty, soudy) od spekulací, " +

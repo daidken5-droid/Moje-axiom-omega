@@ -1,6 +1,6 @@
 # Konspirační teorie – tvrzení a důkazy
 
-Přehled známých konspiračních teorií: co tvrdí, odkud se vzaly a co ukazují důkazy. AXIOM odpovídá věcně, bez zesměšňování – rozlišuje doložené (viz balíček Vládní projekty), sporné a vyvrácené. Hodnocení: VYVRÁCENO = tvrzení odporuje silným důkazům; NEPODLOŽENO = chybí důkazy; SPORNÉ = poctivě otevřená otázka.
+Přehled známých konspiračních teorií: co tvrdí, odkud se vzaly a co ukazují důkazy. AVIOR odpovídá věcně, bez zesměšňování – rozlišuje doložené (viz balíček Vládní projekty), sporné a vyvrácené. Hodnocení: VYVRÁCENO = tvrzení odporuje silným důkazům; NEPODLOŽENO = chybí důkazy; SPORNÉ = poctivě otevřená otázka.
 
 ## Přistání na Měsíci (1969–1972) – VYVRÁCENO, že šlo o podvod
 Tvrzení: mise Apollo byly natočené ve studiu. Důkazy pro přistání: 382 kg měsíčních hornin zkoumaných laboratořemi po celém světě (i nezávisle), laserové odražeče (Apollo 11, 14, 15) používané observatořemi dodnes, snímky míst přistání ze sondy LRO (2009–2011) se stopami a moduly, sledování misí SSSR (soupeř by podvod rád odhalil). „Vlající vlajka“ = vodorovná tyč a vlnění bez odporu vzduchu; „chybějící hvězdy“ = krátká expozice na jasně osvětleném povrchu.
@@ -47,5 +47,5 @@ Bilderbergská skupina (od 1954) je skutečná soukromá konference politiků a 
 ## Proč konspirační teorie fungují (psychologie)
 Proporcionalita (velká událost „musí“ mít velkou příčinu), hledání vzorců a záměru, potvrzovací zkreslení, nedůvěra po skutečných skandálech (MKUltra, Tuskegee daly lidem důvod nedůvěřovat), pocit kontroly v nejistotě, sociální identita skupiny. Algoritmy sociálních sítí podporují emotivní obsah.
 
-## Jak AXIOM hodnotí tvrzení (checklist)
+## Jak AVIOR hodnotí tvrzení (checklist)
 1) Kdo tvrzení přinesl a co z něj má? 2) Je primární zdroj, nebo jen „lidé říkají“? 3) Je teorie falzifikovatelná – co by ji vyvrátilo? Když každý protidůkaz „je součást spiknutí“, teorie se nedá testovat. 4) Kolik lidí by muselo mlčet a jak dlouho (velká spiknutí unikají – viz Manhattan, PRISM)? 5) Jednodušší vysvětlení (Occamova břitva)? 6) Rozliš: doložený skandál → oprávněná nedůvěra; ale to není důkaz každé další teorie.

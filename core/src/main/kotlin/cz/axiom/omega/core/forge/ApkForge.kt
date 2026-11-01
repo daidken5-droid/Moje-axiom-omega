@@ -12,9 +12,9 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * APK KOVÁRNA – AXIOM Ω vyrobí skutečnou instalovatelnou Android aplikaci přímo v telefonu.
+ * APK KOVÁRNA – AVIOR vyrobí skutečnou instalovatelnou Android aplikaci přímo v telefonu.
  *
- * Princip (bez kompilátoru, bez SDK): v APK AXIOMu je malá předpřipravená šablona (modul :shell –
+ * Princip (bez kompilátoru, bez SDK): v APK AVIORu je malá předpřipravená šablona (modul :shell –
  * WebView aplikace bez knihoven). Kovárna:
  *  1. přepíše v binárním manifestu balíček a název aplikace (řetězce stejné délky → struktura zůstane platná),
  *  2. vloží HTML/CSS/JS aplikace do assets/www,
@@ -39,7 +39,7 @@ object ApkForge {
     }
 
     fun cleanLabel(appName: String): String =
-        appName.replace(Regex("[\\p{Cntrl}<>\"&]"), "").trim().take(LABEL_PLACEHOLDER.length).ifBlank { "AXIOM App" }
+        appName.replace(Regex("[\\p{Cntrl}<>\"&]"), "").trim().take(LABEL_PLACEHOLDER.length).ifBlank { "AVIOR App" }
 
     fun build(
         template: InputStream,
@@ -73,7 +73,7 @@ object ApkForge {
             }
         }
         out.parentFile?.mkdirs()
-        val signer = ApkSigner.SignerConfig.Builder("AXIOM", key, certs).build()
+        val signer = ApkSigner.SignerConfig.Builder("AVIOR", key, certs).build()
         ApkSigner.Builder(listOf(signer))
             .setInputApk(unsigned)
             .setOutputApk(out)

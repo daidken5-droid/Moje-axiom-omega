@@ -110,6 +110,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         Events.listen(forward)
         dispatch("resume", JSONObject())
+        // samostudium otevřených otázek, když se telefon nabíjí na Wi-Fi
+        window.decorView.postDelayed({ runCatching { bridge.maybeSelfStudy() } }, 4_000)
     }
 
     override fun onStop() {

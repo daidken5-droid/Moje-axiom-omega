@@ -5,7 +5,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * Kam AXIOM ukládá vytvořené soubory. Na Androidu: složka Stažené/AXIOM (MediaStore),
+ * Kam AVIOR ukládá vytvořené soubory. Na Androidu: složka Stažené/AVIOR (MediaStore),
  * PDF kreslí systémový PdfDocument, APK vyrábí [ApkForge] s klíčem z Android Keystore.
  */
 interface FileSink {
@@ -17,7 +17,7 @@ interface FileSink {
 }
 
 object FileForge {
-    /** Textové formáty, které AXIOM umí vytvořit přímo (kód, data, dokumenty, kalendář, kontakty…). */
+    /** Textové formáty, které AVIOR umí vytvořit přímo (kód, data, dokumenty, kalendář, kontakty…). */
     val TEXT_TYPES = linkedMapOf(
         "txt" to "text/plain", "md" to "text/markdown", "csv" to "text/csv", "tsv" to "text/tab-separated-values",
         "json" to "application/json", "html" to "text/html", "htm" to "text/html", "css" to "text/css",

@@ -51,6 +51,8 @@ data class AskRequest(
     /** Styl Ω varianty (např. Ω Muse, Ω Quant) – přidá se do systémového promptu. */
     val style: String? = null,
     val temperature: Float? = null,
+    /** Metakognice z vlastní historie (Cognition) – co o sobě AVIOR v této oblasti ví. */
+    val selfInsight: String? = null,
 )
 
 data class PassTrace(val index: Int, val pass: RandyPass, val text: String, val millis: Long, val model: String)
@@ -80,7 +82,7 @@ interface AskListener {
 }
 
 /**
- * Agent AXIOM Ω. Jeden dotaz = deterministický STEP-0 → vybavení paměti a znalostí →
+ * Agent AVIOR. Jeden dotaz = deterministický STEP-0 → vybavení paměti a znalostí →
  * RANDY průchody (návrh → audit → syntéza podle úrovně) → sebereflexe → zápis poučení.
  */
 class Orchestrator(
@@ -117,7 +119,7 @@ class Orchestrator(
         memory.touch(memories.map { it.id })
 
         val system = SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
-            (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "")
+            (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "") + (req.selfInsight?.let { "\n\n$it" } ?: "")
         val grounded = groundedPrompt(prompt, facts, snippets, local)
         val history = trimHistory(req.history, engine.contextBudgetChars - system.length - grounded.length - 4_000)
 

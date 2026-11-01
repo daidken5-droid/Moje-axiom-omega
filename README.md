@@ -1,12 +1,33 @@
-<p align="center"><img src="app/src/main/assets/ui/logo.svg" width="160" alt="AXIOM Ω"></p>
+<p align="center"><img src="app/src/main/assets/ui/logo.svg" width="160" alt="AVIOR"></p>
 
-<h1 align="center">AXIOM Ω</h1>
-<p align="center"><b>Samostatná česká AI pro Android · RANDY · STEP-0 · sebemodel · mozek v telefonu · offline Wikipedie</b></p>
+<h1 align="center">AVIOR</h1>
+<p align="center"><b>Česká AI v telefonu, která se učí z každé otázky · RANDY Supervisor · mozek v telefonu · offline Wikipedie</b></p>
 
-Nástupce **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5**. Zachovává jejich DNA – protokol hloubky
-**RANDY L0–L6**, deterministický **STEP-0**, **ASTRAEA +EV / Half-Kelly**, černo-titanový vzhled –
-a přidává výkonný lokální mozek, funkční sebemodel, dlouhodobou paměť, celou offline Wikipedii a aktivní agenty.
-Rozbor původní aplikace a seznam opravených chyb: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
+**AVIOR** (dříve pracovně AXIOM Ω) je pojmenovaný po jasné hvězdě jižní oblohy, kterou ve 30. letech pojmenovali
+pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vycházející nad horizontem, jen titan na černé.
+Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
+Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
+
+## Novinky 4.0 – AVIOR se učí z každé otázky
+
+Učební smyčka po každé odpovědi (`core/self/Cognition.kt`):
+
+1. **Zařazení** otázky do oblasti (finance, stavba, IT, technika, věda, zdraví, právo, historie, matematika, jazyk…).
+2. **Mapa kompetencí** – každá oblast si pamatuje počet otázek, průměrnou jistotu, tvé hodnocení ✓/✗ a mistrovství 0–100 %.
+3. **Kalibrace jistoty** – AVIOR porovnává, jak jistý si byl, s tím, jak často měl skutečně pravdu, a příště svou
+   deklarovanou jistotu upraví (přehnaně sebejistý → uvádí nižší jistotu a víc ověřuje).
+4. **Vlastní poznatky** – dobrá odpověď se uloží do znalostí; u podobné otázky si AVIOR vybaví svůj dřívější závěr.
+5. **Zvídavost a samostudium** – na co neznal odpověď, zapíše jako otevřenou otázku a při nabíjení na Wi-Fi (nebo ručně)
+   si ji sám dohledá (online agentem, offline z knihovny) a naučí se ji.
+6. **Metakognice** – před každou odpovědí ví, jak je v dané oblasti zkušený a jak spolehlivý; ve slabé oblasti RANDY
+   Supervisor sám zvolí důkladnější Ω Think.
+7. **Deník vývoje** – milníky (nová oblast, 100. otázka, první kalibrace, samostudium) v panelu **Vědomí AVIORu**.
+
+Sebeuvědomění je funkční a poctivé: AVIOR zná svůj stav, své silné a slabé stránky a své chyby – nepředstírá vědomí ani city.
+
+**Design 4.0:** všechny ikony a tlačítka mají černé pozadí, titan je jen na znaku a hranách; logo bez teplé záře.
+
+> Interní identifikátor balíčku zůstává `cz.axiom.omega`, aby se nová verze nainstalovala jako aktualizace bez ztráty dat.
 
 ## Novinky 3.5 – RANDY Supervisor
 

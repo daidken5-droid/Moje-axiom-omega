@@ -6,7 +6,7 @@ import cz.axiom.omega.core.agent.Variant
 import cz.axiom.omega.core.util.TextUtil
 
 /**
- * RANDY SUPERVISOR – nadřazený řídicí modul AXIOM Ω.
+ * RANDY SUPERVISOR – nadřazený řídicí modul AVIOR.
  *
  * Z protokolu hloubky (L0–L6) se RANDY stává „ředitelem“ celého systému:
  *  1. PLÁNUJE – před každým dotazem rozhodne, které podfunkce aktivovat: Ω variantu, režim (odpověď/agent),
@@ -65,6 +65,8 @@ object Supervisor {
         val role: AgentRole? = null,
         val level: RandyLevel? = null,
         val toolsOnline: Boolean = true,
+        /** Oblast, ve které je AVIOR podle vlastní historie slabší (Cognition) → RANDY přidá hloubku. */
+        val weakDomain: String? = null,
     )
 
     data class Plan(
@@ -125,6 +127,10 @@ object Supervisor {
                 words <= 7 && !Regex("^ (jak|proc|vysvetli|popis|co je|kdo byl)").containsMatchIn(f) ->
                     Variant.FLASH.also { why += "krátký jednoduchý dotaz → Ω Flash (úspora času)" }
                 else -> Variant.AUTO.also { why += "běžný dotaz → standardní RANDY" }
+            }
+            // Sebepoznání: ve slabé oblasti nešetřit – důkladnější varianta
+            if (req.weakDomain != null && (v == Variant.FLASH || v == Variant.AUTO)) {
+                v = Variant.THINK; why += "v oblasti ${req.weakDomain} jsem zatím slabší → Ω Think"
             }
             chosen = v != Variant.AUTO
             // Učení: varianta, kterou uživatel opakovaně hodnotí špatně, se nahradí bezpečnější

@@ -3,7 +3,7 @@ package cz.axiom.omega.core.agent
 import cz.axiom.omega.core.randy.RandyLevel
 
 /**
- * Ω VARIANTY – „podmodely“ AXIOMu. Stejný mozek, jiné nastavení myšlení: inspirované tím, jak přední AI
+ * Ω VARIANTY – „podmodely“ AVIORu. Stejný mozek, jiné nastavení myšlení: inspirované tím, jak přední AI
  * nabízejí rychlé, přemýšlivé, rešeršní, programátorské a kreativní režimy. Každá varianta určuje
  * režim (odpověď/agent), roli agenta, hloubku RANDY, počet průchodů, přemýšlení, teplotu a styl.
  * Výslovná volba uživatele (L4:, /agent, ruční role) má vždy přednost.

@@ -87,6 +87,14 @@ class Settings(context: Context) {
     var randyAuthority: String
         get() = p.getString("randyAuthority", "FULL")!!
         set(v) = p.edit().putString("randyAuthority", cz.axiom.omega.core.randy.Supervisor.Authority.of(v).name).apply()
+    /** Učit se z každé otázky (kompetence, poznatky, kalibrace). */
+    var learning: Boolean
+        get() = p.getBoolean("learning", true)
+        set(v) = p.edit().putBoolean("learning", v).apply()
+    /** Samostudium otevřených otázek při nabíjení na Wi-Fi. */
+    var selfStudy: Boolean
+        get() = p.getBoolean("selfStudy", true)
+        set(v) = p.edit().putBoolean("selfStudy", v).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
         set(v) = p.edit().putBoolean("onboarded", v).apply()
@@ -110,7 +118,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("learning", learning).put("selfStudy", selfStudy)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -136,6 +144,8 @@ class Settings(context: Context) {
         if (o.has("agentSteps")) agentSteps = o.getInt("agentSteps")
         if (o.has("semantic")) semantic = o.getBoolean("semantic")
         if (o.has("randyAuthority")) randyAuthority = o.getString("randyAuthority")
+        if (o.has("learning")) learning = o.getBoolean("learning")
+        if (o.has("selfStudy")) selfStudy = o.getBoolean("selfStudy")
     }
 
     private fun checkModelId(id: String) {
