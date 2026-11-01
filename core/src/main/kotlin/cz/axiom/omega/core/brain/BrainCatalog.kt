@@ -88,9 +88,18 @@ object BrainCatalog {
         }
     }
 
+    /**
+     * Android hlásí o něco méně RAM, než je nominální velikost (8GB telefon ≈ 7,3–7,7 GB),
+     * protože část si bere jádro a GPU. Převod na nominální třídu: 7,5 → 8, 11,3 → 12, 5,6 → 6.
+     */
+    fun nominalRamGb(reportedGb: Double): Int =
+        listOf(2, 3, 4, 6, 8, 10, 12, 16, 18, 20, 24, 32).firstOrNull { it >= reportedGb - 0.15 } ?: kotlin.math.ceil(reportedGb).toInt()
+
+    fun fits(spec: BrainSpec, reportedRamGb: Double) = spec.minRamGb <= nominalRamGb(reportedRamGb)
+
     /** Nejlepší mozek, který se do zařízení vejde (RAM i úložiště). */
     fun recommend(brains: List<BrainSpec>, totalRamGb: Double, freeBytes: Long): BrainSpec? =
-        brains.filter { it.kind == "chat" && it.minRamGb <= totalRamGb + 0.3 && it.sizeBytes * 1.05 < freeBytes }
+        brains.filter { it.kind == "chat" && fits(it, totalRamGb) && it.sizeBytes * 1.05 < freeBytes }
             .sortedWith(compareByDescending<BrainSpec> { it.recommended }.thenByDescending { it.sizeBytes })
             .firstOrNull()
             ?: brains.filter { it.kind == "chat" }.minByOrNull { it.sizeBytes }

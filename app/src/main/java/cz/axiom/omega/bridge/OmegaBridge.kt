@@ -221,7 +221,7 @@ class OmegaBridge(private val activity: MainActivity) {
         Events.emit("hf_files", JSONObject().put("repo", repo).put("files", JSONArray().apply {
             files.forEach { f ->
                 put(JSONObject().put("path", f.path).put("quant", f.quant).put("size", f.size).put("sha256", f.sha256)
-                    .put("sizeLabel", "%.2f GB".format(f.size / 1e9)).put("fits", f.size * 1.35 / 1e9 <= ram + 0.3))
+                    .put("sizeLabel", "%.2f GB".format(f.size / 1e9)).put("fits", f.size * 1.35 / 1e9 <= cz.axiom.omega.core.brain.BrainCatalog.nominalRamGb(ram)))
             }
         }))
     }

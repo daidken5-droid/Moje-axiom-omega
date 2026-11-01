@@ -1,0 +1,90 @@
+name: Build offline knihovny (Wikipedie)
+
+# Spuštění: push tagu build-library-<lib> (např. build-library-wiki-cs) nebo ručně v Actions.
+on:
+  push:
+    tags: ["build-library-*"]
+  workflow_dispatch:
+    inputs:
+      lib:
+        description: "wiki-cs | wiki-sk | wiki-simple"
+        default: "wiki-cs"
+
+permissions:
+  contents: write
+
+jobs:
+  library:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Výběr knihovny
+        run: |
+          LIB="${{ github.event.inputs.lib }}"
+          if [ -z "$LIB" ]; then LIB="${GITHUB_REF_NAME#build-library-}"; fi
+          case "$LIB" in
+            wiki-cs) CFG=20231101.cs ;;
+            wiki-sk) CFG=20231101.sk ;;
+            wiki-simple) CFG=20231101.simple ;;
+            *) echo "Neznámá knihovna $LIB"; exit 1 ;;
+          esac
+          echo "LIB=$LIB" >> "$GITHUB_ENV"
+          echo "CFG=$CFG" >> "$GITHUB_ENV"
+          echo "TAG=library-$LIB-${CFG%%.*}" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Závislosti
+        run: pip install pyarrow==21.0.0
+      - name: Stažení Wikipedie (parquet z Hugging Face)
+        run: |
+          mkdir -p parquet
+          curl -sf "https://huggingface.co/api/datasets/wikimedia/wikipedia/tree/main/$CFG" \
+            | python3 -c "import json,sys; [print(f['path']) for f in json.load(sys.stdin) if f['path'].endswith('.parquet')]" > files.txt
+          cat files.txt
+          while read -r f; do
+            curl -sfL --retry 5 -o "parquet/$(basename "$f")" "https://huggingface.co/datasets/wikimedia/wikipedia/resolve/main/$f"
+          done < files.txt
+          du -sh parquet
+      - name: Sestavení databáze (FTS4)
+        run: |
+          python3 tools/build_library.py --lib "$LIB" --parquet-dir parquet --out "$LIB.db"
+          rm -rf parquet
+          ls -la "$LIB.db"
+      - name: Komprese, rozdělení, manifest
+        run: |
+          DB_SHA=$(sha256sum "$LIB.db" | cut -d' ' -f1)
+          DB_SIZE=$(stat -c %s "$LIB.db")
+          ARTICLES=$(python3 -c "import sqlite3; print(sqlite3.connect('$LIB.db').execute('select offset from progress').fetchone()[0])")
+          gzip -6 -c "$LIB.db" > "$LIB.db.gz"
+          rm "$LIB.db"
+          split -b 1900M -d -a 2 "$LIB.db.gz" "$LIB.db.gz.part"
+          rm "$LIB.db.gz"
+          python3 - <<PY
+          import glob, hashlib, json, os
+          parts = []
+          for p in sorted(glob.glob("$LIB.db.gz.part*")):
+              h = hashlib.sha256()
+              with open(p, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              parts.append({"name": os.path.basename(p), "size": os.path.getsize(p), "sha256": h.hexdigest()})
+          json.dump({"lib": "$LIB", "config": "$CFG", "format": "sqlite-fts4-gzip", "articles": int("$ARTICLES"),
+                     "dbSize": int("$DB_SIZE"), "dbSha256": "$DB_SHA", "parts": parts,
+                     "license": "Wikipedia CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)"},
+                    open("manifest.json", "w"), indent=2)
+          print(open("manifest.json").read())
+          PY
+      - name: Vydání (GitHub Release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "Offline knihovna ${{ env.LIB }} (${{ env.CFG }})"
+          body: |
+            Předpřipravená offline knihovna pro AXIOM Ω – stáhne se v aplikaci (Paměť → Offline databáze).
+            Zdroj: Wikipedie (${{ env.CFG }}) přes Hugging Face `wikimedia/wikipedia`, licence CC BY-SA 4.0.
+          files: |
+            manifest.json
+            ${{ env.LIB }}.db.gz.part*
+          make_latest: false

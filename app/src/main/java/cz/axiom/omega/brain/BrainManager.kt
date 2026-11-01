@@ -151,7 +151,7 @@ class BrainManager(private val context: Context) {
                     .put("size", s.sizeGbLabel).put("sizeBytes", s.sizeBytes).put("minRamGb", s.minRamGb).put("license", s.license)
                     .put("thinking", s.thinking).put("installed", isInstalled(s))
                     .put("partial", if (part.exists()) part.length() else 0)
-                    .put("recommended", rec?.id == s.id).put("fits", s.minRamGb <= ram + 0.3)
+                    .put("recommended", rec?.id == s.id).put("fits", BrainCatalog.fits(s, ram))
                     .put("active", activePair?.second?.id == s.id).put("url", s.urls.first()).put("sha256", s.sha256)
                     .put("kind", s.kind).put("verified", s.sha256.isNotEmpty()),
             )
@@ -163,7 +163,7 @@ class BrainManager(private val context: Context) {
                     .put("installed", true).put("custom", true).put("active", activePair?.first == f).put("fits", true),
             )
         }
-        return JSONObject().put("brains", list).put("ramGb", "%.1f".format(ram)).put("freeGb", Downloader.fmt(free))
+        return JSONObject().put("brains", list).put("ramGb", BrainCatalog.nominalRamGb(ram).toString()).put("freeGb", Downloader.fmt(free))
             .put("recommended", rec?.id ?: JSONObject.NULL).put("active", activePair?.second?.name ?: activePair?.first?.name ?: JSONObject.NULL)
     }
 }

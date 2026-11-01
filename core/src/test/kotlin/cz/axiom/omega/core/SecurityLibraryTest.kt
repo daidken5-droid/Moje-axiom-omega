@@ -74,8 +74,9 @@ class SecurityLibraryTest {
     }
 
     @Test fun libraryQueryAndScore() {
-        assertEquals("\"tepel\"* \"cerpa\"*", Libraries.ftsQuery("Jak funguje tepelné čerpadlo?", and = true))
-        assertEquals("\"tepel\"* OR \"cerpa\"*", Libraries.ftsQuery("tepelné čerpadlo", and = false))
+        assertEquals("tepel* cerpa*", Libraries.ftsQuery("Jak funguje tepelné čerpadlo?", and = true))
+        assertEquals("tepel* OR cerpa*", Libraries.ftsQuery("tepelné čerpadlo", and = false))
+        assertEquals("hrad praha", Libraries.ftsQuery("hrad Praha", and = true))
         assertNull(Libraries.ftsQuery("jak a co", and = true))
         assertTrue(Libraries.score("tepelné čerpadlo", "Tepelné čerpadlo", "…") > Libraries.score("tepelné čerpadlo", "Kotel", "tepelné čerpadlo"))
         assertEquals(534_044, Libraries.of("wiki-cs")!!.rows)

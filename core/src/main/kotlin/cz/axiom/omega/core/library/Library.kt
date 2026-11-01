@@ -45,7 +45,9 @@ object Libraries {
     fun ftsQuery(query: String, and: Boolean): String? {
         val words = TextUtil.words(query, 3).filter { it !in STOP }.distinct().take(8)
         if (words.isEmpty()) return null
-        val terms = words.map { w -> if (w.length > 5) "\"${w.take(5)}\"*" else "\"$w\"" }
+        // Pozor: FTS4 předponu v uvozovkách ("abc"*) NEpodporuje – jen holé abc*.
+        // Slova z TextUtil.words obsahují jen písmena a číslice (malá), takže nejde o FTS syntaxi.
+        val terms = words.map { w -> if (w.length > 5) "${w.take(5)}*" else w }
         return terms.joinToString(if (and) " " else " OR ")
     }
 

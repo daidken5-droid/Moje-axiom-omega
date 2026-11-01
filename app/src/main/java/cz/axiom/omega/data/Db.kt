@@ -319,7 +319,8 @@ class Db private constructor(context: Context) :
     override fun search(query: String, limit: Int): List<Snippet> {
         val terms = TextUtil.words(query, 3).distinct().take(10)
         if (terms.isEmpty()) return emptyList()
-        val match = terms.joinToString(" OR ") { "\"" + it.replace("\"", "") + "\"*" }
+        // FTS4: předpona jen bez uvozovek (abc*); slova jsou očištěná na písmena/číslice
+        val match = terms.joinToString(" OR ") { (if (it.length > 6) it.take(6) else it) + "*" }
         val rows = mutableListOf<Pair<Snippet, Int>>()
         readableDatabase.rawQuery(
             "SELECT chunks.document_id, chunks.title, chunks.body, docs.source FROM chunks JOIN docs ON docs.id=chunks.document_id WHERE chunks MATCH ? LIMIT 60",
