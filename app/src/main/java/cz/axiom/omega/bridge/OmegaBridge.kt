@@ -542,6 +542,20 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface fun open(url: String) = activity.openExternal(url)
 
     @JavascriptInterface
+    fun voice() = activity.runOnUiThread {
+        val i = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Mluv – AXIOM poslouchá")
+        runCatching { activity.voice.launch(i) }.onFailure { Events.note("Rozpoznávání řeči není v telefonu dostupné.") }
+    }
+
+    @JavascriptInterface
+    fun haptic() = activity.runOnUiThread {
+        activity.window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+    }
+
+    @JavascriptInterface
     fun share(text: String) = activity.runOnUiThread {
         activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Sdílet odpověď"))
     }

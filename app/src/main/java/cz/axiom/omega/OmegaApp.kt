@@ -28,6 +28,9 @@ class OmegaApp : Application() {
         super.onTrimMemory(level)
         // Při nedostatku paměti uvolni lokální mozek (pokud zrovna nepřemýšlí); znovu se načte při dalším dotazu.
         if (level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE && !Omega.get(this).job.busy) LocalEngine.release()
+        // Sémantický embedder (~0,6 GB) jde pryč dřív – je levné ho načíst znovu
+        @Suppress("DEPRECATION")
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW && !Omega.get(this).job.busy) cz.axiom.omega.engine.Embedder.close()
     }
 
     companion object {

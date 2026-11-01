@@ -1,14 +1,29 @@
 <p align="center"><img src="app/src/main/assets/ui/logo.svg" width="160" alt="AXIOM Ω"></p>
 
 <h1 align="center">AXIOM Ω</h1>
-<p align="center"><b>Samostatná česká AI pro Android · RANDY · STEP-0 · sebemodel · Kimi K3 · Claude · offline</b></p>
+<p align="center"><b>Samostatná česká AI pro Android · RANDY · STEP-0 · sebemodel · mozek v telefonu · offline Wikipedie</b></p>
 
 Nástupce **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5**. Zachovává jejich DNA – protokol hloubky
 **RANDY L0–L6**, deterministický **STEP-0**, **ASTRAEA +EV / Half-Kelly**, černo-titanový vzhled –
-a přidává funkční sebemodel, dlouhodobou paměť, offline databáze, Kimi K3 a Claude.
+a přidává výkonný lokální mozek, funkční sebemodel, dlouhodobou paměť, celou offline Wikipedii a aktivní agenty.
 Rozbor původní aplikace a seznam opravených chyb: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
-## Co umí (3.2)
+## Novinky 3.3
+
+* **Celá česká Wikipedie offline jedním klepnutím** – 534 044 článků, předpřipravená databáze
+  (sestavuje ji GitHub Actions, vydání `library-wiki-cs-20231101`): **1,47 GB stažení → 3,27 GB v telefonu**,
+  ověřeno SHA-256, bez pomalého indexování v telefonu. Vyhledání v řádu milisekund, nejdřív podle názvu článku.
+* **Nové balíčky znalostí:** *Vládní a tajné projekty* (Manhattan, MKUltra, COINTELPRO, Northwoods, PRISM,
+  Area 51, Stargate, StB Akce Kámen/Asanace…) a *Konspirační teorie* (tvrzení vs. důkazy: Měsíc, chemtrails,
+  11. září, JFK, vakcíny, 5G, QAnon, HAARP… + checklist, jak tvrzení ověřit).
+* **Evoluce UI:** pozdrav podle denní doby, karty návrhů, sbalitelné „Přemýšlel X s“, citace jako čipy,
+  kopírování bloků kódu, „Odpovědět znovu“, tlačítko dolů, diktování hlasem, haptika, plynulé animace.
+* **8 GB telefony:** správné rozpoznání RAM (Android hlásí ~7,5 GB), menší kontext při nedostatku volné RAM,
+  sémantický modul se při nedostatku paměti vypne a uvolní; doporučený mozek Gemma 4 E4B.
+* **Opravy:** fulltext (FTS4 předpony), řazení výsledků z knihovny, opakované načítání mozku při úpravě kontextu,
+  spouštění buildu knihovny na GitHubu.
+
+## Co umí
 
 * **Výkonný mozek v telefonu je primární.** AXIOM myslí lokálně (llama.cpp, flash attention, KV cache Q8,
   kontext až 16k). Cloudy (AXIOM Node, Kimi K3, Claude) jsou jen volitelné doplňky – AXIOM je plnohodnotný bez nich.
@@ -38,9 +53,13 @@ Aplikace doporučí nejsilnější mozek, který se vejde do RAM telefonu. Volit
 
 ## Offline knihovna (několik GB)
 
-Celá **česká Wikipedie** (534 tis. článků, ~5 GB), **slovenská** (242 tis.) a **Simple English** (242 tis.)
-ke stažení do telefonu – samostatná databáze s fulltextem (prefixové hledání zvládá české tvary slov),
+Celá **česká Wikipedie** (534 tis. článků, 1,47 GB stažení → 3,27 GB), **slovenská** (242 tis.) a **Simple English**
+(242 tis.) ke stažení do telefonu – samostatná databáze s fulltextem (prefixové hledání zvládá české tvary slov),
 navazování po přerušení, kontrola místa. Odpovědi i agenti z ní čerpají bez internetu.
+
+Proč není přímo v APK: APK (ZIP) má limit 4 GB, Android by soubor při instalaci rozbaloval podruhé (2× místo)
+a každá aktualizace aplikace by znamenala stahovat gigabajty znovu. Předpřipravené knihovny staví
+`.github/workflows/build-library.yml` (`tools/build_library.py`) – nový build spustí změna `library-requests/build.txt`.
 
 ## Rozšíření z Hugging Face
 

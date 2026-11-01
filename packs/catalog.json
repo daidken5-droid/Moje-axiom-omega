@@ -100,6 +100,28 @@
       "sha256": "53ec57d686b53851b11d92d1c3762d92c629f7f29a7fdc364ee3fa6d1e61d201",
       "sections": 5,
       "autoInstall": true
+    },
+    {
+      "id": "vladni-projekty",
+      "name": "Vládní a tajné projekty",
+      "description": "Doložené programy: Manhattan, MKUltra, COINTELPRO, PRISM, Area 51, StB Akce Kámen… – s prameny.",
+      "file": "vladni-projekty.md",
+      "version": 1,
+      "bytes": 6954,
+      "sha256": "69e5f55511ae80165e2cd7971e6fa539a4896964efdb60c48879aa3f9e3eb5ca",
+      "sections": 17,
+      "autoInstall": true
+    },
+    {
+      "id": "konspiracni-teorie",
+      "name": "Konspirační teorie",
+      "description": "Měsíc, chemtrails, 11. září, JFK, vakcíny, 5G, QAnon… – tvrzení vs. důkazy a jak je ověřit.",
+      "file": "konspiracni-teorie.md",
+      "version": 1,
+      "bytes": 7698,
+      "sha256": "9aa23ca384b856c8ba8a584360a06208edc62c9a9ed271ea438431b3bb0fbd4a",
+      "sections": 16,
+      "autoInstall": true
     }
   ]
 }

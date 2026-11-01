@@ -334,6 +334,17 @@ class OmegaService : Service() {
         val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: error("Neznámá knihovna $id")
         val lib = cz.axiom.omega.data.LibraryDb.get(this)
         val hub = HfHub()
+        if (lib.hasPrebuilt(id)) { Events.note("${spec.name} je už stažená."); return }
+        // 1) Předpřipravená databáze z GitHub Release (rychlé: ~1 GB stažení, žádné indexování v telefonu)
+        val manifest = try {
+            job.phase = "Knihovna · zjišťuji balíček"; Events.emit("progress", job.toJson())
+            cz.axiom.omega.core.library.Prebuilt.fetchManifest(spec)
+        } catch (e: Exception) {
+            if (cancel.cancelled) throw CancelledException()
+            null
+        }
+        if (manifest != null) { libraryPrebuilt(spec, manifest, lib, cancel); return }
+        // 2) Záloha: postupné stahování po 100 článcích z Hugging Face datasets-server
         var (offset, _, done) = lib.progress(id)
         if (done) { Events.note("${spec.name} je už stažená."); return }
         var failures = 0
@@ -385,6 +396,43 @@ class OmegaService : Service() {
             Events.note("Knihovna pozastavena na %,d článcích – příště naváže.".format(offset).replace(',', ' '))
             Events.emit("kb", JSONObject())
         }
+    }
+
+    private fun libraryPrebuilt(
+        spec: cz.axiom.omega.core.library.LibrarySpec,
+        m: cz.axiom.omega.core.library.PrebuiltManifest,
+        lib: cz.axiom.omega.data.LibraryDb,
+        cancel: CancelToken,
+    ) {
+        val job = omega.job
+        val P = cz.axiom.omega.core.library.Prebuilt
+        val work = java.io.File(filesDir, "library-parts/${spec.id}")
+        val have = work.listFiles()?.sumOf { it.length() } ?: 0L
+        val free = filesDir.usableSpace
+        if (free + have < P.requiredBytes(m)) {
+            error("Na ${spec.name} je potřeba ~%.1f GB volného místa (volno %.1f GB).".format(P.requiredBytes(m) / 1e9, free / 1e9))
+        }
+        val target = lib.prebuiltFile(spec.id)
+        try {
+            P.install(spec, m, work, target, cancel) { st ->
+                val pct = if (st.total > 0) (st.bytes * 100 / st.total).toInt() else -1
+                job.progress = pct
+                job.phase = "Knihovna · ${st.phase}"
+                job.detail = "%.2f / %.2f GB".format(st.bytes / 1e9, st.total / 1e9) +
+                    if (st.bytesPerSec > 0) " · %.1f MB/s".format(st.bytesPerSec / 1e6) else ""
+                updateNotification("${spec.name} · ${st.phase} $pct %", pct)
+                Events.emit("progress", job.toJson())
+            }
+        } catch (e: CancelledException) {
+            Events.note("Stahování knihovny pozastaveno – příště naváže.")
+            Events.emit("kb", JSONObject())
+            return
+        }
+        work.delete()
+        lib.closePrebuilt(spec.id)
+        lib.dropStreamed(spec.id)
+        Events.emit("kb", JSONObject())
+        Events.note("${spec.name} je stažená a funguje offline (%,d článků).".format(m.articles).replace(',', ' '))
     }
 
     /** Články z Wikipedie k tématu → offline znalosti. */

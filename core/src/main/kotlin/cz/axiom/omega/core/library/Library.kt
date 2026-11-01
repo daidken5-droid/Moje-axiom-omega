@@ -18,21 +18,23 @@ data class LibrarySpec(
     val approxGb: Double,
     val lang: String,
     val license: String,
+    /** Odhad velikosti předpřipraveného balíku ke stažení (gzip). */
+    val downloadGb: Double = 0.0,
 )
 
 object Libraries {
     val ALL = listOf(
         LibrarySpec(
             "wiki-cs", "Česká Wikipedie – celá", "534 tisíc článků: věda, technika, historie, zeměpis, osobnosti, právo, medicína…",
-            "wikimedia/wikipedia", "20231101.cs", "train", 534_044, 5.0, "cs", "CC BY-SA 4.0",
+            "wikimedia/wikipedia", "20231101.cs", "train", 534_044, 3.3, "cs", "CC BY-SA 4.0", 1.5,
         ),
         LibrarySpec(
             "wiki-sk", "Slovenská Wikipedie – celá", "242 tisíc článků ve slovenštině.",
-            "wikimedia/wikipedia", "20231101.sk", "train", 242_235, 1.8, "sk", "CC BY-SA 4.0",
+            "wikimedia/wikipedia", "20231101.sk", "train", 242_235, 1.3, "sk", "CC BY-SA 4.0", 0.5,
         ),
         LibrarySpec(
             "wiki-simple", "Simple English Wikipedia", "242 tisíc článků v jednoduché angličtině – srozumitelné výklady pojmů.",
-            "wikimedia/wikipedia", "20231101.simple", "train", 241_787, 1.2, "en", "CC BY-SA 4.0",
+            "wikimedia/wikipedia", "20231101.simple", "train", 241_787, 0.9, "en", "CC BY-SA 4.0", 0.35,
         ),
     )
 
@@ -42,14 +44,21 @@ object Libraries {
      * FTS dotaz s jednoduchým „stemmingem“ pro češtinu: slova delší než 5 znaků se hledají
      * podle prvních 5 písmen (prefix index), takže „čerpadlo/čerpadla/čerpadlem“ najdou totéž.
      */
-    fun ftsQuery(query: String, and: Boolean): String? {
+    fun ftsQuery(query: String, and: Boolean, titleOnly: Boolean = false): String? {
         val words = TextUtil.words(query, 3).filter { it !in STOP }.distinct().take(8)
         if (words.isEmpty()) return null
         // Pozor: FTS4 předponu v uvozovkách ("abc"*) NEpodporuje – jen holé abc*.
         // Slova z TextUtil.words obsahují jen písmena a číslice (malá), takže nejde o FTS syntaxi.
-        val terms = words.map { w -> if (w.length > 5) "${w.take(5)}*" else w }
+        val terms = words.map { w -> (if (titleOnly) "title:" else "") + if (w.length > 5) "${w.take(5)}*" else w }
         return terms.joinToString(if (and) " " else " OR ")
     }
+
+    /**
+     * Pořadí dotazů pro velkou knihovnu: 1) všechna slova v NÁZVU článku (najde přímo „Tepelné čerpadlo“
+     * mezi 534 tisíci články), 2) všechna slova kdekoli, 3) kterékoli slovo.
+     */
+    fun ftsPlan(query: String): List<String> =
+        listOfNotNull(ftsQuery(query, and = true, titleOnly = true), ftsQuery(query, and = true), ftsQuery(query, and = false)).distinct()
 
     /** Skóre výsledku: shoda v názvu váží víc než v textu. */
     fun score(query: String, title: String, text: String): Int {

@@ -40,6 +40,11 @@ class MainActivity : ComponentActivity() {
     val pickMemory = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onMemoryFile) }
     val exportDb = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-sqlite3")) { uri -> uri?.let(bridge::onExport) }
     val importDb = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onRestore) }
+    /** Hlasové zadávání: systémové rozpoznávání řeči (offline, pokud má telefon stažený český balík). */
+    val voice = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val text = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (!text.isNullOrBlank()) cz.axiom.omega.Events.emit("voice", org.json.JSONObject().put("text", text))
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {

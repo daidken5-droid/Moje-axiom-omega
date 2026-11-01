@@ -285,3 +285,82 @@ details.conn > div { padding: 0 14px 14px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .chipbtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line2); font-size: .8rem; color: var(--muted); }
 .chipbtn.on { color: var(--bg); background: var(--text); border-color: var(--text); }
+
+/* ---------- v3.3: evoluce UI (vzory z předních AI aplikací: klid, typografie, citace, plynulost) ---------- */
+.hero { padding-top: 14px; }
+.hero .orbit { width: 150px; height: 150px; }
+.hero .orbit img, .hero .orbit svg { width: 150px; height: 150px; }
+.hero .orbit:before { width: 210px; height: 96px; }
+.hero .orbit:after { width: 186px; height: 112px; }
+.hero .orbit { animation: float 7s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.greet {
+  margin-top: 20px; font-size: 1.85rem; font-weight: 650; letter-spacing: -.02em;
+  background: linear-gradient(100deg, var(--ti3), var(--ti1) 45%, var(--ti2) 70%, var(--ti3));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lead { color: var(--muted); margin: 4px 0 0; font-size: 1rem; }
+.suggest { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 22px; }
+.suggest button {
+  display: flex; flex-direction: column; gap: 3px; padding: 12px 13px 13px; border-radius: 16px; min-height: 92px;
+  background: linear-gradient(180deg, var(--panel), var(--bg2)); border: 1px solid var(--line); transition: transform .15s, border-color .15s;
+}
+.suggest button:active { transform: scale(.97); border-color: var(--line2); }
+.suggest button b { font: 600 .86rem var(--font); letter-spacing: 0; color: var(--text); margin: 4px 0 0; }
+.suggest button small { color: var(--muted); font-size: .74rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.s-ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font: 600 10px var(--mono); color: var(--ti1); border: 1px solid var(--line2); background: var(--bg); }
+
+.msg.rise { animation: rise .32s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.msg.user .bubble { border-radius: 20px 20px 6px 20px; }
+
+details.thought { margin: 0 0 8px; }
+details.thought summary {
+  display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; font-size: .8rem; color: var(--muted);
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+}
+details.thought summary::-webkit-details-marker { display: none; }
+details.thought summary:after { content: "›"; transition: transform .15s; }
+details.thought[open] summary:after { transform: rotate(90deg); }
+details.thought .in { margin-top: 8px; padding: 2px 0 2px 12px; border-left: 2px solid var(--line2); font-size: .82rem; color: var(--dim); white-space: pre-wrap; max-height: 40vh; overflow: auto; line-height: 1.5; }
+
+.cites { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; scrollbar-width: none; }
+.cites::-webkit-scrollbar { display: none; }
+.cite {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; max-width: 220px; padding: 6px 10px 6px 6px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--panel); font-size: .76rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cite i { font: 600 9px var(--mono); font-style: normal; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; background: var(--panel2); color: var(--muted); flex: none; }
+.cite small { color: var(--dim); font-size: .68rem; }
+
+.answer pre { padding: 0; overflow: hidden; }
+.answer pre code { display: block; padding: 12px; overflow-x: auto; white-space: pre; }
+.pre-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); font: 10px var(--mono); letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.pre-head .cp { display: inline-flex; align-items: center; gap: 5px; font: 11px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted); padding: 4px 8px; border-radius: 8px; }
+.pre-head .cp svg { width: 13px; height: 13px; }
+
+.live .think.empty { display: none; }
+.live .think {
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 40%); mask-image: linear-gradient(180deg, transparent, #000 40%);
+  border-left: 2px solid var(--line2); padding-left: 10px; font-style: normal;
+}
+.live .head .meta { background: linear-gradient(90deg, var(--muted), var(--ti1), var(--muted)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 2.2s linear infinite; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.composer { background: linear-gradient(180deg, transparent, var(--bg2) 30%); border-top: 0; }
+.composer .box { border-radius: 24px; box-shadow: 0 8px 30px rgba(0, 0, 0, .28); transition: border-color .15s; }
+.composer .box:focus-within { border-color: var(--ti3); }
+.mic { width: 40px; height: 42px; flex: none; display: grid; place-items: center; color: var(--muted); border-radius: 14px; }
+.mic:active { color: var(--text); background: var(--panel2); }
+
+.fab {
+  position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; z-index: 5;
+  background: var(--panel); border: 1px solid var(--line2); color: var(--text); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); transition: opacity .18s, transform .18s;
+}
+.fab.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+
+button, .btn, .opt { -webkit-tap-highlight-color: transparent; }
+.btn:active, .opt:active, .tools button:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { *, *:before, *:after { animation: none !important; transition: none !important; } }
+body.platinum .composer .box { box-shadow: 0 6px 24px rgba(20, 22, 26, .08); }

@@ -103,6 +103,8 @@ class LocalEngine private constructor(
     val spec: BrainSpec?,
     val file: File,
     val ctxTokens: Int,
+    /** kontext, o který se žádalo (skutečný může být menší kvůli RAM) – klíč pro znovupoužití */
+    private val requestedCtx: Int = ctxTokens,
 ) : LlmEngine {
 
     override val id = "local:${file.name}"
@@ -168,7 +170,7 @@ class LocalEngine private constructor(
 
         @Synchronized
         fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int): LocalEngine {
-            current?.let { if (it.file == file && it.ctxTokens == ctxTokens) return it }
+            current?.let { if (it.file == file && it.requestedCtx == ctxTokens) return it }
             release()
             if (!NativeLlama.available(context)) {
                 throw EngineException("Lokální mozek není v tomto sestavení dostupný (${NativeLlama.loadError ?: "bez nativní knihovny"}).")
@@ -176,10 +178,14 @@ class LocalEngine private constructor(
             if (!file.exists()) throw EngineException("Soubor mozku chybí – stáhni ho v sekci Mozky.")
             val cores = Runtime.getRuntime().availableProcessors()
             val threads = (cores - 2).coerceIn(2, 6)
-            val ctx = minOf(ctxTokens, spec?.contextTokens?.times(2) ?: ctxTokens)
+            var ctx = minOf(ctxTokens, spec?.contextTokens?.times(2) ?: ctxTokens)
+            // 8GB telefony: při málo volné RAM menší kontext (KV cache), aby systém mozek nezabil
+            val freeMb = cz.axiom.omega.sys.Introspect.freeRamMb(context)
+            if (freeMb in 1..2_500 && ctx > 4096) ctx = 4096
+            if (freeMb in 1..1_200 && ctx > 2048) ctx = 2048
             val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads)
             if (h == 0L) throw EngineException("Mozek se nepodařilo načíst (poškozený soubor nebo málo paměti RAM).")
-            return LocalEngine(h, spec, file, ctx).also { current = it }
+            return LocalEngine(h, spec, file, ctx, ctxTokens).also { current = it }
         }
 
         @Synchronized

@@ -110,6 +110,8 @@ class Omega private constructor(val app: Context) {
     fun ensureEmbedder(): Boolean {
         if (Embedder.ready()) return true
         val f = embedderFile() ?: return false
+        // Při málo volné RAM (8GB telefon s načteným mozkem) sémantiku vynech – fulltext stačí
+        if (cz.axiom.omega.sys.Introspect.freeRamMb(app) in 1..1_500) return false
         return runCatching { Embedder.open(app, f) }.getOrDefault(false)
     }
 

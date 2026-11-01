@@ -15,6 +15,38 @@ import org.json.JSONObject
  */
 class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context.applicationContext, "library.db", null, 1) {
 
+    private val app = context.applicationContext
+    private val prebuiltOpen = HashMap<String, SQLiteDatabase>()
+
+    /** Předpřipravená databáze knihovny (stažená z GitHub Release), uložená jako samostatný soubor. */
+    fun prebuiltFile(lib: String): java.io.File = app.getDatabasePath("lib-$lib.db")
+
+    fun hasPrebuilt(lib: String) = prebuiltFile(lib).length() > 0
+
+    @Synchronized
+    private fun prebuilt(lib: String): SQLiteDatabase? {
+        prebuiltOpen[lib]?.let { if (it.isOpen) return it }
+        val f = prebuiltFile(lib)
+        if (!f.exists()) return null
+        return runCatching {
+            // NO_LOCALIZED_COLLATORS: soubor je jen ke čtení, Android by jinak zkoušel zapsat android_metadata
+            SQLiteDatabase.openDatabase(f.path, null, SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS)
+        }.getOrNull()?.also { prebuiltOpen[lib] = it }
+    }
+
+    @Synchronized
+    fun closePrebuilt(lib: String) { prebuiltOpen.remove(lib)?.close() }
+
+    private fun prebuiltArticles(lib: String): Int = runCatching {
+        prebuilt(lib)?.rawQuery("SELECT offset FROM progress LIMIT 1", null)?.use { if (it.moveToFirst()) it.getInt(0) else 0 } ?: 0
+    }.getOrDefault(0)
+
+    /** Po instalaci předpřipravené knihovny smaže případné dříve postupně stažené články téže knihovny (duplicity). */
+    fun dropStreamed(lib: String) {
+        if (progress(lib).first == 0) return
+        remove(lib, keepPrebuilt = true)
+    }
+
     override fun onConfigure(db: SQLiteDatabase) {
         db.enableWriteAheadLogging()
     }
@@ -57,7 +89,12 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
         }
     }
 
-    fun remove(lib: String) {
+    fun remove(lib: String, keepPrebuilt: Boolean = false) {
+        if (!keepPrebuilt) {
+            closePrebuilt(lib)
+            prebuiltFile(lib).delete()
+            java.io.File(prebuiltFile(lib).path + "-journal").delete()
+        }
         val db = writableDatabase
         db.execSQL("DELETE FROM articles WHERE lib = ?", arrayOf(lib))
         db.delete("progress", "lib=?", arrayOf(lib))
@@ -66,20 +103,24 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
 
     fun count(): Int = runCatching {
         readableDatabase.rawQuery("SELECT sum(offset) FROM progress", null).use { it.moveToFirst(); it.getInt(0) }
-    }.getOrDefault(0)
+    }.getOrDefault(0) + Libraries.ALL.filter { hasPrebuilt(it.id) }.sumOf { prebuiltArticles(it.id) }
 
     fun sizeBytes(context: Context): Long {
         val f = context.getDatabasePath("library.db")
-        return f.length() + java.io.File(f.path + "-wal").length()
+        return f.length() + java.io.File(f.path + "-wal").length() + Libraries.ALL.sumOf { prebuiltFile(it.id).length() }
     }
 
     /** Hledání: nejdřív všechna slova (AND), při málo výsledcích kterékoli (OR); řazení podle shody v názvu. */
     fun search(query: String, limit: Int): List<Snippet> {
+        val dbs = listOf(readableDatabase) + Libraries.ALL.filter { hasPrebuilt(it.id) }.mapNotNull { prebuilt(it.id) }
+        return dbs.flatMapIndexed { i, db -> search(db, i, query, limit) }.sortedByDescending { it.second }.take(limit).map { it.first }
+    }
+
+    private fun search(db: SQLiteDatabase, dbIndex: Int, query: String, limit: Int): List<Pair<Snippet, Int>> {
         val out = LinkedHashMap<Long, Pair<Snippet, Int>>()
-        for (and in listOf(true, false)) {
-            val match = Libraries.ftsQuery(query, and) ?: return emptyList()
+        for (match in Libraries.ftsPlan(query)) {
             runCatching {
-                readableDatabase.rawQuery(
+                db.rawQuery(
                     "SELECT rowid, title, url, lib, substr(body, 1, 900), snippet(articles, '', '', '…', 1, 48) FROM articles WHERE articles MATCH ? LIMIT 60",
                     arrayOf(match),
                 ).use { c ->
@@ -90,23 +131,28 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
                         val intro = c.getString(4)
                         val snip = c.getString(5)
                         val text = if (intro.contains(snip.trim('…').take(40))) intro else "$intro\n…\n$snip"
-                        out[id] = Snippet(id, "Wikipedie: $title", text, c.getString(2)) to Libraries.score(query, title, snip)
+                        // id: horní bity rozliší databázi, aby se výsledky z různých souborů nepletly
+                        out[id] = Snippet((dbIndex.toLong() shl 40) or id, "Wikipedie: $title", text, c.getString(2)) to Libraries.score(query, title, snip)
                     }
                 }
             }
             if (out.size >= limit * 2) break
         }
-        return out.values.sortedByDescending { it.second }.take(limit).map { it.first }
+        return out.values.toList()
     }
 
     fun status(context: Context): JSONObject {
         val arr = JSONArray()
         for (l in Libraries.ALL) {
-            val (offset, total, done) = progress(l.id)
+            val pre = hasPrebuilt(l.id)
+            val (streamed, _, streamedDone) = progress(l.id)
+            val offset = if (pre) prebuiltArticles(l.id) else streamed
+            val done = pre || streamedDone
             arr.put(
                 JSONObject().put("id", l.id).put("name", l.name).put("description", l.description).put("rows", l.rows)
-                    .put("approxGb", l.approxGb).put("license", l.license).put("offset", offset).put("done", done)
-                    .put("percent", if (l.rows > 0) (offset * 100L / l.rows).toInt() else 0).put("started", offset > 0),
+                    .put("approxGb", l.approxGb).put("downloadGb", l.downloadGb).put("license", l.license).put("offset", offset).put("done", done)
+                    .put("percent", if (done) 100 else if (l.rows > 0) (offset * 100L / l.rows).toInt() else 0).put("started", offset > 0)
+                    .put("prebuilt", pre).put("bytes", if (pre) prebuiltFile(l.id).length() else 0L),
             )
         }
         return JSONObject().put("libraries", arr).put("articles", count()).put("bytes", sizeBytes(context))

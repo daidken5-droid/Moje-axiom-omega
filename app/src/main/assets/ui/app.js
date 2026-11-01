@@ -27,6 +27,9 @@ const ICONS = {
   agent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3.2"/></svg>',
   copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>',
   share: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  retry: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4.5h-4.5"/></svg>',
+  down: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>',
   trash: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
 };
 
@@ -47,7 +50,11 @@ function md(src) {
   const parts = text.split(/```/);
   let out = '';
   parts.forEach((part, i) => {
-    if (i % 2 === 1) { out += `<pre><code>${part.replace(/^[a-z0-9+-]*\n/i, '')}</code></pre>`; return; }
+    if (i % 2 === 1) {
+      const lang = (part.match(/^([a-z0-9+-]+)\n/i) || [])[1] || '';
+      out += `<pre><div class="pre-head"><span>${lang || 'kód'}</span><button class="cp" data-copy-code>${ICONS.copy} Kopírovat</button></div><code>${part.replace(/^[a-z0-9+-]*\n/i, '')}</code></pre>`;
+      return;
+    }
     const lines = part.split('\n');
     let list = null, para = [], table = [];
     const flushPara = () => { if (para.length) { out += `<p>${inline(para.join('<br>'))}</p>`; para = []; } };
@@ -95,12 +102,20 @@ const ROLES = [
 ];
 let agentRole = '';
 const SUGGEST = [
-  'Kurz 2,10, odhad 55 %, bankroll 10 000. Vsadit?',
-  'Kolik materiálu na 24 m2 mikrocementu?',
-  '/agent Najdi nejnovější open-source modely pro telefon a porovnej je',
-  'Jak funguje tepelné čerpadlo?',
-  'L4: Najdi slabiny v plánu otevřít e-shop s kartami',
+  { ic: '±', t: 'Spočítej sázku', q: 'Kurz 2,10, odhad 55 %, bankroll 10 000. Vsadit?' },
+  { ic: '▦', t: 'Materiál na stavbu', q: 'Kolik materiálu na 24 m2 mikrocementu?' },
+  { ic: '⚙', t: 'Agent: rešerše', q: '/agent Najdi nejnovější open-source modely pro telefon a porovnej je' },
+  { ic: 'W', t: 'Z offline Wikipedie', q: 'Jak funguje tepelné čerpadlo?' },
+  { ic: '?', t: 'Ověř teorii', q: 'Je pravda, že přistání na Měsíci bylo natočené? Ukaž důkazy.' },
+  { ic: 'L4', t: 'Kritická analýza', q: 'L4: Najdi slabiny v plánu otevřít e-shop s kartami' },
 ];
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 5 ? 'Dobrou noc' : h < 10 ? 'Dobré ráno' : h < 12 ? 'Dobré dopoledne' : h < 18 ? 'Dobré odpoledne' : 'Dobrý večer';
+}
+const seen = new Set();
+const haptic = () => { try { B.haptic(); } catch (e) { /* starší sestavení */ } };
 
 let S = {};
 let view = 'chat';
@@ -171,16 +186,23 @@ function render() {
   $('#main').className = view === 'chat' ? 'chat' : '';
   ({ chat: renderChat, agents: renderAgents, modules: renderModules, memory: renderMemory, system: renderSystem }[view] || renderChat)();
   $('#composerSlot').innerHTML = view === 'chat' ? composer() : '';
+  fab();
   if (view === 'chat') bindComposer();
 }
 
-const secs = ms => ms ? (ms >= 60000 ? Math.round(ms / 6000) / 10 + ' min' : Math.round(ms / 100) / 10 + ' s') : '';
+const cz = n => String(n).replace('.', ',');
+const secs = ms => ms ? cz(ms >= 60000 ? Math.round(ms / 6000) / 10 + ' min' : Math.round(ms / 100) / 10 + ' s') : '';
 const card = (inner, cls = '') => `<div class="card ${cls}">${inner}</div>`;
 const head = (eyebrow, title) => `<div class="eyebrow">${eyebrow}</div><h1>${title}</h1>`;
 
 /* ------------------------------------------------------------------ chat */
 
-function loadThread(id) { threadId = id || 0; msgs = threadId ? (J('messages', threadId) || []) : []; }
+function loadThread(id) {
+  const changed = (id || 0) !== threadId;
+  threadId = id || 0;
+  msgs = threadId ? (J('messages', threadId) || []) : [];
+  if (changed) msgs.forEach(m => seen.add(m.id)); // přepnutí vlákna = bez animace
+}
 
 function renderChat() {
   const main = $('#main');
@@ -188,15 +210,17 @@ function renderChat() {
     const ready = (S.engines || []).length > 0;
     main.innerHTML = `<div class="wrap"><section class="hero">
       <div class="orbit">${appIcon()}</div>
-      <h1 style="margin-top:22px">Na co myslíš?</h1>
+      <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
       ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
-      <div class="suggest">${SUGGEST.map(s => `<button data-suggest="${esc(s)}">${esc(s.replace(/^\/agent /, '⚙ '))}</button>`).join('')}</div>
+      <div class="suggest">${SUGGEST.map(s => `<button data-suggest="${esc(s.q)}"><span class="s-ic">${esc(s.ic)}</span><b>${esc(s.t)}</b><small>${esc(s.q.replace(/^\/agent /, ''))}</small></button>`).join('')}</div>
     </section></div>`;
     return;
   }
-  main.innerHTML = `<div class="wrap">${msgs.map(msgHtml).join('')}${live ? liveHtml() : ''}</div>`;
-  requestAnimationFrame(() => { main.scrollTop = main.scrollHeight; });
+  const lastAi = [...msgs].reverse().find(m => m.role !== 'user');
+  main.innerHTML = `<div class="wrap">${msgs.map(m => msgHtml(m, m === lastAi && !live)).join('')}${live ? liveHtml() : ''}</div>`;
+  main.querySelectorAll('.msg[data-id]').forEach(el => { const id = Number(el.dataset.id); if (!seen.has(id)) { el.classList.add('rise'); seen.add(id); } });
+  requestAnimationFrame(() => { main.scrollTop = main.scrollHeight; fab(); });
 }
 
 function confHtml(c) {
@@ -209,8 +233,8 @@ function stepsHtml(steps) {
     ${st.observation ? `<div class="obs">${esc(String(st.observation).slice(0, 600))}</div>` : ''}</div>`).join('');
 }
 
-function msgHtml(m) {
-  if (m.role === 'user') return `<div class="msg user"><div class="bubble">${esc(m.content)}</div></div>`;
+function msgHtml(m, last) {
+  if (m.role === 'user') return `<div class="msg user" data-id="${m.id}"><div class="bubble">${esc(m.content)}</div></div>`;
   const meta = m.meta || {};
   if (meta.error) {
     return `<div class="msg ai error"><div class="head">${logo()}<span class="meta">CHYBA</span></div><div class="body">${esc(m.content)}</div>
@@ -224,15 +248,18 @@ function msgHtml(m) {
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
   if (meta.trace && meta.trace.length > 1) det.push(`<div class="sub">PRŮCHODY RANDY</div>` + meta.trace.map(t => `<p class="small"><b>${t.index}. ${esc(t.label)}</b> · ${secs(t.millis)}</p>`).join(''));
-  if (meta.sources && meta.sources.length) det.push(`<div class="sub">ZDROJE</div>` + meta.sources.map(s => `<button class="src" data-open="${esc(s.url)}">↗ ${esc(s.title)}</button>`).join(''));
+  const srcs = (meta.sources || []).filter(s => s && s.url);
+  const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+  const cites = srcs.length ? `<div class="cites">${srcs.slice(0, 6).map((s, i) => `<button class="cite" data-open="${esc(s.url)}" title="${esc(s.title)}"><i>${i + 1}</i>${esc((s.title || host(s.url)).slice(0, 34))}<small>${esc(host(s.url))}</small></button>`).join('')}</div>` : '';
   const memo = [...(meta.memories || []), ...(meta.notes || [])];
   if (memo.length) det.push(`<div class="sub">PAMĚŤ</div><p class="small">${memo.map(esc).join('<br>')}</p>`);
-  if (meta.reasoning) det.push(`<div class="sub">ÚVAHA</div><p class="small" style="white-space:pre-wrap">${esc(meta.reasoning.slice(0, 3000))}</p>`);
+  const thought = meta.reasoning ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
   return `<div class="msg ai" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>
-    <div class="body answer">${md(m.content)}</div>
+    ${thought}<div class="body answer">${md(m.content)}</div>${cites}
     <div class="tools">
       <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-share="${m.id}" aria-label="Sdílet">${ICONS.share}</button>
+      ${last ? `<button data-retry="${m.id}" aria-label="Odpovědět znovu">${ICONS.retry}</button>` : ''}
       <button data-rate="${m.id}" data-good="1" class="${meta.rated === 'good' ? 'on' : ''}">✓</button><button data-rate="${m.id}" data-good="0" class="${meta.rated === 'bad' ? 'on bad' : ''}">✗</button>
       ${det.length ? `<details class="more"><summary>Podrobnosti</summary><div class="in">${det.join('')}</div></details>` : ''}
     </div></div>`;
@@ -242,7 +269,7 @@ function liveHtml() {
   return `<div class="msg ai live" id="live">
     <div class="head">${logo('pulse')}<span class="meta grow" id="livePhase">${esc(live.phase || 'Přemýšlím…')}</span></div>
     <div id="liveSteps">${(live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('')}</div>
-    <div class="think" id="liveThink">${esc((live.reasoning || '').slice(-300))}</div>
+    <div class="think ${live.reasoning ? '' : 'empty'}" id="liveThink">${esc((live.reasoning || '').slice(-300))}</div>
     <div class="body answer caret" id="liveText">${md(live.text || '')}</div></div>`;
 }
 
@@ -251,10 +278,20 @@ function updateLive() {
   if (!$('#live')) { renderChat(); return; }
   $('#livePhase').textContent = live.phase || '';
   $('#liveSteps').innerHTML = (live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('');
-  $('#liveThink').textContent = (live.reasoning || '').slice(-300);
+  const th = $('#liveThink');
+  th.textContent = (live.reasoning || '').slice(-300);
+  th.classList.toggle('empty', !live.reasoning);
   $('#liveText').innerHTML = md(live.text || '');
   const main = $('#main');
   if (main.scrollHeight - main.scrollTop - main.clientHeight < 240) main.scrollTop = main.scrollHeight;
+  fab();
+}
+
+/** Tlačítko „dolů“, když uživatel odscrolluje nahoru během dlouhé odpovědi. */
+function fab() {
+  const main = $('#main'), b = $('#toBottom');
+  if (!b) return;
+  b.classList.toggle('show', view === 'chat' && main.scrollHeight - main.scrollTop - main.clientHeight > 420);
 }
 
 function composer() {
@@ -264,6 +301,7 @@ function composer() {
     <div class="box">
       <button class="kind ${forcedKind || forcedLevel ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se nebo zadej úkol…">${esc(draft)}</textarea>
+      <button class="mic" id="micBtn" aria-label="Diktovat">${ICONS.mic}</button>
       <button class="send ${thinking() ? 'stop' : ''}" id="sendBtn" aria-label="Odeslat">${thinking() ? ICONS.stop : ICONS.send}</button>
     </div></div></div>`;
 }
@@ -275,6 +313,7 @@ function bindComposer() {
   ta.addEventListener('input', () => { draft = ta.value; grow(); });
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(ta.value); } });
   $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
+  $('#micBtn').onclick = () => { haptic(); call('voice'); };
 }
 
 function send(text, kind, role) {
@@ -286,6 +325,7 @@ function send(text, kind, role) {
   if (!id || id < 0) return;
   draft = '';
   forcedLevel = null;
+  haptic();
   loadThread(id);
   live = { phase: 'Rozhoduji, jak na to…', text: '', reasoning: '', steps: [] };
   if (view !== 'chat') { view = 'chat'; nav(); }
@@ -325,7 +365,9 @@ function renderModules() {
 
     <div class="eyebrow">MOZEK V TELEFONU · ${esc(data.ramGb)} GB RAM · VOLNO ${esc(data.freeGb)}</div>
     ${S.native === false ? card('<p class="small" style="margin:0">Toto sestavení nemá nativní jádro – mozek v telefonu poběží až ve verzi z GitHub Actions.</p>') : ''}
-    ${chat.map(b => brainCard(b, job)).join('')}
+    ${chat.filter(b => b.fits !== false || b.installed).map(b => brainCard(b, job)).join('')}
+    ${chat.some(b => b.fits === false && !b.installed) ? `<details class="x"><summary>DALŠÍ MOZKY · PRO TELEFONY S VÍCE RAM</summary><div class="in" style="white-space:normal">
+      ${chat.filter(b => b.fits === false && !b.installed).map(b => brainCard(b, job)).join('')}</div></details>` : ''}
 
     <div class="eyebrow">ROZŠÍŘENÍ</div>
     ${sense.map(b => brainCard(b, job, `Indexováno: ${(J('packs') || { stats: {} }).stats.vectors || 0} úseků`)).join('')}
@@ -426,9 +468,10 @@ function renderMemory() {
     <div class="grid2"><div class="stat"><b>${s.docs ?? 0}</b><small>DOKUMENTŮ</small></div><div class="stat"><b>${s.vectors ?? 0}</b><small>SÉMANTICKY INDEXOVÁNO</small></div></div>
     <input type="search" id="kbq" placeholder="Hledat v databázi" style="margin-top:12px"><div id="kbres"></div>
 
-    <div class="eyebrow">OFFLINE KNIHOVNA · ${((lib.bytes || 0) / 1e9).toFixed(2)} GB</div>
+    <div class="eyebrow">OFFLINE KNIHOVNA · ${cz(((lib.bytes || 0) / 1e9).toFixed(2))} GB</div>
     ${lib.libraries.map(l => { const dl = busy('library') && (S.job.phase || '').includes(l.name); return card(`<b>${esc(l.name)}</b> ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}
-      <p class="small">${esc(l.description)} ~${l.approxGb} GB · ${esc(l.license)}</p>
+      <p class="small">${esc(l.description)}</p>
+      <div class="meta">${l.done ? cz(((l.bytes || 0) / 1e9).toFixed(2)) + ' GB v telefonu' : (l.downloadGb ? '~' + cz(l.downloadGb) + ' GB stažení · ' : '') + '~' + cz(l.approxGb) + ' GB v telefonu'} · ${esc(l.license)}</div>
       ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.job.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.job.detail) : l.percent + ' % – naváže'}</div>` : ''}
       <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
       ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>`); }).join('')}
@@ -562,6 +605,7 @@ window.omegaReceive = function (type, d) {
       live.steps = [...(live.steps || []), d]; live.text = ''; updateLive(); break;
     case 'done':
     case 'error':
+      if (live) haptic();
       live = null;
       if (d.message) toast(d.message);
       if (d.threadId && (d.threadId === threadId || !threadId)) loadThread(d.threadId);
@@ -598,6 +642,7 @@ window.omegaReceive = function (type, d) {
       break;
     case 'kb': case 'mem': if (view === 'memory') renderMemory(); if (view === 'modules') renderModules(); break;
     case 'shared': draft = d.text; go('chat'); break;
+    case 'voice': draft = (draft ? draft.trimEnd() + ' ' : '') + d.text; if (view !== 'chat') go('chat'); else { const ta = $('#input'); ta.value = draft; ta.dispatchEvent(new Event('input')); ta.focus(); } break;
   }
 };
 function thinkingJob() { return busy('ask') || busy('agent'); }
@@ -627,6 +672,7 @@ document.addEventListener('click', e => {
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
   if (ds.newThread !== undefined) { threadId = 0; msgs = []; live = null; closeDrawer(); go('chat'); return; }
   if (ds.delThread) { if (confirm('Smazat vlákno?')) { call('deleteThread', Number(ds.delThread)); if (Number(ds.delThread) === threadId) { threadId = 0; msgs = []; } openDrawer(); if (view === 'chat') renderChat(); } return; }
+  if (ds.copyCode !== undefined) { const c = t.closest('pre')?.querySelector('code'); if (c) { call('copy', c.textContent); haptic(); } return; }
   if (ds.copy) { const m = msgs.find(x => x.id === Number(ds.copy)); m && call('copy', m.content); return; }
   if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AXIOM Ω'); return; }
   if (ds.rate) {
@@ -690,6 +736,8 @@ document.addEventListener('change', e => {
 });
 
 $('#btnThreads').onclick = openDrawer;
+$('#main').addEventListener('scroll', () => { if (view === 'chat') fab(); }, { passive: true });
+$('#toBottom').onclick = () => { const m = $('#main'); m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' }); };
 $('#drawerBg').onclick = closeDrawer;
 $('#engineChip').onclick = () => busy('library') ? (memTab = 'kb', go('memory')) : (busy('download') || busy('index')) ? go('modules') : modeSheet();
 $('#brand').onclick = selfSheet;
