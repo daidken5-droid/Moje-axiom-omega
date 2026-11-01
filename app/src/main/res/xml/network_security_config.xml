@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS všude. Nešifrované HTTP je povolené jen kvůli vlastnímu Kimi K3 serveru v LAN
+  (IP adresy nelze v Androidu vyjmenovat rozsahem) – aplikace v kódu (Http.requireAllowed)
+  odmítne http:// na cokoliv mimo privátní síť.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

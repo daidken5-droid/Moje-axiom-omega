@@ -1,0 +1,151 @@
+package cz.axiom.omega.engine
+
+import android.content.Context
+import cz.axiom.omega.BuildConfig
+import cz.axiom.omega.core.brain.BrainSpec
+import cz.axiom.omega.core.llm.CancelToken
+import cz.axiom.omega.core.llm.CancelledException
+import cz.axiom.omega.core.llm.ChatMessage
+import cz.axiom.omega.core.llm.Delta
+import cz.axiom.omega.core.llm.EngineException
+import cz.axiom.omega.core.llm.EngineKind
+import cz.axiom.omega.core.llm.GenOptions
+import cz.axiom.omega.core.llm.GenResult
+import cz.axiom.omega.core.llm.LlmEngine
+import cz.axiom.omega.core.llm.Role
+import cz.axiom.omega.core.llm.ThinkSplitter
+import java.io.File
+
+/** Callback z C++: kus UTF-8 (vždy celé znaky). Vrátí false = zastavit. */
+fun interface TokenSink {
+    fun onBytes(bytes: ByteArray): Boolean
+}
+
+/** JNI rozhraní k libomega.so (llama.cpp). */
+object NativeLlama {
+    @Volatile private var loaded: Boolean? = null
+    var loadError: String? = null
+        private set
+
+    fun available(context: Context): Boolean {
+        loaded?.let { return it }
+        synchronized(this) {
+            loaded?.let { return it }
+            val ok = BuildConfig.WITH_NATIVE && runCatching {
+                System.loadLibrary("omega")
+                nativeInit(context.applicationInfo.nativeLibraryDir)
+            }.onFailure { loadError = it.message }.isSuccess
+            loaded = ok
+            return ok
+        }
+    }
+
+    external fun nativeInit(libDir: String)
+    external fun nativeLoad(path: String, nCtx: Int, nThreads: Int): Long
+    external fun nativeInfo(handle: Long): String
+    external fun nativeGenerate(
+        handle: Long, roles: Array<String>, contents: Array<String>, maxTokens: Int,
+        temp: Float, topP: Float, minP: Float, repeatPenalty: Float, thinking: Boolean, sink: TokenSink,
+    ): Int
+    external fun nativeCancel(handle: Long)
+    external fun nativeStats(handle: Long): String
+    external fun nativeFree(handle: Long)
+}
+
+/**
+ * Lokální mozek v telefonu. Model zůstává načtený mezi dotazy (mmap), uvolní se při změně
+ * mozku nebo když systém hlásí nedostatek paměti.
+ */
+class LocalEngine private constructor(
+    private val handle: Long,
+    val spec: BrainSpec?,
+    val file: File,
+    val ctxTokens: Int,
+) : LlmEngine {
+
+    override val id = "local:${file.name}"
+    override val label = spec?.name ?: file.nameWithoutExtension
+    override val kind = EngineKind.LOCAL
+    /** čeština ≈ 2,5 znaku/token; část kontextu nechat na odpověď */
+    override val contextBudgetChars = (ctxTokens * 2.5 * 0.6).toInt()
+
+    val info: String get() = runCatching { NativeLlama.nativeInfo(handle) }.getOrDefault("")
+
+    override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
+        val started = System.currentTimeMillis()
+        cancel.onCancel { NativeLlama.nativeCancel(handle) }
+        val text = StringBuilder()
+        val reasoning = StringBuilder()
+        val splitter = ThinkSplitter { d ->
+            if (d.reasoning) reasoning.append(d.text) else text.append(d.text)
+            onDelta(d)
+        }
+        val roles = messages.map { when (it.role) { Role.SYSTEM -> "system"; Role.USER -> "user"; Role.ASSISTANT -> "assistant" } }.toTypedArray()
+        val contents = messages.map { it.content }.toTypedArray()
+        val rc = NativeLlama.nativeGenerate(
+            handle, roles, contents, options.maxTokens,
+            temp = if (options.effort == "low") 0.4f else 0.6f, topP = 0.95f, minP = 0.05f, repeatPenalty = 1.08f,
+            thinking = options.thinking && spec?.thinking != false,
+        ) { bytes ->
+            splitter.feed(String(bytes, Charsets.UTF_8))
+            !cancel.cancelled
+        }
+        splitter.finish()
+        when (rc) {
+            0, 2 -> Unit
+            1 -> throw CancelledException()
+            -2 -> throw EngineException("Lokální mozek: chyba šablony chatu modelu.")
+            -3 -> throw EngineException("Lokální mozek: zadání je příliš dlouhé pro kontext ${ctxTokens} tokenů. Zkrať ho nebo zvětši kontext v Systému.")
+            else -> throw EngineException("Lokální mozek: chyba výpočtu (kód $rc).")
+        }
+        var answer = text.toString().trim()
+        if (answer.isBlank() && reasoning.isNotBlank()) {
+            // model skončil uvnitř <think> (malý limit tokenů) – vrať aspoň úvahu
+            answer = reasoning.toString().trim()
+        }
+        if (answer.isBlank()) throw EngineException("Lokální mozek nevrátil text. Zkus to znovu nebo vypni přemýšlení.")
+        if (rc == 2) answer += "\n\n[Zkráceno limitem délky lokálního mozku.]"
+        val stats = runCatching { NativeLlama.nativeStats(handle).split('|') }.getOrDefault(emptyList())
+        return GenResult(
+            text = answer,
+            reasoning = reasoning.toString().trim(),
+            model = "$label · v telefonu",
+            stopReason = if (rc == 2) "length" else "stop",
+            inputTokens = stats.getOrNull(0)?.toLongOrNull(),
+            outputTokens = stats.getOrNull(2)?.toLongOrNull(),
+            millis = System.currentTimeMillis() - started,
+        )
+    }
+
+    fun stats(): String = runCatching { NativeLlama.nativeStats(handle) }.getOrDefault("")
+
+    fun close() = NativeLlama.nativeFree(handle)
+
+    companion object {
+        @Volatile private var current: LocalEngine? = null
+
+        @Synchronized
+        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int): LocalEngine {
+            current?.let { if (it.file == file && it.ctxTokens == ctxTokens) return it }
+            release()
+            if (!NativeLlama.available(context)) {
+                throw EngineException("Lokální mozek není v tomto sestavení dostupný (${NativeLlama.loadError ?: "bez nativní knihovny"}).")
+            }
+            if (!file.exists()) throw EngineException("Soubor mozku chybí – stáhni ho v sekci Mozky.")
+            val cores = Runtime.getRuntime().availableProcessors()
+            val threads = (cores - 2).coerceIn(2, 6)
+            val ctx = minOf(ctxTokens, spec?.contextTokens?.times(2) ?: ctxTokens)
+            val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads)
+            if (h == 0L) throw EngineException("Mozek se nepodařilo načíst (poškozený soubor nebo málo paměti RAM).")
+            return LocalEngine(h, spec, file, ctx).also { current = it }
+        }
+
+        @Synchronized
+        fun release() {
+            current?.close()
+            current = null
+        }
+
+        fun loadedLabel(): String? = current?.label
+    }
+}

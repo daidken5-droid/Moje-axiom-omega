@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "updated": "2026-11-01",
+  "packs": [
+    {
+      "id": "axiom-metodika",
+      "name": "AXIOM · metodika",
+      "description": "RANDY, STEP-0, sebemodel a pravidla práce s důkazy.",
+      "file": "axiom-metodika.md",
+      "version": 1,
+      "bytes": 2135,
+      "sha256": "afa924412f3d7d868ff7ce245c50c0f9215d67a9827168cfd348a7cdffaf4fe1",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "jednotky-konstanty",
+      "name": "Jednotky a konstanty SI",
+      "description": "Přesné konstanty SI a převody jednotek.",
+      "file": "jednotky-konstanty.md",
+      "version": 1,
+      "bytes": 1472,
+      "sha256": "230e20770e97f5dcd3cb57cccfccdc3d58cbe4432685d1777174507716d1e167",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "stavba-materialy",
+      "name": "Stavba a materiály",
+      "description": "Objemové hmotnosti, mikrocement, stěrky, prořez, DPH ve stavebnictví.",
+      "file": "stavba-materialy.md",
+      "version": 1,
+      "bytes": 1910,
+      "sha256": "4ab8592e63b03577c506df55cebbdc25e92d573b347c6c77978162adc7a1783f",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "finance-ev",
+      "name": "Finance a +EV",
+      "description": "EV, Kelly, marže, ROI, úročení, DPH v ČR.",
+      "file": "finance-ev.md",
+      "version": 1,
+      "bytes": 1547,
+      "sha256": "1ff394a097e5630a5842386f004c3390b9e513be5e0064abb7f98cfa6ddda3f1",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "kimi-k3-server",
+      "name": "Kimi K3 a vlastní server",
+      "description": "K3 online i offline, mozky v telefonu, Claude.",
+      "file": "kimi-k3-server.md",
+      "version": 1,
+      "bytes": 1757,
+      "sha256": "75cbc17ca1b48f6051fe9796f0968263328ffdbbf63035b4ddc07bf0bfc5e1b0",
+      "sections": 5,
+      "autoInstall": true
+    }
+  ]
+}

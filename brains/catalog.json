@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "updated": "2026-11-01",
+  "note": "Katalog mozků AXIOM Ω. Velikosti a SHA-256 jsou z LFS metadat Hugging Face; aplikace soubor po stažení ověří. Kimi K3 (2,8T parametrů, nejmenší GGUF ~594 GB) se do telefonu nevejde – používá se online nebo z vlastního serveru.",
+  "brains": [
+    {
+      "id": "omega-core-qwen35-4b-q4km",
+      "name": "OMEGA Core · Qwen3.5 4B",
+      "family": "Qwen3.5",
+      "description": "Doporučený mozek pro telefony s 8+ GB RAM. Nejlepší čeština a uvažování v této velikosti, přepínač přemýšlení.",
+      "urls": [
+        "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+        "https://hf-mirror.com/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 2740937888,
+      "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+      "minRamGb": 8,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "omega-lite-qwen35-2b-q4km",
+      "name": "OMEGA Lite · Qwen3.5 2B",
+      "family": "Qwen3.5",
+      "description": "Rychlý a úsporný mozek pro telefony se 4–6 GB RAM. 1,28 GB.",
+      "urls": [
+        "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+        "https://hf-mirror.com/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "minRamGb": 4,
+      "contextTokens": 4096,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "axiom-classic-qwen3-1.7b-q8",
+      "name": "AXIOM Classic · Qwen3 1.7B Q8",
+      "family": "Qwen3",
+      "description": "Původní mozek z AXIOM 2.1 Hybrid (stejný soubor i SHA-256). Pro kontinuitu a srovnání.",
+      "urls": [
+        "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
+        "https://hf-mirror.com/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf"
+      ],
+      "sizeBytes": 1834426016,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "minRamGb": 4,
+      "contextTokens": 4096,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": false
+    },
+    {
+      "id": "omega-alt-llama32-3b-q4km",
+      "name": "OMEGA Alt · Llama 3.2 3B",
+      "family": "Llama 3.2",
+      "description": "Alternativní mozek od Meta pro druhý názor v Konziliu offline. Bez režimu přemýšlení.",
+      "urls": [
+        "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        "https://hf-mirror.com/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 2019377696,
+      "sha256": "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff",
+      "minRamGb": 6,
+      "contextTokens": 4096,
+      "license": "Llama 3.2 Community License",
+      "thinking": false,
+      "recommended": false
+    }
+  ]
+}
