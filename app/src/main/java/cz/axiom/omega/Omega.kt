@@ -84,6 +84,11 @@ class Omega private constructor(val app: Context) {
         val d = db
         return object : KnowledgeSource {
             override fun search(query: String, limit: Int): List<Snippet> {
+                val lib = runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, (limit / 2).coerceAtLeast(2)) }.getOrDefault(emptyList())
+                return (docs(query, limit) + lib).distinctBy { it.title }.take(limit + lib.size.coerceAtMost(2))
+            }
+
+            private fun docs(query: String, limit: Int): List<Snippet> {
                 val words = d.search(query, limit)
                 if (!settings.semantic || !ensureEmbedder()) return words
                 val q = Embedder.embedQuery(query) ?: return words
@@ -110,8 +115,21 @@ class Omega private constructor(val app: Context) {
 
     /** Nástroje aktivního agenta (síťové jen online). */
     fun agentTools(): List<AgentTool> {
-        val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") }
-        return if (Introspect.online(app)) offline + Tools.online() else offline
+        val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") } +
+            Tools.securityOffline() + libraryTool()
+        return if (Introspect.online(app)) offline + Tools.online() + Tools.securityOnline() else offline
+    }
+
+    private fun libraryTool(): AgentTool = object : AgentTool {
+        override val name = "library"
+        override val args = """{"q": "dotaz"}"""
+        override val description = "offline encyklopedie v telefonu (stažená Wikipedie) – funguje bez internetu"
+        override fun run(args: kotlinx.serialization.json.JsonObject, cancel: cz.axiom.omega.core.llm.CancelToken): String {
+            val q = (args["q"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return "Chybí q."
+            val r = cz.axiom.omega.data.LibraryDb.get(app).search(q, 4)
+            if (r.isEmpty()) return "V offline knihovně nic (je stažená? Paměť → Offline databáze → Knihovna)."
+            return r.joinToString("\n\n") { "${it.title} (${it.source}):\n${it.text.take(1_400)}" }
+        }
     }
 
     fun agent() = ActiveAgent(agentTools(), db) { selfState(currentLabel, currentKind) }
@@ -173,11 +191,12 @@ class Omega private constructor(val app: Context) {
     /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AXIOM na něm nezávisí). */
     fun availableEngines(): List<String> {
         val online = Introspect.online(app)
+        // Primární je výkonný mozek v telefonu; cloudy jsou jen volitelné doplňky.
         return buildList {
-            if (online && vault.has(Vault.KIMI)) add("kimi")
-            if (online && settings.nodeUrl.isNotBlank()) add("node")
             if (localAvailable()) add("local")
+            if (online && settings.nodeUrl.isNotBlank()) add("node")
             if (settings.serverUrl.isNotBlank()) add("server")
+            if (online && vault.has(Vault.KIMI)) add("kimi")
             if (online && vault.has(Vault.CLAUDE)) add("claude")
         }
     }
@@ -200,13 +219,13 @@ class Omega private constructor(val app: Context) {
             else -> {
                 val online = Introspect.online(app)
                 when {
-                    online && vault.has(Vault.KIMI) -> kimi()
-                    online && settings.nodeUrl.isNotBlank() -> node()
                     localAvailable() -> local()
+                    online && settings.nodeUrl.isNotBlank() -> node()
                     settings.serverUrl.isNotBlank() -> server()
+                    online && vault.has(Vault.KIMI) -> kimi()
                     online && vault.has(Vault.CLAUDE) -> claude()
                     else -> throw EngineException(
-                        if (online) "Žádný mozek: stáhni lokální mozek (Mozky) nebo zadej klíč Kimi K3 / Claude (Systém)."
+                        if (online) "Žádný mozek: stáhni mozek do telefonu (Moduly → Gemma 4)."
                         else "Jsi offline a lokální mozek není stažený. Připoj se a stáhni ho v sekci Mozky.",
                     )
                 }
@@ -224,7 +243,7 @@ class Omega private constructor(val app: Context) {
             if (online && settings.nodeUrl.isNotBlank()) runCatching { node() }.getOrNull()?.let(::add)
             if (online && vault.has(Vault.CLAUDE)) runCatching { claude() }.getOrNull()?.let(::add)
             if (settings.serverUrl.isNotBlank()) runCatching { server() }.getOrNull()?.let(::add)
-            if (size < 2 && localAvailable()) runCatching { local() }.getOrNull()?.let(::add)
+            if (localAvailable()) runCatching { local() }.getOrNull()?.let { add(0, it) }
         }
         if (members.size < 2) throw EngineException("Konzilium potřebuje aspoň 2 mozky (např. Kimi K3 + Claude, nebo cloud + lokální).")
         val judge = when (settings.councilJudge) {

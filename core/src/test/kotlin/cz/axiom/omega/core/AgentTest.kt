@@ -98,10 +98,11 @@ class AgentTest {
     }
 
     @Test fun routerDecides() {
-        val ctx = Router.Context(online = true, engines = listOf("kimi", "local", "claude"))
+        val ctx = Router.Context(online = true, engines = listOf("local", "kimi", "claude"))
         val a = Router.route("Najdi aktuální cenu Gemma 4 modelů a porovnej je", ctx)
         assertEquals(Router.Mode.AGENT, a.mode)
-        assertEquals("kimi", a.engine)
+        assertEquals("local", a.engine)
+        assertEquals("kimi", Router.route("Najdi chyby", ctx.copy(engines = listOf("kimi", "claude"))).engine)
         val b = Router.route("Hlavní město Francie?", ctx)
         assertEquals(Router.Mode.CHAT, b.mode)
         assertEquals("local", b.engine)

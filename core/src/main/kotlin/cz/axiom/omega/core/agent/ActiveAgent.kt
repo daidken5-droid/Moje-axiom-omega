@@ -22,6 +22,18 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
+/** Předvolby aktivních agentů (specializace). */
+enum class AgentRole(val title: String, val instruction: String) {
+    RESEARCHER("Rešeršér", "Najdi a ověř informace z více zdrojů (offline knihovna, Wikipedie, web). Každé tvrzení podlož zdrojem s odkazem, rozliš fakta a odhady."),
+    ANALYST("Analytik", "Pracuj s čísly: vše počítej nástroji calc/step0, ukaž výpočty, citlivost na předpoklady a jasné doporučení."),
+    PLANNER("Plánovač", "Rozlož cíl na kroky s termíny, zdroji, riziky a kontrolními body. Výsledek ulož nástrojem note."),
+    WRITER("Pisatel", "Připrav kvalitní text (článek, e-mail, nabídku, dokumentaci) v češtině; nejdřív si ověř fakta, pak piš."),
+    SECURITY("Bezpečnostní auditor", "Jsi etický bezpečnostní auditor. Používej jen pasivní průzkum a obranné audity (http_audit, dns, subdomains, rdap, vulns, secret_scan, jwt_decode, password_check). Testuj pouze systémy, které uživatel vlastní nebo má písemné povolení; pokud to není jasné, zeptej se. Nepiš exploity ani návody k útoku na cizí systémy. Výstup: nálezy seřazené podle závažnosti, dopad a konkrétní náprava."),
+    TUTOR("Učitel", "Vysvětli téma krok za krokem od základů, s příklady a kontrolními otázkami; čerpej z offline knihovny."),
+    ;
+    companion object { fun of(id: String?) = entries.firstOrNull { it.name.equals(id, true) } }
+}
+
 /** Nástroj aktivního agenta. Výstup je vždy text (data pro model, nikdy instrukce). */
 interface AgentTool {
     val name: String
@@ -77,13 +89,14 @@ class ActiveAgent(
         listener: AgentListener = object : AgentListener {},
         rates: Rates = Rates.FALLBACK,
         userName: String? = null,
+        role: AgentRole? = null,
     ): AgentResult {
         val started = System.currentTimeMillis()
         val local = engine.kind == EngineKind.LOCAL
         val limit = maxSteps.coerceIn(1, 25)
         val memories = MemoryRanker.rank(goal, memory.all(), if (local) 4 else 8)
         val system = SystemPrompt.build(RandyLevel.L2_DEEP, selfState(), memories, compact = local, userName = userName) +
-            "\n\n" + protocol(limit)
+            (role?.let { "\n\nROLE AGENTA – ${it.title}: ${it.instruction}" } ?: "") + "\n\n" + protocol(limit)
         val facts = Step0.analyze(goal, rates)
         val task = buildString {
             append("CÍL UŽIVATELE:\n").append(goal.trim())

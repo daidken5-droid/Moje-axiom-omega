@@ -68,7 +68,7 @@ class OmegaService : Service() {
             Events.note("Právě probíhá jiná úloha – počkej nebo ji zastav.")
             return START_NOT_STICKY
         }
-        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI)
+        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY)
         val type = if (download) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         else if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         ServiceCompat.startForeground(this, NOTIF_ID, notification("Připravuji…", -1), type)
@@ -83,6 +83,7 @@ class OmegaService : Service() {
                     ACTION_INDEX -> index(cancel)
                     ACTION_DATASET -> dataset(intent, cancel)
                     ACTION_WIKI -> wiki(intent, cancel)
+                    ACTION_LIBRARY -> library(intent.getStringExtra("id")!!, cancel)
                     ACTION_IMPORT -> import(intent.getParcelableExtraCompat("uri")!!, cancel)
                 }
             } catch (e: Throwable) {
@@ -183,7 +184,7 @@ class OmegaService : Service() {
                                 omega.db.updateTask(taskId, "running", steps.length(), null)
                                 Events.emit("step", j)
                             }
-                        }, s.rates, s.userName.ifBlank { null })
+                        }, s.rates, s.userName.ifBlank { null }, cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role")))
                     } catch (e: Exception) {
                         omega.db.updateTask(taskId, if (e is CancelledException) "stopped" else "failed", steps.length(), e.message)
                         throw e
@@ -326,6 +327,66 @@ class OmegaService : Service() {
         if (omega.settings.semantic && omega.embedderFile() != null) index(cancel)
     }
 
+    /** Offline knihovna (celá Wikipedie): stránky po 100 článcích, navazování, šetrné tempo, hlídání místa. */
+    private fun library(id: String, cancel: CancelToken) {
+        val job = omega.job
+        job.reset("library")
+        val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: error("Neznámá knihovna $id")
+        val lib = cz.axiom.omega.data.LibraryDb.get(this)
+        val hub = HfHub()
+        var (offset, _, done) = lib.progress(id)
+        if (done) { Events.note("${spec.name} je už stažená."); return }
+        var failures = 0
+        var lastNote = 0L
+        val started = System.currentTimeMillis()
+        val startOffset = offset
+        try {
+            while (offset < spec.rows) {
+                cancel.check()
+                if (filesDir.usableSpace < 800_000_000L) error("Dochází místo v telefonu (méně než 0,8 GB). Stahování pozastaveno na $offset článcích.")
+                val rows = try {
+                    hub.rows(spec.dataset, spec.config, spec.split, offset, 100)
+                } catch (e: Exception) {
+                    if (cancel.cancelled) throw CancelledException()
+                    failures++
+                    if (failures > 12) throw e
+                    val wait = minOf(120_000L, 3_000L * failures)
+                    job.phase = "Knihovna · výpadek, zkusím za ${wait / 1000} s"
+                    Events.emit("progress", job.toJson())
+                    Thread.sleep(wait)
+                    continue
+                }
+                failures = 0
+                if (rows.isEmpty()) break
+                val items = rows.mapNotNull { r ->
+                    val title = (r["title"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@mapNotNull null
+                    val text = (r["text"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.trim() ?: return@mapNotNull null
+                    if (text.length < 80) return@mapNotNull null
+                    val url = (r["url"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+                    Triple(title, text, url)
+                }
+                offset += rows.size
+                lib.insertPage(id, items, offset, spec.rows)
+                val pct = (offset * 100L / spec.rows).toInt()
+                val rate = (offset - startOffset) * 1000.0 / (System.currentTimeMillis() - started).coerceAtLeast(1)
+                val etaMin = if (rate > 0) ((spec.rows - offset) / rate / 60).toInt() else -1
+                job.progress = pct
+                job.phase = "Knihovna · ${spec.name}"
+                job.detail = "%,d / %,d článků".format(offset, spec.rows).replace(',', ' ') + if (etaMin >= 0) " · zbývá ~$etaMin min" else ""
+                updateNotification("${spec.name} $pct % · ${job.detail}", pct)
+                if (System.currentTimeMillis() - lastNote > 1_500) { Events.emit("progress", job.toJson()); lastNote = System.currentTimeMillis() }
+                Thread.sleep(150) // šetrně k serveru
+            }
+            lib.setProgress(id, offset, spec.rows, true)
+            runCatching { lib.writableDatabase.execSQL("INSERT INTO articles(articles) VALUES('optimize')") }
+            Events.emit("kb", JSONObject())
+            Events.note("${spec.name} je stažená a funguje offline (%,d článků).".format(offset).replace(',', ' '))
+        } catch (e: CancelledException) {
+            Events.note("Knihovna pozastavena na %,d článcích – příště naváže.".format(offset).replace(',', ' '))
+            Events.emit("kb", JSONObject())
+        }
+    }
+
     /** Články z Wikipedie k tématu → offline znalosti. */
     private fun wiki(intent: Intent, cancel: CancelToken) {
         val job = omega.job
@@ -414,6 +475,7 @@ class OmegaService : Service() {
         const val ACTION_INDEX = "cz.axiom.omega.INDEX"
         const val ACTION_DATASET = "cz.axiom.omega.DATASET"
         const val ACTION_WIKI = "cz.axiom.omega.WIKI"
+        const val ACTION_LIBRARY = "cz.axiom.omega.LIBRARY"
         private const val NOTIF_ID = 7
         val RUNNING = AtomicBoolean(false)
         @Volatile private var current: CancelToken? = null

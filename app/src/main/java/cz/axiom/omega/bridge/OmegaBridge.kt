@@ -125,6 +125,7 @@ class OmegaBridge(private val activity: MainActivity) {
             activity,
             Intent(OmegaService.ACTION_ASK).putExtra("threadId", threadId).putExtra("text", text).putExtra("mode", mode)
                 .putExtra("kind", o.optString("kind", "").takeIf { it in setOf("agent", "chat", "council") })
+                .putExtra("role", o.optString("role", "").takeIf { cz.axiom.omega.core.agent.AgentRole.of(it) != null })
                 .putExtra("level", o.optString("level", "").takeIf { RandyLevel.fromCode(it) != null }),
         )
         return threadId
@@ -269,6 +270,30 @@ class OmegaBridge(private val activity: MainActivity) {
         if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
         OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
     }
+
+    // ------------------------------------------------------------------ offline knihovna (několik GB)
+
+    @JavascriptInterface fun libraries(): String = cz.axiom.omega.data.LibraryDb.get(activity).status(activity).toString()
+
+    @JavascriptInterface
+    fun libraryStart(id: String) {
+        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: return
+        if (activity.filesDir.usableSpace < (spec.approxGb * 1e9).toLong()) Events.note("Pozor: knihovna zabere ~${spec.approxGb} GB a místa je méně – stahování se zastaví při nedostatku.")
+        if (!Introspect.unmetered(activity)) Events.note("Doporučuji Wi-Fi – knihovna má několik GB.")
+        OmegaService.start(activity, Intent(OmegaService.ACTION_LIBRARY).putExtra("id", id))
+    }
+
+    @JavascriptInterface
+    fun libraryRemove(id: String) = async {
+        cz.axiom.omega.data.LibraryDb.get(activity).remove(id)
+        Events.emit("kb", JSONObject()); Events.note("Knihovna odstraněna.")
+    }
+
+    @JavascriptInterface
+    fun librarySearch(q: String): String = JSONArray().apply {
+        cz.axiom.omega.data.LibraryDb.get(activity).search(q, 10).forEach { put(JSONObject().put("title", it.title).put("text", it.text).put("url", it.source)) }
+    }.toString()
 
     // ------------------------------------------------------------------ cloud (Hugging Face dataset)
 

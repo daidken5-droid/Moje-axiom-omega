@@ -78,17 +78,10 @@ object Router {
     private fun pickEngine(level: RandyLevel, mode: Router.Mode, prompt: String, ctx: Context, why: MutableList<String>): String {
         val avail = ctx.engines
         if (avail.isEmpty()) return "none"
-        val cloud = avail.filter { it in setOf("kimi", "node", "server", "claude") }
-        val simple = level == RandyLevel.L0_DIRECT && prompt.length < 220 && mode == Mode.CHAT
-        // Jednoduché dotazy: lokální mozek (rychlý, soukromý, zdarma). Složité: nejsilnější dostupný.
-        if (simple && "local" in avail) { why += "jednoduchý dotaz → v telefonu"; return "local" }
-        if (!ctx.online) {
-            val off = avail.firstOrNull { it == "server" || it == "local" } ?: avail.first()
-            why += "offline"
-            return off
-        }
-        val strongest = cloud.firstOrNull() ?: avail.first()
-        if (strongest != avail.first()) why += "nejsilnější dostupný mozek"
-        return strongest
+        // AXIOM je nezávislý: primárně myslí výkonný mozek v telefonu, cloud jen když v telefonu žádný není.
+        if ("local" in avail) { why += "mozek v telefonu"; return "local" }
+        if (!ctx.online) { why += "offline"; return avail.firstOrNull { it == "server" } ?: avail.first() }
+        why += "v telefonu není mozek → ${avail.first()}"
+        return avail.first()
     }
 }

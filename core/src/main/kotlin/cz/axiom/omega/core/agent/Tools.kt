@@ -60,6 +60,49 @@ object Tools {
         },
     )
 
+    /** Bezpečnostní nástroje pro etické testování a obranu (pasivní a obranné). */
+    fun securityOffline(): List<AgentTool> = listOf(
+        tool("hash", """{"text": "…"}""", "MD5/SHA-1/SHA-256/SHA-512 textu a odhad typu zadaného hashe") { a, _ ->
+            val t = a.arg("text", "hash")
+            "Odhad typu (pokud je to hash): ${cz.axiom.omega.core.security.SecTools.identifyHash(t)}\n" + cz.axiom.omega.core.security.SecTools.hash(t)
+        },
+        tool("encode", """{"mode": "base64|base64d|hex|hexd|url|urld", "text": "…"}""", "kódování a dekódování") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.encode(a.arg("mode"), a.arg("text"))
+        },
+        tool("jwt_decode", """{"token": "eyJ…"}""", "dekóduje JWT a upozorní na slabiny (alg=none, chybí exp…)") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.jwt(a.arg("token", "jwt"))
+        },
+        tool("password_check", """{"password": "…"}""", "síla hesla (offline); s online kontrolou úniku přes HIBP k-anonymitu") { a, _ ->
+            val pw = a.arg("password", "text")
+            cz.axiom.omega.core.security.SecTools.passwordStrength(pw) + runCatching {
+                val n = cz.axiom.omega.core.security.SecTools.pwnedCount(pw)
+                "\nÚnik (Have I Been Pwned): " + if (n > 0) "NALEZENO v $n únicích – heslo nepoužívej" else "nenalezeno"
+            }.getOrDefault("\n(Kontrola úniku vyžaduje internet.)")
+        },
+        tool("secret_scan", """{"text": "obsah souboru nebo logu"}""", "najde uniklé API klíče, tokeny, privátní klíče a hesla") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.secretScan(a.arg("text"))
+        },
+    )
+
+    fun securityOnline(): List<AgentTool> = listOf(
+        tool("http_audit", """{"url": "https://…"}""", "audit bezpečnostních hlaviček, cookies a TLS certifikátu webu") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.httpAudit(a.arg("url"))
+        },
+        tool("dns", """{"domain": "example.cz"}""", "DNS záznamy (A, MX, NS, TXT, CAA) a kontrola SPF/DMARC") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.dns(a.arg("domain"))
+        },
+        tool("subdomains", """{"domain": "example.cz"}""", "pasivní výčet subdomén z Certificate Transparency (crt.sh)") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.subdomains(a.arg("domain"))
+        },
+        tool("rdap", """{"q": "example.cz nebo IP"}""", "WHOIS/RDAP: registrace domény nebo vlastník IP") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.rdap(a.arg("q", "domain", "ip"))
+        },
+        tool("vulns", """{"q": "CVE-2021-44228" | "log4j-core", "ecosystem": "Maven", "version": "2.14.1"}""", "známé zranitelnosti z OSV.dev (CVE/GHSA nebo balíček+verze)") { a, _ ->
+            cz.axiom.omega.core.security.SecTools.vulns(a.arg("q", "id", "package"),
+                (a["ecosystem"] as? JsonPrimitive)?.contentOrNull, (a["version"] as? JsonPrimitive)?.contentOrNull)
+        },
+    )
+
     fun online(hub: HfHub = HfHub()): List<AgentTool> = listOf(
         tool("web_search", """{"q": "dotaz"}""", "vyhledá na webu (DuckDuckGo) a vrátí odkazy s úryvky") { a, _ ->
             Web.search(a.arg("q", "query")).joinToString("\n") { "- ${it.title} — ${it.url}\n  ${TextUtil.clip(it.snippet, 240)}" }

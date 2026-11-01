@@ -212,7 +212,6 @@ JNIEXPORT jlong JNICALL
 Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring jpath, jint n_ctx, jint n_threads) {
     const std::string path = jstr(env, jpath);
     llama_model_params mp = llama_model_default_params();
-    mp.use_mmap = true;
     llama_model *model = llama_model_load_from_file(path.c_str(), mp);
     if (!model) { LOGE("model se nenačetl: %s", path.c_str()); return 0; }
 
@@ -232,7 +231,22 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring 
     cp.n_threads_batch = std::max(1, (int) n_threads);
     cp.abort_callback = abort_cb;
     cp.abort_callback_data = o;
+    // Výkon: flash attention (auto) + KV cache v Q8_0 = cca poloviční paměť kontextu, delší kontext na telefonu.
+    cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+    cp.type_k = GGML_TYPE_Q8_0;
+    cp.type_v = GGML_TYPE_Q8_0;
     o->ctx = llama_init_from_model(model, cp);
+    if (!o->ctx) {
+        LOGI("Q8 KV cache nepodporována – zkouším F16");
+        cp.type_k = GGML_TYPE_F16;
+        cp.type_v = GGML_TYPE_F16;
+        o->ctx = llama_init_from_model(model, cp);
+    }
+    if (!o->ctx && ctx_size > 4096) {
+        LOGI("málo paměti pro kontext %d – zkouším 4096", ctx_size);
+        cp.n_ctx = 4096;
+        o->ctx = llama_init_from_model(model, cp);
+    }
     if (!o->ctx) {
         LOGE("kontext se nevytvořil (n_ctx=%d)", ctx_size);
         llama_model_free(model);
@@ -366,11 +380,11 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeGenerate(
     auto sp = llama_sampler_chain_default_params();
     llama_sampler *smpl = llama_sampler_chain_init(sp);
     if (temp <= 0.0f) {
-        llama_sampler_chain_add(smpl, llama_sampler_init_penalties(64, std::max(1.0f, (float) repeat_penalty), 0.0f, 0.0f));
+        llama_sampler_chain_add(smpl, llama_sampler_init_penalties(llama_vocab_n_tokens(o->vocab), 64, std::max(1.0f, (float) repeat_penalty), 0.0f, 0.0f));
         llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
     } else {
         llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
-        llama_sampler_chain_add(smpl, llama_sampler_init_penalties(64, std::max(1.0f, (float) repeat_penalty), 0.0f, 0.0f));
+        llama_sampler_chain_add(smpl, llama_sampler_init_penalties(llama_vocab_n_tokens(o->vocab), 64, std::max(1.0f, (float) repeat_penalty), 0.0f, 0.0f));
         llama_sampler_chain_add(smpl, llama_sampler_init_top_p(top_p > 0 ? top_p : 0.95f, 1));
         llama_sampler_chain_add(smpl, llama_sampler_init_min_p(min_p > 0 ? min_p : 0.05f, 1));
         llama_sampler_chain_add(smpl, llama_sampler_init_temp(temp));
@@ -432,7 +446,6 @@ JNIEXPORT jlong JNICALL
 Java_cz_axiom_omega_engine_NativeLlama_nativeLoadEmbedder(JNIEnv *env, jobject, jstring jpath, jint n_threads) {
     const std::string path = jstr(env, jpath);
     llama_model_params mp = llama_model_default_params();
-    mp.use_mmap = true;
     llama_model *model = llama_model_load_from_file(path.c_str(), mp);
     if (!model) { LOGE("embedding model se nenačetl: %s", path.c_str()); return 0; }
     auto *o = new Omega();

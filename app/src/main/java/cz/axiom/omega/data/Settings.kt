@@ -69,7 +69,7 @@ class Settings(context: Context) {
         get() = p.getBoolean("thinking", false)
         set(v) = p.edit().putBoolean("thinking", v).apply()
     var ctxTokens: Int
-        get() = p.getInt("ctxTokens", 4096)
+        get() = p.getInt("ctxTokens", 8192)
         set(v) = p.edit().putInt("ctxTokens", v.coerceIn(2048, 16384)).apply()
     var theme: String
         get() = p.getString("theme", "obsidian")!!
@@ -81,7 +81,7 @@ class Settings(context: Context) {
         get() = p.getString("userName", "")!!
         set(v) = p.edit().putString("userName", v.trim().take(40)).apply()
     var councilJudge: String
-        get() = p.getString("councilJudge", "kimi")!!
+        get() = p.getString("councilJudge", "local")!!
         set(v) = p.edit().putString("councilJudge", v).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
