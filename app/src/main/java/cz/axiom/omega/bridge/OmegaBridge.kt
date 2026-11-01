@@ -54,7 +54,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val active = omega.brains.active()
         return JSONObject()
             .put("version", Identity.VERSION).put("name", Identity.NAME).put("debug", BuildConfig.DEBUG).put("build", BuildConfig.VERSION_NAME)
-            .put("job", omega.job.toJson())
+            .put("job", omega.job.toJson()).put("bg", omega.bg.toJson())
             .put("settings", s.toJson())
             .put("keys", JSONObject().put("kimi", omega.vault.has(Vault.KIMI)).put("claude", omega.vault.has(Vault.CLAUDE)).put("server", omega.vault.has(Vault.SERVER))
                 .put("node", omega.vault.has(Vault.NODE)).put("hf", omega.vault.has(Vault.HF)))
@@ -111,7 +111,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val text = o.getString("text").trim()
         require(text.isNotEmpty()) { "Prázdný dotaz." }
         require(text.length <= 32_000) { "Dotaz je příliš dlouhý (max. 32 000 znaků)." }
-        if (OmegaService.RUNNING.get()) { Events.note("Právě přemýšlím – počkej nebo mě zastav."); return o.optLong("threadId", 0) }
+        if (OmegaService.RUNNING_ASK.get()) { Events.note("Právě přemýšlím – počkej nebo mě zastav."); return o.optLong("threadId", 0) }
         var threadId = o.optLong("threadId", 0)
         if (threadId <= 0) threadId = omega.db.newThread(TextUtil.clip(Randy.detect(text).cleanedPrompt.ifBlank { text }, 48))
         else omega.db.threads().let { arr ->
@@ -134,6 +134,9 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface fun cancel() = OmegaService.cancel(activity)
+
+    /** Pozastaví stahování / úlohu na pozadí (myšlení běží dál). */
+    @JavascriptInterface fun cancelBg() = OmegaService.cancelBg(activity)
 
     /** Náhled RANDY + STEP-0 ještě před odesláním (živě při psaní). */
     @JavascriptInterface
@@ -232,7 +235,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun hfDownload(repo: String, path: String, kind: String) = async {
-        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        if (OmegaService.RUNNING_BG.get()) error("Počkej na dokončení běžící úlohy.")
         val hub = HfHub()
         val f = hub.ggufFiles(repo).firstOrNull { it.path == path } ?: error("Soubor nenalezen.")
         val b = hub.toBrain(f)
@@ -245,7 +248,7 @@ class OmegaBridge(private val activity: MainActivity) {
     /** Libovolný odkaz na .gguf (bez katalogu). */
     @JavascriptInterface
     fun brainFromUrl(url: String) = async {
-        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        if (OmegaService.RUNNING_BG.get()) error("Počkej na dokončení běžící úlohy.")
         val u = url.trim()
         require(u.startsWith("https://") && u.contains(".gguf")) { "Vlož https:// odkaz na soubor .gguf" }
         OmegaService.start(activity, Intent(OmegaService.ACTION_DOWNLOAD).putExtra("spec", JSONObject().put("url", u).toString()))
@@ -253,7 +256,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun datasetImport(dataset: String, config: String, split: String, count: Int, query: String) {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         if (!dataset.matches(Regex("[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?"))) { Events.note("Neplatný název datasetu."); return }
         OmegaService.start(
             activity,
@@ -264,14 +267,14 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun wikiImport(topic: String, lang: String, count: Int) {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         if (topic.isBlank()) { Events.note("Zadej téma."); return }
         OmegaService.start(activity, Intent(OmegaService.ACTION_WIKI).putExtra("topic", topic.trim()).putExtra("lang", lang).putExtra("count", count))
     }
 
     @JavascriptInterface
     fun indexStart() {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
     }
 
@@ -281,7 +284,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun libraryStart(id: String) {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: return
         if (activity.filesDir.usableSpace < (spec.approxGb * 1e9).toLong()) Events.note("Pozor: knihovna zabere ~${spec.approxGb} GB a místa je méně – stahování se zastaví při nedostatku.")
         if (!Introspect.unmetered(activity)) Events.note("Doporučuji Wi-Fi – knihovna má několik GB.")
@@ -314,7 +317,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun cloudRestore() = async {
-        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        if ((OmegaService.RUNNING_ASK.get() || OmegaService.RUNNING_BG.get())) error("Počkej na dokončení běžící úlohy.")
         val token = omega.vault.read(Vault.HF) ?: error("Nejdřív ulož Hugging Face token.")
         val repo = omega.settings.hfRepo.ifBlank { error("Není nastavený dataset se zálohou.") }
         val f = cz.axiom.omega.data.CloudBackup(activity, token).download(repo)
@@ -329,7 +332,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun brainDownload(id: String) {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         if (!Introspect.unmetered(activity)) Events.note("Pozor: stahuješ přes mobilní data.")
         OmegaService.start(activity, Intent(OmegaService.ACTION_DOWNLOAD).putExtra("id", id))
     }
@@ -394,7 +397,7 @@ class OmegaBridge(private val activity: MainActivity) {
         }
         Events.emit("kb", JSONObject())
         Events.note("Do offline databáze přidáno $ok dokumentů" + if (fail > 0) ", $fail souborů se nepodařilo načíst." else ".")
-        if (omega.settings.semantic && omega.embedderFile() != null && !OmegaService.RUNNING.get()) OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
+        if (omega.settings.semantic && omega.embedderFile() != null && !OmegaService.RUNNING_BG.get()) OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
     }
 
     /** Text → dokumenty: JSONL (dataset) po řádcích, Markdown po kapitolách „## “, jinak jeden dokument. */
@@ -535,7 +538,7 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     fun onRestore(uri: Uri) = async {
-        if (OmegaService.RUNNING.get()) error("Počkej na dokončení běžící úlohy.")
+        if ((OmegaService.RUNNING_ASK.get() || OmegaService.RUNNING_BG.get())) error("Počkej na dokončení běžící úlohy.")
         omega.packs.restore(uri)
         Events.emit("kb", JSONObject()); Events.emit("mem", JSONObject()); Events.emit("config", JSONObject(state()))
         Events.note("Databáze obnovena ze zálohy.")
@@ -651,7 +654,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun selfStudy() {
-        if (OmegaService.RUNNING.get()) { Events.note("Počkej na dokončení běžící úlohy."); return }
+        if (OmegaService.RUNNING_ASK.get()) { Events.note("Počkej, až dopřemýšlím."); return }
         OmegaService.start(activity, Intent(OmegaService.ACTION_STUDY))
     }
 
@@ -660,7 +663,7 @@ class OmegaBridge(private val activity: MainActivity) {
     /** Automatické samostudium: nabíjí se, Wi-Fi, aspoň 2 otevřené otázky, naposledy před 6 h. */
     fun maybeSelfStudy() {
         val s = omega.settings
-        if (!s.selfStudy || OmegaService.RUNNING.get()) return
+        if (!s.selfStudy || OmegaService.RUNNING_ASK.get()) return
         val (_, charging) = Introspect.battery(activity)
         if (charging != true || !Introspect.unmetered(activity)) return
         if (omega.cognition.openQuestions().size < 2) return

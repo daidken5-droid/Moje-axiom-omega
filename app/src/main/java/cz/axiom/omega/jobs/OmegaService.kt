@@ -53,30 +53,33 @@ import java.util.concurrent.atomic.AtomicBoolean
 class OmegaService : Service() {
 
     private val omega by lazy { Omega.get(this) }
-    private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) { stopSelf(); return START_NOT_STICKY }
+        if (intent == null) { if (!busyAny()) stopSelf(); return START_NOT_STICKY }
         if (intent.action == ACTION_CANCEL) {
-            current?.cancel()
-            if (!RUNNING.get()) stopSelf()
+            if (intent.getStringExtra("lane") == "bg") bgToken?.cancel() else askToken?.cancel()
+            if (!busyAny()) stopSelf()
             return START_NOT_STICKY
         }
-        if (!RUNNING.compareAndSet(false, true)) {
-            Events.note("Právě probíhá jiná úloha – počkej nebo ji zastav.")
+        // DVĚ NEZÁVISLÉ LINKY: myšlení (odpovědi, samostudium) a pozadí (stahování, knihovny, indexace, importy)
+        // → AVIOR odpovídá i ve chvíli, kdy stahuje mozek nebo Wikipedii.
+        val bg = intent.action in BG_ACTIONS
+        val lock = if (bg) RUNNING_BG else RUNNING_ASK
+        if (!lock.compareAndSet(false, true)) {
+            Events.note(if (bg) "Na pozadí už běží jiné stahování – počkej nebo ho pozastav." else "Právě přemýšlím – počkej nebo mě zastav.")
+            if (!busyAny()) stopSelf()
             return START_NOT_STICKY
         }
-        val download = intent.action in setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_STUDY)
-        val type = if (download) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        else if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-        ServiceCompat.startForeground(this, NOTIF_ID, notification("Připravuji…", -1), type)
-        acquireLocks(download)
+        val lane = if (bg) Lane.BG else Lane.ASK
+        promote(lane, "Připravuji…")
+        acquireLocks(lane)
 
-        val cancel = CancelToken().also { current = it }
+        val cancel = CancelToken().also { if (bg) bgToken = it else askToken = it }
         Thread({
+            val job = if (bg) omega.bg else omega.job
             try {
                 when (intent.action) {
                     ACTION_ASK -> ask(intent, cancel)
@@ -89,20 +92,52 @@ class OmegaService : Service() {
                     ACTION_IMPORT -> import(intent.getParcelableExtraCompat("uri")!!, cancel)
                 }
             } catch (e: Throwable) {
-                omega.job.phase = "Chyba"
-                Events.emit("error", JSONObject().put("message", e.message ?: e.javaClass.simpleName))
+                job.phase = "Chyba"
+                Events.emit("error", JSONObject().put("message", e.message ?: e.javaClass.simpleName).put("lane", lane.name.lowercase()))
             } finally {
-                omega.job.busy = false
-                RUNNING.set(false)
-                current = null
-                releaseLocks()
-                Events.emit("state", omega.job.toJson())
-                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                job.busy = false
+                if (bg) bgToken = null else askToken = null
+                releaseLocks(lane)
+                lock.set(false)
+                Events.emit("state", job.toJson())
+                demote(lane)
             }
-        }, "omega-job").apply { priority = Thread.NORM_PRIORITY + 1 }.start()
+        }, if (bg) "omega-bg" else "omega-ask").apply { priority = if (bg) Thread.NORM_PRIORITY else Thread.NORM_PRIORITY + 1 }.start()
         return START_NOT_STICKY
     }
+
+    private enum class Lane(val notif: Int, val type: Int) {
+        ASK(7, if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC),
+        BG(8, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC),
+    }
+
+    private val active = java.util.concurrent.CopyOnWriteArraySet<Lane>()
+
+    /** Služba je v popředí za všechny běžící linky (typ = sjednocení), každá linka má své oznámení. */
+    @Synchronized
+    private fun promote(lane: Lane, text: String) {
+        active += lane
+        val type = active.fold(0) { acc, l -> acc or l.type }
+        ServiceCompat.startForeground(this, lane.notif, notification(text, -1, lane), type)
+    }
+
+    @Synchronized
+    private fun demote(lane: Lane) {
+        active -= lane
+        val nm = getSystemService(NotificationManager::class.java)
+        val other = active.firstOrNull()
+        if (other == null) {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            nm.cancel(lane.notif)
+            stopSelf()
+        } else {
+            // druhá linka převezme roli oznámení v popředí
+            ServiceCompat.startForeground(this, other.notif, notification(if (other == Lane.BG) omega.bg.phase else omega.job.phase, -1, other), other.type)
+            nm.cancel(lane.notif)
+        }
+    }
+
+    private fun busyAny() = RUNNING_ASK.get() || RUNNING_BG.get()
 
     // ------------------------------------------------------------------ dotaz
 
@@ -384,7 +419,7 @@ class OmegaService : Service() {
     // ------------------------------------------------------------------ mozky
 
     private fun download(id: String?, specJson: String?, cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("download")
         val spec = specJson?.let { omega.brains.addCustom(it) } ?: omega.brains.catalog().first { it.id == id }
         job.detail = spec.name
@@ -412,7 +447,7 @@ class OmegaService : Service() {
 
     /** Sémantický index: vektor pro každý úsek znalostní databáze (OMEGA Sense). */
     private fun index(cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("index")
         if (!omega.ensureEmbedder()) throw IllegalStateException("Nejdřív stáhni rozšíření OMEGA Sense (Moduly).")
         val db = omega.db
@@ -441,7 +476,7 @@ class OmegaService : Service() {
 
     /** Dataset z Hugging Face → offline znalosti. */
     private fun dataset(intent: Intent, cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("download")
         val ds = intent.getStringExtra("dataset")!!
         val count = intent.getIntExtra("count", 200).coerceIn(1, 5_000)
@@ -475,7 +510,7 @@ class OmegaService : Service() {
 
     /** Offline knihovna (celá Wikipedie): stránky po 100 článcích, navazování, šetrné tempo, hlídání místa. */
     private fun library(id: String, cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("library")
         val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: error("Neznámá knihovna $id")
         val lib = cz.axiom.omega.data.LibraryDb.get(this)
@@ -550,7 +585,7 @@ class OmegaService : Service() {
         lib: cz.axiom.omega.data.LibraryDb,
         cancel: CancelToken,
     ) {
-        val job = omega.job
+        val job = omega.bg
         val P = cz.axiom.omega.core.library.Prebuilt
         val work = java.io.File(filesDir, "library-parts/${spec.id}")
         val have = work.listFiles()?.sumOf { it.length() } ?: 0L
@@ -620,7 +655,7 @@ class OmegaService : Service() {
 
     /** Články z Wikipedie k tématu → offline znalosti. */
     private fun wiki(intent: Intent, cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("download")
         val topic = intent.getStringExtra("topic")!!
         val lang = intent.getStringExtra("lang")?.takeIf { it.matches(Regex("[a-z]{2,3}")) } ?: "cs"
@@ -642,7 +677,7 @@ class OmegaService : Service() {
     }
 
     private fun import(uri: Uri, cancel: CancelToken) {
-        val job = omega.job
+        val job = omega.bg
         job.reset("import")
         omega.brains.import(uri, cancel) { bytes ->
             job.detail = "%.2f GB".format(bytes / 1e9)
@@ -655,9 +690,10 @@ class OmegaService : Service() {
 
     // ------------------------------------------------------------------ systém
 
-    private fun notification(text: String, progress: Int): Notification {
+    private fun notification(text: String, progress: Int, lane: Lane = currentLane()): Notification {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 1, Intent(this, OmegaService::class.java).setAction(ACTION_CANCEL), PendingIntent.FLAG_IMMUTABLE)
+        val stop = PendingIntent.getService(this, lane.notif, Intent(this, OmegaService::class.java).setAction(ACTION_CANCEL)
+            .putExtra("lane", if (lane == Lane.BG) "bg" else "ask"), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK)
             .setSmallIcon(R.drawable.ic_stat_omega)
             .setContentTitle("AVIOR")
@@ -666,33 +702,38 @@ class OmegaService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(0, "Zastavit", stop)
+            .addAction(0, if (lane == Lane.BG) "Pozastavit" else "Zastavit", stop)
             .apply { if (progress >= 0) setProgress(100, progress, false) }
             .build()
     }
 
-    private var lastNotif = 0L
+    private fun currentLane() = if (Thread.currentThread().name == "omega-bg") Lane.BG else Lane.ASK
+
+    private val lastNotif = java.util.concurrent.ConcurrentHashMap<Lane, Long>()
     private fun updateNotification(text: String, progress: Int) {
+        val lane = currentLane()
         val now = System.currentTimeMillis()
-        if (now - lastNotif < 1000) return
-        lastNotif = now
-        getSystemService(NotificationManager::class.java).notify(NOTIF_ID, notification(text, progress))
+        if (now - (lastNotif[lane] ?: 0L) < 1000) return
+        lastNotif[lane] = now
+        getSystemService(NotificationManager::class.java).notify(lane.notif, notification(text, progress, lane))
     }
 
-    private fun acquireLocks(download: Boolean) {
+    private val wakes = java.util.concurrent.ConcurrentHashMap<Lane, PowerManager.WakeLock>()
+
+    private fun acquireLocks(lane: Lane) {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wake = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "omega:job").apply { acquire(if (download) 4 * 3_600_000L else 30 * 60_000L) }
-        if (download) {
+        wakes[lane] = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "omega:${lane.name.lowercase()}")
+            .apply { acquire(if (lane == Lane.BG) 4 * 3_600_000L else 30 * 60_000L) }
+        if (lane == Lane.BG) {
             @Suppress("DEPRECATION")
             val mode = if (Build.VERSION.SDK_INT >= 29) WifiManager.WIFI_MODE_FULL_HIGH_PERF else WifiManager.WIFI_MODE_FULL
             wifi = (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).createWifiLock(mode, "omega:download").apply { acquire() }
         }
     }
 
-    private fun releaseLocks() {
-        runCatching { wake?.takeIf { it.isHeld }?.release() }
-        runCatching { wifi?.takeIf { it.isHeld }?.release() }
-        wake = null; wifi = null
+    private fun releaseLocks(lane: Lane) {
+        runCatching { wakes.remove(lane)?.takeIf { it.isHeld }?.release() }
+        if (lane == Lane.BG) { runCatching { wifi?.takeIf { it.isHeld }?.release() }; wifi = null }
     }
 
     private inline fun <reified T : android.os.Parcelable> Intent.getParcelableExtraCompat(key: String): T? =
@@ -708,17 +749,30 @@ class OmegaService : Service() {
         const val ACTION_WIKI = "cz.axiom.omega.WIKI"
         const val ACTION_LIBRARY = "cz.axiom.omega.LIBRARY"
         const val ACTION_STUDY = "cz.axiom.omega.STUDY"
-        private const val NOTIF_ID = 7
-        val RUNNING = AtomicBoolean(false)
-        @Volatile private var current: CancelToken? = null
+        /** Akce linky „pozadí“ – běží souběžně s myšlením. */
+        val BG_ACTIONS = setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_INDEX)
+        val RUNNING_ASK = AtomicBoolean(false)
+        val RUNNING_BG = AtomicBoolean(false)
+        @Volatile private var askToken: CancelToken? = null
+        @Volatile private var bgToken: CancelToken? = null
+
+        /** Je obsazená linka, do které patří [action]? */
+        fun busyFor(action: String) = if (action in BG_ACTIONS) RUNNING_BG.get() else RUNNING_ASK.get()
 
         fun start(context: Context, intent: Intent) {
             ContextCompat.startForegroundService(context, intent.setClass(context, OmegaService::class.java))
         }
 
+        /** Zastaví myšlení (tlačítko Stop u odpovědi). */
         fun cancel(context: Context) {
-            current?.cancel()
-            context.startService(Intent(context, OmegaService::class.java).setAction(ACTION_CANCEL))
+            askToken?.cancel()
+            context.startService(Intent(context, OmegaService::class.java).setAction(ACTION_CANCEL).putExtra("lane", "ask"))
+        }
+
+        /** Pozastaví stahování / úlohu na pozadí (naváže příště). */
+        fun cancelBg(context: Context) {
+            bgToken?.cancel()
+            context.startService(Intent(context, OmegaService::class.java).setAction(ACTION_CANCEL).putExtra("lane", "bg"))
         }
     }
 }

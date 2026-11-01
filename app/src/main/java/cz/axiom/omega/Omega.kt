@@ -74,7 +74,10 @@ class Omega private constructor(val app: Context) {
     val db: Db get() = Db.get(app)
     val packs = cz.axiom.omega.data.PackManager(app)
     val brains = BrainManager(app)
+    /** Linka myšlení (odpovědi, agenti, samostudium). */
     val job = JobState()
+    /** Linka pozadí (stahování mozku, knihovny, rozšíření, indexace) – běží souběžně s myšlením. */
+    val bg = JobState()
     private val confidences = ArrayDeque<Int>()
 
     fun orchestrator(): Orchestrator = Orchestrator(knowledge(), db, { selfState(currentLabel, currentKind) })

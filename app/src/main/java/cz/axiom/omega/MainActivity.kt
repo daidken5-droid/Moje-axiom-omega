@@ -86,12 +86,21 @@ class MainActivity : ComponentActivity() {
                 handleShare(intent)
             }
         }
-        ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+        // WebView vnitřní odsazení (padding) ignoruje – obsah by se kreslil pod stavový řádek (hodiny, baterie)
+        // a pod gesta. Proto ho zabalíme do kontejneru, který dostane odsazení podle systémových lišt,
+        // výřezu kamery (Pixel 9a) a klávesnice.
+        val root = android.widget.FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#05060A"))
+            addView(web, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime(),
+            )
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
-        setContentView(web)
+        setContentView(root)
         web.loadUrl("https://appassets.androidplatform.net/assets/ui/index.html")
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {

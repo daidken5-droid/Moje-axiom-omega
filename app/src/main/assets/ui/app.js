@@ -164,7 +164,14 @@ function toast(t) {
   toast.timer = setTimeout(() => el.classList.remove('show'), 4200);
 }
 
-function busy(kind) { return !!(S.job && S.job.busy && (!kind || S.job.kind === kind)); }
+/* Dvě souběžné linky: S.job = myšlení (odpovědi, agenti, samostudium), S.bg = pozadí (stahování, knihovny, indexace). */
+const BG_KINDS = ['download', 'index', 'library', 'import'];
+const laneOf = kind => (BG_KINDS.includes(kind) ? S.bg : S.job) || {};
+function busy(kind) {
+  if (!kind) return !!((S.job && S.job.busy) || (S.bg && S.bg.busy));
+  const j = laneOf(kind);
+  return !!(j.busy && j.kind === kind);
+}
 function thinking() { return !!live || busy('ask') || busy('agent'); }
 
 function refresh() {
@@ -174,20 +181,23 @@ function refresh() {
   document.documentElement.style.fontSize = (st.font || 15) + 'px';
   const mode = MODES.find(m => m.id === st.mode) || MODES[0];
   let chip = mode.name.toUpperCase();
-  if (busy('download')) chip = 'STAHUJI ' + Math.max(0, S.job.progress) + ' %';
-  else if (busy('index')) chip = 'INDEX ' + Math.max(0, S.job.progress) + ' %';
-  else if (busy('library')) chip = 'KNIHOVNA ' + Math.max(0, S.job.progress) + ' %';
+  const bgp = Math.max(0, (S.bg || {}).progress || 0);
+  if (thinking()) chip = 'MYSLÍM' + (S.bg && S.bg.busy ? ' · ↓' + bgp + ' %' : '');
+  else if (busy('download')) chip = 'STAHUJI ' + bgp + ' %';
+  else if (busy('index')) chip = 'INDEX ' + bgp + ' %';
+  else if (busy('library')) chip = 'KNIHOVNA ' + bgp + ' %';
   else if (busy('study')) chip = 'UČÍM SE';
   else if (thinking()) chip = 'MYSLÍM';
   $('#engineText').textContent = chip;
-  $('#engineDot').className = 'dot ' + (S.job && S.job.busy ? 'busy' : S.online || (S.engines || []).includes('local') ? 'on' : 'off');
-  $('#brand').innerHTML = `${logo(S.job && S.job.busy ? 'pulse' : '')}<div><b>AVIOR</b><small>${esc(subtitle())}</small></div>`;
+  $('#engineDot').className = 'dot ' + (busy() ? 'busy' : S.online || (S.engines || []).includes('local') ? 'on' : 'off');
+  $('#brand').innerHTML = `${logo(busy() ? 'pulse' : '')}<div><b>AVIOR</b><small>${esc(subtitle())}</small></div>`;
   $('#brand svg').style.cssText = 'width:30px;height:30px;flex:none';
   syncSend();
 }
 
 function subtitle() {
   if (S.job && S.job.busy) return (S.job.phase || 'PRACUJI').toUpperCase().slice(0, 48);
+  if (S.bg && S.bg.busy) return (S.bg.phase || 'NA POZADÍ').toUpperCase().slice(0, 48);
   const n = (S.engines || []).length;
   return (S.online ? 'ONLINE' : 'OFFLINE') + ' · ' + (n ? n + (n === 1 ? ' MOZEK' : n < 5 ? ' MOZKY' : ' MOZKŮ') : 'BEZ MOZKU');
 }
@@ -241,7 +251,8 @@ function renderChat() {
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
       <div style="margin-top:18px">${powerSeg(false)}</div>
-      ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
+      ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
+        <div class="progress"><i style="width:${Math.max(0, S.bg.progress)}%"></i></div><div class="meta">${esc(S.bg.detail || S.bg.phase || '')}</div></div>` : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
       <div class="suggest">${SUGGEST.map(s => `<button data-suggest="${esc(s.q)}"><span class="s-ic">${esc(s.ic)}</span><b>${esc(s.t)}</b><small>${esc(s.q.replace(/^\/agent /, ''))}</small></button>`).join('')}</div>
     </section></div>`;
@@ -429,7 +440,7 @@ function renderModules() {
   const data = J('brains') || { brains: [] };
   const st = S.settings || {};
   const k = S.keys || {};
-  const job = S.job || {};
+  const job = S.bg || {};
   const chat = data.brains.filter(b => b.kind !== 'embedding');
   const sense = data.brains.filter(b => b.kind === 'embedding');
   $('#main').innerHTML = `<div class="wrap">${head('MODULY', 'Mozky a rozšíření.')}
@@ -511,7 +522,7 @@ function brainCard(b, job, extra) {
   const badges = [b.active ? '<span class="badge good">AKTIVNÍ</span>' : '', b.recommended && !b.installed ? '<span class="badge core">DOPORUČENO</span>' : '',
     b.fits === false ? '<span class="badge warn">MÁLO RAM</span>' : '', b.verified === false ? '<span class="badge">NEOVĚŘENO</span>' : ''].join(' ');
   let actions;
-  if (downloading) actions = `<button class="btn sm danger" data-cancel>Pozastavit</button>`;
+  if (downloading) actions = `<button class="btn sm danger" data-cancel-bg>Pozastavit</button>`;
   else if (b.installed) actions = (b.kind === 'embedding' ? `<button class="btn sm" data-index>Přeindexovat</button>` : (b.active ? '' : `<button class="btn sm primary" data-brain-activate="${esc(b.id)}">Použít</button>`)) + `<button class="btn sm danger" data-brain-delete="${esc(b.id)}">Smazat</button>`;
   else actions = `<button class="btn sm primary" data-brain-download="${esc(b.id)}">${b.partial ? 'Pokračovat' : 'Stáhnout'} · ${esc(b.size)}</button>`;
   return `<div class="card brain ${b.active ? 'glow' : ''}"><h3>${esc(b.name)} ${badges}</h3>
@@ -561,11 +572,11 @@ function renderMemory() {
     <input type="search" id="kbq" placeholder="Hledat v databázi" style="margin-top:12px"><div id="kbres"></div>
 
     <div class="eyebrow">OFFLINE KNIHOVNA · ${cz(((lib.bytes || 0) / 1e9).toFixed(2))} GB</div>
-    ${lib.libraries.map(l => { const dl = busy('library') && (S.job.phase || '').includes(l.name); return card(`<b>${esc(l.name)}</b> ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}
+    ${lib.libraries.map(l => { const dl = busy('library') && (S.bg.phase || '').includes(l.name); return card(`<b>${esc(l.name)}</b> ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}
       <p class="small">${esc(l.description)}</p>
       <div class="meta">${l.done ? cz(((l.bytes || 0) / 1e9).toFixed(2)) + ' GB v telefonu' : (l.downloadGb ? '~' + cz(l.downloadGb) + ' GB stažení · ' : '') + '~' + cz(l.approxGb) + ' GB v telefonu'} · ${esc(l.license)}</div>
-      ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.job.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.job.detail) : l.percent + ' % – naváže'}</div>` : ''}
-      <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
+      ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.bg.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.bg.detail) : l.percent + ' % – naváže'}</div>` : ''}
+      <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel-bg>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
       ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>`); }).join('')}
 
     <div class="eyebrow">PŘIDAT ZNALOSTI</div>
@@ -750,6 +761,7 @@ window.omegaReceive = function (type, d) {
       live.steps = [...(live.steps || []), d]; live.text = ''; updateLive(); break;
     case 'done':
     case 'error':
+      if (d.lane === 'bg') { toast(d.message || 'Úloha na pozadí skončila chybou.'); refresh(); if (view === 'modules') renderModules(); if (view === 'memory') renderMemory(); break; }
       if (live) haptic();
       live = null;
       if (d.message) toast(d.message);
@@ -757,7 +769,8 @@ window.omegaReceive = function (type, d) {
       if (view === 'chat' || view === 'agents') render(); else refresh();
       break;
     case 'progress':
-      S.job = d; refresh();
+      if (BG_KINDS.includes(d.kind)) S.bg = d; else S.job = d;
+      refresh();
       if (view === 'modules') renderModules();
       if (view === 'memory' && memTab === 'kb' && !document.activeElement?.matches('input,textarea')) renderMemory();
       break;
@@ -843,6 +856,7 @@ document.addEventListener('click', e => {
   if (ds.libStart) { call('libraryStart', ds.libStart); setTimeout(() => { refresh(); renderMemory(); }, 500); return; }
   if (ds.libRemove) { if (confirm('Smazat knihovnu z telefonu?')) call('libraryRemove', ds.libRemove); return; }
   if (ds.taskDel) { e.stopPropagation(); call('deleteTask', Number(ds.taskDel)); renderAgents(); return; }
+  if (ds.cancelBg !== undefined) { call('cancelBg'); return; }
   if (ds.cancel !== undefined) { call('cancel'); return; }
   if (ds.brainDownload) { call('brainDownload', ds.brainDownload); setTimeout(() => { refresh(); renderModules(); }, 500); return; }
   if (ds.brainActivate) { call('brainActivate', ds.brainActivate); return; }
@@ -918,5 +932,5 @@ $('#brand').onclick = selfSheet;
   else if (threads.length) loadThread(threads[0].id);
   render();
   if (!(S.settings || {}).onboarded) welcomeSheet();
-  setInterval(() => { if (S.job && S.job.busy) refresh(); }, 2000);
+  setInterval(() => { if (busy()) refresh(); }, 2000);
 })();
