@@ -281,3 +281,7 @@ details.conn > summary { list-style: none; padding: 12px 14px; cursor: pointer; 
 details.conn > summary::-webkit-details-marker { display: none; }
 details.conn > div { padding: 0 14px 14px; }
 .suggest button { text-align: left; max-width: 100%; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chipbtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line2); font-size: .8rem; color: var(--muted); }
+.chipbtn.on { color: var(--bg); background: var(--text); border-color: var(--text); }

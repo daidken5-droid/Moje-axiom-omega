@@ -60,5 +60,7 @@ object Libraries {
     private val STOP = setOf(
         "jak", "jaky", "jaka", "jake", "kde", "kdy", "kdo", "co", "proc", "neni", "jsou", "byl", "byla", "bylo", "pro", "nebo", "ale", "the",
         "and", "for", "with", "what", "how", "who", "kolik", "muze", "mohu", "jsem", "jsi", "tak", "take", "jeho", "jeji", "ktery", "ktera", "ktere",
+        "funguje", "funguji", "znamena", "vysvetli", "popis", "popiste", "rekni", "prosim", "muzes", "chci", "potrebuji", "najdi", "udelej",
+        "napis", "jaky", "jakym", "zda", "jestli", "nejaky", "neco", "vsechno", "about", "does", "work", "explain", "tell",
     )
 }

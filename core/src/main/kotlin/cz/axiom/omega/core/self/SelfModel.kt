@@ -17,7 +17,7 @@ import kotlin.math.ln
 object Identity {
     const val NAME = "AXIOM Ω"
     const val CODENAME = "OMEGA"
-    const val VERSION = "3.1.0"
+    const val VERSION = "3.2.0"
     const val LINEAGE = "AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.0"
 
     val principles = listOf(

@@ -24,7 +24,7 @@
   ] };
   const levels = [['L0', 'DIRECT', 'Okamžitý faktický výstup bez omáčky', 1, 'low'], ['L1', 'EXPERT', 'Technické parametry, normy a přesné hodnoty', 1, 'medium'], ['L2', 'DEEP', 'Hloubková syntéza z prvních principů', 2, 'high'], ['L3', 'STRATEGIC +EV', 'Kvantitativní výpočet marže, ROI a +EV', 2, 'high'], ['L4', 'NEMESIS RED-TEAM', 'Útočný audit, hledání slabin a rizik', 3, 'high'], ['L5', 'FORENSIC', 'Forenzní rekonstrukce stop a integrity dat', 3, 'high'], ['L6', 'OMNISCIENT', 'Multioborová syntéza s extrapolací dopadů', 3, 'max']].map(([code, title, label, passes, effort]) => ({ code, title, label, passes, effort }));
   window.Omega = {
-    state: () => JSON.stringify({ version: '3.0.0', name: 'AXIOM Ω', job, settings, keys: { kimi: true, claude: false, server: false, node: true, hf: false }, engines: ['kimi', 'node', 'local'], sense: true, online: true, native: true, brain: 'OMEGA Lite · Qwen3.5 2B', counts: { memory: 6, docs: 27, threads: 2 } }),
+    state: () => JSON.stringify({ version: '3.0.0', name: 'AXIOM Ω', job, settings, keys: { kimi: true, claude: false, server: false, node: true, hf: false }, engines: ['local', 'node'], sense: true, online: true, native: true, brain: 'OMEGA Lite · Qwen3.5 2B', counts: { memory: 6, docs: 27, threads: 2 } }),
     self: () => JSON.stringify({ name: 'AXIOM Ω', codename: 'OMEGA', version: '3.0.0', lineage: 'AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.0', principles: ['Rozlišuj doložená fakta, odvození, předpoklady a neznámé.', 'Čísla z bloku STEP-0 spočítal deterministický kód.', 'O sobě mluv přesně: jsi software s jazykovým modelem, sebemodelem a pamětí – ne vědomá bytost.'], describe: 'Běžím na: Kimi K3 · cloud (kimi-k3) (Kimi K3 · cloud, mozek OMEGA Lite · Qwen3.5 2B). Síť: online. Paměť: 6 záznamů, znalostní báze: 27 dokumentů, konverzací: 2. Baterie 64 %.', battery: 64, charging: false, ramFreeMb: 3120, ramTotalGb: '7.6', thermal: 'v normě', online: true, device: 'Google Pixel 9 · Android 16 · arm64-v8a', confidence: 81, memory: 6, docs: 27, threads: 2, levels }),
     threads: () => JSON.stringify(threads),
     messages: id => JSON.stringify(messages[id] || []),
@@ -34,7 +34,12 @@
     tasks: () => JSON.stringify([
       { id: 2, threadId: 1, goal: 'Najdi 3 dodavatele mikrocementu v ČR a porovnej ceny', status: 'running', engine: 'Kimi K3 · cloud (kimi-k3)', steps: 4, result: '' },
       { id: 1, threadId: 2, goal: 'Porovnej nejnovější open-source modely pro telefon', status: 'done', engine: 'AXIOM Node (axiom)', steps: 7, result: 'Gemma 4 E4B vede v poměru výkon/velikost…' }]),
-    deleteTask() {}, hfSearch() { setTimeout(() => omegaReceive('hf_models', { models: [{ id: 'unsloth/gemma-4-E4B-it-GGUF', downloads: 812345 }, { id: 'unsloth/Qwen3.6-35B-A3B-GGUF', downloads: 402100 }] }), 50); },
+    deleteTask() {},
+    libraries: () => JSON.stringify({ bytes: 2.31e9, articles: 214000, libraries: [
+      { id: 'wiki-cs', name: 'Česká Wikipedie – celá', description: '534 tisíc článků: věda, technika, historie, zeměpis, osobnosti, právo, medicína…', rows: 534044, approxGb: 5.0, license: 'CC BY-SA 4.0', offset: 214000, done: false, percent: 40, started: true },
+      { id: 'wiki-sk', name: 'Slovenská Wikipedie – celá', description: '242 tisíc článků ve slovenštině.', rows: 242235, approxGb: 1.8, license: 'CC BY-SA 4.0', offset: 0, done: false, percent: 0, started: false },
+      { id: 'wiki-simple', name: 'Simple English Wikipedia', description: '242 tisíc článků v jednoduché angličtině.', rows: 241787, approxGb: 1.2, license: 'CC BY-SA 4.0', offset: 241787, done: true, percent: 100, started: true }] }),
+    librarySearch: () => '[]', libraryStart() {}, libraryRemove() {}, hfSearch() { setTimeout(() => omegaReceive('hf_models', { models: [{ id: 'unsloth/gemma-4-E4B-it-GGUF', downloads: 812345 }, { id: 'unsloth/Qwen3.6-35B-A3B-GGUF', downloads: 402100 }] }), 50); },
     hfFiles(repo) { setTimeout(() => omegaReceive('hf_files', { repo, files: [{ path: 'a-Q4_K_M.gguf', quant: 'Q4_K_M', sizeLabel: '4.98 GB', fits: true }, { path: 'a-Q8_0.gguf', quant: 'Q8_0', sizeLabel: '8.19 GB', fits: false }] }), 50); },
     hfDownload() {}, brainFromUrl() {}, datasetImport() {}, wikiImport() {}, indexStart() {}, cloudBackup() {}, cloudRestore() {},
     packs: () => JSON.stringify(packs),

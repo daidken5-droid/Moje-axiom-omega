@@ -1,7 +1,7 @@
 {
   "version": 2,
   "updated": "2026-11-01",
-  "note": "Katalog mozků AXIOM Ω. Velikosti a SHA-256 jsou z LFS metadat Hugging Face; aplikace soubor po stažení ověří. Kimi K3 (2,8T parametrů, nejmenší GGUF ~594 GB) se do telefonu nevejde – používá se online, z vlastního serveru nebo z AXIOM Node.",
+  "note": "Katalog mozků AXIOM Ω – všechny běží přímo v telefonu (llama.cpp). Velikosti a SHA-256 jsou z LFS metadat Hugging Face; aplikace soubor po stažení ověří. Doporučí se nejsilnější mozek, který se vejde do RAM.",
   "brains": [
     {
       "id": "omega-core-gemma4-e4b-q4km",
@@ -40,6 +40,24 @@
       "recommended": true
     },
     {
+      "id": "omega-ultra-gemma4-26b-a4b-iq2m",
+      "name": "OMEGA Ultra · Gemma 4 26B-A4B",
+      "family": "Gemma 4 MoE (Google, 2026)",
+      "kind": "chat",
+      "description": "Velký mozek Gemma 4: 26 mld. parametrů, aktivní 4 mld. na token. Výrazně chytřejší než E4B, pro telefony s 12+ GB RAM.",
+      "urls": [
+        "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ2_M.gguf",
+        "https://hf-mirror.com/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ2_M.gguf"
+      ],
+      "sizeBytes": 10014755296,
+      "sha256": "3fe245f4436ab44c103291222e81c514e53ca382871b555df24fea11e36b3c3a",
+      "minRamGb": 12,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
       "id": "omega-max-qwen36-35b-a3b-iq2m",
       "name": "OMEGA Max · Qwen3.6 35B-A3B",
       "family": "Qwen3.6 MoE (2026)",
@@ -55,7 +73,7 @@
       "contextTokens": 8192,
       "license": "Apache-2.0",
       "thinking": true,
-      "recommended": false
+      "recommended": true
     },
     {
       "id": "omega-mini-qwen35-2b-q4km",
@@ -73,7 +91,7 @@
       "contextTokens": 4096,
       "license": "Apache-2.0",
       "thinking": true,
-      "recommended": false
+      "recommended": true
     },
     {
       "id": "axiom-classic-qwen3-1.7b-q8",

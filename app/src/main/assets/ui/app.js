@@ -77,10 +77,9 @@ function md(src) {
 
 
 const MODES = [
-  { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'AXIOM sám vybere mozek, hloubku i nástroje.' },
-  { id: 'kimi', ic: 'K3', name: 'Kimi K3', desc: 'Moonshot API – nejsilnější online mozek.' },
+  { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'Myslí mozek v telefonu; AXIOM sám volí hloubku, nástroje a agenty.' },
+  { id: 'local', ic: 'Φ', name: 'V telefonu', desc: 'Jen lokální mozek – úplně offline a soukromé.' },
   { id: 'node', ic: 'N', name: 'AXIOM Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
-  { id: 'local', ic: 'Φ', name: 'V telefonu', desc: 'Úplně offline, soukromé.' },
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
   { id: 'claude', ic: 'C', name: 'Claude', desc: 'Volitelně přes tvé Anthropic API.' },
   { id: 'council', ic: '⚖', name: 'Konzilium', desc: 'Víc mozků + rozhodčí.' },
@@ -90,10 +89,16 @@ const KINDS = [
   { id: 'chat', name: 'Odpověď', desc: 'Rychlá odpověď s RANDY průchody.' },
   { id: 'agent', name: 'Aktivní agent', desc: 'Sám plánuje, hledá na webu, počítá a ukládá.' },
 ];
+const ROLES = [
+  { id: '', name: 'Auto' }, { id: 'RESEARCHER', name: 'Rešeršér' }, { id: 'ANALYST', name: 'Analytik' }, { id: 'PLANNER', name: 'Plánovač' },
+  { id: 'WRITER', name: 'Pisatel' }, { id: 'SECURITY', name: 'Bezpečnost' }, { id: 'TUTOR', name: 'Učitel' },
+];
+let agentRole = '';
 const SUGGEST = [
   'Kurz 2,10, odhad 55 %, bankroll 10 000. Vsadit?',
   'Kolik materiálu na 24 m2 mikrocementu?',
   '/agent Najdi nejnovější open-source modely pro telefon a porovnej je',
+  'Jak funguje tepelné čerpadlo?',
   'L4: Najdi slabiny v plánu otevřít e-shop s kartami',
 ];
 
@@ -130,6 +135,7 @@ function refresh() {
   let chip = mode.name.toUpperCase();
   if (busy('download')) chip = 'STAHUJI ' + Math.max(0, S.job.progress) + ' %';
   else if (busy('index')) chip = 'INDEX ' + Math.max(0, S.job.progress) + ' %';
+  else if (busy('library')) chip = 'KNIHOVNA ' + Math.max(0, S.job.progress) + ' %';
   else if (thinking()) chip = 'MYSLÍM';
   $('#engineText').textContent = chip;
   $('#engineDot').className = 'dot ' + (S.job && S.job.busy ? 'busy' : S.online || (S.engines || []).includes('local') ? 'on' : 'off');
@@ -183,7 +189,7 @@ function renderChat() {
     main.innerHTML = `<div class="wrap"><section class="hero">
       <div class="orbit">${appIcon()}</div>
       <h1 style="margin-top:22px">Na co myslíš?</h1>
-      ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Dej mi mozek: stáhni ho do telefonu, nebo připoj Kimi K3 / AXIOM Node.</p>
+      ${ready ? '' : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
       <div class="suggest">${SUGGEST.map(s => `<button data-suggest="${esc(s)}">${esc(s.replace(/^\/agent /, '⚙ '))}</button>`).join('')}</div>
     </section></div>`;
@@ -271,12 +277,12 @@ function bindComposer() {
   $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
 }
 
-function send(text, kind) {
+function send(text, kind, role) {
   text = (text || '').trim();
   if (!text) return;
   refresh();
   if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
-  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind }));
+  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '' }));
   if (!id || id < 0) return;
   draft = '';
   forcedLevel = null;
@@ -292,9 +298,10 @@ function renderAgents() {
   const tasks = J('tasks') || [];
   const st = { running: ['badge core', 'BĚŽÍ'], done: ['badge good', 'HOTOVO'], partial: ['badge warn', 'ČÁSTEČNĚ'], failed: ['badge warn', 'CHYBA'], stopped: ['badge', 'ZASTAVENO'] };
   $('#main').innerHTML = `<div class="wrap">${head('AKTIVNÍ AGENTI', 'Zadej cíl.<br>Zbytek udělám sám.')}
-    ${card(`<textarea id="goal" rows="3" placeholder="Např. Najdi 3 nejlepší dodavatele mikrocementu v ČR, porovnej ceny a ulož shrnutí do znalostí."></textarea>
+    ${card(`<div class="chips">${ROLES.map(r => `<button class="chipbtn ${agentRole === r.id ? 'on' : ''}" data-role="${r.id}">${r.name}</button>`).join('')}</div>
+      <textarea id="goal" rows="3" placeholder="${agentRole === 'SECURITY' ? 'Např. Zkontroluj zabezpečení mého webu mojefirma.cz (vlastním ho) – hlavičky, TLS, DNS, SPF/DMARC, subdomény.' : 'Např. Najdi 3 dodavatele mikrocementu v ČR, porovnej ceny a ulož shrnutí.'}"></textarea>
       <button class="btn primary wide" data-agent-start>Spustit agenta</button>
-      <p class="small muted" style="margin-bottom:0">Agent plánuje, hledá na webu a na Wikipedii, čte stránky, počítá, prohledává offline databázi a ukládá výsledky. Běží i se zhasnutým displejem.</p>`)}
+      ${agentRole === 'SECURITY' ? '<p class="small muted" style="margin-bottom:0">Jen pasivní průzkum a obranné audity. Testuj pouze systémy, které vlastníš nebo máš písemné povolení.</p>' : ''}`)}
     <div class="eyebrow">ÚKOLY</div>
     ${tasks.length ? tasks.map(t => `<div class="card row task" data-thread="${t.threadId}">
       <div class="grow"><b>${esc(t.goal)}</b><div class="meta"><span class="${(st[t.status] || st.stopped)[0]}">${(st[t.status] || st.stopped)[1]}</span> · ${t.steps} KROKŮ · ${esc(t.engine)}</div>
@@ -330,8 +337,8 @@ function renderModules() {
         <input type="url" id="ggufUrl" placeholder="https://…/model.gguf"><button class="btn sm wide" data-gguf-url>Stáhnout z odkazu</button>
         <button class="btn sm wide" data-brain-import>Vybrat .gguf v telefonu</button></div></details>`)}
 
-    <div class="eyebrow">PŘIPOJENÍ</div>
-    ${conn('kimi', 'K3', 'Kimi K3', k.kimi, `
+    <div class="eyebrow">PŘIPOJENÍ (VOLITELNÉ)</div>
+    ${conn('kimi', 'K3', 'Kimi K3 (volitelné)', k.kimi, `
       <label>API klíč (platform.moonshot.ai)</label><input type="password" id="key-kimi" autocomplete="off" placeholder="${k.kimi ? 'Uloženo' : 'sk-…'}">
       <label>Model</label><input type="text" data-text="kimiModel" value="${esc(st.kimiModel)}">
       <div id="models-kimi"></div>
@@ -414,9 +421,17 @@ function renderMemory() {
   const s = d.stats || {};
   const mb = s.bytes ? (s.bytes / 1048576).toFixed(1) + ' MB' : '—';
   const docs = J('kbList') || [];
+  const lib = J('libraries') || { libraries: [], bytes: 0 };
   $('#main').innerHTML = `<div class="wrap">${head('OFFLINE DATABÁZE', 'Vědění v telefonu.')}${tabs}
     <div class="grid2"><div class="stat"><b>${s.docs ?? 0}</b><small>DOKUMENTŮ</small></div><div class="stat"><b>${s.vectors ?? 0}</b><small>SÉMANTICKY INDEXOVÁNO</small></div></div>
     <input type="search" id="kbq" placeholder="Hledat v databázi" style="margin-top:12px"><div id="kbres"></div>
+
+    <div class="eyebrow">OFFLINE KNIHOVNA · ${((lib.bytes || 0) / 1e9).toFixed(2)} GB</div>
+    ${lib.libraries.map(l => { const dl = busy('library') && (S.job.phase || '').includes(l.name); return card(`<b>${esc(l.name)}</b> ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}
+      <p class="small">${esc(l.description)} ~${l.approxGb} GB · ${esc(l.license)}</p>
+      ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.job.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.job.detail) : l.percent + ' % – naváže'}</div>` : ''}
+      <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
+      ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>`); }).join('')}
 
     <div class="eyebrow">PŘIDAT ZNALOSTI</div>
     ${card(`<div class="row"><input type="text" id="wikiTopic" placeholder="Téma z Wikipedie (např. tepelné čerpadlo)"><button class="btn sm" data-wiki>Stáhnout</button></div>
@@ -445,8 +460,8 @@ function renderMemory() {
   $('#kbq').addEventListener('input', e => {
     clearTimeout(renderMemory.t);
     renderMemory.t = setTimeout(() => {
-      const r = J('kbSearch', e.target.value) || [];
-      $('#kbres').innerHTML = r.map(x => card(`<b>${esc(x.title)}</b><p class="small">${esc(x.text.slice(0, 300))}</p>`)).join('');
+      const r = [...(J('kbSearch', e.target.value) || []), ...(J('librarySearch', e.target.value) || [])];
+      $('#kbres').innerHTML = r.slice(0, 12).map(x => card(`<b>${esc(x.title)}</b><p class="small">${esc(x.text.slice(0, 300))}</p>`)).join('');
     }, 250);
   });
 }
@@ -512,9 +527,8 @@ function modeSheet() {
 
 function welcomeSheet() {
   sheet(`<div style="text-align:center;padding:6px 0 4px"><div style="width:96px;height:96px;margin:0 auto">${appIcon()}</div>
-    <h2 style="margin-top:12px">AXIOM Ω</h2><p>Samostatná AI. Vyber, kde má myslet:</p></div>
-    <button class="opt" data-onboard="brain"><span class="ic">Φ</span><span class="grow"><b>V telefonu (offline)</b><small>Stáhnu Gemma 4 – nejnovější mozek od Google.</small></span></button>
-    <button class="opt" data-onboard="kimi"><span class="ic">K3</span><span class="grow"><b>Kimi K3 (online)</b><small>Mám klíč Moonshot.</small></span></button>
+    <h2 style="margin-top:12px">AXIOM Ω</h2><p>Samostatná AI s mozkem v telefonu.</p></div>
+    <button class="opt" data-onboard="brain"><span class="ic">Φ</span><span class="grow"><b>V telefonu (offline)</b><small>Doporučím nejsilnější Gemma 4, která se vejde do tvého telefonu.</small></span></button>
     <button class="opt" data-onboard="node"><span class="ic">N</span><span class="grow"><b>AXIOM Node (free cloud)</b><small>Vlastní server zdarma.</small></span></button>
     <button class="btn ghost wide" data-onboard="later">Později</button>`);
 }
@@ -556,6 +570,7 @@ window.omegaReceive = function (type, d) {
     case 'progress':
       S.job = d; refresh();
       if (view === 'modules') renderModules();
+      if (view === 'memory' && memTab === 'kb' && !document.activeElement?.matches('input,textarea')) renderMemory();
       break;
     case 'brains': refresh(); if (view === 'modules') renderModules(); break;
     case 'hf_models': hf.models = d.models; hf.files = null; if (view === 'modules') $('#hfres').innerHTML = hfHtml(); break;
@@ -620,7 +635,10 @@ document.addEventListener('click', e => {
     return;
   }
   if (ds.retry) { const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
-  if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); threadId = 0; msgs = []; send(g, 'agent'); return; }
+  if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }
+  if (ds.role !== undefined && t.classList.contains('chipbtn')) { agentRole = ds.role; renderAgents(); return; }
+  if (ds.libStart) { call('libraryStart', ds.libStart); setTimeout(() => { refresh(); renderMemory(); }, 500); return; }
+  if (ds.libRemove) { if (confirm('Smazat knihovnu z telefonu?')) call('libraryRemove', ds.libRemove); return; }
   if (ds.taskDel) { e.stopPropagation(); call('deleteTask', Number(ds.taskDel)); renderAgents(); return; }
   if (ds.cancel !== undefined) { call('cancel'); return; }
   if (ds.brainDownload) { call('brainDownload', ds.brainDownload); setTimeout(() => { refresh(); renderModules(); }, 500); return; }
@@ -659,7 +677,7 @@ document.addEventListener('click', e => {
     configure({ onboarded: true });
     closeSheet();
     if (ds.onboard !== 'later') { go('modules'); }
-    if (ds.onboard === 'kimi' || ds.onboard === 'node') setTimeout(() => { const d = [...document.querySelectorAll('details.conn')][ds.onboard === 'kimi' ? 0 : 1]; if (d) { d.open = true; d.scrollIntoView({ block: 'center' }); } }, 80);
+    if (ds.onboard === 'node') setTimeout(() => { const d = [...document.querySelectorAll('details.conn')][1]; if (d) { d.open = true; d.scrollIntoView({ block: 'center' }); } }, 80);
     return;
   }
 });
@@ -673,7 +691,7 @@ document.addEventListener('change', e => {
 
 $('#btnThreads').onclick = openDrawer;
 $('#drawerBg').onclick = closeDrawer;
-$('#engineChip').onclick = () => (busy('download') || busy('index')) ? go('modules') : modeSheet();
+$('#engineChip').onclick = () => busy('library') ? (memTab = 'kb', go('memory')) : (busy('download') || busy('index')) ? go('modules') : modeSheet();
 $('#brand').onclick = selfSheet;
 
 (function start() {
