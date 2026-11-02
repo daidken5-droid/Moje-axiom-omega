@@ -141,16 +141,22 @@ jobs:
       - name: Verze a soubory
         run: |
           VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          CODE=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)
+          # „Delta I“ → „delta-i“ (tag i název souboru bez mezer); číslo sestavení v tagu slouží kontrole aktualizací
+          SLUG=$(echo "$VER" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+          FILE=$(echo "$VER" | tr ' ' '-')
           echo "VER=$VER" >> "$GITHUB_ENV"
+          echo "TAG=avior-$SLUG-c$CODE" >> "$GITHUB_ENV"
+          echo "FILE=$FILE" >> "$GITHUB_ENV"
           mkdir -p rel
           cp dist/AVIOR-${GITHUB_SHA::7}.apk rel/AVIOR.apk
-          cp dist/AVIOR-${GITHUB_SHA::7}.apk "rel/AVIOR-$VER.apk"
+          cp dist/AVIOR-${GITHUB_SHA::7}.apk "rel/AVIOR-$FILE.apk"
           (cd rel && sha256sum *.apk > SHA256SUMS.txt)
           cp dist/SIGNING.txt rel/ || true
           cat rel/SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: avior-v${{ env.VER }}
+          tag_name: ${{ env.TAG }}
           target_commitish: ${{ github.sha }}
           name: "AVIOR ${{ env.VER }}"
           make_latest: true
@@ -163,6 +169,6 @@ jobs:
             Mozek, Wikipedie a doladění se stahují v aplikaci. Otisk podpisu je v SIGNING.txt.
           files: |
             rel/AVIOR.apk
-            rel/AVIOR-${{ env.VER }}.apk
+            rel/AVIOR-${{ env.FILE }}.apk
             rel/SHA256SUMS.txt
             rel/SIGNING.txt

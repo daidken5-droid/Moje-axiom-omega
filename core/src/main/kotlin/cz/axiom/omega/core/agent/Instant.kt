@@ -48,7 +48,6 @@ object Instant {
     private val mathPrefix = rx("^(kolik je|kolik dela|spocitej( mi)?|vypocitej|spocti|kolik|=)\\s*")
     private val exprOnly = rx("^[\\d\\s+\\-*/^×÷−().,]+$")
     private val unitAsk = rx("^(kolik je|kolik dela|kolik|preved|prevod|prepocitej|prevest)\\b")
-    private val define = rx("^(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamena|co to je)\\s+(.{2,60}?)[ ?!.]*$")
 
     /** Okamžitá odpověď, nebo null (otázka není „jednoduchá“ → mozek). */
     fun answer(prompt: String, ctx: Ctx = Ctx()): Answer? {
@@ -97,18 +96,7 @@ object Instant {
         // HACKERSKÉ NÁSTROJE BEZ MOZKU (offline, deterministicky, okamžitě)
         security(raw)?.let { return it }
 
-        // krátká definice z offline znalostí (Wikipedie, balíčky) – jen přesná shoda názvu
-        val k = ctx.knowledge
-        if (k != null) define.find(f)?.let { m ->
-            val subject = m.groupValues[2].trim()
-            if (subject.split(' ').size > 5) return null
-            val origSubject = raw.replace(rx("^(?i)\\s*(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamená|co znamena|co to je)\\s+"), "")
-                .trimEnd('?', '!', '.', ' ')
-            val hits = runCatching { k.search(origSubject, 4) }.getOrDefault(emptyList())
-            val hit = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
-            val text = firstSentences(hit.text, 2, 420) ?: return null
-            return Answer("$text\n\n_Zdroj: ${hit.title} (${hit.source})_", "z offline znalostí", listOf(hit), confidence = 86)
-        }
+        // definice z offline Wikipedie řeší WikiReflex (dřív tady duplicitně – dvojí fulltextové hledání)
         return null
     }
 
@@ -144,8 +132,6 @@ object Instant {
         null
     }.getOrNull()
 
-    /** Sdílené s E-ARL a WikiReflexem – dřív nepočítalo s předponou „Wikipedie: “ z offline knihovny a nikdy neprošlo. */
-    private fun titleMatches(title: String, subject: String): Boolean = WikiReflex.titleMatches(title, subject)
 
     private val abbrev = setOf("tzv", "napr", "r", "st", "mj", "aj", "atd", "resp", "cca", "tj", "popr", "n", "l", "pr", "kr", "sv", "tzn", "min", "max", "vc", "zv", "ing", "mudr", "judr", "phdr", "doc", "prof")
 

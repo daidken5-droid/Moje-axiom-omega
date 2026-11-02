@@ -183,7 +183,7 @@ object Practical {
             var next = born.withYear(today.year); if (!next.isAfter(today)) next = next.plusYears(1)
             val toBd = ChronoUnit.DAYS.between(today, next)
             val birthday = born.monthValue == today.monthValue && born.dayOfMonth == today.dayOfMonth
-            return ans("Narozený ${fmt(born)} má dnes **$years let**" + if (birthday) " – a dnes má narozeniny!" else "; další narozeniny za $toBd dní.", "výpočet", 99)
+            return ans("Je ti **$years let** (narození ${fmt(born)})" + if (birthday) " – a dnes máš narozeniny, všechno nejlepší!" else "; další narozeniny za $toBd dní.", "výpočet", 99)
         }
 
         // ---------------- svátky a změna času („kdy je Den matek“, „kdy se mění čas“, „kolik týdnů do Vánoc“)
@@ -199,6 +199,12 @@ object Practical {
             val w = (m.groupValues[1].ifEmpty { m.groupValues[2] }).trim()
             val de = rx("nemc|nemeck").containsMatchIn(f)
             dict[w]?.let { (en, ge) -> return ans("„$w“ ${if (de) "německy" else "anglicky"}: **${if (de) ge else en}**", "slovníček", 95) }
+        }
+
+        // „kolik dní má tento měsíc“
+        if (rx("^kolik (dni|dnu) (ma )?(tento|tenhle|tenhleten|aktualni|soucasny|letosni|tenhle letosni)? ?mesic|^kolik ma (tento|tenhle|aktualni) mesic dni").containsMatchIn(f)) {
+            val len = today.lengthOfMonth()
+            return ans("${listOf("Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec")[today.monthValue - 1]} ${today.year} má **$len dní**.", "kalendář", 99)
         }
 
         // ---------------- dělení nulou

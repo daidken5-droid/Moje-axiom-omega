@@ -33,8 +33,8 @@ class OfflineAnswerTest {
             Snippet(1, "Tepelné čerpadlo", "Tepelné čerpadlo je zařízení, které odebírá teplo z okolí. Funguje na principu obráceného chladicího cyklu. Kompresor stlačuje chladivo a tím zvyšuje jeho teplotu. Vynalezeno bylo v 19. století.", "wiki"),
             Snippet(2, "Kompresor", "Kompresor je stroj na stlačování plynů.", "wiki"),
         )
-        val a = OfflineAnswer.compose("Jak funguje tepelné čerpadlo?", sn, "offline")!!
+        val a = OfflineAnswer.compose("Jak funguje tepelné čerpadlo?", sn)!!
         org.junit.Assert.assertTrue(a.text, a.text.contains("obráceného chladicího cyklu") && a.text.contains("Tepelné čerpadlo"))
-        org.junit.Assert.assertNull(OfflineAnswer.compose("Kdo vyhrál mistrovství v hokeji?", sn, "offline"))
+        org.junit.Assert.assertNull(OfflineAnswer.compose("Kdo vyhrál mistrovství v hokeji?", sn))
     }
 }

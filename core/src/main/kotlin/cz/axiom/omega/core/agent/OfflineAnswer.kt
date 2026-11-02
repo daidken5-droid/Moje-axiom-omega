@@ -14,7 +14,7 @@ object OfflineAnswer {
     private val stop = setOf("jak", "jaky", "jaka", "jake", "kde", "kdy", "kdo", "co", "se", "je", "to", "ten", "ta", "na", "v", "ve", "z", "ze", "a", "i",
         "o", "pro", "proc", "neco", "mi", "me", "rekni", "vysvetli", "popis", "prosim", "jsou", "byl", "byla", "bylo", "funguje", "znamena")
 
-    fun compose(question: String, snippets: List<Snippet>, reason: String): Instant.Answer? {
+    fun compose(question: String, snippets: List<Snippet>): Instant.Answer? {
         val q = TextUtil.words(question, 3).map { it.take(6) }.filter { it !in stop }.toSet()
         if (q.isEmpty() || snippets.isEmpty()) return null
         // nejlepší zdroj = nejvíc slov otázky v názvu + textu

@@ -701,7 +701,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val l = runCatching { cz.axiom.omega.core.update.Updates.latest() }.getOrNull()
         p.edit().putLong("updateCheckAt", System.currentTimeMillis()).apply()
         val local = BuildConfig.VERSION_NAME
-        if (l != null && cz.axiom.omega.core.update.Updates.newer(l.version, local)) {
+        if (l != null && cz.axiom.omega.core.update.Updates.newer(l.code, BuildConfig.VERSION_CODE)) {
             Events.emit("update", JSONObject().put("version", l.version).put("apk", l.apkUrl).put("page", l.pageUrl).put("current", local))
         } else if (manual) Events.note(if (l == null) "Nepodařilo se ověřit aktualizace." else "Máš nejnovější verzi ($local).")
     }

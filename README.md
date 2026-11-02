@@ -8,6 +8,35 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## AVIOR Delta I
+
+Od této verze se AVIOR značí **Delta** + římská číslice (Delta I, Delta II…). Uvnitř se verze porovnávají podle
+čísla sestavení (`versionCode` 1000, 1001…). Vydání na GitHubu má tag `avior-delta-i-c1000` a soubor
+`AVIOR-Delta-I.apk`. Kontrola aktualizací správně pozná, že Delta I je novější než 8.9.0.
+
+**Test „jako člověk, který s AI skoro nepracoval“** (`NoviceUserTest`, 77 otázek: celé věty, vykání, pozdrav +
+otázka + poděkování, „Nevíte náhodou…“, „Můžete mi spočítat…“): bez mozku **36 → 76** (zbývá počasí, potřebuje
+internet). Co se doplnilo:
+- **Víc vět ve zprávě** („Ahoj. Kolik je hodin? Děkuji moc!“): věty, které jsou jen pozdrav nebo poděkování,
+  se zahodí a zbude otázka.
+- **Formální obaly:** „Můžete mi prosím říct“, „Mohl byste“, „Řekněte mi“, „Nevíte náhodou“, „chtěla bych se zeptat“,
+  „Potřebovala bych vědět“, „Promiňte“, „Prosím vás pěkně“, „Dobrý den Avioře“, „mohla bych poprosit o“.
+- **Vykání:** kdo vyká, dostane odpověď vykáním („A jak se máte vy?“, „ať se vám dobře spí“, „Je vám 71 let“).
+  Mozek i cloud dostanou stejný pokyn.
+- **Jiné formulace:** „Kdo je u nás / teď prezident“, „Jak se jmenuje náš prezident“, „Kdo vládne“, „Kdo jste“,
+  „Co umíte“, „Děkuji za pomoc“, „Hezký den“, „jaké je datum“, „jak dlouho ještě do Silvestra“, „další státní svátek“,
+  „kolik dní má tento měsíc“.
+- **Míry slovy:** „jedna míle“, „půl kila“, „čtvrt kila“, „kolik deka je půl kila“, „v kilech“, „kolik stupňů
+  Fahrenheita je 25 stupňů Celsia“, „kolik je to v eurech 1000 korun“.
+- **Nouzová čísla podle situace:** „když hoří“ → **150**, „potřebuji sanitku“ → **155**, policie → **158** (vždy i 112).
+
+**Opravy a zjednodušení:**
+- „Kdy jsou LETOS Velikonoce“ (už byly) → řekne, že letošní byly, a dá příští.
+- Peníze na 2 desetinná místa („41,15 EUR“), „1 míle“ místo „1 mil“, věk oslovuje přímo („Je ti 71 let“).
+- Věk z ročníku i v delší větě („Narodil jsem se v roce 1960, kolik je mi let?“).
+- **Méně kódu, méně práce:** definice z Wikipedie řešily dva moduly a každý prohledal 534 tisíc článků. Zůstal jen
+  WikiReflex. Odstraněn nepoužitý parametr a vzor, kompilátor je bez varování.
+
 ## Novinky 9.0 – E-ARL opraven, offline Wikipedie bez mozku, start na úvodu, mazání cache
 
 **Kritická chyba (od 8.4): offline Wikipedie bez mozku na telefonu nefungovala vůbec.**

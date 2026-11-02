@@ -54,7 +54,7 @@ object Everyday {
 
     private val unitWords = listOf(
         "kilometr\\w*" to "km", "metr\\w*" to "m", "centimetr\\w*" to "cm", "milimetr\\w*" to "mm", "mililitr\\w*" to "ml", "mil|mile|mili|milich|milim|milemi" to "mi", "palc\\w*|palec" to "in", "stop\\w*" to "ft",
-        "kilogram\\w*|kil\\b" to "kg", "dekagram\\w*|deka|dkg" to "dag", "gram\\w*" to "g", "tun\\w*" to "t", "liber\\w*|libr\\w*" to "lb", "unc\\w*" to "oz",
+        "kilogram\\w*|kil|kila|kilech|kilu|kilo" to "kg", "dekagram\\w*|deka|dkg" to "dag", "gram\\w*" to "g", "tun\\w*" to "t", "liber\\w*|libr\\w*" to "lb", "unc\\w*" to "oz",
         "litr\\w*" to "l", "mililitr\\w*" to "ml", "galon\\w*" to "gal", "hektar\\w*" to "ha", "akr\\w*" to "ac",
         "metr\\w* ctverecn\\w*|ctverecn\\w* metr\\w*" to "m2", "kilometr\\w* ctverecn\\w*|ctverecn\\w* kilometr\\w*" to "km2",
         "joul\\w*" to "j", "kilowatthodin\\w*" to "kwh", "minut\\w*" to "min", "hodin\\w*|hodina|hodinu" to "h", "sekund\\w*|vterin\\w*" to "s",
@@ -151,10 +151,10 @@ object Everyday {
             rx("^kolik (hodin) (ma )?(tyden)").containsMatchIn(f) -> return ans("Týden má **168 hodin**.", "čas")
             rx("^kolik (tydnu|tydnu) (ma )?rok").containsMatchIn(f) -> return ans("Rok má **52 týdnů** a 1 den (přestupný 2 dny).", "čas")
         }
-        rx("(narodil\\w*|narozen\\w*|ročník|rocnik)\\D{0,12}(19\\d\\d|20[0-2]\\d)").find(f)?.let { m ->
+        rx("(narodil\\w*|narozen\\w*|ročník|rocnik)\\D{0,24}(19\\d\\d|20[0-2]\\d)").find(f)?.let { m ->
             if (!rx("kolik (je|mi je|mu je|ji je|bude|mam)|let").containsMatchIn(f)) return@let
             val y = m.groupValues[2].toInt()
-            return ans("Narozený v roce $y je letos (${today.year}) **${today.year - y} let** – nebo ${today.year - y - 1}, pokud ještě neměl narozeniny.", "výpočet")
+            return ans("Letos (${today.year}) ti je **${today.year - y} let** – nebo ${today.year - y - 1}, pokud jsi ještě neslavil(a) narozeniny (ročník $y).", "výpočet")
         }
         rx("kolik let (je |uplynulo |ubehlo )?(od|od roku) (\\d{3,4})").find(f)?.let { m ->
             val y = m.groupValues[3].toInt()
@@ -179,8 +179,11 @@ object Everyday {
             val from = unit(m.groupValues[2]) ?: return@let
             val to = unit(m.groupValues[3]) ?: return@let
             Units.convert(v, from, to, rates).getOrNull()?.let { r ->
-                fun show(u: String) = mapOf("c" to "°C", "f" to "°F", "k" to "K", "czk" to "Kč", "eur" to "EUR", "usd" to "USD", "gbp" to "GBP", "chf" to "CHF", "pln" to "PLN", "jpy" to "JPY", "ps" to "k", "in" to "palců", "mi" to "mil", "ft" to "stop")[u] ?: u
-                return ans("${Practical.pretty(v, 4)} ${show(from)} = **${Practical.pretty(r, 4)} ${show(to)}**" + if (from in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")) " (${rates.label()})" else "", "převod")
+                // jednotné číslo u 1 („1 míle“, ne „1 mil“); peníze na 2 desetinná místa
+                fun show(u: String, n: Double) = (if (n == 1.0) mapOf("mi" to "míle", "in" to "palec", "ft" to "stopa", "lb" to "libra", "oz" to "unce") else emptyMap())[u]
+                    ?: mapOf("c" to "°C", "f" to "°F", "k" to "K", "czk" to "Kč", "eur" to "EUR", "usd" to "USD", "gbp" to "GBP", "chf" to "CHF", "pln" to "PLN", "jpy" to "JPY", "ps" to "k", "in" to "palců", "mi" to "mil", "ft" to "stop")[u] ?: u
+                val money = to in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")
+                return ans("${Practical.pretty(v, 4)} ${show(from, v)} = **${Practical.pretty(r, if (money) 2 else 4)} ${show(to, r)}**" + if (from in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")) " (${rates.label()})" else "", "převod")
             }
         }
         rx("^(?:kolik je |kolik dela )?(\\d+(?:[.,]\\d+)?) (eur\\w*|dolar\\w*|usd|liber|libr\\w*|frank\\w*|zlot\\w*)$").find(f)?.let { m ->

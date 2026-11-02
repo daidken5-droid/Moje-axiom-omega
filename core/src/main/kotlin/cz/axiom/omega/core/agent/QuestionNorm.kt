@@ -21,10 +21,18 @@ object QuestionNorm {
         "^(?:avior|omega|hej|hele|helejte|ahoj|cau|cus|cauky|nazdar|zdar|zdarec|zdravim|dobry den|prosim te|prosim vas|prosimte|prosim|pls|plz|please|" +
             "rekni mi|rekni|reknes mi|muzes mi rict|muzes mi prosim rict|muzes rict|mohl bys mi rict|mohla bys mi rict|mohl bys|mohla bys|dokazes mi rict|" +
             "nevis|vis|nevite|vite|zajimalo by me|zajima me|potrebuju vedet|potrebuji vedet|chci vedet|chtel bych vedet|chtela bych vedet|" +
-            "rad bych vedel|rada bych vedela|zjisti mi|zjisti|napis mi|dyt mi|dyt|vo|jen|tak|a|no|no a|takze|otazka|hm+|ehm|cus)\\b[\\s,:]*",
+            "rad bych vedel|rada bych vedela|zjisti mi|zjisti|napis mi|dyt mi|dyt|vo|jen|tak|a|no|no a|takze|otazka|hm+|ehm|cus|" +
+            // VYKÁNÍ a formální obaly (lidé, kteří s AI nepracují, píšou jako do úřadu)
+            "aviore|avioru|dobry den aviore|muzete mi prosim rict|muzete mi rict|muzete rict|mohl byste mi prosim rict|mohla byste mi prosim rict|" +
+            "mohl byste mi rict|mohla byste mi rict|mohl byste|mohla byste|reknete mi prosim|reknete mi|nevite nahodou|nevite|vite|" +
+            "chtel bych se zeptat|chtela bych se zeptat|chci se zeptat|mam dotaz|mam otazku|potreboval bych vedet|potrebovala bych vedet|" +
+            "potrebuji vedet|prosim vas pekne|prosim pekne|prosim vas|prominte|promin|omlouvam se|zdravim vas|zdravim|dobry vecer|dobre rano|" +
+            "muzete mi spocitat|muzes mi spocitat|spocitejte mi|spocitejte|mohla bych poprosit o|mohl bych poprosit o|poprosim o|poprosil bych o|poprosila bych o|" +
+            "muzete mi poradit|poradte mi|zajimalo by me|rekl bys mi|rekla bys mi|rekl byste mi|rekla byste mi|nahodou|pekne|laskave|prosimvas)\\b[\\s,:]*",
     )
     private val tail = Regex("[\\s,]*(?:prosim(?: te| vas)?|prosimte|pls|plz|please|thx|diky|dik|dekuji|dekuju|avior|jo|ne|ze|ve|vole|kamo|bracho|brasko|kamosi|" +
-        "esi vis|jestli vis|vis|vlastne|teda|sak|gde|pak|jako|ok|okej)$")
+        "esi vis|jestli vis|vis|vlastne|teda|sak|gde|pak|jako|ok|okej|dekuji vam|dekuji moc|dekuji predem|predem dekuji|dekuju moc|diky moc|" +
+        "prosim vas|nahodou|pekne)$")
     /** Výplňová slova kdekoli ve větě (nesou emoci, ne obsah). */
     private val fillers = setOf("vole", "kamo", "kamosi", "bracho", "brasko", "sak", "teda", "vlastne", "zrovna", "presne", "prosimte", "pls", "plz",
         "kurna", "sakra", "jakoze", "proste", "fakt", "vubec", "asi", "aktualne", "momentalne", "dyt")
@@ -147,7 +155,7 @@ object QuestionNorm {
     private val unitGen = mapOf(
         "metru" to "m", "centimetru" to "cm", "milimetru" to "mm", "kilometru" to "km", "decimetru" to "dm", "gramu" to "g", "kilogramu" to "kg",
         "kg" to "kg", "dag" to "dag", "litru" to "l", "mililitru" to "ml", "decilitru" to "dl", "mil" to "mi", "stop" to "ft", "palcu" to "in", "liber" to "lb",
-        "unci" to "oz", "tun" to "t", "sekund" to "s", "minut" to "min", "hodin" to "h", "dni" to "d", "dnu" to "d", "mililitru" to "ml",
+        "unci" to "oz", "tun" to "t", "kilometru" to "km", "deka" to "dag", "sekund" to "s", "minut" to "min", "hodin" to "h", "dni" to "d", "dnu" to "d", "mililitru" to "ml",
         "dekagramu" to "dag", "dkg" to "dag", "ctverecnich" to "m2", "metru2" to "m2",
     )
     private val unitNom = mapOf(
@@ -173,6 +181,8 @@ object QuestionNorm {
         f = f.replace(rx("(\\d)\\s*x\\s*(\\d)"), "$1 krat $2").replace(rx("\\bsqrt\\s*\\(?(\\d+(?:[.,]\\d+)?)\\)?"), "odmocnina z $1")
         // 0) angličtina
         english(f)?.let { out += it; return out.toList() }
+        // 0b) VÍC VĚT („Ahoj. Kolik je hodin? Děkuji moc!“): zahodit věty, které jsou jen pozdrav / poděkování / oslovení
+        f = coreSentence(f)
         // 1) obaly pryč (opakovaně: „prosím tě, víš, kolik…“)
         f = stripWrap(f)
         if (f.isEmpty()) return emptyList()
@@ -195,6 +205,18 @@ object QuestionNorm {
         if (t != f) { val tr = rephrase(t); out += tr; numbers(tr).let { if (it != tr) out += rephrase(it) } }
         out.remove(TextUtil.fold(prompt).trim())
         return out.filter { it.isNotBlank() }
+    }
+
+    private val politeOnly = Regex("^(ahoj|cau|cus|zdravim( vas)?|dobry den|dobre rano|dobry vecer|dobre odpoledne|nazdar|hej|haloo?|" +
+        "aviore|avior|dekuji( vam| moc| mockrat| pekne| predem| za pomoc)?|dekuju( moc)?|diky( moc)?|dik|predem dekuji|prosim( vas)?|" +
+        "hezky den|pekny den|mejte se|mej se|s pozdravem.*|zdravi .*)$")
+
+    /** Ze zprávy o více větách vybere tu jednu, která nese otázku (ostatní jsou jen zdvořilost). */
+    fun coreSentence(f: String): String {
+        val parts = f.split(Regex("(?<=[.!?])\\s+|\\s*[.!]\\s+(?=\\p{L})")).map { it.trim().trim('.', '!', '?', ',', ' ') }.filter { it.isNotBlank() }
+        if (parts.size < 2) return f
+        val content = parts.filterNot { politeOnly.matches(it) }
+        return if (content.size == 1) content.single() else f
     }
 
     /** Obaly a dovětky pryč – opakovaně, ale nikdy ne až do prázdna („díky“ samo je platná zpráva). */
@@ -221,6 +243,10 @@ object QuestionNorm {
 
     private fun rephrase(s: String): String {
         var f = s
+        // „jedna míle“, „jeden litr“ → 1; „půl kila“, „čtvrt kila“ → 0.5 / 0.25
+        f = f.replace(rx("\\b(jedna|jeden|jedno)\\s+(?=(mile|libra|stopa|unce|palec|kg|litr|metr|kilometr|hodina|minuta|tyden|den|akr|hektar|galon|euro|dolar|koruna|centimetr|gram)\\b)"), "1 ")
+            .replace(rx("\\bpul (kg|litru|metru|kilometru)\\b")) { "0.5 " + mapOf("kg" to "kg", "litru" to "l", "metru" to "m", "kilometru" to "km").getValue(it.groupValues[1]) }
+            .replace(rx("\\bctvrt (kg|litru)\\b")) { "0.25 " + if (it.groupValues[1] == "kg") "kg" else "l" }
         // „hodina a půl“, „půl hodiny“ → hodiny číslem (před rozpoznáním jednotek)
         f = f.replace(rx("\\bhodina a pul\\b"), "1.5 h").replace(rx("\\bpul hodiny\\b"), "0.5 h").replace(rx("\\bctvrt hodiny\\b"), "0.25 h")
         f = f.replace(rx("^kolik (?:mam |ma telefon |zbyva )?(?:procent )?baterie(?: mam| ma telefon| zbyva| mi zbyva)?$"), "kolik baterie")
@@ -251,7 +277,7 @@ object QuestionNorm {
         f = f.replace(rx("\\bna (druhou|treti|ctvrtou|patou|sestou|sedmou|osmou|devatou|desatou)\\b")) { "na ${ordinalPow[it.groupValues[1]]}" }
         f = f.replace(rx("\\bdruha odmocnina\\b"), "odmocnina")
         // kurzy: „za kolik je euro“, „kolik stojí dolar“, „kolik je euro“ → „kurz eura“
-        rx("^(?:za kolik je|kolik stoji|kolik je|kolik dela|jak stoji|jaky je kurz|kurz) (euro|eura|eur|dolar|dolaru|libra|libry|frank|franku|zloty|zlotych|jen|jenu)(?: v korunach| v kc)?$").find(f)?.let { m ->
+        rx("^(?:za kolik je|kolik stoji|kolik je|kolik dela|jak stoji|jaky je kurz|kurz) (?:dnes |ted |aktualne |dneska )?(euro|eura|eur|dolar|dolaru|libra|libry|frank|franku|zloty|zlotych|jen|jenu)(?: v korunach| v kc)?$").find(f)?.let { m ->
             val w = m.groupValues[1]
             return "kurz " + when { w.startsWith("eur") -> "eura"; w.startsWith("dol") -> "dolaru"; w.startsWith("lib") -> "libry"; w.startsWith("fra") -> "franku"; w.startsWith("zlot") -> "zlote"; else -> "jenu" }
         }
@@ -283,6 +309,34 @@ object QuestionNorm {
         // holá fráze bez otázky („Prezident České republiky“, „premiér“, „hlavní město Polska“) → otázka
         rx("^(prezident|prezidentka|premier|premierka|predseda vlady|kancler|kral|kralovna|papez|generalni tajemnik)( .{0,40})?$").find(f)?.let { return "kdo je ${it.value}" }
         rx("^(hlavni mesto|mena|rozloha|pocet obyvatel|nejvyssi hora|nejdelsi reka) .{2,40}$").find(f)?.let { if (!f.startsWith("jak")) return if (f.startsWith("hlavni")) "jake je ${it.value}" else "jaka je ${it.value}" }
+        // VYKÁNÍ → tykání (formální otázky na AVIORa a zdvořilostní věty)
+        f = f.replace(rx("^kdo jste( vy)?$"), "kdo jsi").replace(rx("^co (vsechno )?umite$"), "co umis").replace(rx("^jak se (vam dari|mate|mas|vede)( dnes)?$"), "jak se mas")
+            .replace(rx("^jak se jmenujete$"), "jak se jmenujes").replace(rx("^(dekuji|dekuju|diky)( vam| ti)?( moc| mockrat| pekne)?( za (pomoc|odpoved|radu|vse))?$"), "diky")
+            .replace(rx("^(hezky|pekny|krasny) (den|vecer|vikend)( preji)?$"), "mej se").replace(rx("^(na )?shledanou$"), "nashle")
+        // prezident / premiér jinými slovy
+        f = f.replace(rx("^kdo je (ted|dnes|nyni|aktualne|v soucasnosti|u nas|v cesku|v cr|nas|cesky|soucasny)( u nas| v cesku)? (prezident|prezidentem)$"), "kdo je prezident")
+            .replace(rx("^jak se jmenuje (nas|cesky|soucasny|aktualni|ted)? ?prezident$"), "kdo je prezident")
+            .replace(rx("^kdo je (ted|dnes|nyni|u nas|v cesku|nas|cesky|soucasny)( u nas| v cesku)? (premier|premierem|predseda vlady)$"), "kdo je premier")
+            .replace(rx("^(kdo (ted )?vladne|kdo vede vladu|kdo je v cele vlady)( u nas| v cesku| v cr)?$"), "kdo je premier")
+        // vtip a „poprosit o …“
+        f = f.replace(rx("^(rekni|reknete|napis|povez)( mi)? (nejaky |jeden |nejakej )?vtip$|^(nejaky |jeden )?vtip( prosim)?$"), "rekni vtip")
+        // datum
+        f = f.replace(rx("^(jake je|jaky je|jake mame|jaky mame) (dnes |dneska |dnesni )?datum$"), "jaky je dnes den")
+        // „jak dlouho ještě do Silvestra“, „další státní svátek“
+        rx("^jak dlouho (?:jeste |zbyva )?(?:do|nez bude|nez budou) (.+)$").find(f)?.let { return "kolik dni do ${it.groupValues[1]}" }
+        f = f.replace(rx("\\b(dalsi|nejblizsi|nasledujici) (statni )?svatek"), "pristi statni svatek")
+        // kurz s „dnes“ uprostřed: „za kolik je dnes euro“
+        f = f.replace(rx("^(za kolik je|kolik stoji|jaky je kurz) (dnes|ted|dneska|aktualne) "), "$1 ")
+        // „kolik je to v eurech 1000 korun“ → „1000 korun v eurech“
+        rx("^kolik je to (v|ve) (\\w+) (\\d+(?:[.,]\\d+)?) (\\w+)$").find(f)?.let { return "${it.groupValues[3]} ${it.groupValues[4]} v ${it.groupValues[2]}" }
+        // „kolik stupňů Fahrenheita je 25 stupňů Celsia“
+        rx("^kolik (?:stupnu )?(fahrenheita|celsia|kelvinu) (?:je|ma|odpovida) (-?\\d+(?:[.,]\\d+)?) ?(?:stupnu |°)?(celsia|fahrenheita|kelvinu)$").find(f)?.let {
+            return "${it.groupValues[2]} stupnu ${it.groupValues[3]} na ${it.groupValues[1]}"
+        }
+        // nouzové situace popsané slovy → tísňová čísla
+        if (rx("\\b(hori|pozar|hasic\\w*)\\b").containsMatchIn(f) && rx("\\b(cisl\\w*|volat|zavolat)\\b").containsMatchIn(f)) return "cislo na hasice"
+        if (rx("\\b(sanitk\\w*|zachrank\\w*|zachrann\\w*|uraz|zraneni|infarkt|bezvedomi)\\b").containsMatchIn(f) && rx("\\b(cisl\\w*|volat|zavolat)\\b").containsMatchIn(f)) return "cislo na zachranku"
+        if (rx("\\b(polici\\w*|okraden\\w*|kradez|vloupani|napaden\\w*)\\b").containsMatchIn(f) && rx("\\b(cisl\\w*|volat|zavolat)\\b").containsMatchIn(f)) return "cislo na policii"
         // identita a náhoda
         f = f.replace(rx("^(jsi|ty jsi|jsi ty) (ai|umela inteligence|robot|chatbot|bot|clovek)$"), "kdo jsi")
         f = f.replace(rx("^(vyber|vylosuj|rekni|dej mi) (nahodne )?cislo od "), "nahodne cislo od ")

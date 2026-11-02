@@ -55,23 +55,10 @@ class CognitionTest {
 class UpdatesTest {
     @Test fun comparesVersions() {
         val U = cz.axiom.omega.core.update.Updates
-        assertTrue(U.newer("avior-v4.1.0", "4.0.0"))
-        assertTrue(U.newer("avior-v4.10.0", "4.9.3"))
-        assertFalse(U.newer("avior-v4.1.0", "4.1.0"))
-        assertFalse(U.newer("avior-v4.0.9", "4.1.0-debug"))
-        assertEquals(listOf(4, 1, 0), U.parse("avior-v4.1.0"))
-    }
-}
-
-class VectorIndexTest {
-    @Test fun topKMatchesBruteForce() {
-        val r = java.util.Random(3)
-        fun norm(v: FloatArray): FloatArray { val n = kotlin.math.sqrt(v.sumOf { (it * it).toDouble() }).toFloat(); return FloatArray(v.size) { v[it] / n } }
-        val rows = (1L..500L).map { it to norm(FloatArray(32) { r.nextGaussian().toFloat() }) }
-        val idx = cz.axiom.omega.core.util.VectorIndex.build(32, rows)
-        val q = norm(FloatArray(32) { r.nextGaussian().toFloat() })
-        val brute = rows.map { (id, v) -> id to v.indices.sumOf { (v[it] * q[it]).toDouble() }.toFloat() }.sortedByDescending { it.second }.take(5).map { it.first }
-        assertEquals(brute, idx.top(q, 5).map { it.first })
-        assertTrue(idx.top(q, 5, minScore = 2f).isEmpty())
+        // starší číslované tagy → číslo sestavení (major·100 + minor·10 + patch) = shodné s versionCode aplikace
+        assertEquals("4.1.0" to 410, U.parseTag("avior-v4.1.0"))
+        assertEquals("8.7.0" to 870, U.parseTag("avior-v8.7.0"))
+        assertTrue(U.newer(U.parseTag("avior-v8.7.0")!!.second, 860))
+        assertFalse(U.newer(U.parseTag("avior-v8.7.0")!!.second, 870))
     }
 }

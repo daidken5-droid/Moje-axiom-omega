@@ -189,7 +189,7 @@ object SecTools {
         c.instanceFollowRedirects = false
         try {
             val code = c.responseCode
-            val audit = auditHeaders(c.headerFields.filterKeys { it != null }, url.startsWith("https"))
+            val audit = auditHeaders(c.headerFields.filterKeys { it != null }, true) // requirePublicHttps výše zaručuje https
             val tls = (c as? HttpsURLConnection)?.let { tlsSummary(it) } ?: ""
             return "HTTP $code · skóre hlaviček ${audit.score}/100\n" + audit.findings.joinToString("\n") + if (tls.isNotEmpty()) "\n\nTLS:\n$tls" else ""
         } finally {

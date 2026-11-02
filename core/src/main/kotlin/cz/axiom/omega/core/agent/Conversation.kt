@@ -55,4 +55,26 @@ object Conversation {
         .replace(Regex("[ \\t]+([.,;:!?])"), "$1")
         .replace(Regex("[ \\t]{2,}"), " ")
         .trim()
+
+    // ------------------------------------------------------------------ VYKÁNÍ
+    private val formalRx = rx("\\b(vam|vas|vami|muzete|mohl byste|mohla byste|reknete|poradte|vite|nevite|jste|umite|mate|delate|myslite|" +
+        "dekuji vam|prosim vas|prominte|zdravim vas|byste|spocitejte|napiste|vysvetlete|vas|vase|vasi|chcete|potrebujete)\\b")
+
+    /** Uživatel VYKÁ („Můžete mi říct…“, „Děkuji vám“) → odpovídat vykáním (starší lidé, první kontakt s AI). */
+    fun formal(prompt: String): Boolean = formalRx.containsMatchIn(TextUtil.fold(prompt).lowercase())
+
+    private val toVy = listOf(
+        "A jak se máš ty?" to "A jak se máte vy?", "S čím ti můžu pomoct?" to "S čím vám mohu pomoci?", "Na co se chceš zeptat?" to "Na co se chcete zeptat?",
+        "Kdybys něco potřeboval" to "Kdybyste něco potřebovali", "Měj se" to "Mějte se", "kdykoli se vrať" to "kdykoli se vraťte",
+        "ať se ti dobře spí" to "ať se vám dobře spí", "v tvém telefonu" to "ve vašem telefonu", "co jí řekneš" to "co jí řeknete",
+        "Je ti " to "Je vám ", "ti je " to "vám je ", "jsi ještě neslavil(a)" to "jste ještě neslavili", "máš narozeniny" to "máte narozeniny",
+        "Zkus třeba" to "Zkuste třeba", "zeptej se" to "zeptejte se", "co tě napadne" to "co vás napadne", "Kdyby ještě něco, jsem tady." to "Kdyby ještě něco, jsem tu pro vás.",
+        "tvůj" to "váš", "tvoje" to "vaše", "tvá" to "vaše", "tobě" to "vám", " ti " to " vám ", "Ahoj!" to "Dobrý den!",
+    )
+
+    /** Odpověď reflexu do vykání (jen bezpečné, ověřené obraty – žádné odhadování gramatiky). */
+    fun toFormal(text: String): String = toVy.fold(text) { acc, (a, b) -> acc.replace(a, b) }
+
+    /** Pokyn pro mozek / cloud. */
+    const val FORMAL_STYLE = "Uživatel ti VYKÁ – odpovídej zdvořile vykáním (vy, vám, můžete), jednoduše a srozumitelně, bez odborného žargonu."
 }

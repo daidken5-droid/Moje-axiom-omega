@@ -1,6 +1,7 @@
 package cz.axiom.omega.core
 
 import cz.axiom.omega.core.agent.Instant
+import cz.axiom.omega.core.agent.WikiReflex
 import cz.axiom.omega.core.agent.KnowledgeSource
 import cz.axiom.omega.core.agent.Snippet
 import org.junit.Assert.assertEquals
@@ -40,12 +41,13 @@ class InstantTest {
                 Snippet(1, "Tepelné čerpadlo", "# Tepelné čerpadlo\nTepelné čerpadlo je zařízení, které odebírá teplo z okolí a předává ho do topného systému. Využívá k tomu např. kompresor. Třetí věta už se nevypíše.", "Wikipedie"),
             )
         }
-        val a = Instant.answer("Co je tepelné čerpadlo?", ctx.copy(knowledge = k))
+        // definice z offline znalostí teď řeší WikiReflex (jedno hledání místo dvou)
+        val a = WikiReflex.answer("Co je tepelné čerpadlo?", k)
         assertNotNull(a)
         assertTrue(a!!.text.startsWith("Tepelné čerpadlo je zařízení"))
         assertTrue(a.text.contains("kompresor."))
         assertTrue(!a.text.contains("Třetí věta"))
-        assertNull(Instant.answer("Co je jaderná fúze?", ctx.copy(knowledge = k)))
+        assertNull(WikiReflex.answer("Co je jaderná fúze?", k))
     }
 }
 

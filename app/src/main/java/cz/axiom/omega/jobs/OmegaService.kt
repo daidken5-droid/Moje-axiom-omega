@@ -374,7 +374,8 @@ class OmegaService : Service() {
                     val orch = omega.orchestrator()
                     fun req(e: cz.axiom.omega.core.llm.LlmEngine) = AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && e.kind == EngineKind.CLAUDE,
                         !light && (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
-                        s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
+                        s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle,
+                            cz.axiom.omega.core.agent.Conversation.FORMAL_STYLE.takeIf { cz.axiom.omega.core.agent.Conversation.formal(text) }).joinToString("\n").ifBlank { null }, variant.temperature, insight,
                         maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge)
                     var failover: String? = null
                     var r = try {
@@ -495,7 +496,7 @@ class OmegaService : Service() {
     private fun earlRetrieve(threadId: Long, text: String, e: cz.axiom.omega.core.agent.Earl.Decision): Boolean {
         val started = System.currentTimeMillis()
         val q = e.entity ?: text
-        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(q, 3), "E-ARL: na definici stačí knihovna, mozek netřeba") }.getOrNull() ?: return false
+        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(q, 3)) }.getOrNull() ?: return false
         val meta = JSONObject().put("engine", "E-ARL · offline knihovna").put("millis", System.currentTimeMillis() - started).put("route", e.reasons.joinToString(" · "))
             .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0")
             .put("earl", JSONObject().put("path", e.path.name).put("label", e.path.label).put("conf", e.confidence).put("category", e.category).put("reasons", JSONArray(e.reasons)))
@@ -507,7 +508,7 @@ class OmegaService : Service() {
     /** Odpověď z offline knihovny (Wikipedie, dokumenty, balíčky) – extraktivní, se zdrojem. false = nic vhodného. */
     private fun offlineAnswer(threadId: Long, text: String, reason: String): Boolean {
         val started = System.currentTimeMillis()
-        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(text, 5), reason) }.getOrNull() ?: return false
+        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(text, 5)) }.getOrNull() ?: return false
         val meta = JSONObject().put("engine", "Offline knihovna · bez mozku").put("millis", System.currentTimeMillis() - started).put("route", reason)
             .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0").put("offline", true)
         omega.job.busy = false

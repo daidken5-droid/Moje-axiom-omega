@@ -175,10 +175,12 @@ object Reflex {
         // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
         val sig = Pavucina.of(prompt) // PAVUČINA: varianty a signály se sdílí s E-ARL, RANDY i nápovědou
         if (sig.compound) return null
-        answerExact(prompt, c)?.let { return it }
-        // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
-        for (v in sig.variants.take(9)) answerExact(v, c)?.let { return it }
-        return null
+        val hit = answerExact(prompt, c)
+            // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
+            ?: sig.variants.take(9).firstNotNullOfOrNull { answerExact(it, c) }
+            ?: return null
+        // VYKÁNÍ: kdo vyká, dostane odpověď vykáním
+        return if (Conversation.formal(prompt)) hit.copy(text = Conversation.toFormal(hit.text)) else hit
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
@@ -194,7 +196,6 @@ object Reflex {
             cached(prompt, c.cache)?.let { yield(it) }
             // OFFLINE WIKIPEDIE (přes Pavučinu sdílený zdroj): narození/úmrtí, poloha, vznik, definice – jen přesná shoda hesla
             if (c.definitions && c.instant.knowledge != null) WikiReflex.answer(prompt, c.instant.knowledge)?.let { yield(it) }
-            if (c.definitions && c.instant.knowledge != null) Instant.answer(prompt, c.instant)?.let { yield(it) }
         }
         return candidates.firstOrNull { it.confidence >= c.threshold }
     }

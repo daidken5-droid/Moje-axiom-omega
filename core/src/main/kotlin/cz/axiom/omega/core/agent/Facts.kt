@@ -183,6 +183,11 @@ object Facts {
             if (!rx("^(kdy|v kolik|jake datum|datum)").containsMatchIn(f)) return@let
             val y = Regex("\\b(19|20|21)\\d\\d\\b").find(f)?.value?.toInt() ?: today.year.let { y0 -> if (easter(y0).plusDays(1).isBefore(today)) y0 + 1 else y0 }
             val e = easter(y)
+            // „kdy jsou LETOS Velikonoce“ a letošní už byly → říct to a dát příští (dřív rovnou příští rok bez vysvětlení)
+            if (rx("\\bletos\\w*").containsMatchIn(f) && y != today.year) {
+                val past = easter(today.year)
+                return ans("Letošní Velikonoce už byly (neděle **${fmt(past)}**). Příští: Velký pátek **${fmt(e.minusDays(2))}**, Velikonoční neděle **${fmt(e)}**, pondělí **${fmt(e.plusDays(1))}** $y.", "svátky")
+            }
             return ans("Velikonoce $y: Velký pátek **${fmt(e.minusDays(2))}**, Velikonoční neděle **${fmt(e)}**, Velikonoční pondělí **${fmt(e.plusDays(1))}**.", "svátky")
         }
         if (rx("^(je|bude|byl)( dnes| zitra| vcera)? (statni )?svatek|^je (dnes|zitra) volno").containsMatchIn(f)) {
@@ -313,7 +318,19 @@ object Facts {
 
         // ---- tísňová čísla
         if (rx("(tisnov\\w*|nouzov\\w*) (cisl|link)|cislo (na )?(zachrank|hasic|polici|zachrannou)|^(zachranka|hasici|policie) cislo").containsMatchIn(f))
-            return ans("**Tísňová čísla v ČR:** 112 (jednotné evropské), 155 záchranná služba, 150 hasiči, 158 policie, 156 městská policie, 1210 horská služba.", "bezpečnost")
+        {
+            // konkrétní služba → nejdřív TO číslo (v nouzi nikdo nečte seznam), pak ostatní
+            val lead = when {
+                rx("hasic|hori|pozar").containsMatchIn(f) -> "Hasiči: **150**"
+                rx("zachrank|zachrann|sanitk|lekar").containsMatchIn(f) -> "Záchranná služba: **155**"
+                rx("mestsk\\w* polici").containsMatchIn(f) -> "Městská policie: **156**"
+                rx("polici").containsMatchIn(f) -> "Policie: **158**"
+                rx("horsk").containsMatchIn(f) -> "Horská služba: **1210**"
+                else -> null
+            }
+            val all = "112 (jednotné evropské – funguje vždy), 155 záchranná služba, 150 hasiči, 158 policie, 156 městská policie, 1210 horská služba"
+            return ans(if (lead != null) "$lead (nebo **112**).\n\nOstatní tísňová čísla: $all." else "**Tísňová čísla v ČR:** $all.", "bezpečnost")
+        }
 
         // ---- převodníky
         rx("^(?:prevod |preved |zapis |napis )?(\\d{1,4}) (?:rimsky|rimskymi cislicemi|na rimske cislo|do rimskych cislic)$|^(?:rimsky|rimske cislo)\\s+(\\d{1,4})$").find(f)?.let { m ->

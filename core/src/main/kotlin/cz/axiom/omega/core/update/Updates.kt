@@ -11,19 +11,24 @@ object Updates {
     const val APK_URL = "https://github.com/$REPO/releases/latest/download/AVIOR.apk"
     const val PAGE_URL = "https://github.com/$REPO/releases/latest"
 
-    data class Latest(val version: String, val apkUrl: String, val pageUrl: String)
+    /** [code] = číslo sestavení (versionCode) – podle něj se porovnává; [version] = to, co vidí uživatel („Delta I“). */
+    data class Latest(val version: String, val code: Int, val apkUrl: String, val pageUrl: String)
 
-    /** "avior-v4.1.0" / "v4.1.0" / "4.1.0-avior" → [4, 1, 0] */
-    fun parse(v: String): List<Int> = Regex("\\d+(?:\\.\\d+)*").find(v)?.value?.split('.')?.map { it.toInt() } ?: emptyList()
-
-    fun newer(remote: String, local: String): Boolean {
-        val a = parse(remote); val b = parse(local)
-        for (i in 0 until maxOf(a.size, b.size)) {
-            val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
-            if (x != y) return x > y
+    /**
+     * Tag vydání → (popis, číslo sestavení):
+     *  • „avior-delta-ii-c1001“ → („Delta II“, 1001)  – řada Delta (číslo sestavení je v tagu)
+     *  • „avior-v8.9.0“          → („8.9.0“, 890)      – starší číslované verze (major·100 + minor·10 + patch)
+     */
+    fun parseTag(tag: String): Pair<String, Int>? {
+        Regex("^avior-(.+)-c(\\d+)$").find(tag)?.let { m ->
+            val label = m.groupValues[1].split('-').joinToString(" ") { w -> if (w.matches(Regex("[ivxlcdm]+"))) w.uppercase() else w.replaceFirstChar { it.uppercase() } }
+            return label to m.groupValues[2].toInt()
         }
-        return false
+        val n = Regex("\\d+(?:\\.\\d+)*").find(tag)?.value?.split('.')?.map { it.toInt() } ?: return null
+        return n.joinToString(".") to (n.getOrElse(0) { 0 } * 100 + n.getOrElse(1) { 0 } * 10 + n.getOrElse(2) { 0 })
     }
+
+    fun newer(remoteCode: Int, localCode: Int): Boolean = remoteCode > localCode
 
     fun latest(): Latest? {
         val c = Http.open("https://api.github.com/repos/$REPO/releases/latest", connectMs = 15_000, readMs = 20_000)
@@ -33,7 +38,8 @@ object Updates {
             val o = Json.parseToJsonElement(c.inputStream.bufferedReader().readText()).jsonObject
             val tag = o["tag_name"]?.jsonPrimitive?.content ?: return null
             if (!tag.startsWith("avior-")) return null
-            Latest(parse(tag).joinToString("."), APK_URL, o["html_url"]?.jsonPrimitive?.content ?: PAGE_URL)
+            val (label, code) = parseTag(tag) ?: return null
+            Latest(label, code, APK_URL, o["html_url"]?.jsonPrimitive?.content ?: PAGE_URL)
         } finally {
             c.disconnect()
         }

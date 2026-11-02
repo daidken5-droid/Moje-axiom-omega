@@ -51,3 +51,15 @@ class UsageFixesTest {
         assertTrue(pick == "qwen/qwen3-235b-a22b-2507:free", pick)
     }
 }
+
+class DeltaVersionTest {
+    @Test fun tagsAndUpdateOrder() {
+        val u = cz.axiom.omega.core.update.Updates
+        kotlin.test.assertEquals("Delta I" to 1000, u.parseTag("avior-delta-i-c1000"))
+        kotlin.test.assertEquals("Delta II" to 1001, u.parseTag("avior-delta-ii-c1001"))
+        kotlin.test.assertEquals("8.9.0" to 890, u.parseTag("avior-v8.9.0"))
+        // Delta I (1000) je novější než 8.9.0 (890); Delta II než Delta I
+        assertTrue(u.newer(u.parseTag("avior-delta-i-c1000")!!.second, 890))
+        assertTrue(u.newer(1001, 1000)); assertFalse(u.newer(1000, 1000))
+    }
+}
