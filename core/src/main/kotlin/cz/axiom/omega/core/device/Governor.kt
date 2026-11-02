@@ -34,6 +34,10 @@ object Governor {
         val writeTps: Double? = null,
         /** výkonná vlákna podle profilu zařízení */
         val threads: Int = 4,
+        /** všechna jádra CPU (pro čtení zadání) */
+        val cores: Int = 8,
+        /** SÍLA VÝKONU nastavená uživatelem 25–100 % (posuvník v aplikaci) */
+        val strength: Int = 75,
     )
 
     data class Budget(
@@ -42,6 +46,8 @@ object Governor {
         val demand: Int,
         val maxTokens: Int,
         val threads: Int,
+        /** vlákna pro čtení zadání (prefill) */
+        val batchThreads: Int,
         val thinking: Boolean,
         val allowPipeline: Boolean,
         val allowAgent: Boolean,
@@ -99,6 +105,11 @@ object Governor {
         val before = power
 
         // 3) POJISTKY ZAŘÍZENÍ – mají přednost před vším
+        // SÍLA VÝKONU (uživatel): nízká síla nikdy nepustí Sherlock, maximum ho povolí už od střední náročnosti
+        val strength = i.strength.coerceIn(25, 100)
+        if (strength < 40 && power == Power.SHERLOCK) { power = Power.ADVANCED; why += "síla výkonu $strength % → bez Sherlocka" }
+        if (strength >= 100 && i.userPower == null && power == Power.ADVANCED && demand >= 60) { power = Power.SHERLOCK; why += "síla výkonu 100 % → Sherlock" }
+
         val bat = i.batteryPct
         val onCharger = i.charging == true
         if (bat != null && !onCharger) {
@@ -118,17 +129,23 @@ object Governor {
         var maxTokens = if (i.local) when (power) { Power.BASIC -> 320; Power.ADVANCED -> 560; Power.SHERLOCK -> 900 }
         else when (power) { Power.BASIC -> 2_000; Power.ADVANCED -> 8_000; Power.SHERLOCK -> 32_000 }
         if (slow) maxTokens = (maxTokens * 0.7).toInt()
+        maxTokens = (maxTokens * when { strength <= 25 -> 0.6; strength <= 50 -> 0.8; strength < 100 -> 1.0; else -> 1.3 }).toInt()
         if (i.local && demand < 20) maxTokens = minOf(maxTokens, 220)
-        var threads = i.threads
+        // vlákna podle síly: 25 % = polovina výkonných jader, 100 % = všechna výkonná (úsporná jádra generování brzdí)
+        var threads = when { strength <= 25 -> (i.threads / 2).coerceAtLeast(2); strength <= 50 -> (i.threads - 1).coerceAtLeast(2); else -> i.threads }
+        // čtení zadání je dobře paralelní → při vyšší síle všechna jádra kromě jednoho
+        var batch = when { strength <= 25 -> threads; strength <= 50 -> i.threads; else -> (i.cores - 1).coerceAtLeast(i.threads) }
+        if (threads < i.threads && strength < 75) why += "síla výkonu $strength % → $threads vlákna"
         if (i.local) {
             if (hot) threads = (threads - 1).coerceAtLeast(2)
             if (severe || (bat != null && bat <= 15 && !onCharger)) threads = (threads - 2).coerceAtLeast(2)
-            if (threads < i.threads) why += "${threads} vlákna CPU místo ${i.threads} (šetří teplotu a baterii)"
+            if ((hot || severe || (bat != null && bat <= 15 && !onCharger)) && threads < i.threads) why += "${threads} vlákna CPU místo ${i.threads} (šetří teplotu a baterii)"
+            if (hot || severe) batch = minOf(batch, i.threads)
         }
-        val thinking = power == Power.SHERLOCK && demand >= 70 && !hot
+        val thinking = power == Power.SHERLOCK && demand >= 70 && !hot && strength >= 50
         val pipeline = power == Power.SHERLOCK && !slow && !lowRam
         val agent = !i.local || power != Power.BASIC
         val knowledge = when { lowRam -> 1; power == Power.BASIC -> 2; power == Power.ADVANCED -> 3; else -> 5 }
-        return Budget(power, demand, maxTokens, threads, thinking, pipeline, agent, knowledge, why, power.ordinal < before.ordinal)
+        return Budget(power, demand, maxTokens, threads, batch.coerceAtLeast(threads), thinking, pipeline, agent, knowledge, why, power.ordinal < before.ordinal)
     }
 }

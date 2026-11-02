@@ -8,6 +8,20 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.5 – síla výkonu, uvolnění paměti, opravy
+
+- **Síla výkonu (posuvník 25–100 %)** v Nastavení i v listu voleb u pole pro dotaz. Regulátor výkonu ji
+  respektuje: 25 % = polovina výkonných jader a krátké odpovědi (šetří baterii), 50 % = méně jader,
+  75 % = všechna výkonná jádra (výchozí), 100 % = všechna jádra pro čtení zadání, o 30 % delší odpovědi
+  a Sherlock už od střední náročnosti. Vlákna se mění za běhu pro každou cestu (odpověď, agent, oba mozky).
+- **Paměť pro AVIOR – zavření aplikací na pozadí:** od Androidu 14 smí aplikace ukončit jen své procesy,
+  takže AVIOR jde přes systém: na okamžik zabere paměť (nativně, s pojistkami – strop 35 % RAM, nikdy pod
+  kritickou hranici systému), Android sám zavře aplikace na pozadí s nižší prioritou a AVIOR paměť hned vrátí.
+  Ukáže, kolik MB se uvolnilo. Volitelně automaticky před načtením mozku; odkaz na systémový limit procesů
+  na pozadí ve vývojářských možnostech.
+- **Opravy:** okamžité nástroje už nezaměňují otázku o tématu za příkaz („Hash je co?“, „base64 je
+  šifrování?“, „Hash tabulka v Pythonu“) – holé „hash“ jen s dvojtečkou (`hash: text`). Testy.
+
 ## Novinky 6.4 – závěrečná kontrola (vlastníma očima + očima etického hackera)
 
 **Kontrola vlastníma očima (správnost a výkon)**

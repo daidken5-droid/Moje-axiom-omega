@@ -87,6 +87,14 @@ class Settings(context: Context) {
     var autoDuo: Boolean
         get() = p.getBoolean("autoDuo", true)
         set(v) = p.edit().putBoolean("autoDuo", v).apply()
+    /** SÍLA VÝKONU 25–100 % (posuvník): vlákna CPU, délka odpovědí, povolení Sherlocka. */
+    var powerStrength: Int
+        get() = p.getInt("powerStrength", 75)
+        set(v) = p.edit().putInt("powerStrength", v.coerceIn(25, 100)).apply()
+    /** Před načtením mozku uvolnit paměť (Android zavře aplikace na pozadí). */
+    var autoReclaim: Boolean
+        get() = p.getBoolean("autoReclaim", false)
+        set(v) = p.edit().putBoolean("autoReclaim", v).apply()
     /** SOUKROMÍ: Air-gap (žádná síť), DLP štít pro cloud, zákaz snímků obrazovky. */
     var airgap: Boolean
         get() = p.getBoolean("airgap", false)
@@ -187,7 +195,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -228,6 +236,8 @@ class Settings(context: Context) {
         if (o.has("loraScale")) loraScale = o.getInt("loraScale")
         if (o.has("keepBrain")) keepBrain = o.getBoolean("keepBrain")
         if (o.has("instant")) instant = o.getBoolean("instant")
+        if (o.has("powerStrength")) powerStrength = o.getInt("powerStrength")
+        if (o.has("autoReclaim")) autoReclaim = o.getBoolean("autoReclaim")
         if (o.has("airgap")) airgap = o.getBoolean("airgap")
         if (o.has("dlp")) dlp = o.getBoolean("dlp")
         if (o.has("secureScreen")) secureScreen = o.getBoolean("secureScreen")

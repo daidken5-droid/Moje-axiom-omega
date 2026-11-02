@@ -199,6 +199,18 @@ const POWERS = [
   { id: 'SHERLOCK', ic: '⌕', label: 'Sherlock', desc: 'Maximum: dedukce a oponentura' },
 ];
 const curPower = () => (S.settings || {}).power || 'AUTO';
+/** SÍLA VÝKONU: posuvník 25–100 % (vlákna CPU, délka odpovědí, povolení Sherlocka). */
+const STRENGTH = [[25, 'Úsporná', 'polovina jader, krátké odpovědi, šetří baterii'], [50, 'Vyvážená', 'méně jader, střední délka'],
+  [75, 'Plná', 'všechna výkonná jádra (doporučeno)'], [100, 'Maximum', 'všechna jádra pro čtení, delší odpovědi, Sherlock dřív']];
+function strengthHtml() {
+  const v = (S.settings || {}).powerStrength || 75;
+  const cur = STRENGTH.reduce((a, b) => Math.abs(b[0] - v) < Math.abs(a[0] - v) ? b : a);
+  return `<div class="strength"><div class="row" style="justify-content:space-between;align-items:baseline"><label style="margin:0">Síla výkonu</label><b class="mono" id="strengthVal">${v} % · ${cur[1]}</b></div>
+    <input type="range" min="25" max="100" step="25" value="${v}" data-range="powerStrength" data-strength style="width:100%">
+    <div class="strength-ticks">${STRENGTH.map(x => `<span class="${x[0] === cur[0] ? 'on' : ''}">${x[1]}</span>`).join('')}</div>
+    <p class="small muted" id="strengthDesc" style="margin:2px 0 0">${cur[2]}</p></div>`;
+}
+
 function powerSeg(big) {
   return `<div class="power ${big ? 'big' : ''}">${POWERS.map(p => `<button data-power="${p.id}" class="${curPower() === p.id ? 'on' : ''}"><span class="p-ic">${p.ic}</span><b>${p.label}</b>${big ? `<small>${p.desc}</small>` : ''}</button>`).join('')}</div>`;
 }
@@ -803,16 +815,23 @@ function renderSystem() {
   const dv = J('device') || {};
   const devicePanel = card(`<div class="row" style="gap:12px"><span class="v-ic">▯</span><span class="grow"><b>${dv.known ? 'Ušito na míru: ' : 'Profil: '}${esc(dv.name || 'telefon')}</b>
       <small class="muted" style="display:block">${esc(dv.soc || '')}${dv.soc ? ' · ' : ''}${dv.ramGb || '?'} GB RAM · ${dv.threads || '?'} výkonná vlákna · kontext ${dv.ctx || '?'}</small></span></div>
-    <label>Výkon</label>${powerSeg(true)}
+    <label>Výkon</label>${powerSeg(true)}${strengthHtml()}
     <details class="x"><summary>REGULÁTOR VÝKONU · JAK ROZHODUJE</summary><div class="in" style="white-space:normal">
       <p class="small">› <b>Auto:</b> u každé otázky odhadne náročnost 0–100 (hloubka RANDY, délka, typ úlohy) a přidělí Základ (do 37), Pokročilé (38–71) nebo Sherlock (72+).</p>
       <p class="small">› <b>Ruční volba</b> je strop: na jednoduchou otázku nespotřebuje víc, než je potřeba. Zvolený Sherlock u náročné otázky platí celý.</p>
       <p class="small">› <b>Pojistky mají přednost vždy:</b> baterie ≤ 10 % → Základ, ≤ 25 % → bez Sherlocka; teplý telefon → bez Sherlocka a méně vláken, přehřátý → Základ; málo RAM → méně podkladů.</p>
       <p class="small">› <b>Rozpočet:</b> délka odpovědi (320 / 560 / 900 tokenů v telefonu), vlákna CPU, přemýšlení a řetězce podmodelů jen v Sherlocku. Když mozek píše pomalu (&lt; 4,5 tok/s), odpovědi zkrátí.</p>
+      <p class="small">› <b>Síla výkonu</b> (posuvník): 25 % = polovina jader a krátké odpovědi, 50 % = méně jader, 75 % = všechna výkonná jádra, 100 % = všechna jádra pro čtení zadání, o 30 % delší odpovědi a Sherlock už od střední náročnosti. Pod 40 % se Sherlock nepustí.</p>
       <p class="small">› U každé odpovědi v detailu (⋯) vidíš, co regulátor rozhodl a proč.</p></div></details>
     ${(dv.notes || []).length ? `<details class="x"><summary>JAK JE AVIOR NALADĚNÝ NA TENTO TELEFON</summary><div class="in" style="white-space:normal">${dv.notes.map(n => `<p class="small">› ${esc(n)}</p>`).join('')}</div></details>` : ''}`, 'randy');
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
     ${devicePanel}
+    ${(() => { const mi = J('memInfo') || {}; const st2 = S.settings || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">▤</span><span class="grow"><b>Paměť pro AVIOR</b>
+        <small class="muted" style="display:block">Volno <b id="memFree">${mi.free ?? '?'}</b> MB z ${mi.total ? (mi.total / 1024).toFixed(1).replace('.', ',') + ' GB' : '?'}</small></span></div>
+      <p class="small">Android aplikacím nedovolí zavírat cizí aplikace přímo. AVIOR proto na okamžik zabere paměť – systém sám zavře aplikace na pozadí, které RAM blokují – a hned ji vrátí mozku.</p>
+      <button class="btn primary wide" data-reclaim>Uvolnit paměť (zavřít aplikace na pozadí)</button>
+      <div class="toggle" style="margin-top:6px"><span>Uvolnit automaticky před načtením mozku<small>Když je volné RAM méně než 3 GB.</small></span><label class="switch"><input type="checkbox" data-set="autoReclaim" ${st2.autoReclaim ? 'checked' : ''}><i></i></label></div>
+      <button class="link" data-devopts>Trvale: omezit procesy na pozadí (vývojářské možnosti) ›</button>`); })()}
     ${(() => { const as = J('assistantStatus') || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">◉</span><span class="grow"><b>AVIOR místo Gemini</b>
         <small class="muted" style="display:block">${as.default ? 'AVIOR je tvůj výchozí asistent ✓' : 'Nastav AVIOR jako výchozího digitálního asistenta.'}</small></span><span class="dot ${as.default ? 'on' : ''}"></span></div>
       <p class="small">Dlouhý stisk vypínače (nebo gesto z rohu obrazovky) pak otevře AVIOR rovnou s hlasem – co řekneš, se samo odešle. Jednoduché otázky odpoví reflexem okamžitě a offline.</p>
@@ -897,7 +916,7 @@ function closeSheet() { $('#sheet').innerHTML = ''; }
 function kindSheet() {
   const lv = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
   sheet(`<div class="eyebrow" style="margin-top:4px">MOZEK</div>${brainPick()}
-    <div class="eyebrow">VÝKON</div>${powerSeg(true)}
+    <div class="eyebrow">VÝKON</div>${powerSeg(true)}${strengthHtml()}
     <div class="eyebrow">Ω VARIANTY · PODMODELY</div>
     <div class="vgrid">${variants().map(v => `<button class="vcard ${variant === v.id ? 'on' : ''}" data-variant="${v.id}"><span class="v-ic">${esc(v.icon)}</span>
       <b>${esc(v.title)}</b><small>${esc(v.tagline)}</small>${v.agent ? '<i>AGENT</i>' : ''}</button>`).join('')}</div>
@@ -1000,6 +1019,7 @@ window.omegaReceive = function (type, d) {
     case 'note': toast(d.text); break;
     case 'brain': brainMem = d; if (view === 'chat' && !msgs.length && !live) renderChat(); break;
     case 'crash': crashSheet(d); break;
+    case 'reclaim': { const el = $('#memFree'); if (el) el.textContent = d.after; const b = document.querySelector('[data-reclaim]'); if (b) b.disabled = false; break; }
     case 'wiped': threadId = 0; msgs = []; live = null; brainMem = null; go('chat'); break;
     case 'attach': attachment = d; if (view !== 'chat') go('chat'); else { $('#composerSlot').innerHTML = composer(); bindComposer(); } toast('Přiloženo: ' + d.name + (d.chars > 30000 ? ' (použiji prvních 30 tis. znaků)' : '')); break;
     case 'quick':
@@ -1064,6 +1084,8 @@ document.addEventListener('click', e => {
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
   if (ds.assistant !== undefined) { call('openAssistantSettings'); return; }
+  if (ds.reclaim !== undefined) { call('reclaimMemory'); toast('Uvolňuji paměť – aplikace na pozadí se zavřou…'); t.disabled = true; return; }
+  if (ds.devopts !== undefined) { call('openDevOptions'); return; }
   if (ds.panic !== undefined) {
     if (confirm('Smazat VŠECHNY konverzace, paměť, vlastní dokumenty, klíče a statistiky učení? Mozky a knihovna zůstanou.') &&
         confirm('Opravdu? Tohle nejde vrátit.')) { call('panicWipe'); haptic(); }
@@ -1170,6 +1192,16 @@ document.addEventListener('click', e => {
     if (ds.onboard !== 'later') { go('modules'); }
     if (ds.onboard === 'node') setTimeout(() => { const d = [...document.querySelectorAll('details.conn')][1]; if (d) { d.open = true; d.scrollIntoView({ block: 'center' }); } }, 80);
     return;
+  }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.strength !== undefined) {
+    const v = Number(t.value); const cur = STRENGTH.find(x => x[0] === v) || STRENGTH[2];
+    const lab = $('#strengthVal'); if (lab) lab.textContent = v + ' % · ' + cur[1];
+    const d = $('#strengthDesc'); if (d) d.textContent = cur[2];
+    t.parentElement.querySelectorAll('.strength-ticks span').forEach((s, i) => s.classList.toggle('on', STRENGTH[i][0] === v));
   }
 });
 

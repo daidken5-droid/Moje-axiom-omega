@@ -658,4 +658,24 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeSetThreads(JNIEnv *, jobject, jlong
     llama_set_n_threads(o->ctx, n, nb > 0 ? nb : n);
 }
 
+/**
+ * Uvolnění paměti pro AVIOR: dočasně zabere [mb] MB a stránky skutečně zapíše (aby byly v RAM).
+ * Android při nedostatku paměti zavře aplikace na pozadí (mají nižší prioritu než AVIOR v popředí).
+ * Paměť se hned poté vrací přes nativeTouchFree. Vrací ukazatel nebo 0.
+ */
+JNIEXPORT jlong JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeTouchAlloc(JNIEnv *, jobject, jint mb) {
+    if (mb <= 0 || mb > 512) return 0;
+    const size_t n = (size_t) mb << 20;
+    auto *p = static_cast<volatile char *>(malloc(n));
+    if (!p) return 0;
+    for (size_t i = 0; i < n; i += 4096) p[i] = (char) (i >> 12);
+    return reinterpret_cast<jlong>(p);
+}
+
+JNIEXPORT void JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeTouchFree(JNIEnv *, jobject, jlong p) {
+    if (p) free(reinterpret_cast<void *>(p));
+}
+
 }  // extern "C"

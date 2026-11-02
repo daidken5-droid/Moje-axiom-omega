@@ -37,4 +37,15 @@ class GovernorTest {
         val slow = d("Vysvětli, proč se rosí okna", RandyLevel.L2_DEEP, tps = 3.0)
         assertTrue(slow.maxTokens < 560); assertFalse(slow.allowPipeline)
     }
+
+    @Test fun strengthSliderControlsResources() {
+        fun g(strength: Int, l: RandyLevel = RandyLevel.L2_DEEP, p: String = "Vysvětli, proč se v zimě rosí okna a jak tomu zabránit") =
+            Governor.decide(Input(p, l, null, batteryPct = 80, charging = false, threads = 4, cores = 8, strength = strength))
+        val low = g(25); val mid = g(75); val max = g(100)
+        assertEquals(2, low.threads); assertEquals(4, mid.threads); assertEquals(7, max.batchThreads)
+        assertTrue(low.maxTokens < mid.maxTokens && mid.maxTokens < max.maxTokens)
+        // nízká síla nikdy Sherlock, maximum povolí Sherlock už u střední náročnosti
+        assertEquals(Power.ADVANCED, g(30, RandyLevel.L4_NEMESIS_REDTEAM, "Analyzuj rizika a navrhni strategii").power)
+        assertEquals(Power.SHERLOCK, g(100, RandyLevel.L3_STRATEGIC_EV, "Vyplatí se mi fotovoltaika?").power)
+    }
 }

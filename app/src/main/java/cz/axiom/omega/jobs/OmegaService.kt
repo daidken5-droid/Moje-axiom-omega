@@ -220,7 +220,10 @@ class OmegaService : Service() {
             userPower = if (omega.powerAuto()) null else omega.power(),
             batteryPct = battery, charging = charging, thermal = Introspect.thermalLevel(this), thermalCaution = omega.device.thermalCaution,
             freeRamMb = Introspect.freeRamMb(this), local = device.local, writeTps = omega.writeTps, threads = omega.device.threads,
+            cores = Runtime.getRuntime().availableProcessors(), strength = omega.settings.powerStrength,
         ))
+        // vlákna platí pro KAŽDOU cestu (odpověď, agent, oba mozky, řetězec) – nastaví se rovnou na načteném mozku
+        cz.axiom.omega.engine.LocalEngine.loaded()?.setThreads(budget.threads, budget.batchThreads)
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
             weakDomain = if (learning && competence?.weak == true) domain.label else null,
             // Turbo = rychlá cesta i v cloudu (1 průchod, bez přemýšlení, stručně)
@@ -328,7 +331,7 @@ class OmegaService : Service() {
                     val tLoad = System.currentTimeMillis()
                     val engine = omega.resolve(route.engine)
                     val loadMs = System.currentTimeMillis() - tLoad
-                    (engine as? cz.axiom.omega.engine.LocalEngine)?.setThreads(budget.threads)
+                    (engine as? cz.axiom.omega.engine.LocalEngine)?.setThreads(budget.threads, budget.batchThreads)
                     listener.onPhase("Probouzím ${engine.label}…")
                     // RYCHLOST v telefonu: každý průchod = celé čtení + psaní znovu. Běžný dotaz 1 průchod,
                     // strategické/kritické (L3+) 2, Sherlock nejvýš 2 + oponentura v řetězci.
@@ -362,7 +365,7 @@ class OmegaService : Service() {
             val finalVariant = escalatedTo ?: variant
             if (finalVariant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", finalVariant.title)
             meta.put("power", plan.power.label)
-            meta.put("governor", JSONObject().put("power", budget.power.label).put("demand", budget.demand).put("maxTokens", budget.maxTokens)
+            meta.put("governor", JSONObject().put("power", budget.power.label).put("demand", budget.demand).put("maxTokens", budget.maxTokens).put("strength", omega.settings.powerStrength)
                 .put("threads", budget.threads).put("limited", budget.limited).put("auto", omega.powerAuto())
                 .put("reasons", JSONArray().apply { budget.reasons.forEach { put(it) } }))
             val randyMeta = JSONObject().put("summary", plan.summary).put("authority", authority.label).put("chosen", plan.chosenByRandy)

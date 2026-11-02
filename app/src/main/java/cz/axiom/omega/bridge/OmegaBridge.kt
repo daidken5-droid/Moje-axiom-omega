@@ -790,6 +790,29 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun cognitionReset() { omega.cognition.reset(); Events.note("Paměť učení vymazána – začínám znovu.") }
 
+    /** Uvolní RAM pro AVIOR: Android zavře aplikace na pozadí (viz MemoryReclaimer). */
+    @JavascriptInterface fun reclaimMemory() {
+        if (OmegaService.RUNNING_ASK.get() || omega.warming) { Events.note("Počkej, až dopíšu odpověď – pak paměť uvolním."); return }
+        async {
+            Events.emit("phase", JSONObject().put("text", "Uvolňuji paměť…"))
+            val r = cz.axiom.omega.sys.MemoryReclaimer.reclaim(activity) { }
+            Events.emit("reclaim", JSONObject().put("before", r.beforeMb).put("after", r.afterMb).put("gained", r.gainedMb).put("note", r.note))
+            Events.note(r.note)
+        }
+    }
+
+    /** Vývojářské možnosti → Omezit procesy na pozadí (systémový limit, nejsilnější varianta). */
+    @JavascriptInterface fun openDevOptions() = activity.runOnUiThread {
+        val ok = runCatching { activity.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        Events.note(if (ok) "Najdi „Omezit procesy na pozadí“ a zvol např. „Nejvýše 2 procesy“."
+        else "Nejdřív zapni Vývojářské možnosti: Nastavení → O telefonu → 7× klepni na Číslo sestavení.")
+    }
+
+    @JavascriptInterface fun memInfo(): String {
+        val mi = android.app.ActivityManager.MemoryInfo().also { (activity.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it) }
+        return JSONObject().put("free", mi.availMem / 1_048_576).put("total", mi.totalMem / 1_048_576).put("low", mi.lowMemory).toString()
+    }
+
     /** Je AVIOR výchozí digitální asistent (místo Gemini)? */
     @JavascriptInterface fun assistantStatus(): String {
         val held = if (Build.VERSION.SDK_INT >= 29) runCatching {

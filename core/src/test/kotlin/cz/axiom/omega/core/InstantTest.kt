@@ -116,3 +116,15 @@ class SecurityEvolutionTest {
         assertTrue(!cz.axiom.omega.core.security.InjectionGuard.scan("Praha je hlavní město Česka. Leží na Vltavě.").suspicious)
     }
 }
+
+class InstantFalsePositiveTest {
+    @Test fun questionsAboutTopicsAreNotCommands() {
+        val I = cz.axiom.omega.core.agent.Instant
+        assertNull(I.answer("Hash je co?"))
+        assertNull(I.answer("base64 je šifrování?"))
+        assertNull(I.answer("sha256 vysvětli jak funguje"))
+        assertNull(I.answer("Hash tabulka v Pythonu"))
+        assertTrue(I.answer("sha256 heslo")!!.text.contains("SHA-256"))
+        assertTrue(I.answer("base64 ahoj")!!.text.contains("YWhvag=="))
+    }
+}

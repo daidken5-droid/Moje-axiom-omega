@@ -252,6 +252,9 @@ class Omega private constructor(val app: Context) {
         Events.emit("brain", org.json.JSONObject().put("state", "loading"))
         Thread({
             try {
+                // VOLITELNĚ: před načtením mozku uvolnit RAM (Android zavře aplikace na pozadí)
+                if (settings.autoReclaim && LocalEngine.loaded() == null && Introspect.freeRamMb(app) in 1..3_000)
+                    runCatching { cz.axiom.omega.sys.MemoryReclaimer.reclaim(app) }
                 val e = local(quiet = true)
                 // dotaz mezitím převzal mozek → nepřekážet (zámek v LocalEngine by ho jinak zdržel)
                 if (cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get() || e.busy) return@Thread

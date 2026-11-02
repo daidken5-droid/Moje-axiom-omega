@@ -597,3 +597,8 @@ body.platinum nav.tabs button.on { color: var(--text); font-weight: 600; }
 body.platinum nav.tabs button.on svg { filter: none; }
 /* odpověď reflexem (bez mozku) */
 .reflex { font: 9px var(--mono); letter-spacing: .5px; padding: 4px 8px; border-radius: 999px; color: var(--ti-text); border: 1px solid var(--line2); background: rgba(255, 255, 255, .04); }
+/* síla výkonu */
+.strength { margin-top: 12px; }
+.strength input[type=range] { margin: 8px 0 2px; accent-color: var(--ti-text); }
+.strength-ticks { display: flex; justify-content: space-between; font: 9px var(--mono); letter-spacing: .5px; color: var(--dim); text-transform: uppercase; }
+.strength-ticks span.on { color: var(--ti-text); }

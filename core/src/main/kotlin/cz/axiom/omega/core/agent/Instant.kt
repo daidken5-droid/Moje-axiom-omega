@@ -105,7 +105,8 @@ object Instant {
     }
 
     private val SecT = cz.axiom.omega.core.security.SecTools
-    private val hashCmd = Regex("(?iu)^\\s*(?:hash|hashe|md5|sha-?1|sha-?256|sha-?512|zahashuj|spočítej hash)\\s*(?:z|of|textu)?\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
+    // „sha256 text“, „md5 text“, „zahashuj text“ = příkaz; holé „hash“ jen s dvojtečkou/uvozovkami („hash: text“)
+    private val hashCmd = Regex("(?iu)^\\s*(?:md5|sha-?1|sha-?256|sha-?512|zahashuj|spočítej hash|spocitej hash|hash\\s*:|hashe?\\s+(?=[\"„]))\\s*(?:z|of|textu)?\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
     private val identCmd = Regex("(?iu)^\\s*(?:jaký je to hash|jaky je to hash|identifikuj hash|co je to za hash|typ hashe)\\s*[:?]?\\s*(\\S+)\\s*\\??\\s*$")
     private val encCmd = Regex("(?iu)^\\s*(base64|hex|url)\\s*(decode|dekóduj|dekoduj|encode|zakóduj|zakoduj)?\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
     private val decCmd = Regex("(?iu)^\\s*(?:dekóduj|dekoduj|decode|rozkóduj)\\s+(base64|hex|url)\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
@@ -113,10 +114,15 @@ object Instant {
     private val cidrRx = Regex("(?iu)^\\s*(?:podsíť|podsit|síť|sit|cidr|subnet|rozsah)?\\s*[:]?\\s*(\\d{1,3}(?:\\.\\d{1,3}){3}\\s*/\\s*\\d{1,2})\\s*\\??\\s*$")
 
     /** Hash, base64/hex/url, JWT, CIDR – bez mozku, nic neopouští telefon. */
+    /** Otázka O tématu („Hash je co?“, „base64 je šifrování?“), ne příkaz k výpočtu. */
+    private val aboutTopic = Regex("(?iu)(\\?\\s*$|\\b(je|jsou|znamená|znamena|funguje|vysvětli|vysvetli|proč|proc|jak|co|rozdíl|rozdil|bezpečn|bezpecn|šifrován|sifrovan)\\b)")
+
     fun security(raw: String): Answer? = runCatching {
         jwtRx.find(raw)?.let { return@runCatching Answer("**JWT (bez ověření podpisu):**\n" + SecT.jwt(it.groupValues[1]), "JWT") }
         cidrRx.find(raw)?.let { m -> cz.axiom.omega.core.security.Cidr.describe(m.groupValues[1].replace(" ", ""))?.let { return@runCatching Answer(it, "podsíť") } }
         identCmd.find(raw)?.let { return@runCatching Answer("Pravděpodobně: **${SecT.identifyHash(it.groupValues[1])}**", "typ hashe") }
+        // u kódování a hashe musí jít o příkaz, ne otázku o tématu
+        if (aboutTopic.containsMatchIn(raw.substringBefore(' ', raw).let { raw.removePrefix(it) }.take(40))) return@runCatching null
         decCmd.find(raw)?.let { m -> return@runCatching Answer("`" + SecT.encode(m.groupValues[1].lowercase() + "d", m.groupValues[2]) + "`", "dekódování") }
         encCmd.find(raw)?.let { m ->
             val decode = m.groupValues[2].lowercase().let { it.startsWith("dek") || it == "decode" }

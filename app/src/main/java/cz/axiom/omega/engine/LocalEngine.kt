@@ -55,6 +55,8 @@ object NativeLlama {
     external fun nativeFree(handle: Long)
     external fun nativeSetLora(handle: Long, path: String, scale: Float): String
     external fun nativeSetThreads(handle: Long, nThreads: Int, nThreadsBatch: Int)
+    external fun nativeTouchAlloc(mb: Int): Long
+    external fun nativeTouchFree(ptr: Long)
     external fun nativeLoadEmbedder(path: String, nThreads: Int): Long
     external fun nativeEmbed(handle: Long, text: String): FloatArray?
     external fun nativeRagTopK(buf: java.nio.ByteBuffer, dim: Int, count: Int, query: IntArray, k: Int): LongArray?
@@ -199,11 +201,11 @@ class LocalEngine private constructor(
     }
 
     @Volatile private var threadsNow = 0
-    /** Regulátor výkonu: počet vláken CPU pro další výpočet (bez znovunačtení mozku). */
-    fun setThreads(n: Int) {
-        if (n <= 0 || n == threadsNow) return
-        runCatching { NativeLlama.nativeSetThreads(handle, n, maxOf(n, (Runtime.getRuntime().availableProcessors() - 1).coerceAtMost(8))) }
-            .onSuccess { threadsNow = n }
+    /** Regulátor výkonu: vlákna pro psaní a čtení zadání pro další výpočet (bez znovunačtení mozku). */
+    fun setThreads(n: Int, batch: Int = n) {
+        val key = n * 100 + batch
+        if (n <= 0 || key == threadsNow) return
+        runCatching { NativeLlama.nativeSetThreads(handle, n, maxOf(n, batch).coerceAtMost(8)) }.onSuccess { threadsNow = key }
     }
 
     /** Tichý běh (předehřátí) – bez událostí do UI. */
