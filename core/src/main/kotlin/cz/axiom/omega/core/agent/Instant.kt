@@ -6,6 +6,7 @@ import cz.axiom.omega.core.step0.Rates
 import cz.axiom.omega.core.step0.Step0
 import cz.axiom.omega.core.step0.Units
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 import cz.axiom.omega.core.util.TextUtil.num
 import java.time.ZonedDateTime
 
@@ -53,7 +54,7 @@ object Instant {
     fun answer(prompt: String, ctx: Ctx = Ctx()): Answer? {
         val raw = prompt.trim()
         if (raw.isEmpty() || raw.length > 140 || raw.contains('\n')) return null
-        val f = TextUtil.fold(raw).replace(Regex("\\s+"), " ").trim()
+        val f = TextUtil.fold(raw).replace(rx("\\s+"), " ").trim()
         val name = ctx.userName?.takeIf { it.isNotBlank() }
 
         if (greet.matches(f)) return Answer("Ahoj${name?.let { ", $it" } ?: ""}! Na co se chceš zeptat?", "pozdrav")
@@ -74,13 +75,13 @@ object Instant {
 
         // výpočet: „kolik je 12*7+3“, „(5+3)/2“
         val expr = mathPrefix.replace(f, "").trim().trimEnd('?', '=', '!', '.', ' ')
-        if (expr.isNotEmpty() && exprOnly.matches(expr) && expr.any { it.isDigit() } && (expr.any { it in "+*/^×÷" } || Regex("\\s[-−]\\s").containsMatchIn(expr))) {
+        if (expr.isNotEmpty() && exprOnly.matches(expr) && expr.any { it.isDigit() } && (expr.any { it in "+*/^×÷" } || rx("\\s[-−]\\s").containsMatchIn(expr))) {
             Calc.eval(expr).getOrNull()?.takeIf { it.isFinite() }?.let { v ->
                 return Answer("${expr.trim()} = **${num(v, 6)}**", "výpočet")
             }
         }
         // procenta: „kolik je 15 % z 2400“
-        if (raw.length <= 60) Step0.percent(raw).singleOrNull()?.let { return Answer(it.text.replace(Regex("= (.+)$"), "= **$1**"), "procenta") }
+        if (raw.length <= 60) Step0.percent(raw).singleOrNull()?.let { return Answer(it.text.replace(rx("= (.+)$"), "= **$1**"), "procenta") }
         // převod jednotek a měn: „kolik je 5 mil v km“, „převeď 100 eur na koruny“
         if (unitAsk.containsMatchIn(f) && raw.length <= 70) {
             val u = Units.scan(raw, ctx.rates)
@@ -94,7 +95,7 @@ object Instant {
         if (k != null) define.find(f)?.let { m ->
             val subject = m.groupValues[2].trim()
             if (subject.split(' ').size > 5) return null
-            val origSubject = raw.replace(Regex("^(?i)\\s*(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamená|co znamena|co to je)\\s+"), "")
+            val origSubject = raw.replace(rx("^(?i)\\s*(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamená|co znamena|co to je)\\s+"), "")
                 .trimEnd('?', '!', '.', ' ')
             val hits = runCatching { k.search(origSubject, 4) }.getOrDefault(emptyList())
             val hit = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
@@ -137,7 +138,7 @@ object Instant {
     }.getOrNull()
 
     private fun titleMatches(title: String, subject: String): Boolean {
-        val t = TextUtil.fold(title).replace(Regex("\\s*\\(.*\\)\\s*"), "").trim()
+        val t = TextUtil.fold(title).replace(rx("\\s*\\(.*\\)\\s*"), "").trim()
         val s = subject.trim()
         return t == s || (s.length >= 4 && t.startsWith(s) && t.length <= s.length + 3)
     }
@@ -149,7 +150,7 @@ object Instant {
         val body = text.lineSequence().map { it.trim() }
             .filter { it.length > 25 && !it.startsWith("#") && !it.startsWith("|") && !it.startsWith("-") && !it.startsWith("*") }
             .joinToString(" ")
-            .replace(Regex("\\[\\d+]"), "").replace(Regex("\\s+"), " ").trim()
+            .replace(rx("\\[\\d+]"), "").replace(rx("\\s+"), " ").trim()
         if (body.length < 30) return null
         val out = StringBuilder()
         var count = 0

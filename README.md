@@ -8,6 +8,27 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.4.1 – zásada: každá úprava musí šetřit
+
+Nové moduly (normalizátor, oprava překlepů, E-ARL) prošly měřením nejhoršího případu, tedy otázky, která
+stejně jde mozku:
+- **Zkompilované vzory místo kompilace při každém volání:** 209 regulárních výrazů v reflexech se dřív kompilovalo
+  při každém volání. Teď se zkompilují jednou za běh (`rx()` s omezenou pamětí).
+- **Normalizátor jen na krátké otázky** (do 14 slov). Dlouhá zadání pro mozek se vůbec nepřepisují.
+- **Oprava překlepů** jen do 9 slov. Slovník se prohledává jen ve skupině podobné délky a hotové opravy se
+  pamatují.
+- **Měření:**
+
+| | Před | Po |
+|---|---|---|
+| Režie u otázky pro mozek (reflex + varianty + E-ARL) | 1,82 ms | **0,54 ms** |
+| Odpověď bez mozku (průměr) | 0,47 ms | **0,22 ms** |
+| Everyday | 0,47 ms | 0,035 ms |
+| Normalizátor | 0,80 ms | 0,05 ms |
+
+- **Hlídač výkonu:** test `OverheadTest` spadne, pokud režie překročí 2 ms. Zpomalení tak nemůže projít bez
+  povšimnutí.
+
 ## Novinky 8.4 – E-ARL, Neurální pavučina, hloubkový scan
 
 **E-ARL (Early Answer Routing Layer)** – modul před RANDYm, který u každé otázky za zlomek milisekundy rozhodne,

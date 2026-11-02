@@ -49,3 +49,11 @@ object TextUtil {
     /** Zkrátí text na [max] znaků s výpustkou. */
     fun clip(s: String, max: Int): String = if (s.length <= max) s else s.take(max - 1).trimEnd() + "…"
 }
+
+/**
+ * Zkompilovaný regulární výraz z vyrovnávací paměti. Reflexy volají stovky vzorů na každou otázku –
+ * `Regex("…")` uvnitř funkce se dřív kompiloval znovu při každém volání. Teď jednou za běh aplikace.
+ * Paměť je omezená (dynamické vzory nemohou růst donekonečna).
+ */
+private val rxCache = java.util.concurrent.ConcurrentHashMap<String, Regex>(512)
+fun rx(pattern: String): Regex = rxCache[pattern] ?: Regex(pattern).also { if (rxCache.size < 4000) rxCache[pattern] = it }

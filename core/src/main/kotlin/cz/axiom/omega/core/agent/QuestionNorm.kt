@@ -1,6 +1,7 @@
 package cz.axiom.omega.core.agent
 
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 
 /**
  * ROZPOZNÁVÁNÍ OTÁZEK – převede otázku tak, jak ji člověk napíše, na kanonický tvar, kterému rozumí reflexy.
@@ -113,12 +114,20 @@ object QuestionNorm {
         return d[a.length][b.length] <= max
     }
 
+    /** Slovník rozdělený podle délky – porovnává se jen se slovy podobné délky (místo celého slovníku). */
+    private val vocabByLen: Map<Int, List<String>> by lazy { vocab.groupBy { it.length } }
+    /** Paměť oprav: stejné slovo se podruhé neopravuje (běžné překlepy se opakují). */
+    private val typoMemo = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     /** Oprava překlepů: neznámé slovo → nejbližší známé (1 chyba do 7 písmen, 2 chyby od 8). */
     fun fixTypos(s: String): String = s.split(' ').joinToString(" ") { w ->
         if (w.length < 4 || w.any { it.isDigit() } || w in vocab || w in words) w
-        else {
+        else typoMemo[w] ?: run {
             val max = if (w.length >= 8) 2 else 1
-            vocab.asSequence().filter { it[0] == w[0] || it.length >= 6 }.firstOrNull { close(w, it, max) } ?: w
+            val hit = (w.length - max..w.length + max).asSequence().flatMap { vocabByLen[it].orEmpty().asSequence() }
+                .filter { it[0] == w[0] || it.length >= 6 }.firstOrNull { close(w, it, max) } ?: w
+            if (typoMemo.size < 5000) typoMemo[w] = hit
+            hit
         }
     }
 
@@ -149,15 +158,17 @@ object QuestionNorm {
 
     /** Kanonické varianty otázky (bez původní), od nejmenší změny po největší. */
     fun variants(prompt: String): List<String> {
-        if (prompt.length > 200 || prompt.contains('\n')) return emptyList()
+        if (prompt.length > 160 || prompt.contains('\n')) return emptyList()
+        // ÚSPORA: otázky, na které stačí reflex, jsou krátké → dlouhé zadání (pro mozek) se vůbec nenormalizuje
+        if (prompt.count { it == ' ' } > 13) return emptyList()
         val out = LinkedHashSet<String>()
         // tečku na konci smazat, ale ne za číslem data („24. 12.“); apostrof (what's) → mezera
-        var f = TextUtil.fold(prompt).lowercase().replace(Regex("[?!…]+"), " ").replace('\'', ' ').replace('’', ' ')
-            .replace(Regex("\\s+"), " ").trim().replace(Regex("(?<!\\d)\\.+$"), "").trim().trimEnd(',', ' ')
+        var f = TextUtil.fold(prompt).lowercase().replace(rx("[?!…]+"), " ").replace('\'', ' ').replace('’', ' ')
+            .replace(rx("\\s+"), " ").trim().replace(rx("(?<!\\d)\\.+$"), "").trim().trimEnd(',', ' ')
         // °C / °F → slova, která převodník zná
-        f = f.replace(Regex("(\\d)\\s*°?\\s*c\\b"), "$1 stupnu celsia").replace(Regex("(\\d)\\s*°?\\s*f\\b"), "$1 stupnu fahrenheita").replace('°', ' ')
+        f = f.replace(rx("(\\d)\\s*°?\\s*c\\b"), "$1 stupnu celsia").replace(rx("(\\d)\\s*°?\\s*f\\b"), "$1 stupnu fahrenheita").replace('°', ' ')
         // chat: „2x3“ → „2 krat 3“, „sqrt 81“ → „odmocnina z 81“
-        f = f.replace(Regex("(\\d)\\s*x\\s*(\\d)"), "$1 krat $2").replace(Regex("\\bsqrt\\s*\\(?(\\d+(?:[.,]\\d+)?)\\)?"), "odmocnina z $1")
+        f = f.replace(rx("(\\d)\\s*x\\s*(\\d)"), "$1 krat $2").replace(rx("\\bsqrt\\s*\\(?(\\d+(?:[.,]\\d+)?)\\)?"), "odmocnina z $1")
         // 0) angličtina
         english(f)?.let { out += it; return out.toList() }
         // 1) obaly pryč (opakovaně: „prosím tě, víš, kolik…“)
@@ -166,9 +177,9 @@ object QuestionNorm {
         out += f
         // 2) slovník (slang, nářečí, slovenština) + výplňová slova pryč
         f = f.replace(",", " ").split(' ').filter { it.isNotBlank() && it !in fillers }.joinToString(" ") { words[it] ?: it }
-            .replace(Regex("\\bhl\\.? ?mest"), "hlavni mest")
-            .replace(Regex("^kolik (mame|je ted|je to|mame ted) hodin$"), "kolik je hodin")
-            .replace(Regex("^(cas|kolik je cas|jaky je cas|jaky mame cas|presny cas|aktualni cas|kolik je h|kolik je hod|kolik hodin)$"), "kolik je hodin")
+            .replace(rx("\\bhl\\.? ?mest"), "hlavni mest")
+            .replace(rx("^kolik (mame|je ted|je to|mame ted) hodin$"), "kolik je hodin")
+            .replace(rx("^(cas|kolik je cas|jaky je cas|jaky mame cas|presny cas|aktualni cas|kolik je h|kolik je hod|kolik hodin)$"), "kolik je hodin")
         f = stripWrap(f)
         out += f
         // 3) přeformulování na tvary, které reflexy znají
@@ -178,7 +189,7 @@ object QuestionNorm {
         val n = numbers(r)
         if (n != r) { out += n; out += rephrase(n) }
         // 5) překlepy (až nakonec: nejdražší a nejodvážnější krok)
-        val t = fixTypos(f)
+        val t = if (f.count { it == ' ' } <= 8) fixTypos(f) else f
         if (t != f) { val tr = rephrase(t); out += tr; numbers(tr).let { if (it != tr) out += rephrase(it) } }
         out.remove(TextUtil.fold(prompt).trim())
         return out.filter { it.isNotBlank() }
@@ -196,63 +207,63 @@ object QuestionNorm {
 
     private fun english(f: String): String? {
         english.firstOrNull { it.first.matches(f) }?.let { return it.second }
-        Regex("^(?:what is |what s )?(?:the )?capital (?:city )?of (.+)$").find(f)?.let { m -> enCountry[m.groupValues[1].removePrefix("the ")]?.let { return "hlavni mesto $it" } }
-        Regex("^(?:how much is |what is |what s )?(\\d+(?:[.,]\\d+)?) ?(?:%|percent) of (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m -> return "${m.groupValues[1]} procent z ${m.groupValues[2]}" }
-        Regex("^(?:how much is |what is |what s |calculate )?(\\d+(?:[.,]\\d+)?) (times|plus|minus|divided by) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
+        rx("^(?:what is |what s )?(?:the )?capital (?:city )?of (.+)$").find(f)?.let { m -> enCountry[m.groupValues[1].removePrefix("the ")]?.let { return "hlavni mesto $it" } }
+        rx("^(?:how much is |what is |what s )?(\\d+(?:[.,]\\d+)?) ?(?:%|percent) of (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m -> return "${m.groupValues[1]} procent z ${m.groupValues[2]}" }
+        rx("^(?:how much is |what is |what s |calculate )?(\\d+(?:[.,]\\d+)?) (times|plus|minus|divided by) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
             val op = mapOf("times" to "krat", "plus" to "plus", "minus" to "minus", "divided by" to "deleno").getValue(m.groupValues[2])
             return "kolik je ${m.groupValues[1]} $op ${m.groupValues[3]}"
         }
-        Regex("^(?:give me a |pick a )?random number (?:from|between) (\\d+) (?:to|and) (\\d+)$").find(f)?.let { m -> return "nahodne cislo od ${m.groupValues[1]} do ${m.groupValues[2]}" }
+        rx("^(?:give me a |pick a )?random number (?:from|between) (\\d+) (?:to|and) (\\d+)$").find(f)?.let { m -> return "nahodne cislo od ${m.groupValues[1]} do ${m.groupValues[2]}" }
         return null
     }
 
     private fun rephrase(s: String): String {
         var f = s
         // „kolik metrů je 5 km“ / „kolik gramů má kilo“ → „5 km na m“
-        Regex("^kolik (\\w+) (?:je|ma|maji|obsahuje|da|dela) (\\d+(?:[.,]\\d+)?)? ?(\\w+)$").find(f)?.let { m ->
+        rx("^kolik (\\w+) (?:je|ma|maji|obsahuje|da|dela) (\\d+(?:[.,]\\d+)?)? ?(\\w+)$").find(f)?.let { m ->
             val to = unitGen[m.groupValues[1]]; val from = unitNom[m.groupValues[3]] ?: unitGen[m.groupValues[3]]
             if (to != null && from != null) return "${m.groupValues[2].ifBlank { "1" }} $from na $to"
         }
         // „kolik je 3 kg v gramech“ už převodník zná; „3 kila v gramech“ díky slovníku
         // zlomky: „třetina z 90“ → „90 / 3“, „polovina z 250“ → „250 / 2“
-        Regex("^(?:kolik je |kolik dela )?(\\w+) (?:z|ze) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
+        rx("^(?:kolik je |kolik dela )?(\\w+) (?:z|ze) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
             fractions.entries.firstOrNull { m.groupValues[1].startsWith(it.key) }?.let { return "kolik je ${m.groupValues[2]} / ${it.value}" }
         }
         // mocniny řadovou číslovkou: „2 na desátou“ → „2 na 10“
-        f = f.replace(Regex("\\bna (druhou|treti|ctvrtou|patou|sestou|sedmou|osmou|devatou|desatou)\\b")) { "na ${ordinalPow[it.groupValues[1]]}" }
-        f = f.replace(Regex("\\bdruha odmocnina\\b"), "odmocnina")
+        f = f.replace(rx("\\bna (druhou|treti|ctvrtou|patou|sestou|sedmou|osmou|devatou|desatou)\\b")) { "na ${ordinalPow[it.groupValues[1]]}" }
+        f = f.replace(rx("\\bdruha odmocnina\\b"), "odmocnina")
         // kurzy: „za kolik je euro“, „kolik stojí dolar“, „kolik je euro“ → „kurz eura“
-        Regex("^(?:za kolik je|kolik stoji|kolik je|kolik dela|jak stoji|jaky je kurz|kurz) (euro|eura|eur|dolar|dolaru|libra|libry|frank|franku|zloty|zlotych|jen|jenu)(?: v korunach| v kc)?$").find(f)?.let { m ->
+        rx("^(?:za kolik je|kolik stoji|kolik je|kolik dela|jak stoji|jaky je kurz|kurz) (euro|eura|eur|dolar|dolaru|libra|libry|frank|franku|zloty|zlotych|jen|jenu)(?: v korunach| v kc)?$").find(f)?.let { m ->
             val w = m.groupValues[1]
             return "kurz " + when { w.startsWith("eur") -> "eura"; w.startsWith("dol") -> "dolaru"; w.startsWith("lib") -> "libry"; w.startsWith("fra") -> "franku"; w.startsWith("zlot") -> "zlote"; else -> "jenu" }
         }
         // kalendář
-        Regex("^za jak dlouho (?:jsou|budou|je|bude|mame) (.+)$").find(f)?.let { m ->
-            val t = m.groupValues[1].replace(Regex("^vanoce$"), "vanoc").replace(Regex("^silvestr$"), "silvestra").replace(Regex("^novy rok$"), "noveho roku")
+        rx("^za jak dlouho (?:jsou|budou|je|bude|mame) (.+)$").find(f)?.let { m ->
+            val t = m.groupValues[1].replace(rx("^vanoce$"), "vanoc").replace(rx("^silvestr$"), "silvestra").replace(rx("^novy rok$"), "noveho roku")
             return "kolik dni do $t"
         }
-        f = f.replace(Regex("^kolik (dnu|dni) (zbyva |je |ostava |chyby )?do "), "kolik dni do ")
-        Regex("^kolik (?:je to |stoji )?(?:korun|kc) (?:za|na) (euro|eura|dolar|dolaru|libru)$").find(f)?.let { m -> return "kurz " + if (m.groupValues[1].startsWith("eur")) "eura" else if (m.groupValues[1].startsWith("dol")) "dolaru" else "libry" }
-        f = f.replace(Regex("^jak se (mas|mate|vede)( ty)?$"), "jak se mas").replace(Regex("^jake je dnes datum$|^jaky je dnes datum$"), "jaky je dnes den")
-        f = f.replace(Regex("^(jaky|jake) je dnesni (datum|den)$"), "jaky je dnes den")
-        f = f.replace(Regex("^(jaky|ktery) den (je|bude|byl|bylo) "), "$1 $2 den ")
-        f = f.replace(Regex("\\b(slavi svatek|slavi jmeniny|ma jmeniny)\\b"), "ma svatek")
-        f = f.replace(Regex("^kdo slavi (dnes |zitra )?(svatek|jmeniny)"), "kdo ma $1svatek").replace(Regex("^svatek dnes$"), "kdo ma dnes svatek")
-        f = f.replace(Regex("^jake je dnes datum$|^dnesni datum$|^jaky mame dnes den$|^co je dnes za den$|^kolikateho je dnes$|^jake mame dnes datum$"), "jaky je dnes den")
+        f = f.replace(rx("^kolik (dnu|dni) (zbyva |je |ostava |chyby )?do "), "kolik dni do ")
+        rx("^kolik (?:je to |stoji )?(?:korun|kc) (?:za|na) (euro|eura|dolar|dolaru|libru)$").find(f)?.let { m -> return "kurz " + if (m.groupValues[1].startsWith("eur")) "eura" else if (m.groupValues[1].startsWith("dol")) "dolaru" else "libry" }
+        f = f.replace(rx("^jak se (mas|mate|vede)( ty)?$"), "jak se mas").replace(rx("^jake je dnes datum$|^jaky je dnes datum$"), "jaky je dnes den")
+        f = f.replace(rx("^(jaky|jake) je dnesni (datum|den)$"), "jaky je dnes den")
+        f = f.replace(rx("^(jaky|ktery) den (je|bude|byl|bylo) "), "$1 $2 den ")
+        f = f.replace(rx("\\b(slavi svatek|slavi jmeniny|ma jmeniny)\\b"), "ma svatek")
+        f = f.replace(rx("^kdo slavi (dnes |zitra )?(svatek|jmeniny)"), "kdo ma $1svatek").replace(rx("^svatek dnes$"), "kdo ma dnes svatek")
+        f = f.replace(rx("^jake je dnes datum$|^dnesni datum$|^jaky mame dnes den$|^co je dnes za den$|^kolikateho je dnes$|^jake mame dnes datum$"), "jaky je dnes den")
         // politika a stát: „prezidentem USA“ → „prezident usa“, „český prezident“ → „prezident cr“
-        f = f.replace(Regex("\\b(prezidentem|prezidentkou)\\b"), "prezident").replace(Regex("\\b(premierem|premierkou)\\b"), "premier")
-            .replace(Regex("\\bprvnim prezident"), "prvni prezident")
-            .replace(Regex("^kdo je (cesky|nas) prezident$"), "kdo je prezident").replace(Regex("^kdo je (cesky|nas) premier$"), "kdo je premier")
-            .replace(Regex("^kdo je premier (ceska|cr|ceske republiky)$"), "kdo je premier")
-        Regex("^kolik (?:ma|je v) (nato|eu|evropska unie|osn) (clenu|statu|zemi|clenskych statu)$").find(f)?.let { return "kolik ${it.groupValues[2].substringBefore(' ')} ma ${it.groupValues[1]}" }
-        f = f.replace(Regex("^kdy jsme vstoupili do "), "kdy vstoupila cr do ").replace(Regex("^kdy cesko vstoupilo do "), "kdy vstoupila cr do ")
-        f = f.replace(Regex("^(vyznam|co znamena) zkratk[ay] "), "co znamena ").replace(Regex("^co je zkratka "), "co znamena ")
+        f = f.replace(rx("\\b(prezidentem|prezidentkou)\\b"), "prezident").replace(rx("\\b(premierem|premierkou)\\b"), "premier")
+            .replace(rx("\\bprvnim prezident"), "prvni prezident")
+            .replace(rx("^kdo je (cesky|nas) prezident$"), "kdo je prezident").replace(rx("^kdo je (cesky|nas) premier$"), "kdo je premier")
+            .replace(rx("^kdo je premier (ceska|cr|ceske republiky)$"), "kdo je premier")
+        rx("^kolik (?:ma|je v) (nato|eu|evropska unie|osn) (clenu|statu|zemi|clenskych statu)$").find(f)?.let { return "kolik ${it.groupValues[2].substringBefore(' ')} ma ${it.groupValues[1]}" }
+        f = f.replace(rx("^kdy jsme vstoupili do "), "kdy vstoupila cr do ").replace(rx("^kdy cesko vstoupilo do "), "kdy vstoupila cr do ")
+        f = f.replace(rx("^(vyznam|co znamena) zkratk[ay] "), "co znamena ").replace(rx("^co je zkratka "), "co znamena ")
         // identita a náhoda
-        f = f.replace(Regex("^(jsi|ty jsi|jsi ty) (ai|umela inteligence|robot|chatbot|bot|clovek)$"), "kdo jsi")
-        f = f.replace(Regex("^(vyber|vylosuj|rekni|dej mi) (nahodne )?cislo od "), "nahodne cislo od ")
-        f = f.replace(Regex("^hod (si )?(minci|kostkou)$"), "hod $2")
+        f = f.replace(rx("^(jsi|ty jsi|jsi ty) (ai|umela inteligence|robot|chatbot|bot|clovek)$"), "kdo jsi")
+        f = f.replace(rx("^(vyber|vylosuj|rekni|dej mi) (nahodne )?cislo od "), "nahodne cislo od ")
+        f = f.replace(rx("^hod (si )?(minci|kostkou)$"), "hod $2")
         // „kolik je hodin prosím“ – zbytky zdvořilosti uvnitř
-        f = f.replace(Regex("\\s+(prosim|prosim te)$"), "")
+        f = f.replace(rx("\\s+(prosim|prosim te)$"), "")
         return f.trim()
     }
 
@@ -269,7 +280,7 @@ object QuestionNorm {
                 tv != null -> out += tv.toString()
                 hundreds[t] != null -> out += hundreds.getValue(t).toString()
                 ones[t] != null && !(t == "jeden" || t == "jedna" || t == "jedno") -> out += ones.getValue(t).toString()
-                (t == "jeden" || t == "jedna" || t == "jedno") && i + 1 < toks.size && toks[i + 1].matches(Regex("krat|plus|minus|deleno|procent\\w*|na")) -> out += "1"
+                (t == "jeden" || t == "jedna" || t == "jedno") && i + 1 < toks.size && toks[i + 1].matches(rx("krat|plus|minus|deleno|procent\\w*|na")) -> out += "1"
                 big[t] != null -> {
                     // „pět set“, „dva tisíce“ → násobek předchozího čísla
                     val p = out.lastOrNull()?.toIntOrNull()

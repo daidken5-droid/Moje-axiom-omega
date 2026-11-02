@@ -1,6 +1,7 @@
 package cz.axiom.omega.core.agent
 
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 
 /**
  * POLITIKA BEZ MOZKU – reflexy nad offline daty (resources/facts/strany.tsv, pravice.tsv):
@@ -43,72 +44,72 @@ object Politics {
     private fun match(prompt: String): Instant.Answer? {
         val raw = prompt.trim()
         if (raw.isEmpty() || raw.length > 160) return null
-        val f = TextUtil.fold(raw).replace(Regex("\\s+"), " ").trim().trimEnd('?', '.', '!', ' ')
+        val f = TextUtil.fold(raw).replace(rx("\\s+"), " ").trim().trimEnd('?', '.', '!', ' ')
 
         // ---------------- pravicový pohled na téma (vždy označený)
-        if (Regex("pravic|konzervativ|pravy stred").containsMatchIn(f) && Regex("pohled|nazor|postoj|mysli|vidi|stanovisk|co rika|jak se diva|pristup").containsMatchIn(f)) {
-            val hit = right.firstOrNull { row -> row[0].split('|').any { Regex("\\b$it").containsMatchIn(f) } }
+        if (rx("pravic|konzervativ|pravy stred").containsMatchIn(f) && rx("pohled|nazor|postoj|mysli|vidi|stanovisk|co rika|jak se diva|pristup").containsMatchIn(f)) {
+            val hit = right.firstOrNull { row -> row[0].split('|').any { rx("\\b$it").containsMatchIn(f) } }
             if (hit != null) return ans("**Pravicový pohled – ${hit[1]}** _(názorový směr, ne fakta)_:\n${hit[2]}\n\n_Hlavní protiargument:_ ${hit[3]}", "pravicový pohled", 90)
-            if (Regex("^(jake|co|jaky|shrn)").containsMatchIn(f) && Regex("hodnot|zaklad|obecne|politik").containsMatchIn(f))
+            if (rx("^(jake|co|jaky|shrn)").containsMatchIn(f) && rx("hodnot|zaklad|obecne|politik").containsMatchIn(f))
                 return ans("**Pravicový pohled – základní hodnoty** _(názorový směr)_: svoboda jednotlivce a osobní odpovědnost, soukromé vlastnictví, právní stát, omezený a efektivní stát, volný trh, vyrovnané veřejné finance, u konzervativců tradiční instituce (rodina, národ, kulturní kořeny), silná obrana a spojenectví se Západem.\n\n_Hlavní protiargument:_ kritici upozorňují na nerovnosti a na to, že trh sám neřeší veřejné statky ani sociální rizika.", "pravicový pohled", 90)
         }
 
         // ---------------- strany
-        Regex("^(?:co je|co je to|kdo je|predstav|charakterizuj|jaka strana je|jake je)\\s+(?:strana |hnuti |koalice )?(.{2,25})$").find(f)?.let { m ->
+        rx("^(?:co je|co je to|kdo je|predstav|charakterizuj|jaka strana je|jake je)\\s+(?:strana |hnuti |koalice )?(.{2,25})$").find(f)?.let { m ->
             val q = m.groupValues[1].trim()
             parties.firstOrNull { q == it[0] || q.startsWith(it[0]) && q.length <= it[0].length + 3 }?.let { return ans("**${it[1]}** – ${it[2]}", "politika", 92) }
         }
 
         // ---------------- premiéři
-        if (Regex("\\b(premier|predseda vlady|predsedou vlady|predsedkyne vlady)").containsMatchIn(f)) {
-            if (Regex("^(seznam|vsichni|vyjmenuj|prehled|jaci|kteri)").containsMatchIn(f))
+        if (rx("\\b(premier|predseda vlady|predsedou vlady|predsedkyne vlady)").containsMatchIn(f)) {
+            if (rx("^(seznam|vsichni|vyjmenuj|prehled|jaci|kteri)").containsMatchIn(f))
                 return ans("**Předsedové vlád ČR:**\n" + pms.joinToString("\n") { "- ${it.third} (${it.first}–${if (it.second > 2090) "dosud, $STATE" else "${it.second}"})" }, "politika", 97)
-            Regex("\\b(19[9]\\d|20[0-4]\\d)\\b").find(f)?.value?.toInt()?.let { y ->
+            rx("\\b(19[9]\\d|20[0-4]\\d)\\b").find(f)?.value?.toInt()?.let { y ->
                 val who = pms.filter { y in it.first..it.second }
-                if (who.isNotEmpty() && Regex("^(kdo|kdo byl|jaky|ktery)").containsMatchIn(f))
+                if (who.isNotEmpty() && rx("^(kdo|kdo byl|jaky|ktery)").containsMatchIn(f))
                     return ans("V roce $y byl premiérem ČR **" + who.joinToString("**, pak **") { it.third } + "**.", "politika", if (y >= 2025) 90 else 97)
             }
-            if (Regex("prvni premier").containsMatchIn(f)) return ans("Prvním premiérem samostatné ČR byl **Václav Klaus** (ODS), 1993 – leden 1998.", "politika", 97)
-            if (Regex("^kdo je (soucasny |aktualni |nynejsi |dnes )?(cesky |nas )?(premier|predseda vlady)").containsMatchIn(f))
+            if (rx("prvni premier").containsMatchIn(f)) return ans("Prvním premiérem samostatné ČR byl **Václav Klaus** (ODS), 1993 – leden 1998.", "politika", 97)
+            if (rx("^kdo je (soucasny |aktualni |nynejsi |dnes )?(cesky |nas )?(premier|predseda vlady)").containsMatchIn(f))
                 return ans("Premiérem ČR je **Andrej Babiš** (ANO), jmenován v prosinci 2025 – vláda ANO, SPD a Motoristů sobě ($STATE, ověř).", "politika", 90)
         }
 
         // ---------------- volby
-        if (Regex("\\b(vyhral\\w*|vitez\\w*|vysledk\\w*)\\b").containsMatchIn(f) && Regex("\\bvolb").containsMatchIn(f) && !Regex("prezident|senat|evrop|krajsk|komunal|americk|usa").containsMatchIn(f)) {
+        if (rx("\\b(vyhral\\w*|vitez\\w*|vysledk\\w*)\\b").containsMatchIn(f) && rx("\\bvolb").containsMatchIn(f) && !rx("prezident|senat|evrop|krajsk|komunal|americk|usa").containsMatchIn(f)) {
             val y = Regex("\\b(20\\d\\d)\\b").find(f)?.value?.toInt() ?: if (Regex("posledn|minul").containsMatchIn(f)) 2025 else null
             y?.let { elections[it] }?.let { return ans(it, "politika", if (y == 2025) 92 else 97) }
         }
-        if (Regex("prezidentsk\\w* volb\\w* 2023|kdo vyhral (prime )?volb\\w* prezidenta 2023").containsMatchIn(f))
+        if (rx("prezidentsk\\w* volb\\w* 2023|kdo vyhral (prime )?volb\\w* prezidenta 2023").containsMatchIn(f))
             return ans("Prezidentskou volbu 2023 vyhrál **Petr Pavel** (ve 2. kole 58,3 % proti Andreji Babišovi).", "politika", 97)
 
         // ---------------- funkce s pevným mandátem (vždy se stavem)
-        if (Regex("^kdo je (soucasny |aktualni |nynejsi )?(americky )?prezident (usa|spojenych statu|ameriky)|^kdo je americky prezident|^prezident usa$").containsMatchIn(f))
+        if (rx("^kdo je (soucasny |aktualni |nynejsi )?(americky )?prezident (usa|spojenych statu|ameriky)|^kdo je americky prezident|^prezident usa$").containsMatchIn(f))
             return ans("Prezidentem USA je **Donald Trump** (republikán, 47. prezident) od 20. 1. 2025; funkční období do ledna 2029 ($STATE).", "politika", 90)
-        if (Regex("(predsed\\w*|sef\\w*) (evropske komise|ek\\b)").containsMatchIn(f))
+        if (rx("(predsed\\w*|sef\\w*) (evropske komise|ek\\b)").containsMatchIn(f))
             return ans("Předsedkyní Evropské komise je **Ursula von der Leyenová** (2. funkční období 2024–2029, $STATE).", "politika", 90)
-        if (Regex("(generaln\\w* tajemnik|sef) nato").containsMatchIn(f))
+        if (rx("(generaln\\w* tajemnik|sef) nato").containsMatchIn(f))
             return ans("Generálním tajemníkem NATO je **Mark Rutte** (od 1. 10. 2024, $STATE).", "politika", 90)
 
         // ---------------- NATO, EU, OSN – stálá fakta
-        if (Regex("^kolik (ma |je )?(clenu|statu|zemi) (ma )?(nato|v nato)|^kolik clenu ma nato").containsMatchIn(f))
+        if (rx("^kolik (ma |je )?(clenu|statu|zemi) (ma )?(nato|v nato)|^kolik clenu ma nato").containsMatchIn(f))
             return ans("NATO má **32 členů** – posledními se staly Finsko (2023) a Švédsko (2024).", "politika", 95)
-        if (Regex("^kolik (ma |je )?(clenu|statu|zemi) (ma )?(eu|evropske unie|v eu)|^kolik clenu ma eu").containsMatchIn(f))
+        if (rx("^kolik (ma |je )?(clenu|statu|zemi) (ma )?(eu|evropske unie|v eu)|^kolik clenu ma eu").containsMatchIn(f))
             return ans("Evropská unie má **27 členských států** (Spojené království vystoupilo 31. 1. 2020).", "politika", 95)
-        if (Regex("clanek 5|clanku 5").containsMatchIn(f) && "nato" in f)
+        if (rx("clanek 5|clanku 5").containsMatchIn(f) && "nato" in f)
             return ans("**Článek 5** Washingtonské smlouvy: ozbrojený útok na jednoho člena NATO je útokem na všechny. Dosud uplatněn jedinkrát – po útocích 11. 9. 2001.", "politika", 97)
-        if (Regex("kdy (vzniklo|byla zalozena|byl zalozen|vznikla) nato").containsMatchIn(f))
+        if (rx("kdy (vzniklo|byla zalozena|byl zalozen|vznikla) nato").containsMatchIn(f))
             return ans("NATO vzniklo **4. 4. 1949** podpisem Washingtonské smlouvy (12 zakládajících států).", "politika", 97)
-        if (Regex("kdy (vznikla|byla zalozena) (eu|evropska unie)").containsMatchIn(f))
+        if (rx("kdy (vznikla|byla zalozena) (eu|evropska unie)").containsMatchIn(f))
             return ans("Evropská unie vznikla **1. 11. 1993** Maastrichtskou smlouvou; navázala na Evropská společenství (Římské smlouvy 1957).", "politika", 97)
-        if (Regex("stal\\w* clen\\w* rady bezpecnosti|kdo ma (pravo )?veto v osn").containsMatchIn(f))
+        if (rx("stal\\w* clen\\w* rady bezpecnosti|kdo ma (pravo )?veto v osn").containsMatchIn(f))
             return ans("Stálí členové Rady bezpečnosti OSN s právem veta: **USA, Rusko, Čína, Spojené království a Francie**.", "politika", 97)
-        if (Regex("kdy (zacala|vypukla) (valka na ukrajine|ruska invaze|invaze na ukrajinu)").containsMatchIn(f))
+        if (rx("kdy (zacala|vypukla) (valka na ukrajine|ruska invaze|invaze na ukrajinu)").containsMatchIn(f))
             return ans("Plnou invazi na Ukrajinu zahájilo Rusko **24. 2. 2022**; konflikt začal už v roce 2014 anexí Krymu a válkou na Donbasu.", "politika", 97)
-        if (Regex("kdy (byl|zautocil|zacal) (utok )?hamas|kdy byl utok na izrael").containsMatchIn(f))
+        if (rx("kdy (byl|zautocil|zacal) (utok )?hamas|kdy byl utok na izrael").containsMatchIn(f))
             return ans("Hamás zaútočil na Izrael **7. 10. 2023** (asi 1 200 obětí, přes 250 rukojmí).", "politika", 97)
-        if (Regex("kdy (byla|probehla) sametova revoluce|kdy byl 17\\. listopad").containsMatchIn(f))
+        if (rx("kdy (byla|probehla) sametova revoluce|kdy byl 17\\. listopad").containsMatchIn(f))
             return ans("Sametová revoluce začala **17. listopadu 1989** studentskou demonstrací v Praze; komunistický režim padl do konce roku 1989.", "politika", 97)
-        if (Regex("kdy (vznikla|vzniklo) (ceska republika|cesko|samostatn\\w* cesk\\w*)").containsMatchIn(f))
+        if (rx("kdy (vznikla|vzniklo) (ceska republika|cesko|samostatn\\w* cesk\\w*)").containsMatchIn(f))
             return ans("Samostatná Česká republika vznikla **1. 1. 1993** rozdělením Československa.", "politika", 97)
         return null
     }

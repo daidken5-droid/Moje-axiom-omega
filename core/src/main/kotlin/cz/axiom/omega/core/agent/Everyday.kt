@@ -5,6 +5,7 @@ import cz.axiom.omega.core.step0.Calc
 import cz.axiom.omega.core.step0.Rates
 import cz.axiom.omega.core.step0.Units
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 import cz.axiom.omega.core.util.TextUtil.num
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -37,17 +38,17 @@ object Everyday {
 
     /** České slovní výrazy → výraz pro kalkulačku. */
     fun toExpr(f: String): String? {
-        var e = " " + f.replace(Regex("^(kolik je|kolik dela|spocitej( mi)?|vypocitej|spocti|kolik|co je)\\s+"), "").trim() + " "
-        e = e.replace(Regex("(druha|treti) odmocnina (z |ze )?(\\d+(?:[.,]\\d+)?)")) { m -> if (m.groupValues[1] == "druha") " sqrt(${m.groupValues[3]}) " else " (${m.groupValues[3]})^(1/3) " }
-        e = e.replace(Regex("odmocnin\\w* (z |ze )?(\\d+(?:[.,]\\d+)?)")) { " sqrt(${it.groupValues[2]}) " }
-        e = e.replace(Regex("(\\d+(?:[.,]\\d+)?) na (druhou|treti|(\\d+))\\b")) { m -> " ${m.groupValues[1]}^" + when (m.groupValues[2]) { "druhou" -> "2"; "treti" -> "3"; else -> m.groupValues[3] } + " " }
-        e = e.replace(Regex("(druha|treti) mocnin\\w* (z |ze |cisla )?(\\d+(?:[.,]\\d+)?)")) { m -> " ${m.groupValues[3]}^" + (if (m.groupValues[1] == "druha") "2" else "3") + " " }
-        e = e.replace(Regex("\\b(sin|cos|tan|tg)\\s*\\(?\\s*(-?\\d+(?:[.,]\\d+)?)\\s*\\)?\\s*(°|stupn\\w*)?")) { m -> " ${if (m.groupValues[1] == "tg") "tan" else m.groupValues[1]}(${m.groupValues[2]}*pi/180) " }
-        e = e.replace(Regex("\\b(krat|x|nasobeno)\\b"), "*").replace(Regex("\\b(deleno|lomeno|delene)\\b"), "/")
-            .replace(Regex("\\b(plus|a)\\b"), "+").replace(Regex("\\b(minus|bez)\\b"), "-")
+        var e = " " + f.replace(rx("^(kolik je|kolik dela|spocitej( mi)?|vypocitej|spocti|kolik|co je)\\s+"), "").trim() + " "
+        e = e.replace(rx("(druha|treti) odmocnina (z |ze )?(\\d+(?:[.,]\\d+)?)")) { m -> if (m.groupValues[1] == "druha") " sqrt(${m.groupValues[3]}) " else " (${m.groupValues[3]})^(1/3) " }
+        e = e.replace(rx("odmocnin\\w* (z |ze )?(\\d+(?:[.,]\\d+)?)")) { " sqrt(${it.groupValues[2]}) " }
+        e = e.replace(rx("(\\d+(?:[.,]\\d+)?) na (druhou|treti|(\\d+))\\b")) { m -> " ${m.groupValues[1]}^" + when (m.groupValues[2]) { "druhou" -> "2"; "treti" -> "3"; else -> m.groupValues[3] } + " " }
+        e = e.replace(rx("(druha|treti) mocnin\\w* (z |ze |cisla )?(\\d+(?:[.,]\\d+)?)")) { m -> " ${m.groupValues[3]}^" + (if (m.groupValues[1] == "druha") "2" else "3") + " " }
+        e = e.replace(rx("\\b(sin|cos|tan|tg)\\s*\\(?\\s*(-?\\d+(?:[.,]\\d+)?)\\s*\\)?\\s*(°|stupn\\w*)?")) { m -> " ${if (m.groupValues[1] == "tg") "tan" else m.groupValues[1]}(${m.groupValues[2]}*pi/180) " }
+        e = e.replace(rx("\\b(krat|x|nasobeno)\\b"), "*").replace(rx("\\b(deleno|lomeno|delene)\\b"), "/")
+            .replace(rx("\\b(plus|a)\\b"), "+").replace(rx("\\b(minus|bez)\\b"), "-")
         e = e.trim().trimEnd('?', '=', '!', '.').trim()
-        if (!e.any { it.isDigit() } || !e.matches(Regex("[\\d\\s+\\-*/^().,a-z]+")) || e.contains(Regex("[a-z]{5,}"))) return null
-        if (!Regex("[+\\-*/^]|sqrt|sin|cos|tan").containsMatchIn(e)) return null
+        if (!e.any { it.isDigit() } || !e.matches(rx("[\\d\\s+\\-*/^().,a-z]+")) || e.contains(rx("[a-z]{5,}"))) return null
+        if (!rx("[+\\-*/^]|sqrt|sin|cos|tan").containsMatchIn(e)) return null
         return e
     }
 
@@ -60,7 +61,7 @@ object Everyday {
         "eur\\w*" to "eur", "dolar\\w*" to "usd", "korun\\w*|kc|czk" to "czk", "libr\\w* sterlink\\w*" to "gbp", "frank\\w*" to "chf", "zlot\\w*" to "pln", "jen\\w*" to "jpy",
     )
     private val abbrev = setOf("km", "m", "cm", "mm", "dm", "mi", "in", "ft", "yd", "kg", "g", "mg", "t", "lb", "oz", "l", "ml", "gal", "ha", "kw", "hp", "ps", "kwh", "kcal", "mph", "kmh", "km/h", "m/s", "bar", "psi", "eur", "usd", "czk", "gbp", "chf", "pln", "jpy")
-    private fun unit(w: String): String? = w.trim().let { t -> t.takeIf { it in abbrev } ?: unitWords.firstOrNull { Regex("^(${it.first})$").matches(t) }?.second }
+    private fun unit(w: String): String? = w.trim().let { t -> t.takeIf { it in abbrev } ?: unitWords.firstOrNull { rx("^(${it.first})$").matches(t) }?.second }
 
     fun answer(prompt: String, today: LocalDate = LocalDate.now(), rates: Rates = Rates.FALLBACK, battery: Int? = null, charging: Boolean? = null, random: Random = Random.Default): Instant.Answer? =
         runCatching { match(prompt, today, rates, battery, charging, random) }.getOrNull()
@@ -68,45 +69,45 @@ object Everyday {
     private fun match(prompt: String, today: LocalDate, rates: Rates, battery: Int?, charging: Boolean?, rnd: Random): Instant.Answer? {
         val raw = prompt.trim()
         if (raw.isEmpty() || raw.length > 120 || raw.contains('\n')) return null
-        val f = TextUtil.fold(raw).replace(Regex("[,;]"), " ").replace(Regex("\\s+"), " ").trim().trimEnd('?', '.', '!', ' ')
+        val f = TextUtil.fold(raw).replace(rx("[,;]"), " ").replace(rx("\\s+"), " ").trim().trimEnd('?', '.', '!', ' ')
 
         // ---------------- drobná konverzace
-        if (Regex("^((ahoj|cau|nazdar|zdravim|dobry den|hej) )?(jak se mas|jak se vede|jak to jde|jak je|co ty)( ty)?( avior)?$").matches(f))
+        if (rx("^((ahoj|cau|nazdar|zdravim|dobry den|hej) )?(jak se mas|jak se vede|jak to jde|jak je|co ty)( ty)?( avior)?$").matches(f))
             return ans("Díky, mám se dobře – mozek připravený, paměť v pořádku. A jak se máš ty? S čím ti můžu pomoct?", "konverzace")
-        if (Regex("^(ok|okej|oki|dobre|jo|jj|ano|super|skvele|paradni|fajn|v pohode|rozumim|chapu|aha|jasne|diky moc|dekuji pekne)$").matches(f))
+        if (rx("^(ok|okej|oki|dobre|jo|jj|ano|super|skvele|paradni|fajn|v pohode|rozumim|chapu|aha|jasne|diky moc|dekuji pekne)$").matches(f))
             return ans("Kdybys něco potřeboval, jsem tady.", "konverzace")
-        if (Regex("^(dobrou noc|dobrou|spi sladce|jdu spat)$").matches(f)) return ans("Dobrou noc – ať se ti dobře spí.", "konverzace")
-        if (Regex("^(nashle|na shledanou|cau cau|mej se|mejte se|zatim|bye|papa|tak zatim)$").matches(f)) return ans("Měj se – kdykoli se vrať.", "konverzace")
-        if (Regex("^(co umis|co vsechno umis|co dokazes|s cim mi muzes pomoct|pomoc|help|napoveda|jak te pouzivat|jak to funguje)$").matches(f))
+        if (rx("^(dobrou noc|dobrou|spi sladce|jdu spat)$").matches(f)) return ans("Dobrou noc – ať se ti dobře spí.", "konverzace")
+        if (rx("^(nashle|na shledanou|cau cau|mej se|mejte se|zatim|bye|papa|tak zatim)$").matches(f)) return ans("Měj se – kdykoli se vrať.", "konverzace")
+        if (rx("^(co umis|co vsechno umis|co dokazes|s cim mi muzes pomoct|pomoc|help|napoveda|jak te pouzivat|jak to funguje)$").matches(f))
             return ans("Umím odpovídat a radit offline přímo v telefonu, počítat, převádět jednotky a měny, hledat v offline Wikipedii, pamatovat si, co mi řekneš, vytvářet soubory i aplikace, ovládat telefon povely („zapni svítilnu“, „budík na 6:30“) a s internetem hledat na webu. Jednoduché věci (čas, výpočty, svátky, hlavní města…) zvládnu okamžitě bez mozku.", "konverzace")
-        if (Regex("^(co delas|co ted delas|co delas ted)$").matches(f)) return ans("Čekám na tvou otázku – mozek mám připravený v paměti.", "konverzace")
-        if (Regex("^(kdo te (vytvoril|udelal|naprogramoval|stvoril)|kdo je tvuj (autor|tvurce)|odkud jsi)$").matches(f))
+        if (rx("^(co delas|co ted delas|co delas ted)$").matches(f)) return ans("Čekám na tvou otázku – mozek mám připravený v paměti.", "konverzace")
+        if (rx("^(kdo te (vytvoril|udelal|naprogramoval|stvoril)|kdo je tvuj (autor|tvurce)|odkud jsi)$").matches(f))
             return ans("Jsem ${Identity.NAME} – vznikl jsem jako tvoje vlastní AI na míru: běžím přímo v tvém telefonu na otevřených modelech (Gemma), s vlastní pamětí, reflexy a RANDY Supervisorem. Kód je v repozitáři Moje-axiom-omega.", "konverzace")
-        if (Regex("^(rekni (mi )?vtip|vtip|nejaky vtip|pobav me|zasmej me)$").matches(f)) return ans(jokes[rnd.nextInt(jokes.size)], "vtip")
+        if (rx("^(rekni (mi )?vtip|vtip|nejaky vtip|pobav me|zasmej me)$").matches(f)) return ans(jokes[rnd.nextInt(jokes.size)], "vtip")
 
         // ---------------- náhoda
-        if (Regex("^(hod|hodit|hodis|hod si|hod mi)( si)? minci|^(panna nebo orel|mince)$").containsMatchIn(f)) return ans(if (rnd.nextBoolean()) "**Panna**" else "**Orel**", "náhoda")
-        Regex("^(hod|hodit|hod si|hod mi)( si)? (kostkou|kostkami|(\\d) kostk\\w*)").find(f)?.let { m ->
+        if (rx("^(hod|hodit|hodis|hod si|hod mi)( si)? minci|^(panna nebo orel|mince)$").containsMatchIn(f)) return ans(if (rnd.nextBoolean()) "**Panna**" else "**Orel**", "náhoda")
+        rx("^(hod|hodit|hod si|hod mi)( si)? (kostkou|kostkami|(\\d) kostk\\w*)").find(f)?.let { m ->
             val n = m.groupValues[4].toIntOrNull()?.coerceIn(1, 6) ?: 1
             val r = List(n) { rnd.nextInt(1, 7) }
             return ans(r.joinToString(" + ") { "**$it**" } + if (n > 1) " = **${r.sum()}**" else "", "náhoda")
         }
-        Regex("nahodne cislo (od |mezi )?(-?\\d+) (do|a) (-?\\d+)").find(f)?.let { m ->
+        rx("nahodne cislo (od |mezi )?(-?\\d+) (do|a) (-?\\d+)").find(f)?.let { m ->
             val a = m.groupValues[2].toLong(); val b = m.groupValues[4].toLong()
             if (b > a && b - a < 1_000_000_000L) return ans("**${rnd.nextLong(a, b + 1)}** (náhodně od $a do $b)", "náhoda")
         }
 
         // ---------------- kalendář a čas
-        if (Regex("^(jaky|co) (je|bude) (zitra|pozitri)( za)? den|^(jaky den je|jaky den bude) (zitra|pozitri)|^(zitra|pozitri) je (jaky den|co)$").containsMatchIn(f)) {
+        if (rx("^(jaky|co) (je|bude) (zitra|pozitri)( za)? den|^(jaky den je|jaky den bude) (zitra|pozitri)|^(zitra|pozitri) je (jaky den|co)$").containsMatchIn(f)) {
             val d = if ("pozitri" in f) today.plusDays(2) else today.plusDays(1)
             return ans("${if ("pozitri" in f) "Pozítří" else "Zítra"} je **${days[d.dayOfWeek.value - 1]} ${d.dayOfMonth}. ${monthsGen[d.monthValue - 1]} ${d.year}**.", "kalendář")
         }
-        if (Regex("^(jaky|co) (byl|bylo) vcera|^jaky den byl vcera").containsMatchIn(f)) { val d = today.minusDays(1); return ans("Včera byl **${days[d.dayOfWeek.value - 1]} ${d.dayOfMonth}. ${monthsGen[d.monthValue - 1]}**.", "kalendář") }
-        if (Regex("^(co je dnes za den( v tydnu)?|jaky je dnes den v tydnu|jaky je den v tydnu)$").matches(f))
+        if (rx("^(jaky|co) (byl|bylo) vcera|^jaky den byl vcera").containsMatchIn(f)) { val d = today.minusDays(1); return ans("Včera byl **${days[d.dayOfWeek.value - 1]} ${d.dayOfMonth}. ${monthsGen[d.monthValue - 1]}**.", "kalendář") }
+        if (rx("^(co je dnes za den( v tydnu)?|jaky je dnes den v tydnu|jaky je den v tydnu)$").matches(f))
             return ans("Dnes je **${days[today.dayOfWeek.value - 1]}**.", "kalendář")
-        if (Regex("^(jaky|ktery) (je )?(ted |letos |dnes )?rok|^(jaky|ktery) mame rok").containsMatchIn(f)) return ans("Je rok **${today.year}**.", "kalendář")
-        if (Regex("^(jaky|ktery) (je )?(ted |dnes )?mesic|^(jaky|ktery) mame mesic").containsMatchIn(f)) return ans("Je **${monthsNom[today.monthValue - 1]}** (${today.monthValue}. měsíc).", "kalendář")
-        Regex("kolik (dni|dnu) (ma|mel|bude mit) (leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)( (\\d{4}))?").find(f)?.let { m ->
+        if (rx("^(jaky|ktery) (je )?(ted |letos |dnes )?rok|^(jaky|ktery) mame rok").containsMatchIn(f)) return ans("Je rok **${today.year}**.", "kalendář")
+        if (rx("^(jaky|ktery) (je )?(ted |dnes )?mesic|^(jaky|ktery) mame mesic").containsMatchIn(f)) return ans("Je **${monthsNom[today.monthValue - 1]}** (${today.monthValue}. měsíc).", "kalendář")
+        rx("kolik (dni|dnu) (ma|mel|bude mit) (leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)( (\\d{4}))?").find(f)?.let { m ->
             val names = listOf("leden", "unor", "brezen", "duben", "kveten", "cerven", "cervenec", "srpen", "zari", "rijen", "listopad", "prosinec")
             val mo = names.indexOf(m.groupValues[3]) + 1
             val y = m.groupValues[5].toIntOrNull() ?: today.year
@@ -114,34 +115,34 @@ object Everyday {
             return ans("${monthsNom[mo - 1].replaceFirstChar { it.uppercase() }} $y má **$len dní**.", "kalendář")
         }
         when {
-            Regex("^kolik (dni|dnu) (ma )?rok|^kolik ma rok dni").containsMatchIn(f) -> return ans("Rok má **365 dní**, přestupný **366** (${today.year} ${if (java.time.Year.isLeap(today.year.toLong())) "je" else "není"} přestupný).", "čas")
-            Regex("^kolik (dni|dnu) (ma )?tyden|^kolik ma tyden dni").containsMatchIn(f) -> return ans("Týden má **7 dní**.", "čas")
-            Regex("^kolik (dni|dnu) (ma )?prestupn\\w* rok").containsMatchIn(f) -> return ans("Přestupný rok má **366 dní** (29. února navíc).", "čas")
-            Regex("^kolik (sekund|vterin) (ma )?(minuta|minutu)").containsMatchIn(f) -> return ans("Minuta má **60 sekund**.", "čas")
-            Regex("^kolik minut (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **60 minut**.", "čas")
-            Regex("^kolik hodin (ma )?(den|dni)$").containsMatchIn(f) -> return ans("Den má **24 hodin**.", "čas")
-            Regex("^kolik (sekund|vterin) (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **3 600 sekund**.", "čas")
-            Regex("^kolik (minut) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **1 440 minut**.", "čas")
-            Regex("^kolik (sekund|vterin) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **86 400 sekund**.", "čas")
-            Regex("^kolik (hodin) (ma )?(tyden)").containsMatchIn(f) -> return ans("Týden má **168 hodin**.", "čas")
-            Regex("^kolik (tydnu|tydnu) (ma )?rok").containsMatchIn(f) -> return ans("Rok má **52 týdnů** a 1 den (přestupný 2 dny).", "čas")
+            rx("^kolik (dni|dnu) (ma )?rok|^kolik ma rok dni").containsMatchIn(f) -> return ans("Rok má **365 dní**, přestupný **366** (${today.year} ${if (java.time.Year.isLeap(today.year.toLong())) "je" else "není"} přestupný).", "čas")
+            rx("^kolik (dni|dnu) (ma )?tyden|^kolik ma tyden dni").containsMatchIn(f) -> return ans("Týden má **7 dní**.", "čas")
+            rx("^kolik (dni|dnu) (ma )?prestupn\\w* rok").containsMatchIn(f) -> return ans("Přestupný rok má **366 dní** (29. února navíc).", "čas")
+            rx("^kolik (sekund|vterin) (ma )?(minuta|minutu)").containsMatchIn(f) -> return ans("Minuta má **60 sekund**.", "čas")
+            rx("^kolik minut (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **60 minut**.", "čas")
+            rx("^kolik hodin (ma )?(den|dni)$").containsMatchIn(f) -> return ans("Den má **24 hodin**.", "čas")
+            rx("^kolik (sekund|vterin) (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **3 600 sekund**.", "čas")
+            rx("^kolik (minut) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **1 440 minut**.", "čas")
+            rx("^kolik (sekund|vterin) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **86 400 sekund**.", "čas")
+            rx("^kolik (hodin) (ma )?(tyden)").containsMatchIn(f) -> return ans("Týden má **168 hodin**.", "čas")
+            rx("^kolik (tydnu|tydnu) (ma )?rok").containsMatchIn(f) -> return ans("Rok má **52 týdnů** a 1 den (přestupný 2 dny).", "čas")
         }
-        Regex("(narodil\\w*|narozen\\w*|ročník|rocnik)\\D{0,12}(19\\d\\d|20[0-2]\\d)").find(f)?.let { m ->
-            if (!Regex("kolik (je|mi je|mu je|ji je|bude|mam)|let").containsMatchIn(f)) return@let
+        rx("(narodil\\w*|narozen\\w*|ročník|rocnik)\\D{0,12}(19\\d\\d|20[0-2]\\d)").find(f)?.let { m ->
+            if (!rx("kolik (je|mi je|mu je|ji je|bude|mam)|let").containsMatchIn(f)) return@let
             val y = m.groupValues[2].toInt()
             return ans("Narozený v roce $y je letos (${today.year}) **${today.year - y} let** – nebo ${today.year - y - 1}, pokud ještě neměl narozeniny.", "výpočet")
         }
-        Regex("kolik let (je |uplynulo |ubehlo )?(od|od roku) (\\d{3,4})").find(f)?.let { m ->
+        rx("kolik let (je |uplynulo |ubehlo )?(od|od roku) (\\d{3,4})").find(f)?.let { m ->
             val y = m.groupValues[3].toInt()
             if (y <= today.year) return ans("Od roku $y uplynulo **${today.year - y} let**.", "výpočet")
         }
 
         // ---------------- baterie
-        if (Regex("^(kolik (mam |ma telefon )?baterie|kolik procent mam|kolik mam procent|baterka|stav baterky)$").matches(f) && battery != null)
+        if (rx("^(kolik (mam |ma telefon )?baterie|kolik procent mam|kolik mam procent|baterka|stav baterky)$").matches(f) && battery != null)
             return ans("Baterie má **$battery %**" + if (charging == true) " a nabíjí se." else ".", "telefon")
 
         // ---------------- kurzy ČNB
-        Regex("^(?:jaky je |aktualni )?kurz (eura|eur|dolaru|usd|libry|gbp|franku|chf|zlote\\w*|pln|jenu|jpy)$").find(f)?.let { m ->
+        rx("^(?:jaky je |aktualni )?kurz (eura|eur|dolaru|usd|libry|gbp|franku|chf|zlote\\w*|pln|jenu|jpy)$").find(f)?.let { m ->
             val code = when { m.groupValues[1].startsWith("eur") -> "EUR"; m.groupValues[1].startsWith("dol") || m.groupValues[1] == "usd" -> "USD"; m.groupValues[1].startsWith("lib") || m.groupValues[1] == "gbp" -> "GBP"
                 m.groupValues[1].startsWith("fra") || m.groupValues[1] == "chf" -> "CHF"; m.groupValues[1].startsWith("zl") || m.groupValues[1] == "pln" -> "PLN"; else -> "JPY" }
             val r = rates.of(code) ?: return null
@@ -149,7 +150,7 @@ object Everyday {
         }
 
         // ---------------- převody v přirozené řeči: „5 km v metrech“, „100 eur na koruny“, „palec v cm“, „10 eur“
-        Regex("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?(\\d+(?:[.,]\\d+)?)?\\s*([a-z° ]{1,28}?)\\s+(?:v|ve|na|do|=)\\s+([a-z° ]{1,28})$").find(f)?.let { m ->
+        rx("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?(\\d+(?:[.,]\\d+)?)?\\s*([a-z° ]{1,28}?)\\s+(?:v|ve|na|do|=)\\s+([a-z° ]{1,28})$").find(f)?.let { m ->
             val v = m.groupValues[1].ifBlank { "1" }.replace(',', '.').toDoubleOrNull() ?: return@let
             val from = unit(m.groupValues[2]) ?: return@let
             val to = unit(m.groupValues[3]) ?: return@let
@@ -158,14 +159,14 @@ object Everyday {
                 return ans("${num(v, 4)} ${show(from)} = **${num(r, 4)} ${show(to)}**" + if (from in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")) " (${rates.label()})" else "", "převod")
             }
         }
-        Regex("^(?:kolik je |kolik dela )?(\\d+(?:[.,]\\d+)?) (eur\\w*|dolar\\w*|usd|liber|libr\\w*|frank\\w*|zlot\\w*)$").find(f)?.let { m ->
+        rx("^(?:kolik je |kolik dela )?(\\d+(?:[.,]\\d+)?) (eur\\w*|dolar\\w*|usd|liber|libr\\w*|frank\\w*|zlot\\w*)$").find(f)?.let { m ->
             val v = m.groupValues[1].replace(',', '.').toDouble()
             val from = unit(m.groupValues[2]) ?: return@let
             Units.convert(v, from, "czk", rates).getOrNull()?.let { return ans("${num(v)} ${m.groupValues[2]} = **${num(it)} Kč** (${rates.label()}).", "převod", 92) }
         }
 
         // ---------------- procenta slovy, počty slovy
-        Regex("(\\d+(?:[.,]\\d+)?) ?(procent\\w*|%) (z|ze) (\\d[\\d ]*(?:[.,]\\d+)?)").find(f)?.let { m ->
+        rx("(\\d+(?:[.,]\\d+)?) ?(procent\\w*|%) (z|ze) (\\d[\\d ]*(?:[.,]\\d+)?)").find(f)?.let { m ->
             val p = m.groupValues[1].replace(',', '.').toDouble(); val base = m.groupValues[4].replace(" ", "").replace(',', '.').toDouble()
             return ans("${num(p)} % z ${num(base)} = **${num(base * p / 100)}**", "procenta")
         }

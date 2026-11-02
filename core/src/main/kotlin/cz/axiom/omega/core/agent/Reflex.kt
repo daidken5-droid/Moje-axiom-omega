@@ -3,6 +3,7 @@ package cz.axiom.omega.core.agent
 import cz.axiom.omega.core.self.MemoryItem
 import cz.axiom.omega.core.self.MemoryKind
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -42,7 +43,7 @@ object Reflex {
         val f = TextUtil.fold(prompt).trim().trimEnd('?', '.', '!', ' ')
         if (f.length > 80) return null
         // kolik dní do Vánoc / do 24. 12. (2026)
-        Regex("^(?:kolik (?:dni|dnu|dnu zbyva|dni zbyva) (?:zbyva )?)?(?:kolik )?(?:dni|dnu)?\\s*(?:zbyva )?do (.+)$").find(f)?.let { m ->
+        rx("^(?:kolik (?:dni|dnu|dnu zbyva|dni zbyva) (?:zbyva )?)?(?:kolik )?(?:dni|dnu)?\\s*(?:zbyva )?do (.+)$").find(f)?.let { m ->
             if (!f.startsWith("kolik")) return@let
             val target = m.groupValues[1].trim()
             var d = namedDays.entries.firstOrNull { target.startsWith(it.key) }?.value?.invoke(today.year)
@@ -53,21 +54,21 @@ object Reflex {
             return Instant.Answer(if (n == 0L) "Je to **dnes** (${fmt(d)})." else "Do ${fmt(d)} zbývá **$n ${dayWord(n)}** (${days[d.dayOfWeek.value - 1]}).", "kalendář", confidence = 99)
         }
         // jaký den (v týdnu) bude / byl 24. 12. 2026
-        if (Regex("^(jaky|kterej?y?|co) (je|bude|byl|to bude|to byl)?\\s*(den|den v tydnu)").containsMatchIn(f) || f.startsWith("na jaky den")) {
+        if (rx("^(jaky|kterej?y?|co) (je|bude|byl|to bude|to byl)?\\s*(den|den v tydnu)").containsMatchIn(f) || f.startsWith("na jaky den")) {
             dateRx.find(f)?.let { dm ->
                 val d = runCatching { LocalDate.of(dm.groupValues[3].ifBlank { "${today.year}" }.toInt(), dm.groupValues[2].toInt(), dm.groupValues[1].toInt()) }.getOrNull() ?: return null
                 return Instant.Answer("${fmt(d)} ${if (d.isBefore(today)) "byl" else if (d == today) "je" else "bude"} **${days[d.dayOfWeek.value - 1]}**.", "kalendář", confidence = 99)
             }
         }
         // jaké datum bude za 30 dní / co bude za 2 týdny
-        Regex("za (\\d{1,4}) (dni|dnu|den|dny|tyden|tydny|tydnu)").find(f)?.let { m ->
-            if (!Regex("^(jake|jaky|co|kdy|ktery)").containsMatchIn(f)) return@let
+        rx("za (\\d{1,4}) (dni|dnu|den|dny|tyden|tydny|tydnu)").find(f)?.let { m ->
+            if (!rx("^(jake|jaky|co|kdy|ktery)").containsMatchIn(f)) return@let
             val n = m.groupValues[1].toLong() * if (m.groupValues[2].startsWith("tyd")) 7 else 1
             val d = today.plusDays(n)
             return Instant.Answer("Za $n ${dayWord(n)} bude **${days[d.dayOfWeek.value - 1]} ${fmt(d)}**.", "kalendář", confidence = 99)
         }
         // kolikátý týden / den v roce
-        if (Regex("^kolikat[yi] (je )?(dnes )?tyden").containsMatchIn(f)) {
+        if (rx("^kolikat[yi] (je )?(dnes )?tyden").containsMatchIn(f)) {
             val w = today.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
             return Instant.Answer("Dnes je **$w. týden** roku ${today.year} (ISO).", "kalendář", confidence = 99)
         }
@@ -98,8 +99,8 @@ object Reflex {
         val conf = (if (coverage >= 100) 92 else if (coverage >= 50) 80 else 60) - if (unique) 0 else 15
         // vzpomínky jsou psané ve 3. osobě („Uživatelův pes…“) → oslovit přímo
         val said = top.first.text.trim().trimEnd('.')
-            .replace(Regex("^Uživatelův "), "Tvůj ").replace(Regex("^Uživatelova "), "Tvoje ").replace(Regex("^Uživatelovo "), "Tvoje ")
-            .replace(Regex("^Uživatelovi "), "Tví ").replaceFirstChar { it.uppercase() }
+            .replace(rx("^Uživatelův "), "Tvůj ").replace(rx("^Uživatelova "), "Tvoje ").replace(rx("^Uživatelovo "), "Tvoje ")
+            .replace(rx("^Uživatelovi "), "Tví ").replaceFirstChar { it.uppercase() }
         return Instant.Answer("Podle toho, co si pamatuji: **$said.**", "z paměti o tobě", confidence = conf)
     }
 
@@ -110,7 +111,7 @@ object Reflex {
     /** Otázka, jejíž odpověď se mění v čase → nikdy z paměti odpovědí. */
     fun timeSensitive(q: String): Boolean {
         val f = " " + TextUtil.fold(q) + " "
-        return volatileWords.any { " $it" in f } || Regex("\\b20\\d\\d\\b").containsMatchIn(f)
+        return volatileWords.any { " $it" in f } || rx("\\b20\\d\\d\\b").containsMatchIn(f)
     }
 
     fun key(q: String): Set<String> = TextUtil.words(q, 3).filter { it !in stop }.toSet()
