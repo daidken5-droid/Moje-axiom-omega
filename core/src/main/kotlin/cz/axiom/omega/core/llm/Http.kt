@@ -11,7 +11,14 @@ import java.net.URL
 object Http {
     const val USER_AGENT = "AVIOR/4.0 (Android; +https://github.com/daidken5-droid/Moje-axiom-omega)"
 
+    /**
+     * AIR-GAP: absolutně offline – každý síťový požadavek celé aplikace (stahování, web, cloud, aktualizace)
+     * skončí tady, ještě než se otevře spojení. Jediné místo, kterým jde HTTP → nelze obejít.
+     */
+    @Volatile var airgap = false
+
     fun open(url: String, method: String = "GET", connectMs: Int = 20_000, readMs: Int = 180_000): HttpURLConnection {
+        if (airgap) throw EngineException("Air-gap: síť je vypnutá – AVIOR běží jen v telefonu (Nastavení → Soukromí).")
         requireAllowed(url)
         val c = URL(url).openConnection() as HttpURLConnection
         c.requestMethod = method

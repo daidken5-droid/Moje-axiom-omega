@@ -118,8 +118,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** OPSEC: zákaz snímků obrazovky a náhledu v přehledu aplikací (volitelné, Nastavení → Soukromí). */
+    fun applySecureScreen() {
+        if (Omega.get(this).settings.secureScreen) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     override fun onStart() {
         super.onStart()
+        applySecureScreen()
         Events.listen(forward)
         dispatch("resume", JSONObject())
         // samostudium otevřených otázek, když se telefon nabíjí na Wi-Fi

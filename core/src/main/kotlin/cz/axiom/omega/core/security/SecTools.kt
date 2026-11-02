@@ -130,6 +130,20 @@ object SecTools {
         "Heslo v konfiguraci" to Regex("""(?i)\b(?:password|passwd|pwd|secret|api[_-]?key)\s*[:=]\s*['"]?[^\s'"]{6,}"""),
     )
 
+    /**
+     * DLP: zamaskuje tajemství (API klíče, tokeny, privátní klíče, hesla v konfiguraci) před odesláním mimo telefon.
+     * @return upravený text a názvy zamaskovaných typů
+     */
+    fun redact(text: String): Pair<String, List<String>> {
+        val found = mutableListOf<String>()
+        // NEJDŘÍV celý blok privátního klíče (hlavička i tělo), jinak by se zamaskovala jen hlavička a tělo by uniklo
+        var out = Regex("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?(-----END [A-Z ]*PRIVATE KEY-----|$)").replace(text) { found += "Soukromý klíč"; "[Soukromý klíč – zamaskováno]" }
+        for ((name, rx) in secretPatterns) {
+            out = rx.replace(out) { m -> found += name; "[$name – zamaskováno]" }
+        }
+        return out to found
+    }
+
     /** Hledá uniklé klíče a hesla v textu (kód, konfigurace, logy). */
     fun secretScan(text: String): String {
         val hits = secretPatterns.flatMap { (name, rx) -> rx.findAll(text).map { "$name: ${mask(it.value)}" }.toList() }

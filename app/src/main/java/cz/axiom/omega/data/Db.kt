@@ -281,6 +281,19 @@ class Db private constructor(context: Context) :
         writableDatabase.delete("memory", "id=?", arrayOf(id.toString()))
     }
 
+    /** NOUZOVÉ SMAZÁNÍ: konverzace, paměť, úlohy i vlastní dokumenty (offline balíčky se příště doinstalují). */
+    fun wipeAll() {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            for (t in listOf("messages", "threads", "memory", "tasks", "vectors", "docs", "packs")) runCatching { db.delete(t, null, null) }
+            runCatching { db.execSQL("DELETE FROM chunks") }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+        vectorIndex = null
+        runCatching { db.execSQL("VACUUM") } // smazaná data fyzicky přepsat, ne jen označit jako volná
+    }
+
     fun clearMemory() {
         writableDatabase.delete("memory", null, null)
     }

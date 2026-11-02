@@ -227,7 +227,10 @@ class ActiveAgent(
                 }
             }
             if (verdict is cz.axiom.omega.core.randy.Supervisor.Watchdog.Verdict.Run) watchdog?.after(call.first, argsKey, observation)
-            val obs = TextUtil.clip(observation, if (local) 1_500 else 6_000)
+            // FIREWALL: web, soubory a nástroje můžou obsahovat skryté „pokyny pro AI“ → zneškodnit dřív, než je model uvidí
+            val guarded = cz.axiom.omega.core.security.InjectionGuard.scan(observation)
+            if (guarded.suspicious) listener.onPhase("Firewall: zneškodněna podezřelá instrukce ve výstupu ${call.first} (${guarded.hits.joinToString()})")
+            val obs = TextUtil.clip(guarded.text, if (local) 1_500 else 6_000)
             val step = AgentStep(i, parsed.thought, call.first, call.second.toString(), obs, System.currentTimeMillis() - t0)
             steps += step
             listener.onStep(step)

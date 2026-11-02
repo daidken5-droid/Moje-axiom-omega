@@ -8,6 +8,24 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.2 – AVIOR očima etického hackera
+
+Vlastní AI v kapse má být hlavně **neprůstřelná**: data patří jen tobě, nic neuniká a nikdo ji nepřeprogramuje.
+
+- **Air-gap – úplně offline:** jeden přepínač a z celé aplikace neodejde ani bajt. Vynuceno v jediné síťové
+  vrstvě (`Http.open`) i v klientovi Claude – stahování, web, cloud, aktualizace, všechno. Myslí jen telefon.
+- **DLP štít pro cloud:** každá zpráva, která opouští telefon (Turbo, Claude, Oba mozky, Konzilium, agent),
+  projde maskováním tajemství – API klíče (AWS, GitHub, GitLab, Slack, Google, Stripe, Anthropic/OpenAI, HF),
+  JWT, hesla v konfiguraci a **celé bloky privátních klíčů**. Klidně vlož log nebo konfiguraci a ptej se.
+- **Firewall proti prompt injection:** podklady z knihovny, webu, souborů a výstupy nástrojů agenta se
+  kontrolují na skryté „pokyny pro AI“ (přepsání pokynů, změna role, vynášení dat, falešné značky chatu –
+  česky i anglicky) a zneškodní se dřív, než je model uvidí.
+- **Hackerské nástroje bez mozku (Ω Flash, okamžitě, offline):** `sha256 text`, `base64 text`,
+  `dekóduj base64 …`, `hex`/`url`, vložený JWT, `identifikuj hash …`, `podsíť 10.0.0.0/22` (CIDR kalkulačka).
+- **Opsec:** zákaz snímků obrazovky a náhledu v přehledu aplikací; **nouzové smazání** konverzací, paměti,
+  dokumentů, klíčů a statistik (s fyzickým přepsáním databáze). Mozky a knihovna zůstanou.
+- Testy: DLP (včetně těla privátního klíče), firewall (CZ/EN, bez falešných poplachů), hackerské nástroje.
+
 ## Novinky 6.1 – finální polish (2 kola optimalizace)
 
 **1. kolo – správnost a rychlost dotazu**

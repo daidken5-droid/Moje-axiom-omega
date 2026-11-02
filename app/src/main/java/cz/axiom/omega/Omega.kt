@@ -70,6 +70,7 @@ class JobState {
 /** Kořen aplikace: nastavení, trezor, databáze, mozky, výběr enginu a sebemodel. */
 class Omega private constructor(val app: Context) {
     val settings = Settings(app)
+    init { cz.axiom.omega.core.llm.Http.airgap = settings.airgap }
     val vault = Vault(app)
     val db: Db get() = Db.get(app)
     val packs = cz.axiom.omega.data.PackManager(app)
@@ -379,8 +380,13 @@ class Omega private constructor(val app: Context) {
         }
         currentLabel = e.label
         currentKind = e.kind
-        return e
+        return shield(e)
     }
+
+    /** DLP štít: všechno, co jde do cloudu, projde maskováním tajemství (mozek v telefonu ne – data neopouští). */
+    fun shield(e: LlmEngine): LlmEngine =
+        if (e.kind == EngineKind.LOCAL || !settings.dlp || e is cz.axiom.omega.core.security.DlpEngine) e
+        else cz.axiom.omega.core.security.DlpEngine(e) { Events.note("🛡 DLP: před odesláním do cloudu zamaskováno – ${it.joinToString()}") }
 
     /** Nejsilnější dostupný cloudový partner pro režim OBA MOZKY: Claude > Kimi > Node > HF > server. */
     fun duoPartner(engines: List<String> = availableEngines()): String? =
@@ -403,7 +409,7 @@ class Omega private constructor(val app: Context) {
             if (online && vault.has(Vault.CLAUDE)) runCatching { claude() }.getOrNull()?.let(::add)
             if (settings.serverUrl.isNotBlank()) runCatching { server() }.getOrNull()?.let(::add)
             if (localAvailable()) runCatching { local() }.getOrNull()?.let { add(0, it) }
-        }
+        }.map { shield(it) }
         if (members.size < 2) throw EngineException("Konzilium potřebuje aspoň 2 mozky (např. Kimi K3 + Claude, nebo cloud + lokální).")
         val judge = when (settings.councilJudge) {
             "kimi" -> members.firstOrNull { it.kind == EngineKind.KIMI_CLOUD }

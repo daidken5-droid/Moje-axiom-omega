@@ -85,6 +85,9 @@ object Instant {
             val u = Units.scan(raw, ctx.rates)
             if (u.size == 1) return Answer(u.single(), "převod")
         }
+        // HACKERSKÉ NÁSTROJE BEZ MOZKU (offline, deterministicky, okamžitě)
+        security(raw)?.let { return it }
+
         // krátká definice z offline znalostí (Wikipedie, balíčky) – jen přesná shoda názvu
         val k = ctx.knowledge
         if (k != null) define.find(f)?.let { m ->
@@ -99,6 +102,32 @@ object Instant {
         }
         return null
     }
+
+    private val SecT = cz.axiom.omega.core.security.SecTools
+    private val hashCmd = Regex("(?iu)^\\s*(?:hash|hashe|md5|sha-?1|sha-?256|sha-?512|zahashuj|spočítej hash)\\s*(?:z|of|textu)?\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
+    private val identCmd = Regex("(?iu)^\\s*(?:jaký je to hash|jaky je to hash|identifikuj hash|co je to za hash|typ hashe)\\s*[:?]?\\s*(\\S+)\\s*\\??\\s*$")
+    private val encCmd = Regex("(?iu)^\\s*(base64|hex|url)\\s*(decode|dekóduj|dekoduj|encode|zakóduj|zakoduj)?\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
+    private val decCmd = Regex("(?iu)^\\s*(?:dekóduj|dekoduj|decode|rozkóduj)\\s+(base64|hex|url)\\s*[:\"„]?\\s*(.+?)[\"“]?\\s*$")
+    private val jwtRx = Regex("^\\s*(?:jwt\\s*[:]?\\s*)?(eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]*)\\s*$")
+    private val cidrRx = Regex("(?iu)^\\s*(?:podsíť|podsit|síť|sit|cidr|subnet|rozsah)?\\s*[:]?\\s*(\\d{1,3}(?:\\.\\d{1,3}){3}\\s*/\\s*\\d{1,2})\\s*\\??\\s*$")
+
+    /** Hash, base64/hex/url, JWT, CIDR – bez mozku, nic neopouští telefon. */
+    fun security(raw: String): Answer? = runCatching {
+        jwtRx.find(raw)?.let { return@runCatching Answer("**JWT (bez ověření podpisu):**\n" + SecT.jwt(it.groupValues[1]), "JWT") }
+        cidrRx.find(raw)?.let { m -> cz.axiom.omega.core.security.Cidr.describe(m.groupValues[1].replace(" ", ""))?.let { return@runCatching Answer(it, "podsíť") } }
+        identCmd.find(raw)?.let { return@runCatching Answer("Pravděpodobně: **${SecT.identifyHash(it.groupValues[1])}**", "typ hashe") }
+        decCmd.find(raw)?.let { m -> return@runCatching Answer("`" + SecT.encode(m.groupValues[1].lowercase() + "d", m.groupValues[2]) + "`", "dekódování") }
+        encCmd.find(raw)?.let { m ->
+            val decode = m.groupValues[2].lowercase().let { it.startsWith("dek") || it == "decode" }
+            val mode = m.groupValues[1].lowercase() + if (decode) "d" else ""
+            return@runCatching Answer("`" + SecT.encode(mode, m.groupValues[3]) + "`", if (decode) "dekódování" else "kódování")
+        }
+        hashCmd.find(raw)?.let { m ->
+            val text = m.groupValues[1]
+            return@runCatching Answer("Hashe textu „${TextUtil.clip(text, 40)}“ (UTF-8):\n```\n${SecT.hash(text)}\n```", "hash")
+        }
+        null
+    }.getOrNull()
 
     private fun titleMatches(title: String, subject: String): Boolean {
         val t = TextUtil.fold(title).replace(Regex("\\s*\\(.*\\)\\s*"), "").trim()

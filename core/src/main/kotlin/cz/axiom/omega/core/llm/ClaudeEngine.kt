@@ -46,6 +46,7 @@ class ClaudeEngine(
     }
 
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
+        if (Http.airgap) throw EngineException("Air-gap: síť je vypnutá – Claude teď nejde použít.")
         val started = System.currentTimeMillis()
         val params = buildParams(messages, options)
         try {
@@ -151,6 +152,7 @@ class ClaudeEngine(
         }
 
         fun listModels(apiKey: String): List<String> {
+            if (Http.airgap) throw EngineException("Air-gap: síť je vypnutá.")
             val c = AnthropicOkHttpClient.builder().apiKey(apiKey.trim()).build()
             try {
                 return c.models().list().autoPager().map { it.id() }.toList()

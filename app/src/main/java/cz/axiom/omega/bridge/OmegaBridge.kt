@@ -164,6 +164,12 @@ class OmegaBridge(private val activity: MainActivity) {
             omega.settings.apply(o)
             if (o.has("power")) cz.axiom.omega.widget.AviorWidget.refresh(activity)
             if (o.has("keepBrain")) OmegaService.keep(activity, omega.settings.keepBrain && omega.localAvailable())
+            if (o.has("airgap")) {
+                cz.axiom.omega.core.llm.Http.airgap = omega.settings.airgap
+                if (omega.settings.airgap) { OmegaService.cancelBg(activity); Events.note("Air-gap zapnut: AVIOR nepošle po síti ani bajt. Myslí jen telefon.") }
+                else Events.note("Air-gap vypnut – síť je zase povolená.")
+            }
+            if (o.has("secureScreen")) activity.runOnUiThread { activity.applySecureScreen() }
             if (o.has("memSafe")) {
                 // změna způsobu načtení → mozek načíst znovu (až nic nepočítá)
                 if (!OmegaService.RUNNING_ASK.get()) cz.axiom.omega.engine.LocalEngine.releaseIfIdle()
@@ -190,6 +196,23 @@ class OmegaBridge(private val activity: MainActivity) {
         omega.vault.save(provider, k)
         Events.note(if (k.isEmpty()) "Klíč odstraněn." else "Klíč uložen šifrovaně (Android Keystore).")
         Events.emit("config", JSONObject(state()))
+    }
+
+    /**
+     * NOUZOVÉ SMAZÁNÍ: konverzace, paměť, vlastní dokumenty, klíče, statistiky učení a vytvořené soubory.
+     * Mozky a offline knihovna zůstanou (nejsou osobní data). Databáze se po smazání fyzicky přepíše (VACUUM).
+     */
+    @JavascriptInterface
+    fun panicWipe() = async {
+        OmegaService.cancel(activity)
+        listOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF).forEach(omega.vault::remove)
+        omega.db.wipeAll()
+        omega.cognition.reset(); omega.randy.reset()
+        runCatching { java.io.File(activity.filesDir, "crash.txt").delete() }
+        runCatching { omega.forge.wipe() }
+        Events.emit("config", JSONObject(state()))
+        Events.emit("wiped", JSONObject())
+        Events.note("Smazáno: konverzace, paměť, dokumenty, klíče i statistiky. Mozky a knihovna zůstaly.")
     }
 
     @JavascriptInterface

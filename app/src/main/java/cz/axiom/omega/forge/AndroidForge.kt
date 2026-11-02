@@ -207,4 +207,12 @@ class AndroidForge(private val context: Context) : FileSink {
     private fun kb(n: Int) = if (n >= 1_048_576) "%.1f MB".format(n / 1_048_576.0) else "${(n + 1023) / 1024} kB"
 
     companion object { const val ALIAS = "axiom-app-forge" }
+
+    /** Nouzové smazání: soubory, které AVIOR vytvořil v soukromé složce aplikace. */
+    fun wipe() {
+        dir.listFiles()?.forEach { it.deleteRecursively() }
+        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { File(it, "AVIOR").deleteRecursively() }
+        synchronized(session) { session.clear() }
+    }
+
 }

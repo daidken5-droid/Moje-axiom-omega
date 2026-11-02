@@ -310,6 +310,7 @@ function loadThread(id) {
 /** Stav mozku v paměti: připraven / načítám / nenačten (klepnutím načíst předem). */
 let brainMem = null;
 function brainChip() {
+  if ((S.settings || {}).airgap) return `<div class="brainchip on"><i></i>⛨ Air-gap · nic neopouští telefon</div>`;
   const b = brainMem || (brainMem = J('brainState')) || {};
   if (!b.state || !(S.engines || []).includes('local')) return '';
   if (b.state === 'loaded') return `<div class="brainchip on"><i></i>Mozek připraven v paměti – odpovídám hned</div>`;
@@ -811,6 +812,13 @@ function renderSystem() {
     ${(dv.notes || []).length ? `<details class="x"><summary>JAK JE AVIOR NALADĚNÝ NA TENTO TELEFON</summary><div class="in" style="white-space:normal">${dv.notes.map(n => `<p class="small">› ${esc(n)}</p>`).join('')}</div></details>` : ''}`, 'randy');
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
     ${devicePanel}
+    ${card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">⛨</span><span class="grow"><b>Soukromí a opsec</b>
+        <small class="muted" style="display:block">AVIOR jako tvůj vlastní model: data patří jen tobě.</small></span></div>
+      ${sw('airgap', 'Air-gap – úplně offline', 'Žádný síťový požadavek z celé aplikace (vynuceno v síťové vrstvě). Myslí jen telefon.')}
+      ${sw('dlp', 'DLP štít pro cloud', 'Před odesláním do cloudu zamaskuje API klíče, tokeny, privátní klíče a hesla.')}
+      ${sw('secureScreen', 'Zákaz snímků obrazovky', 'Žádné screenshoty ani náhled v přehledu aplikací.')}
+      <p class="small muted" style="margin:8px 0 0">Firewall proti prompt injection běží vždy: skryté „pokyny pro AI“ ve webu, souborech a knihovně se zneškodní.</p>
+      <button class="btn danger wide" data-panic style="margin-top:10px">Nouzové smazání osobních dat</button>`)}
     ${randyPanel}
     ${card(`${sw('learning', 'Učit se z každé otázky', 'Kompetence, kalibrace jistoty, vlastní poznatky, deník vývoje.')}
       ${sw('selfStudy', 'Samostudium', 'Při nabíjení na Wi-Fi si dohledám, co jsem nevěděl.')}
@@ -986,6 +994,7 @@ window.omegaReceive = function (type, d) {
     case 'note': toast(d.text); break;
     case 'brain': brainMem = d; if (view === 'chat' && !msgs.length && !live) renderChat(); break;
     case 'crash': crashSheet(d); break;
+    case 'wiped': threadId = 0; msgs = []; live = null; brainMem = null; go('chat'); break;
     case 'attach': attachment = d; if (view !== 'chat') go('chat'); else { $('#composerSlot').innerHTML = composer(); bindComposer(); } toast('Přiloženo: ' + d.name + (d.chars > 30000 ? ' (použiji prvních 30 tis. znaků)' : '')); break;
     case 'quick':
       if (d.what === 'self') { refresh(); selfSheet(); break; }
@@ -1047,6 +1056,11 @@ document.addEventListener('click', e => {
   if (ds.self !== undefined) { selfSheet(); return; }
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
+  if (ds.panic !== undefined) {
+    if (confirm('Smazat VŠECHNY konverzace, paměť, vlastní dokumenty, klíče a statistiky učení? Mozky a knihovna zůstanou.') &&
+        confirm('Opravdu? Tohle nejde vrátit.')) { call('panicWipe'); haptic(); }
+    return;
+  }
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
   if (ds.newThread !== undefined) { threadId = 0; msgs = []; live = null; closeDrawer(); go('chat'); return; }
   if (ds.delThread) { if (confirm('Smazat vlákno?')) { call('deleteThread', Number(ds.delThread)); if (Number(ds.delThread) === threadId) { threadId = 0; msgs = []; } openDrawer(); if (view === 'chat') renderChat(); } return; }

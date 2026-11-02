@@ -87,6 +87,16 @@ class Settings(context: Context) {
     var autoDuo: Boolean
         get() = p.getBoolean("autoDuo", true)
         set(v) = p.edit().putBoolean("autoDuo", v).apply()
+    /** SOUKROMÍ: Air-gap (žádná síť), DLP štít pro cloud, zákaz snímků obrazovky. */
+    var airgap: Boolean
+        get() = p.getBoolean("airgap", false)
+        set(v) = p.edit().putBoolean("airgap", v).apply()
+    var dlp: Boolean
+        get() = p.getBoolean("dlp", true)
+        set(v) = p.edit().putBoolean("dlp", v).apply()
+    var secureScreen: Boolean
+        get() = p.getBoolean("secureScreen", false)
+        set(v) = p.edit().putBoolean("secureScreen", v).apply()
     /** Mozek držet trvale v paměti (služba „AVIOR připraven“) – dotazy bez čekání na načtení. */
     var keepBrain: Boolean
         get() = p.getBoolean("keepBrain", true)
@@ -177,7 +187,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -218,6 +228,9 @@ class Settings(context: Context) {
         if (o.has("loraScale")) loraScale = o.getInt("loraScale")
         if (o.has("keepBrain")) keepBrain = o.getBoolean("keepBrain")
         if (o.has("instant")) instant = o.getBoolean("instant")
+        if (o.has("airgap")) airgap = o.getBoolean("airgap")
+        if (o.has("dlp")) dlp = o.getBoolean("dlp")
+        if (o.has("secureScreen")) secureScreen = o.getBoolean("secureScreen")
         if (o.has("autoDuo")) autoDuo = o.getBoolean("autoDuo")
         if (o.has("claudeBoost")) claudeBoost = o.getBoolean("claudeBoost")
         if (o.has("memSafe")) memSafe = o.getBoolean("memSafe")
