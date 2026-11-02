@@ -44,11 +44,12 @@ object DeviceProfiles {
                 threads = 4,
                 // stejný kontext ve všech režimech → přepnutí výkonu nevyžaduje znovunačtení mozku
                 ctx = mapOf(Power.BASIC to 8192, Power.ADVANCED to 8192, Power.SHERLOCK to 8192),
-                recommendedBrain = "omega-core-gemma4-e4b-q4km",
+                // nejrychlejší mozek s dobrou češtinou: E2B (3,1 GB) – vejde se s rezervou, odpovídá zhruba 2× rychleji než E4B
+                recommendedBrain = "omega-lite-gemma4-e2b-q4km",
                 thermalCaution = 2,
                 notes = listOf(
                     "Tensor G4: 1× Cortex-X4 (3,1 GHz) + 3× A720 (2,6 GHz) + 4× A520 (1,9 GHz) – AVIOR počítá na 4 výkonných jádrech, úsporná nechává systému.",
-                    "8 GB RAM: mozek OMEGA Core (Gemma 4 E4B Q4_K_M, 5 GB) + KV cache Q8 do 8k tokenů; Sherlock zůstává na 8k, aby Android aplikaci neukončil.",
+                    "8 GB RAM: doporučený mozek OMEGA Lite (Gemma 4 E2B, 3,1 GB) – nejrychlejší s dobrou češtinou, v paměti s rezervou. OMEGA Core (E4B, 5 GB) je přesnější, ale pomalejší a na hraně RAM (načítá se úsporně).",
                     "GPU Mali-G715: llama.cpp na Mali běží spolehlivěji a obvykle i rychleji na CPU – AVIOR používá CPU (ARMv9 i8mm/dotprod přes GGML_CPU_ALL_VARIANTS).",
                     "Tensor G4 se při dlouhé zátěži zahřívá: RANDY šetří už od stavu „teplé“, Sherlock se při přehřátí sám zmírní.",
                     "Sémantický modul OMEGA Sense se zapne jen při dostatku volné RAM (> 1,5 GB).",

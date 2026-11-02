@@ -141,7 +141,10 @@ class BrainManager(private val context: Context) {
         val ram = Introspect.totalRamGb(context)
         val free = dir.usableSpace
         val cat = catalog()
-        val rec = BrainCatalog.recommend(cat.filter { it.sha256.isNotEmpty() }, ram, free)
+        // profil telefonu (např. Pixel 9a) zná nejrychlejší vhodný mozek → ten má přednost před obecným výběrem
+        val devRec = runCatching { cz.axiom.omega.Omega.get(context).device }.getOrNull()?.takeIf { it.known }?.recommendedBrain
+        val rec = cat.firstOrNull { it.id == devRec && it.sha256.isNotEmpty() && BrainCatalog.fits(it, ram) && it.sizeBytes * 1.05 < free + (if (isInstalled(it)) it.sizeBytes else 0) }
+            ?: BrainCatalog.recommend(cat.filter { it.sha256.isNotEmpty() }, ram, free)
         val activePair = active()
         val list = JSONArray()
         for (s in cat) {
@@ -152,6 +155,7 @@ class BrainManager(private val context: Context) {
                     .put("thinking", s.thinking).put("installed", isInstalled(s))
                     .put("partial", if (part.exists()) part.length() else 0)
                     .put("recommended", rec?.id == s.id).put("fits", BrainCatalog.fits(s, ram))
+                    .put("fast", s.id == devRec)
                     .put("active", activePair?.second?.id == s.id).put("url", s.urls.first()).put("sha256", s.sha256)
                     .put("kind", s.kind).put("verified", s.sha256.isNotEmpty()),
             )

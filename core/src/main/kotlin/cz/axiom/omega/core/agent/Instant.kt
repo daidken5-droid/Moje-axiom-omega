@@ -1,0 +1,133 @@
+package cz.axiom.omega.core.agent
+
+import cz.axiom.omega.core.self.Identity
+import cz.axiom.omega.core.step0.Calc
+import cz.axiom.omega.core.step0.Rates
+import cz.axiom.omega.core.step0.Step0
+import cz.axiom.omega.core.step0.Units
+import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.TextUtil.num
+import java.time.ZonedDateTime
+
+/**
+ * Ω FLASH · OKAMŽITĚ – odpovědi BEZ jazykového modelu, v řádu milisekund.
+ *
+ * Jen na jednoduché otázky, kde je odpověď jednoznačná a deterministická:
+ * pozdrav, čas, datum, výpočet, procenta, převod jednotek/měn, stav telefonu, „kdo jsi“
+ * a (je-li povoleno) krátká definice „co je / kdo je X“ přímo z offline Wikipedie a znalostí.
+ * Cokoli složitějšího vrátí null → odpoví mozek jako dřív. Raději nic než špatně.
+ */
+object Instant {
+
+    data class Ctx(
+        val now: ZonedDateTime = ZonedDateTime.now(),
+        val userName: String? = null,
+        val battery: Int? = null,
+        val charging: Boolean? = null,
+        val brain: String? = null,
+        val rates: Rates = Rates.FALLBACK,
+        /** Hledat krátké definice v offline znalostech (jen Ω Flash). */
+        val knowledge: KnowledgeSource? = null,
+    )
+
+    data class Answer(val text: String, val kind: String, val sources: List<Snippet> = emptyList())
+
+    private val days = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
+    private val months = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")
+
+    private fun rx(p: String) = Regex(p)
+    private val greet = rx("^(ahoj|ahojky|cau|cauky|nazdar|zdravim|dobry den|dobre rano|dobre odpoledne|dobry vecer|hello|hi|hey|cus)( avior)?[ !.,]*$")
+    private val thanks = rx("^(diky|dik|dekuji|dekuju|dekujeme|thanks|thank you|super diky|ok diky)( moc| ti| mockrat)*[ !.,]*$")
+    private val time = rx("^(kolik je (ted )?hodin|jaky je (ted )?cas|kolik je cas|cas)[ ?!.]*$")
+    private val date = rx("^(jaky je dnes den|jaky je dnes datum|jake je dnes datum|kolikateho je( dnes)?|co je dnes za den|jaky je dnes|jaky je den|datum|dnesni datum)[ ?!.]*$")
+    private val who = rx("^(kdo jsi|kdo jsi ty|co jsi zac|co jsi|jak se jmenujes|predstav se)[ ?!.]*$")
+    private val myName = rx("^(jak se jmenuji|jak se jmenuju|vis jak se jmenuji|kdo jsem)[ ?!.]*$")
+    private val batt = rx("^(kolik mam baterie|kolik mam baterky|stav baterie|kolik procent baterie( mam)?|baterie)[ ?!.]*$")
+    private val mathPrefix = rx("^(kolik je|kolik dela|spocitej( mi)?|vypocitej|spocti|kolik|=)\\s*")
+    private val exprOnly = rx("^[\\d\\s+\\-*/^×÷−().,]+$")
+    private val unitAsk = rx("^(kolik je|kolik dela|kolik|preved|prevod|prepocitej|prevest)\\b")
+    private val define = rx("^(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamena|co to je)\\s+(.{2,60}?)[ ?!.]*$")
+
+    /** Okamžitá odpověď, nebo null (otázka není „jednoduchá“ → mozek). */
+    fun answer(prompt: String, ctx: Ctx = Ctx()): Answer? {
+        val raw = prompt.trim()
+        if (raw.isEmpty() || raw.length > 140 || raw.contains('\n')) return null
+        val f = TextUtil.fold(raw).replace(Regex("\\s+"), " ").trim()
+        val name = ctx.userName?.takeIf { it.isNotBlank() }
+
+        if (greet.matches(f)) return Answer("Ahoj${name?.let { ", $it" } ?: ""}! Na co se chceš zeptat?", "pozdrav")
+        if (thanks.matches(f)) return Answer("Rádo se stalo. Kdyby ještě něco, jsem tady.", "poděkování")
+        if (time.matches(f)) return Answer("Je %d:%02d.".format(ctx.now.hour, ctx.now.minute), "čas")
+        if (date.matches(f)) {
+            val n = ctx.now
+            return Answer("Dnes je ${days[n.dayOfWeek.value - 1]} ${n.dayOfMonth}. ${months[n.monthValue - 1]} ${n.year}.", "datum")
+        }
+        if (who.matches(f)) return Answer(
+            "Jsem ${Identity.NAME} – česká AI, která myslí přímo v tvém telefonu" +
+                (ctx.brain?.let { " (teď mozek $it)" } ?: "") + ", pamatuje si, co jí řekneš, a učí se z každé otázky.", "identita",
+        )
+        if (myName.matches(f)) return Answer(name?.let { "Jmenuješ se $it." } ?: "Zatím nevím – řekni mi to, nebo si jméno nastav v Nastavení.", "paměť")
+        if (batt.matches(f) && ctx.battery != null) return Answer(
+            "Baterie má ${ctx.battery} %" + when (ctx.charging) { true -> " a nabíjí se."; false -> "."; null -> "." }, "telefon",
+        )
+
+        // výpočet: „kolik je 12*7+3“, „(5+3)/2“
+        val expr = mathPrefix.replace(f, "").trim().trimEnd('?', '=', '!', '.', ' ')
+        if (expr.isNotEmpty() && exprOnly.matches(expr) && expr.any { it.isDigit() } && (expr.any { it in "+*/^×÷" } || Regex("\\s[-−]\\s").containsMatchIn(expr))) {
+            Calc.eval(expr).getOrNull()?.takeIf { it.isFinite() }?.let { v ->
+                return Answer("${expr.trim()} = **${num(v, 6)}**", "výpočet")
+            }
+        }
+        // procenta: „kolik je 15 % z 2400“
+        if (raw.length <= 60) Step0.percent(raw).singleOrNull()?.let { return Answer(it.text.replace(Regex("= (.+)$"), "= **$1**"), "procenta") }
+        // převod jednotek a měn: „kolik je 5 mil v km“, „převeď 100 eur na koruny“
+        if (unitAsk.containsMatchIn(f) && raw.length <= 70) {
+            val u = Units.scan(raw, ctx.rates)
+            if (u.size == 1) return Answer(u.single(), "převod")
+        }
+        // krátká definice z offline znalostí (Wikipedie, balíčky) – jen přesná shoda názvu
+        val k = ctx.knowledge
+        if (k != null) define.find(f)?.let { m ->
+            val subject = m.groupValues[2].trim()
+            if (subject.split(' ').size > 5) return null
+            val origSubject = raw.replace(Regex("^(?i)\\s*(co je to|co je|co jsou|kdo je|kdo byl|kdo byla|kdo byli|co znamená|co znamena|co to je)\\s+"), "")
+                .trimEnd('?', '!', '.', ' ')
+            val hits = runCatching { k.search(origSubject, 4) }.getOrDefault(emptyList())
+            val hit = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
+            val text = firstSentences(hit.text, 2, 420) ?: return null
+            return Answer("$text\n\n_Zdroj: ${hit.title} (${hit.source})_", "z offline znalostí", listOf(hit))
+        }
+        return null
+    }
+
+    private fun titleMatches(title: String, subject: String): Boolean {
+        val t = TextUtil.fold(title).replace(Regex("\\s*\\(.*\\)\\s*"), "").trim()
+        val s = subject.trim()
+        return t == s || (s.length >= 4 && t.startsWith(s) && t.length <= s.length + 3)
+    }
+
+    private val abbrev = setOf("tzv", "napr", "r", "st", "mj", "aj", "atd", "resp", "cca", "tj", "popr", "n", "l", "pr", "kr", "sv", "tzn", "min", "max", "vc", "zv", "ing", "mudr", "judr", "phdr", "doc", "prof")
+
+    /** První [n] věty (bez nadpisů a odrážek), max. [max] znaků. */
+    fun firstSentences(text: String, n: Int, max: Int): String? {
+        val body = text.lineSequence().map { it.trim() }
+            .filter { it.length > 25 && !it.startsWith("#") && !it.startsWith("|") && !it.startsWith("-") && !it.startsWith("*") }
+            .joinToString(" ")
+            .replace(Regex("\\[\\d+]"), "").replace(Regex("\\s+"), " ").trim()
+        if (body.length < 30) return null
+        val out = StringBuilder()
+        var count = 0
+        var i = 0
+        while (i < body.length && count < n) {
+            out.append(body[i])
+            if (body[i] in ".!?" && (i + 1 >= body.length || body[i + 1] == ' ') &&
+                !(i > 0 && body[i - 1].isDigit() && i + 2 < body.length && body[i + 2].isDigit())) {
+                // zkratky typu „tzv.“, „např.“, „r.“ nekončí větu
+                val lastWord = TextUtil.fold(out.toString().substringAfterLast(' ').trimEnd('.', '!', '?'))
+                if (lastWord !in abbrev) count++
+            }
+            i++
+        }
+        return TextUtil.clip(out.toString().trim(), max)
+    }
+}

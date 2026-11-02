@@ -155,7 +155,7 @@ class PowerAndDeviceTest {
         val freqs = listOf(1_950_000L, 1_950_000, 1_950_000, 1_950_000, 2_600_000, 2_600_000, 2_600_000, 3_100_000)
         val p = D.detect("Google", "Pixel 9a", "Tensor G4", 8, freqs)
         assertTrue(p.known); assertEquals(4, p.threads); assertEquals(8192, p.ctxFor(cz.axiom.omega.core.device.Power.SHERLOCK))
-        assertEquals("omega-core-gemma4-e4b-q4km", p.recommendedBrain); assertEquals(2, p.thermalCaution)
+        assertEquals("omega-lite-gemma4-e2b-q4km", p.recommendedBrain); assertEquals(2, p.thermalCaution)
         assertEquals(4, D.performanceCores(freqs))
         val g = D.detect("Xiaomi", "X", null, 12, listOf(2_000_000L, 2_000_000, 2_000_000, 2_000_000, 2_800_000, 2_800_000, 2_800_000, 3_300_000))
         assertEquals(4, g.threads); assertEquals(16384, g.ctxFor(cz.axiom.omega.core.device.Power.ADVANCED))

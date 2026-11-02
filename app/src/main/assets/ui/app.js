@@ -544,6 +544,9 @@ function renderModules() {
 
     <details class="x card" style="padding:0"><summary style="padding:14px 16px">DOLADĚNÍ · DOVEDNOSTI A LoRA</summary><div style="padding:0 2px 2px">${tuningHtml()}</div></details>
 
+    <div class="eyebrow">CLAUDE · ANTHROPIC API</div>
+    ${claudeHtml()}
+
     <div class="eyebrow">HUGGING FACE SLUŽBY</div>
     ${hfServicesHtml()}
 
@@ -575,13 +578,24 @@ function renderModules() {
       <label>Klíč (volitelně)</label><input type="password" id="key-server" autocomplete="off" placeholder="${k.server ? 'Uloženo' : ''}">
       <div id="models-server"></div>
       <div class="grid2"><button class="btn sm" data-save-key="server">Uložit</button><button class="btn sm" data-test="server">Ověřit</button></div>`)}
-    ${conn('claude', 'C', 'Claude (volitelné)', k.claude, `
-      <p class="small">AVIOR na Claude nezávisí – je to jen další volitelný mozek.</p>
-      <label>API klíč</label><input type="password" id="key-claude" autocomplete="off" placeholder="${k.claude ? 'Uloženo' : 'sk-ant-…'}">
-      <label>Model</label><input type="text" data-text="claudeModel" value="${esc(st.claudeModel)}">
-      <div id="models-claude"></div>
-      <div class="grid2"><button class="btn sm" data-save-key="claude">Uložit</button><button class="btn sm" data-test="claude">Ověřit</button></div>`)}
   </div>`;
+}
+
+/** Claude jako posila: těžké otázky, agent a Sherlock jdou na Claude, zbytek dál myslí telefon. */
+function claudeHtml() {
+  const st = S.settings || {}; const k = S.keys || {};
+  const sw = (key, title, sub) => `<div class="toggle"><span>${title}<small>${sub}</small></span><label class="switch"><input type="checkbox" data-set="${key}" ${st[key] ? 'checked' : ''}><i></i></label></div>`;
+  const models = [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']];
+  return card(`<div class="row" style="gap:12px"><span class="v-ic">C</span><span class="grow"><b>Claude</b>
+      <small class="muted" style="display:block">${k.claude ? 'Připojeno · ' + esc(st.claudeModel || 'claude-opus-5-5') : 'Nepřipojeno – stačí API klíč z console.anthropic.com'}</small></span><span class="dot ${k.claude ? 'on' : ''}"></span></div>
+    <p class="small">Jednoduché otázky dál řeší telefon (soukromě, offline). Těžké úlohy – hluboká analýza, agent s nástroji, režim Sherlock – pošle RANDY Claude, když je internet. Platí se podle spotřeby API (předplatné claude.ai se na API nevztahuje).</p>
+    <input type="password" id="key-claude" autocomplete="off" placeholder="${k.claude ? 'Klíč uložen – vlož nový pro změnu' : 'API klíč (sk-ant-…)'}">
+    <div class="grid2" style="margin-top:8px"><button class="btn sm" data-save-key="claude">Uložit klíč</button><button class="btn sm" data-test="claude">Ověřit</button></div>
+    <button class="link" data-open="https://console.anthropic.com/settings/keys">Získat API klíč ↗</button>
+    <label>Model</label><div class="seg">${models.map(([v, l]) => `<button data-setv="claudeModel" data-val="${v}" class="${(st.claudeModel || 'claude-opus-5-5') === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <p class="small muted" style="margin-top:6px">Opus 5.5 = nejchytřejší (výchozí) · Sonnet 5.5 = rychlejší a levnější · Haiku 5.5 = nejrychlejší.</p>
+    <div id="models-claude"></div>
+    ${sw('claudeBoost', 'Claude jako posila', 'Těžké otázky automaticky Claude, ostatní telefon. Vypnuto = Claude jen když ho zvolíš.')}`);
 }
 
 function hfServicesHtml() {
@@ -627,7 +641,7 @@ function conn(id, ic, title, ok, body) {
 function brainCard(b, job, extra) {
   const downloading = job.busy && job.kind === 'download' && (job.phase || '').includes(b.name);
   const pct = downloading ? Math.max(0, job.progress) : b.partial && b.sizeBytes ? Math.floor(b.partial * 100 / b.sizeBytes) : 0;
-  const badges = [b.active ? '<span class="badge good">AKTIVNÍ</span>' : '', b.recommended && !b.installed ? '<span class="badge core">DOPORUČENO</span>' : '',
+  const badges = [b.active ? '<span class="badge good">AKTIVNÍ</span>' : '', b.recommended && !b.installed ? '<span class="badge core">DOPORUČENO</span>' : '', b.fast ? '<span class="badge good">⚡ NEJRYCHLEJŠÍ PRO TENTO TELEFON</span>' : '',
     b.fits === false ? '<span class="badge warn">MÁLO RAM</span>' : '', b.verified === false ? '<span class="badge">NEOVĚŘENO</span>' : ''].join(' ');
   let actions;
   if (downloading) actions = `<button class="btn sm danger" data-cancel-bg>Pozastavit</button>`;
@@ -752,6 +766,7 @@ function renderSystem() {
       ${sw('selfStudy', 'Samostudium', 'Při nabíjení na Wi-Fi si dohledám, co jsem nevěděl.')}
       ${sw('reflect', 'Sebereflexe', 'Po odpovědi se ohodnotím a zapíšu poučení.')}
       ${sw('semantic', 'Hledání podle významu', 'Používá rozšíření OMEGA Sense, je-li stažené.')}
+      ${sw('instant', 'Okamžité odpovědi (Ω Flash)', 'Čas, datum, výpočty, převody a krátké definice z offline Wikipedie hned – bez mozku.')}
       ${sw('keepBrain', 'Mozek trvale v paměti', 'Načtu ho hned po spuštění a držím připravený (oznámení „AVIOR připraven“) – dotaz nečeká na načítání.')}
       ${sw('memSafe', 'Paměťově bezpečný režim', 'Menší kontext a úsporné načtení – když telefon aplikaci zavírá kvůli paměti.')}
       ${sw('web', 'Web u Claude', 'Claude smí hledat na webu.')}
@@ -929,7 +944,7 @@ window.omegaReceive = function (type, d) {
       break;
     case 'update': S.update = d; if (view === 'chat' && !msgs.length) renderChat(); if (view === 'system') renderSystem(); toast('Nová verze AVIOR ' + d.version + ' je k dispozici.'); break;
     case 'file': toast('Vytvořeno: ' + d.name); haptic(); if (view === 'agents') renderAgents(); break;
-    case 'config': S = d; refresh(); if (view === 'system') renderSystem(); break;
+    case 'config': S = d; refresh(); if (view === 'system') renderSystem(); if (view === 'modules' && !document.activeElement?.matches('input,textarea')) renderModules(); break;
     case 'tasks': if (view === 'agents') renderAgents(); break;
     case 'state':
     case 'resume':
@@ -1040,7 +1055,7 @@ document.addEventListener('click', e => {
   if (ds.cloudRestore !== undefined) { if (confirm('Obnovit z cloudu? Přepíše současná data.')) call('cloudRestore'); return; }
   if (ds.kbImport !== undefined) { call('kbImport'); return; }
   if (ds.kbDel) { if (confirm('Smazat dokument?')) call('kbDelete', Number(ds.kbDel)); return; }
-  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; } else toast('Vlož klíč.'); return; }
+  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
   if (ds.power) { configure({ power: ds.power }); S.settings = Object.assign({}, S.settings, { power: ds.power }); haptic(); toast('Výkon: ' + POWERS.find(p => p.id === ds.power).label + ' – ' + POWERS.find(p => p.id === ds.power).desc);

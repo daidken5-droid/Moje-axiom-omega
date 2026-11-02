@@ -8,6 +8,19 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.6 – okamžité odpovědi, nejrychlejší mozek, Claude jako posila
+
+- **Ω Flash · okamžitě:** jednoduché otázky odpoví AVIOR v milisekundách **bez mozku** – pozdrav, čas, datum,
+  výpočty („kolik je 12*7+3“), procenta, převody jednotek a měn, stav baterie, „kdo jsi“ a ve Flash i krátké
+  definice „co je / kdo je X“ přímo z offline Wikipedie (jen při přesné shodě hesla, se zdrojem). Cokoli
+  složitějšího jde dál mozku – raději nic než špatně. Vypínatelné v Nastavení.
+- **Nejrychlejší mozek pro Pixel 9a:** doporučený je teď **OMEGA Lite · Gemma 4 E2B** (3,1 GB) – nejlepší poměr
+  rychlosti a češtiny, v 8 GB RAM s rezervou. V seznamu mozků je označený „⚡ Nejrychlejší pro tento telefon“.
+  E4B zůstává jako přesnější volba.
+- **Claude jako posila (Anthropic API):** s API klíčem z console.anthropic.com pošle RANDY těžké úlohy
+  (hluboká analýza, agent s nástroji, Sherlock) na Claude – výchozí Claude Opus 5.5, volitelně Sonnet 5.5
+  nebo Haiku 5.5. Jednoduché otázky dál řeší telefon soukromě. Přepínač „Claude jako posila“ v Modulech.
+
 ## Novinky 5.5 – stabilita: mozek trvale v paměti, žádné pády při dotazu
 
 - **Oprava pádu při dotazu:** předehřátí mozku a dotaz mohly počítat nad stejným nativním kontextem současně

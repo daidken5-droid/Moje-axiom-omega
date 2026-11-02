@@ -23,6 +23,10 @@ object Router {
         val userEngine: String? = null,
         /** Uživatel zvolil konkrétní režim (chat/agent/council) → respektovat. */
         val userMode: Mode? = null,
+        /** Cloudová posila (např. "claude"): dostane těžké otázky, i když je v telefonu mozek. */
+        val boost: String? = null,
+        /** Režim výkonu Sherlock – maximum, posila dostane každou otázku kromě triviálních. */
+        val sherlock: Boolean = false,
     )
 
     data class Route(val mode: Mode, val engine: String, val level: RandyLevel, val reason: String, val prompt: String)
@@ -98,6 +102,13 @@ object Router {
         val avail = ctx.engines
         if (avail.isEmpty()) return "none"
         // AVIOR je nezávislý: primárně myslí výkonný mozek v telefonu, cloud jen když v telefonu žádný není.
+        // POSILA: těžká otázka (hluboká úroveň RANDY, agent, Sherlock) → silný cloudový model, je-li připojený
+        val b = ctx.boost
+        if (b != null && b in avail && ctx.online && "local" in avail) {
+            val hard = level.ordinal >= RandyLevel.L3_STRATEGIC_EV.ordinal || mode == Mode.AGENT ||
+                (ctx.sherlock && level.ordinal >= RandyLevel.L1_EXPERT.ordinal)
+            if (hard) { why += "těžká úloha → posila $b"; return b }
+        }
         if ("local" in avail) { why += "mozek v telefonu"; return "local" }
         if (!ctx.online) { why += "offline"; return avail.firstOrNull { it == "server" } ?: avail.first() }
         why += "v telefonu není mozek → ${avail.first()}"

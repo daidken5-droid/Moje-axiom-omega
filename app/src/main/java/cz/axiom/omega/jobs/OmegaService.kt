@@ -200,6 +200,8 @@ class OmegaService : Service() {
         }
         val userRole = cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role"))
         val userLevel = RandyLevel.fromCode(intent.getStringExtra("level"))
+        // Ω FLASH · OKAMŽITĚ: jednoduché otázky (čas, datum, výpočet, převod, krátká definice) bez mozku, v milisekundách
+        if (instant(threadId, text, userVariant, userKind, userRole, userLevel)) return
         // RANDY SUPERVISOR: nadřazený modul naplánuje podfunkce a zdroje
         val authority = Sup.Authority.of(omega.settings.randyAuthority)
         val (battery, charging) = Introspect.battery(this)
@@ -260,7 +262,9 @@ class OmegaService : Service() {
             val userEngine = mode.takeIf { it != "auto" && it != "council" }
             val role = plan.role
             synchronized(omega.forge.session) { omega.forge.session.clear() }
-            val route = Router.route(text, Router.Context(Introspect.online(this), engines, userEngine, plan.mode))
+            val route = Router.route(text, Router.Context(Introspect.online(this), engines, userEngine, plan.mode,
+                boost = if (s.claudeBoost && "claude" in engines) "claude" else null,
+                sherlock = omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK))
             val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
             listener.onPhase(plan.summary + " · ${route.mode.label}" + (plan.decisions.firstOrNull()?.let { " · $it" } ?: ""))
             val watchdog = Sup.Watchdog(plan.budgetMillis, authority)
@@ -400,6 +404,34 @@ class OmegaService : Service() {
             omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("error", true))
             Events.emit("error", JSONObject().put("threadId", threadId).put("message", msg))
         }
+    }
+
+    private fun instant(
+        threadId: Long, text: String, variant: cz.axiom.omega.core.agent.Variant, kind: Router.Mode?,
+        role: cz.axiom.omega.core.agent.AgentRole?, level: RandyLevel?,
+    ): Boolean {
+        val s = omega.settings
+        val flash = variant == cz.axiom.omega.core.agent.Variant.FLASH
+        if (!s.instant || kind != null || role != null || level != null) return false
+        if (!flash && variant != cz.axiom.omega.core.agent.Variant.AUTO) return false
+        if (omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK && !flash) return false
+        val started = System.currentTimeMillis()
+        val (battery, charging) = Introspect.battery(this)
+        val a = runCatching {
+            cz.axiom.omega.core.agent.Instant.answer(text, cz.axiom.omega.core.agent.Instant.Ctx(
+                userName = s.userName.takeIf { it.isNotBlank() }, battery = battery, charging = charging,
+                brain = omega.brains.active()?.second?.name, rates = s.rates,
+                // definice z offline Wikipedie jen ve Flash (v Auto je hlubší odpověď mozku žádoucí)
+                knowledge = if (flash) omega.knowledge() else null,
+            ))
+        }.getOrNull() ?: return false
+        val ms = System.currentTimeMillis() - started
+        val meta = JSONObject().put("engine", "Ω Flash · okamžitě (bez mozku)").put("millis", ms).put("variant", "Ω Flash")
+            .put("instant", a.kind).put("private", true).put("level", "L0")
+        if (a.sources.isNotEmpty()) meta.put("sources", JSONArray().apply { a.sources.forEach { put(JSONObject().put("title", it.title).put("url", "").put("source", it.source)) } })
+        val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
+        Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))
+        return true
     }
 
     /** Provede řetězec podmodelů naplánovaný RANDY Supervisorem. */
