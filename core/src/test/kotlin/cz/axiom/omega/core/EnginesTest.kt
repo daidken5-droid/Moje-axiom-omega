@@ -291,7 +291,7 @@ class EnginesTest {
         val firstUser = eng.seen[0].first { it.role == Role.USER }.content
         assertTrue(firstUser, firstUser.contains("STEP-0 FAKTA"))
         assertTrue(firstUser, firstUser.contains("12*3 = 36"))
-        assertTrue(firstUser, firstUser.contains("[9] Ceník"))
+        assertTrue(firstUser, firstUser.contains("[1] Ceník"))
         // 3. průchod vidí návrh i kritiku
         val third = eng.seen[2]
         assertTrue(third.any { it.role == Role.ASSISTANT && it.content == "Návrh A" })

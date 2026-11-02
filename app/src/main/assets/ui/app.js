@@ -292,7 +292,7 @@ function msgHtml(m, last) {
     [...(rd.decisions || []).map(x => `<span>› ${esc(x)}</span>`), ...(rd.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`)].join('') + '</div>');
   if (chain) det.push(`<div class="sub">ŘETĚZEC PODMODELŮ</div>` + chain.map((c, i) => `<div class="step"><b>${i + 1}. ${esc(c.variant)}</b> · ${esc(c.purpose)} · ${secs(c.millis)}<div class="obs">${esc(c.preview || '')}</div></div>`).join(''));
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
-  if (meta.perf) det.push(`<p class="small"><b>Výkon v telefonu:</b> čtení ${Math.round(meta.perf.readTps)} tok/s · psaní ${cz(meta.perf.writeTps.toFixed(1))} tok/s · ${meta.perf.gen} tokenů odpovědi${meta.perf.reused ? ' · ' + meta.perf.reused + ' tokenů z paměti (cache)' : ''}</p>`);
+  if (meta.perf) det.push(`<p class="small"><b>Výkon v telefonu:</b> čtení ${Math.round(meta.perf.readTps)} tok/s · psaní ${cz(meta.perf.writeTps.toFixed(1))} tok/s · ${meta.perf.gen} tokenů odpovědi${meta.perf.reused ? ' · ' + meta.perf.reused + ' z ' + meta.perf.prompt + ' tokenů zadání z cache' : ''}${meta.perf.loadMs > 300 ? ' · načtení mozku ' + secs(meta.perf.loadMs) : ''}${meta.perf.knowledgeMs > 300 ? ' · hledání podkladů ' + secs(meta.perf.knowledgeMs) : ''}</p>`);
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
   if (meta.trace && meta.trace.length > 1) det.push(`<div class="sub">PRŮCHODY RANDY</div>` + meta.trace.map(t => `<p class="small"><b>${t.index}. ${esc(t.label)}</b> · ${secs(t.millis)}</p>`).join(''));

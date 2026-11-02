@@ -111,9 +111,14 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
     }
 
     /** Hledání: nejdřív všechna slova (AND), při málo výsledcích kterékoli (OR); řazení podle shody v názvu. */
-    fun search(query: String, limit: Int): List<Snippet> {
+    /**
+     * @param minScore minimální relevance (shoda v názvu váží 4, v textu 1) – do odpovědi se nedostanou
+     * články, které s otázkou souvisí jen jedním slovem v textu (šetří tokeny mozku v telefonu).
+     */
+    fun search(query: String, limit: Int, minScore: Int = 0): List<Snippet> {
         val dbs = listOf(readableDatabase) + Libraries.ALL.filter { hasPrebuilt(it.id) }.mapNotNull { prebuilt(it.id) }
-        return dbs.flatMapIndexed { i, db -> search(db, i, query, limit) }.sortedByDescending { it.second }.take(limit).map { it.first }
+        return dbs.flatMapIndexed { i, db -> search(db, i, query, limit) }.filter { it.second >= minScore }
+            .sortedByDescending { it.second }.take(limit).map { it.first }
     }
 
     private fun search(db: SQLiteDatabase, dbIndex: Int, query: String, limit: Int): List<Pair<Snippet, Int>> {

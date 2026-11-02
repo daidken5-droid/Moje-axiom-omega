@@ -271,7 +271,9 @@ class OmegaService : Service() {
                     answer = r.answer
                 }
                 Router.Mode.CHAT -> {
+                    val tLoad = System.currentTimeMillis()
                     val engine = omega.resolve(route.engine)
+                    val loadMs = System.currentTimeMillis() - tLoad
                     listener.onPhase("Probouzím ${engine.label}…")
                     // RYCHLOST v telefonu: každý průchod = celé čtení + psaní znovu. Běžný dotaz 1 průchod,
                     // strategické/kritické (L3+) 2, Sherlock nejvýš 2 + oponentura v řetězci.
@@ -279,7 +281,8 @@ class OmegaService : Service() {
                         val lvl = (forced ?: cz.axiom.omega.core.randy.Randy.detect(route.prompt).level).ordinal
                         minOf(plan.passes ?: if (lvl >= RandyLevel.L3_STRATEGIC_EV.ordinal) 2 else 1, s.localMaxPasses, 2)
                     } else plan.passes ?: s.maxPasses
-                    var r = omega.orchestrator().run(
+                    val orch = omega.orchestrator()
+                    var r = orch.run(
                         AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
                             s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight),
                         engine, cancel, listener,
@@ -297,7 +300,7 @@ class OmegaService : Service() {
                     }
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason); answer = r.answer
-                    (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it) }
+                    (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it.put("loadMs", loadMs).put("knowledgeMs", orch.knowledgeMillis)) }
                 }
             }
             val finalVariant = escalatedTo ?: variant

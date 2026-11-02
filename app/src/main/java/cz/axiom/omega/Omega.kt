@@ -87,13 +87,14 @@ class Omega private constructor(val app: Context) {
         val d = db
         return object : KnowledgeSource {
             override fun search(query: String, limit: Int): List<Snippet> {
-                val lib = runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, (limit / 2).coerceAtLeast(2)) }.getOrDefault(emptyList())
+                val lib = runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, (limit / 2).coerceAtLeast(2), minScore = 3) }.getOrDefault(emptyList())
                 return (docs(query, limit) + lib).distinctBy { it.title }.take(limit + lib.size.coerceAtMost(2))
             }
 
             private fun docs(query: String, limit: Int): List<Snippet> {
                 val words = d.search(query, limit)
-                if (!settings.semantic || !ensureEmbedder()) return words
+                // sémantika jen když má co hledat (indexované úseky) – jinak by zbytečně načítala 600MB model
+                if (!settings.semantic || d.vectorCount() == 0 || !ensureEmbedder()) return words
                 val q = Embedder.embedQuery(query) ?: return words
                 val sem = d.semantic(q, limit).filter { it.second > 0.35f }.map { it.first }
                 // proložit: nejlepší sémantické + nejlepší slovní, bez duplicit
