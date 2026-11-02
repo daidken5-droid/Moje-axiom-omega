@@ -17,22 +17,110 @@ object QuestionNorm {
 
     /** Obaly na začátku: oslovení, zdvořilost, „řekni mi“, „víš“, „spočítej“… (opakovaně, v libovolném pořadí). */
     private val lead = Regex(
-        "^(?:avior|omega|hej|hele|helejte|ahoj|cau|nazdar|zdravim|dobry den|prosim te|prosim vas|prosim|pls|please|" +
+        "^(?:avior|omega|hej|hele|helejte|ahoj|cau|cus|cauky|nazdar|zdar|zdarec|zdravim|dobry den|prosim te|prosim vas|prosimte|prosim|pls|plz|please|" +
             "rekni mi|rekni|reknes mi|muzes mi rict|muzes mi prosim rict|muzes rict|mohl bys mi rict|mohla bys mi rict|mohl bys|mohla bys|dokazes mi rict|" +
             "nevis|vis|nevite|vite|zajimalo by me|zajima me|potrebuju vedet|potrebuji vedet|chci vedet|chtel bych vedet|chtela bych vedet|" +
-            "rad bych vedel|rada bych vedela|zjisti mi|zjisti|napis mi|jen|tak|a|no|takze|otazka)\\b[\\s,:]*",
+            "rad bych vedel|rada bych vedela|zjisti mi|zjisti|napis mi|dyt mi|dyt|vo|jen|tak|a|no|no a|takze|otazka|hm+|ehm|cus)\\b[\\s,:]*",
     )
-    private val tail = Regex("[\\s,]*(?:prosim(?: te| vas)?|pls|please|diky|dik|dekuji|dekuju|avior)$")
+    private val tail = Regex("[\\s,]*(?:prosim(?: te| vas)?|prosimte|pls|plz|please|thx|diky|dik|dekuji|dekuju|avior|jo|ne|ze|ve|vole|kamo|bracho|brasko|kamosi|" +
+        "esi vis|jestli vis|vis|vlastne|teda|sak|gde|pak|jako|ok|okej)$")
+    /** Výplňová slova kdekoli ve větě (nesou emoci, ne obsah). */
+    private val fillers = setOf("vole", "kamo", "kamosi", "bracho", "brasko", "sak", "teda", "vlastne", "zrovna", "presne", "prosimte", "pls", "plz",
+        "kurna", "sakra", "jakoze", "proste", "fakt", "vubec", "asi", "aktualne", "momentalne", "dyt")
 
-    /** Hovorová čeština a překlepy → spisovně (celá slova). */
-    private val words = mapOf(
-        "dneska" to "dnes", "dnesk" to "dnes", "tedka" to "ted", "tedko" to "ted", "zejtra" to "zitra", "vcerejsi" to "vcera",
-        "jakej" to "jaky", "kterej" to "ktery", "velkej" to "velky", "kolikatyho" to "kolikateho", "kolikaty" to "kolikaty",
-        "hodin" to "hodin", "hodyn" to "hodin", "hdin" to "hodin", "hodn" to "hodin",
-        "vterin" to "sekund", "vteriny" to "sekundy", "vterina" to "sekunda", "vterinu" to "sekundu",
-        "kila" to "kg", "kilo" to "kg", "kil" to "kg", "deka" to "dag", "metropole" to "hlavni mesto", "metropoli" to "hlavni mesto",
-        "cesku" to "cesku", "cr" to "cr", "ceska" to "ceska",
+    /** Celé anglické fráze → česky (krátké běžné dotazy). */
+    private val english = listOf(
+        "^what time is it( now)?$|^what s the time$|^time$|^current time$" to "kolik je hodin",
+        "^what s the date( today)?$|^what is the date( today)?$|^today s date$|^what day is (it|today)( today)?$|^date$" to "jaky je dnes den",
+        "^how are you( doing)?$|^how s it going$" to "jak se mas", "^who are you$|^what are you$|^are you (an )?ai$" to "kdo jsi",
+        "^(thanks|thank you|thx|ty)( a lot| very much)?$" to "diky", "^(hello|hi|hey)$" to "ahoj", "^good morning$" to "dobre rano", "^good night$" to "dobrou noc",
+        "^flip a coin$|^heads or tails$" to "hod minci", "^roll (a )?(dice|die)$" to "hod kostkou", "^tell me a joke$|^joke$" to "rekni vtip",
+        "^what can you do$" to "co umis",
+    ).map { Regex(it.first) to it.second }
+    private val enCountry = mapOf(
+        "france" to "francie", "germany" to "nemecka", "italy" to "italie", "spain" to "spanelska", "poland" to "polska", "austria" to "rakouska",
+        "slovakia" to "slovenska", "hungary" to "madarska", "england" to "anglie", "uk" to "velke britanie", "united kingdom" to "velke britanie",
+        "britain" to "velke britanie", "usa" to "usa", "america" to "usa", "united states" to "usa", "japan" to "japonska", "china" to "ciny", "russia" to "ruska",
+        "ukraine" to "ukrajiny", "czechia" to "ceska", "czech republic" to "ceska", "croatia" to "chorvatska", "greece" to "recka", "portugal" to "portugalska",
+        "netherlands" to "nizozemska", "switzerland" to "svycarska", "sweden" to "svedska", "norway" to "norska", "canada" to "kanady", "australia" to "australie",
+        "india" to "indie", "brazil" to "brazilie", "egypt" to "egypta", "turkey" to "turecka", "ireland" to "irska", "denmark" to "danska", "finland" to "finska",
     )
+
+    /**
+     * Slovník: obecná čeština, slang, nářečí (Haná, Slezsko, Valašsko), slovenština, chatové zkratky → spisovná čeština (bez diakritiky).
+     * Jen celá slova – „vosum“ ano, ale „vosa“ se nemění.
+     */
+    private val words = mapOf(
+        // obecná čeština a slang
+        "dneska" to "dnes", "dnesk" to "dnes", "dneskam" to "dnes", "tedka" to "ted", "tedko" to "ted", "tedy" to "ted", "zejtra" to "zitra", "zitrek" to "zitra",
+        "vcerejsi" to "vcera", "jakej" to "jaky", "jaky" to "jaky", "kterej" to "ktery", "velkej" to "velky", "kolikatyho" to "kolikateho", "kolikatyho" to "kolikateho",
+        "hodek" to "hodin", "hodky" to "hodin", "hoda" to "hodin", "hodyn" to "hodin", "hdin" to "hodin", "hodn" to "hodin", "hodinek" to "hodin",
+        "vterin" to "sekund", "vteriny" to "sekundy", "vterina" to "sekunda", "vterinu" to "sekundu", "sekundy" to "sekundy",
+        "kila" to "kg", "kilo" to "kg", "kil" to "kg", "deka" to "dag", "kilak" to "km", "kilaky" to "km", "kilacku" to "km", "kilometrak" to "km",
+        "metropole" to "hlavni mesto", "metropoli" to "hlavni mesto", "hlavak" to "hlavni mesto", "hlavaku" to "hlavni mesto",
+        "prezos" to "prezident", "prezik" to "prezident", "premos" to "premier", "premierka" to "premier",
+        "sedum" to "sedm", "vosum" to "osm", "vosm" to "osm", "vosmi" to "osmi", "devet" to "devet", "jeden" to "jeden",
+        "stovka" to "100 korun", "stovku" to "100 korun", "pade" to "50 korun", "litr" to "litr", "kilo" to "kg",
+        "bejt" to "byt", "bejvat" to "byvat", "mlejn" to "mlyn", "dobrej" to "dobry", "novej" to "novy",
+        "diky" to "diky", "dik" to "diky", "dekuju" to "dekuji", "dk" to "diky", "dekec" to "diky", "thx" to "diky", "dikec" to "diky", "dikes" to "diky",
+        // nářečí
+        "kolek" to "kolik", "kolike" to "kolik", "kere" to "ktere", "kery" to "ktery", "kera" to "ktera", "keremu" to "kteremu", "gde" to "kde", "esi" to "jestli",
+        "dnes" to "dnes", "dnuska" to "dnes", "dnesky" to "dnes", "zitrek" to "zitra", "hodinu" to "hodinu",
+        // slovenština
+        "kolko" to "kolik", "aky" to "jaky", "aka" to "jaka", "ake" to "jake", "akeho" to "jakeho", "kto" to "kdo", "kedy" to "kdy", "ako" to "jak",
+        "sa" to "se", "som" to "jsem", "si" to "si", "dnesny" to "dnesni", "dnesne" to "dnesni", "zajtra" to "zitra", "zajtrajsi" to "zitrejsi",
+        "hlavne" to "hlavni", "mesto" to "mesto", "meniny" to "svatek", "meninam" to "svatek", "vianoc" to "vanoc", "vianoce" to "vanoce",
+        "vianocam" to "vanocum", "dakujem" to "dekuji", "dakujeme" to "dekujeme", "dakujes" to "dekujes", "percent" to "procent", "percenta" to "procent",
+        "napisal" to "napsal", "napisala" to "napsala", "vojna" to "valka", "vojny" to "valky", "svetova" to "svetova", "francuzska" to "francie",
+        "talianska" to "italie", "spanielska" to "spanelska", "rakuska" to "rakouska", "svajciarska" to "svycarska", "grecka" to "recka",
+        "anglicka" to "anglie", "nemecka" to "nemecka", "polsku" to "polsku", "mena" to "mena", "krat" to "krat", "co" to "co", "ktory" to "ktery",
+        "ktora" to "ktera", "ktore" to "ktere", "ked" to "kdyz", "teraz" to "ted", "vcera" to "vcera", "rok" to "rok", "ano" to "ano", "nie" to "ne",
+        "datum" to "datum", "den" to "den", "hodin" to "hodin", "dem" to "den", "dne" to "den",
+    )
+
+    /** Slova, proti kterým se opravují překlepy (klíčová slova reflexů + státy). Krátká slova (≤ 3) se neopravují. */
+    private val vocab: Set<String> by lazy {
+        val core = ("kolik kolikateho kolikaty hodin hodiny datum dnes zitra vcera pozitri jaky jaka jake ktery ktera ktere kdo kdy kde jak proc " +
+            "hlavni mesto mena svatek jmeniny vanoc vanoce velikonoce silvestra prezident premier napsal slozil namaloval vynalezl objevil zalozil " +
+            "babicku procent procenta krat deleno plus minus odmocnina mocnina stupnu celsia fahrenheita kilometru metru centimetru gramu litru " +
+            "planet planeta nejvyssi nejdelsi nejvetsi hora reka ocean obyvatel rozloha kurz eura dolaru korun sekund minut tydnu mesicu roku " +
+            "zacala skoncila valka svetova vznikla bitva revoluce nato clenu statu vtip minci kostkou nahodne cislo baterie svitilnu zapni vypni " +
+            "dekuji diky ahoj jmenujes umis delas vytvoril znacka prvek vzorec vody vzdalenost daleko mesic slunce teplota kruhu").split(' ')
+        val states = runCatching {
+            QuestionNorm::class.java.classLoader?.getResourceAsStream("facts/staty.tsv")?.bufferedReader()?.use { r ->
+                r.readLines().flatMap { l -> l.split('\t').take(2).map { TextUtil.fold(it).lowercase() } }
+            }
+        }.getOrNull().orEmpty()
+        (core + states.flatMap { it.split(' ') }).filter { it.length >= 4 }.toSet()
+    }
+
+    /** Damerau–Levenshtein ≤ max (s ranným ukončením) – překlep, vynechané / přidané / prohozené písmeno. */
+    private fun close(a: String, b: String, max: Int): Boolean {
+        if (kotlin.math.abs(a.length - b.length) > max) return false
+        val d = Array(a.length + 1) { IntArray(b.length + 1) }
+        for (i in 0..a.length) d[i][0] = i
+        for (j in 0..b.length) d[0][j] = j
+        for (i in 1..a.length) {
+            var rowMin = Int.MAX_VALUE
+            for (j in 1..b.length) {
+                val c = if (a[i - 1] == b[j - 1]) 0 else 1
+                var v = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c)
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) v = minOf(v, d[i - 2][j - 2] + 1)
+                d[i][j] = v; if (v < rowMin) rowMin = v
+            }
+            if (rowMin > max) return false
+        }
+        return d[a.length][b.length] <= max
+    }
+
+    /** Oprava překlepů: neznámé slovo → nejbližší známé (1 chyba do 7 písmen, 2 chyby od 8). */
+    fun fixTypos(s: String): String = s.split(' ').joinToString(" ") { w ->
+        if (w.length < 4 || w.any { it.isDigit() } || w in vocab || w in words) w
+        else {
+            val max = if (w.length >= 8) 2 else 1
+            vocab.asSequence().filter { it[0] == w[0] || it.length >= 6 }.firstOrNull { close(w, it, max) } ?: w
+        }
+    }
 
     private val ones = mapOf(
         "nula" to 0, "jedna" to 1, "jeden" to 1, "jedno" to 1, "dva" to 2, "dve" to 2, "tri" to 3, "ctyri" to 4, "pet" to 5, "sest" to 6,
@@ -40,6 +128,8 @@ object QuestionNorm {
         "patnact" to 15, "sestnact" to 16, "sedmnact" to 17, "osmnact" to 18, "devatenact" to 19,
     )
     private val tens = mapOf("dvacet" to 20, "tricet" to 30, "ctyricet" to 40, "padesat" to 50, "sedesat" to 60, "sedmdesat" to 70, "osmdesat" to 80, "devadesat" to 90)
+    private val hundreds = mapOf("dveste" to 200, "dvesta" to 200, "trista" to 300, "ctyrista" to 400, "petset" to 500, "sestset" to 600,
+        "sedmset" to 700, "osmset" to 800, "devetset" to 900)
     private val big = mapOf("sto" to 100, "set" to 100, "tisic" to 1000, "tisice" to 1000, "milion" to 1_000_000, "milionu" to 1_000_000)
     private val ordinalPow = mapOf("druhou" to 2, "treti" to 3, "ctvrtou" to 4, "patou" to 5, "sestou" to 6, "sedmou" to 7, "osmou" to 8, "devatou" to 9, "desatou" to 10)
     private val fractions = mapOf("polovin" to 2, "pul" to 2, "tretin" to 3, "ctvrtin" to 4, "petin" to 5, "desetin" to 10, "setin" to 100)
@@ -61,20 +151,25 @@ object QuestionNorm {
     fun variants(prompt: String): List<String> {
         if (prompt.length > 200 || prompt.contains('\n')) return emptyList()
         val out = LinkedHashSet<String>()
-        // tečku na konci smazat, ale ne za číslem data („24. 12.“)
-        var f = TextUtil.fold(prompt).replace(Regex("[?!…]+"), " ").replace(Regex("\\s+"), " ").trim().replace(Regex("(?<!\\d)\\.+$"), "").trim()
+        // tečku na konci smazat, ale ne za číslem data („24. 12.“); apostrof (what's) → mezera
+        var f = TextUtil.fold(prompt).lowercase().replace(Regex("[?!…]+"), " ").replace('\'', ' ').replace('’', ' ')
+            .replace(Regex("\\s+"), " ").trim().replace(Regex("(?<!\\d)\\.+$"), "").trim().trimEnd(',', ' ')
         // °C / °F → slova, která převodník zná
         f = f.replace(Regex("(\\d)\\s*°?\\s*c\\b"), "$1 stupnu celsia").replace(Regex("(\\d)\\s*°?\\s*f\\b"), "$1 stupnu fahrenheita").replace('°', ' ')
+        // chat: „2x3“ → „2 krat 3“, „sqrt 81“ → „odmocnina z 81“
+        f = f.replace(Regex("(\\d)\\s*x\\s*(\\d)"), "$1 krat $2").replace(Regex("\\bsqrt\\s*\\(?(\\d+(?:[.,]\\d+)?)\\)?"), "odmocnina z $1")
+        // 0) angličtina
+        english(f)?.let { out += it; return out.toList() }
         // 1) obaly pryč (opakovaně: „prosím tě, víš, kolik…“)
-        var prev: String
-        do { prev = f; f = f.replace(lead, "").replace(tail, "").trim().trimStart(',', ' ') } while (f != prev && f.isNotEmpty())
+        f = stripWrap(f)
         if (f.isEmpty()) return emptyList()
         out += f
-        // 2) hovorová slova a překlepy
-        f = f.split(' ').joinToString(" ") { words[it] ?: it }
+        // 2) slovník (slang, nářečí, slovenština) + výplňová slova pryč
+        f = f.replace(",", " ").split(' ').filter { it.isNotBlank() && it !in fillers }.joinToString(" ") { words[it] ?: it }
             .replace(Regex("\\bhl\\.? ?mest"), "hlavni mest")
-            .replace(Regex("\\bkolik mame hodin\\b"), "kolik je hodin").replace(Regex("^kolik je ted hodin$"), "kolik je hodin")
-            .replace(Regex("^(cas|kolik je cas|jaky je cas|jaky mame cas)$"), "kolik je hodin")
+            .replace(Regex("^kolik (mame|je ted|je to|mame ted) hodin$"), "kolik je hodin")
+            .replace(Regex("^(cas|kolik je cas|jaky je cas|jaky mame cas|presny cas|aktualni cas|kolik je h|kolik je hod|kolik hodin)$"), "kolik je hodin")
+        f = stripWrap(f)
         out += f
         // 3) přeformulování na tvary, které reflexy znají
         val r = rephrase(f)
@@ -82,8 +177,33 @@ object QuestionNorm {
         // 4) čísla slovy → číslice (jen jako další varianta – „jeden“ může být i zájmeno)
         val n = numbers(r)
         if (n != r) { out += n; out += rephrase(n) }
+        // 5) překlepy (až nakonec: nejdražší a nejodvážnější krok)
+        val t = fixTypos(f)
+        if (t != f) { val tr = rephrase(t); out += tr; numbers(tr).let { if (it != tr) out += rephrase(it) } }
         out.remove(TextUtil.fold(prompt).trim())
         return out.filter { it.isNotBlank() }
+    }
+
+    /** Obaly a dovětky pryč – opakovaně, ale nikdy ne až do prázdna („díky“ samo je platná zpráva). */
+    private fun stripWrap(s: String): String {
+        var f = s
+        while (true) {
+            val n = f.replace(lead, "").replace(tail, "").trim().trim(',', ' ')
+            if (n == f || n.isBlank()) return f
+            f = n
+        }
+    }
+
+    private fun english(f: String): String? {
+        english.firstOrNull { it.first.matches(f) }?.let { return it.second }
+        Regex("^(?:what is |what s )?(?:the )?capital (?:city )?of (.+)$").find(f)?.let { m -> enCountry[m.groupValues[1].removePrefix("the ")]?.let { return "hlavni mesto $it" } }
+        Regex("^(?:how much is |what is |what s )?(\\d+(?:[.,]\\d+)?) ?(?:%|percent) of (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m -> return "${m.groupValues[1]} procent z ${m.groupValues[2]}" }
+        Regex("^(?:how much is |what is |what s |calculate )?(\\d+(?:[.,]\\d+)?) (times|plus|minus|divided by) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
+            val op = mapOf("times" to "krat", "plus" to "plus", "minus" to "minus", "divided by" to "deleno").getValue(m.groupValues[2])
+            return "kolik je ${m.groupValues[1]} $op ${m.groupValues[3]}"
+        }
+        Regex("^(?:give me a |pick a )?random number (?:from|between) (\\d+) (?:to|and) (\\d+)$").find(f)?.let { m -> return "nahodne cislo od ${m.groupValues[1]} do ${m.groupValues[2]}" }
+        return null
     }
 
     private fun rephrase(s: String): String {
@@ -111,7 +231,10 @@ object QuestionNorm {
             val t = m.groupValues[1].replace(Regex("^vanoce$"), "vanoc").replace(Regex("^silvestr$"), "silvestra").replace(Regex("^novy rok$"), "noveho roku")
             return "kolik dni do $t"
         }
-        f = f.replace(Regex("^kolik (dnu|dni) (zbyva )?do "), "kolik dni do ")
+        f = f.replace(Regex("^kolik (dnu|dni) (zbyva |je |ostava |chyby )?do "), "kolik dni do ")
+        Regex("^kolik (?:je to |stoji )?(?:korun|kc) (?:za|na) (euro|eura|dolar|dolaru|libru)$").find(f)?.let { m -> return "kurz " + if (m.groupValues[1].startsWith("eur")) "eura" else if (m.groupValues[1].startsWith("dol")) "dolaru" else "libry" }
+        f = f.replace(Regex("^jak se (mas|mate|vede)( ty)?$"), "jak se mas").replace(Regex("^jake je dnes datum$|^jaky je dnes datum$"), "jaky je dnes den")
+        f = f.replace(Regex("^(jaky|jake) je dnesni (datum|den)$"), "jaky je dnes den")
         f = f.replace(Regex("^(jaky|ktery) den (je|bude|byl|bylo) "), "$1 $2 den ")
         f = f.replace(Regex("\\b(slavi svatek|slavi jmeniny|ma jmeniny)\\b"), "ma svatek")
         f = f.replace(Regex("^kdo slavi (dnes |zitra )?(svatek|jmeniny)"), "kdo ma $1svatek").replace(Regex("^svatek dnes$"), "kdo ma dnes svatek")
@@ -144,6 +267,7 @@ object QuestionNorm {
             when {
                 tv != null && i + 1 < toks.size && (ones[toks[i + 1]] ?: 0) in 1..9 -> { out += (tv + ones.getValue(toks[i + 1])).toString(); i += 2; continue }
                 tv != null -> out += tv.toString()
+                hundreds[t] != null -> out += hundreds.getValue(t).toString()
                 ones[t] != null && !(t == "jeden" || t == "jedna" || t == "jedno") -> out += ones.getValue(t).toString()
                 (t == "jeden" || t == "jedna" || t == "jedno") && i + 1 < toks.size && toks[i + 1].matches(Regex("krat|plus|minus|deleno|procent\\w*|na")) -> out += "1"
                 big[t] != null -> {

@@ -52,7 +52,7 @@ object Everyday {
     }
 
     private val unitWords = listOf(
-        "kilometr\\w*" to "km", "metr\\w*" to "m", "centimetr\\w*" to "cm", "milimetr\\w*" to "mm", "mil\\w*" to "mi", "palc\\w*|palec" to "in", "stop\\w*" to "ft",
+        "kilometr\\w*" to "km", "metr\\w*" to "m", "centimetr\\w*" to "cm", "milimetr\\w*" to "mm", "mililitr\\w*" to "ml", "mil|mile|mili|milich|milim|milemi" to "mi", "palc\\w*|palec" to "in", "stop\\w*" to "ft",
         "kilogram\\w*|kil\\b" to "kg", "gram\\w*" to "g", "tun\\w*" to "t", "liber\\w*|libr\\w*" to "lb", "unc\\w*" to "oz",
         "litr\\w*" to "l", "mililitr\\w*" to "ml", "galon\\w*" to "gal", "hektar\\w*" to "ha",
         "stupn\\w* celsia|celsi\\w*" to "c", "stupn\\w* fahrenheita|fahrenheit\\w*" to "f", "kelvin\\w*" to "k",

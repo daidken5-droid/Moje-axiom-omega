@@ -147,7 +147,7 @@ object Reflex {
         val definitions: Boolean = true,
     )
 
-    private val compound = Regex("[\\s,](a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
+    private val compound = Regex("\\S+\\s+\\S+[\\s,]+(a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
 
     fun answer(prompt: String, c: Ctx): Instant.Answer? {
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
@@ -155,7 +155,7 @@ object Reflex {
         if (compound.containsMatchIn(TextUtil.fold(prompt))) return null
         answerExact(prompt, c)?.let { return it }
         // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
-        for (v in QuestionNorm.variants(prompt).take(6)) answerExact(v, c)?.let { return it }
+        for (v in QuestionNorm.variants(prompt).take(9)) answerExact(v, c)?.let { return it }
         return null
     }
 

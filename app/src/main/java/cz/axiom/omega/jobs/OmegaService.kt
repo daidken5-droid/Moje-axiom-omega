@@ -208,6 +208,8 @@ class OmegaService : Service() {
         val authority = Sup.Authority.of(omega.settings.randyAuthority)
         val (battery, charging) = Introspect.battery(this)
         val engines = omega.availableEngines()
+        // ŽÁDNÝ MOZEK (offline bez staženého mozku, bez cloudu) → odpověď z offline knihovny místo chyby
+        if (engines.isEmpty() && offlineAnswer(threadId, text, if (Introspect.online(this)) "není stažený mozek ani připojený cloud" else "jsi offline a v telefonu není mozek")) return
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
             local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local" && !(mode == "auto" && omega.settings.freeFirst && "free" in engines)) ||
                 (mode == "turbo" && !omega.turboReady() && "local" in engines))
@@ -343,12 +345,25 @@ class OmegaService : Service() {
                         minOf(plan.passes ?: if (lvl >= RandyLevel.L3_STRATEGIC_EV.ordinal) 2 else 1, s.localMaxPasses, 2)
                     } else plan.passes ?: s.maxPasses
                     val orch = omega.orchestrator()
-                    var r = orch.run(
-                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
-                            s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
-                            maxTokens = budget.maxTokens.takeIf { engine.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge),
-                        engine, cancel, listener,
-                    )
+                    fun req(e: cz.axiom.omega.core.llm.LlmEngine) = AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && e.kind == EngineKind.CLAUDE,
+                        (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
+                        s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
+                        maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge)
+                    var failover: String? = null
+                    var r = try {
+                        orch.run(req(engine), engine, cancel, listener)
+                    } catch (e: CancelledException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // CLOUD SELHAL (limit, výpadek, síť) a telefon má mozek → odpoví telefon, uživatel dostane odpověď vždy
+                        if (engine.kind == EngineKind.LOCAL || !omega.localAvailable()) throw e
+                        failover = e.message?.take(120)
+                        listener.onPhase("Cloud nedostupný – odpovídá mozek v telefonu")
+                        job.partial.setLength(0); job.reasoning.setLength(0)
+                        val phone = omega.local()
+                        phone.setThreads(budget.threads, budget.batchThreads)
+                        orch.run(req(phone).copy(maxPasses = 1, maxTokens = budget.maxTokens), phone, cancel, listener)
+                    }
                     // RANDY eskalace: nejistá odpověď → silnější varianta (jen s plnou pravomocí)
                     Sup.escalation(plan, r.confidence, r.answer.length)?.let { up ->
                         listener.onPhase("RANDY eskaluje → ${up.title} (jistota ${r.confidence ?: "?"} %)")
@@ -361,7 +376,7 @@ class OmegaService : Service() {
                         if ((r2.confidence ?: 0) >= (r.confidence ?: 0)) { r = r2; escalatedTo = up }
                     }
                     omega.rememberConfidence(r.confidence)
-                    meta = metaOf(r).put("route", route.reason); answer = r.answer
+                    meta = metaOf(r).put("route", route.reason + (failover?.let { " · cloud selhal ($it) → telefon" } ?: "")); answer = r.answer
                     (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it.put("loadMs", loadMs).put("knowledgeMs", orch.knowledgeMillis)); omega.rememberSpeed(it.optDouble("writeTps")) }
                 }
             }
@@ -433,9 +448,23 @@ class OmegaService : Service() {
             Events.emit("done", JSONObject().put("threadId", threadId).put("stopped", true))
         } catch (e: Exception) {
             val msg = e.message ?: e.javaClass.simpleName
+            // i při chybě zkusit odpovědět z offline knihovny (s vysvětlením, proč bez mozku)
+            if (offlineAnswer(threadId, text, "mozek teď nejde použít: ${msg.take(90)}")) return
             omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("error", true))
             Events.emit("error", JSONObject().put("threadId", threadId).put("message", msg))
         }
+    }
+
+    /** Odpověď z offline knihovny (Wikipedie, dokumenty, balíčky) – extraktivní, se zdrojem. false = nic vhodného. */
+    private fun offlineAnswer(threadId: Long, text: String, reason: String): Boolean {
+        val started = System.currentTimeMillis()
+        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(text, 5), reason) }.getOrNull() ?: return false
+        val meta = JSONObject().put("engine", "Offline knihovna · bez mozku").put("millis", System.currentTimeMillis() - started)
+            .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0").put("offline", true)
+        omega.job.busy = false
+        val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
+        Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))
+        return true
     }
 
     private fun instant(

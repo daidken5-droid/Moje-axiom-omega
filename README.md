@@ -8,6 +8,39 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.3 – rozumí slangu, nářečí, slovenštině i angličtině; odpoví v každém režimu
+
+**Bez mozku – rozpoznávání otázek (`QuestionNorm`, vrstvy od nejmenší změny):**
+- **Angličtina** (krátké dotazy): „what time is it“, „capital of France“, „15 percent of 200“, „7 times 8“,
+  „flip a coin“, „tell me a joke“…
+- **Výplňová slova** pryč: vole, kámo, brácho, jo, ne, šak, vé, esi víš, zrovna, přesně, pls, plz, thx…
+- **Slang a obecná čeština:** hoďek, sedum, vosum, kilák, hlavák, prezoš, stovka, dyť, zejtra…
+- **Nářečí:** kolék, keré/kerý, gde, esi.
+- **Slovenština:** koľko, aký, kto, kedy, ako sa máš, meniny, Vianoce, ďakujem, percent, vojna, francúzska…
+- **Chat:** „kolik je h/hod“, „2x3“, „sqrt 81“, „dk“, „thx“, VELKÁ PÍSMENA, „???“.
+- **Oprava překlepů** (Damerau–Levenshtein: 1 chyba do 7 písmen, 2 od 8) proti slovníku klíčových slov
+  a všech států a hlavních měst: hodim → hodin, kolok → kolik, francue → francie, vanco → vánoc,
+  napsla → napsal…
+- **Číslovky:** dvěstě až devětset.
+- **Opravené chyby:**
+  - převodník četl „mililitrech“ jako míle
+  - samotné „díky“ se ořízlo do prázdna
+  - „no a kolik je hodin“ se bralo jako složená otázka
+
+**Odolnost napříč režimy (AI odpoví vždy):**
+- **Výpadek cloudu:** cloud selže (limit, výpadek, síť) a v telefonu je mozek → odpověď převezme telefon. Uživatel
+  dostane odpověď a v „Proč takto“ uvidí důvod.
+- **Bez mozku a bez cloudu:** offline bez staženého mozku → **odpověď z offline knihovny** (Wikipedie,
+  dokumenty, balíčky). Je to extraktivní výňatek nejrelevantnějších vět se zdrojem, nic si nevymýšlí, a když zdroj
+  neodpovídá aspoň z poloviny, raději mlčí.
+- **I když mozek selže**, AI nejdřív zkusí offline knihovnu a teprve potom ukáže chybu.
+
+**Měření:**
+- Slang, nářečí, slovenština, angličtina a překlepy: **102/102** (předtím 29/102).
+- Přirozené formulace 150/150.
+- 50 otázek, které patří mozku: 0 falešných odpovědí.
+- Rozhodnutí trvá 0,48 ms na otázku.
+
 ## Novinky 8.2 – offline modul bez mozku rozumí otázkám jako člověk
 
 - **Normalizátor otázek (`QuestionNorm`)** převede otázku tak, jak ji člověk napíše, na tvar, kterému rozumí
