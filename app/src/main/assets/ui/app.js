@@ -315,6 +315,7 @@ const head = (eyebrow, title) => `<div class="eyebrow">${eyebrow}</div><h1>${tit
 /* ------------------------------------------------------------------ chat */
 
 function loadThread(id) {
+  if ((id || 0) !== threadId) showLimit = 60;
   const changed = (id || 0) !== threadId;
   threadId = id || 0;
   msgs = threadId ? (J('messages', threadId) || []) : [];
@@ -358,18 +359,18 @@ function crashSheet(d) {
     <button class="btn wide" data-close-sheet style="margin-top:8px">Rozumím</button>`);
 }
 
+let showLimit = 60, keepScroll = false;
 function renderChat() {
   const main = $('#main');
   if (!msgs.length && !live) {
     const ready = (S.engines || []).length > 0;
     main.innerHTML = `<div class="wrap"><section class="hero">
-      <div class="orbit">${appIcon()}</div>
+      <div class="mark">${logo()}</div>
       ${S.update ? `<div class="card glow" style="text-align:left"><b>Nová verze AVIOR ${esc(S.update.version)}</b><p class="small muted" style="margin:4px 0 10px">Máš ${esc(S.update.current)}. Aktualizace zachová mozek, Wikipedii i paměť.</p>
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
-      ${brainChip()}
+      <div class="row" style="gap:14px;flex-wrap:wrap">${brainChip()}<button class="brainchip" data-kind-pick>výkon: ${esc((POWERS.find(p => p.id === curPower()) || POWERS[0]).label)} · ${(S.settings || {}).powerStrength || 75} %</button></div>
       ${speedTip()}
-      <div style="margin-top:18px">${powerSeg(false)}</div>
       ${(() => { const cg = J('cognition'); const j = cg && cg.journal && cg.journal[0]; return j ? `<button class="learnline" data-self>✦ ${esc(j.text)}</button>` : (cg && cg.total ? `<button class="learnline" data-self>✦ ${cg.total} otázek · ${cg.insights} vlastních poznatků – podívej se, co umím</button>` : ''); })()}
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
         <div class="progress"><i style="width:${Math.max(0, S.bg.progress)}%"></i></div><div class="meta">${esc(S.bg.detail || S.bg.phase || '')}</div></div>` : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
@@ -379,8 +380,12 @@ function renderChat() {
     return;
   }
   const lastAi = [...msgs].reverse().find(m => m.role !== 'user');
-  main.innerHTML = `<div class="wrap">${msgs.map(m => msgHtml(m, m === lastAi && !live)).join('')}${live ? liveHtml() : ''}</div>`;
+  // PLYNULOST: dlouhé vlákno se nevykresluje celé – jen posledních N zpráv (starší na klepnutí)
+  const shown = msgs.length > showLimit ? msgs.slice(-showLimit) : msgs;
+  const older = msgs.length - shown.length;
+  main.innerHTML = `<div class="wrap">${older ? `<button class="more-older" data-older>Zobrazit starší (${older})</button>` : ''}${shown.map(m => msgHtml(m, m === lastAi && !live)).join('')}${live ? liveHtml() : ''}</div>`;
   main.querySelectorAll('.msg[data-id]').forEach(el => { const id = Number(el.dataset.id); if (!seen.has(id)) { el.classList.add('rise'); seen.add(id); } });
+  if (keepScroll) { keepScroll = false; fab(); return; }
   requestAnimationFrame(() => { main.scrollTop = main.scrollHeight; fab(); });
 }
 
@@ -1106,6 +1111,7 @@ document.addEventListener('click', e => {
   if (ds.self !== undefined) { selfSheet(); return; }
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
+  if (ds.older !== undefined) { const m = $('#main'); const h = m.scrollHeight, top = m.scrollTop; showLimit += 60; keepScroll = true; renderChat(); m.scrollTop = m.scrollHeight - h + top; return; }
   if (ds.phoneOk !== undefined && pendingPhone) { const p = pendingPhone; pendingPhone = null; closeSheet(); call('phoneRun', p.threadId, JSON.stringify(p.cmd), true); haptic(); return; }
   if (ds.phoneNo !== undefined) { closeSheet(); return; }
   if (ds.phoneGrant) { call('phoneGrant', ds.phoneGrant); return; }

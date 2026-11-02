@@ -8,6 +8,26 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 7.0 – nový design „simply clever“, další databáze, plynulost
+
+**Nový design celého UI** – klidný, střídmý, nic okázalého na první pohled; chytré až v používání:
+- grafitová paleta s jediným titanovým akcentem, hierarchie písmem a prostorem místo rámečků a efektů,
+  jednobarevná značka; **žádné přechody, záře ani rozostření** (backdrop-filter) – výrazně lehčí pro WebView,
+- úvod: pozdrav, jedna stavová řádka (mozek v paměti · výkon) a návrhy jako přehledný seznam,
+- chat: odpověď bez bubliny na celou šířku, tabulky a kód čitelně, akce nenápadně pod odpovědí,
+- dotykové cíle ≥ 44 px, tabulková čísla, respekt k systémovému „omezit animace“, světlý i tmavý motiv.
+
+**Plynulost:** zprávy mimo obrazovku se nevykreslují (`content-visibility`), dlouhé vlákno zobrazí jen
+posledních 60 zpráv (starší na klepnutí, bez skoku pozice), lehčí styly bez drahých efektů.
+Reflexy a povely rozhodnou za ~0,24 ms na otázku.
+
+**Další odpovědi bez mozku:**
+- **měny a telefonní předvolby** 64 států (i obráceně „+44 je předvolba čeho?“),
+- **zeměpisné a přírodní rekordy** ČR i světa (Sněžka, Vltava, Rožmberk, Everest, Nil, Vatikán…),
+- **české dějiny** (Bílá hora, vznik ČSR, Mnichov, okupace, Heydrich, únor 1948, srpen 1968, Palach,
+  Charta 77, sametová revoluce, Hus, Karel IV., Lipany, Slavkov…),
+- **zkratky** (DPH, IČO, DIČ, OSVČ, ČNB, NÚKIB, GDPR, LLM, RAG, VPN, IBAN…).
+
 ## Novinky 6.9 – politika bez mozku
 
 Nový reflex `core/agent/Politics.kt` (data `facts/strany.tsv`, `facts/pravice.tsv`):

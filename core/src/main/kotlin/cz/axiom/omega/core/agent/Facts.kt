@@ -24,6 +24,10 @@ object Facts {
     private val nameDays by lazy { res("jmeniny.tsv").associate { it[0] to it[1] } }
     private val states by lazy { res("staty.tsv") }
     private val elements by lazy { res("prvky.tsv") }
+    private val countries by lazy { res("zeme.tsv") }
+    private val records by lazy { res("rekordy.tsv").map { Regex(it[0]) to it[1] } }
+    private val history by lazy { res("dejiny.tsv").map { Triple(Regex(it[0]), it[1], it[2]) } }
+    private val abbrevs by lazy { res("zkratky.tsv").associate { it[0] to it[1] } }
 
     private val months = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")
     private val days = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
@@ -271,6 +275,32 @@ object Facts {
                 what.startsWith("schengen") -> "Česko je v **Schengenu od 21. 12. 2007** (letiště od 30. 3. 2008)."
                 else -> "Česko je členem **EU od 1. 5. 2004** (referendum 2003, 77 % pro)."
             }, "politika")
+        }
+
+        // ---- měna a telefonní předvolba státu
+        if (Regex("\\b(men\\w*|plati\\w*|predvolb\\w*|volaci kod|kod zeme)\\b").containsMatchIn(f)) {
+            Regex("(\\+\\d{1,3})\\b").find(raw)?.let { m ->
+                val hits = countries.filter { it[3] == m.groupValues[1] }
+                if (hits.isNotEmpty()) return ans("Předvolba **${m.groupValues[1]}** patří: **${hits.joinToString(", ") { it[0] }}**.", "zeměpis")
+            }
+            val aliases = mapOf("usa" to "Spojené státy americké", "ameri" to "Spojené státy americké", "britani" to "Spojené království", "angli" to "Spojené království", "holandsk" to "Nizozemsko", "cesk" to "Česko")
+            val c = aliases.entries.firstOrNull { (k, _) -> Regex("\\b$k").containsMatchIn(f) }?.value?.let { a -> countries.firstOrNull { it[0] == a } }
+                ?: countries.sortedByDescending { it[0].length }.firstOrNull { mentions(q, it[0]) }
+            if (c != null) return ans(if (Regex("predvolb|volaci|kod zeme").containsMatchIn(f)) "Telefonní předvolba státu **${c[0]}** je **${c[3]}**."
+                else "Ve státě **${c[0]}** se platí: **${c[1]}** (${c[2]}).", "zeměpis")
+        }
+
+        // ---- zeměpisné a přírodní rekordy
+        if (Regex("^(jaka|jaky|jake|kde|ktera|ktery|ktere|co je|ma)?\\s*(je |ma )?(nej)").containsMatchIn(f) || f.startsWith("nej"))
+            records.firstOrNull { it.first.containsMatchIn(f) }?.let { return ans(it.second, "zeměpis") }
+
+        // ---- české dějiny
+        if (Regex("^(kdy|co (se stalo|bylo|byla|byl|je|znamena)|v jakem roce|ktereho roku|kdo byl)").containsMatchIn(f) || f.split(' ').size <= 4)
+            history.firstOrNull { it.first.containsMatchIn(f) }?.let { return ans("**${it.second}** – ${it.third}", "dějiny") }
+
+        // ---- zkratky
+        Regex("^(?:co znamena|co je|co je to|vyznam|zkratka)\\s+(?:zkratka\\s+)?([a-z0-9]{2,6})$").find(f)?.let { m ->
+            abbrevs[m.groupValues[1]]?.let { return ans("**${raw.substringAfterLast(' ').trimEnd('?', '.').uppercase()}** = $it.", "zkratky") }
         }
 
         // ---- tísňová čísla

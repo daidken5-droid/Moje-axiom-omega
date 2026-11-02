@@ -107,4 +107,23 @@ class FactsTest {
         assertNull(pol("Proč je politika tak rozdělená?"))
         assertNull(pol("Napiš mi projev o daních"))
     }
+
+    @Test fun moreDatabases() {
+        has("Jaká je měna v Polsku?", "zlotý", "PLN")
+        has("Čím se platí v Japonsku?", "jen")
+        has("Jaká je měna ve Švýcarsku?", "frank")
+        has("Telefonní předvolba Slovenska", "+421")
+        has("+44 je předvolba čeho?", "Spojené království")
+        has("Jaká je nejvyšší hora ČR?", "Sněžka", "1 603")
+        has("Nejdelší řeka světa", "Nil")
+        has("Nejmenší stát světa", "Vatikán")
+        has("Kdy byla bitva na Bílé hoře?", "1620")
+        has("Kdy byl Mnichov 1938?", "Mnichovská")
+        has("Co se stalo 21. srpna 1968?", "Pražské jaro")
+        has("Kdy vzniklo Československo?", "28. 10. 1918")
+        has("Co znamená DPH?", "daň z přidané hodnoty")
+        has("Co je IČO?", "identifikační")
+        assertNull(a("Proč je Sněžka tak oblíbená?"))
+        assertNull(a("Co je láska?"))
+    }
 }
