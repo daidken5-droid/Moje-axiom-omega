@@ -207,7 +207,7 @@ class OmegaService : Service() {
                 job.pass = pass; job.passes = totalPasses
                 if (delta.reasoning) job.reasoning.append(delta.text) else job.partial.append(delta.text)
                 val now = System.currentTimeMillis()
-                if (now - lastEmit > 60) {
+                if (now - lastEmit > 80) {
                     lastEmit = now
                     Events.emit("stream", JSONObject().put("pass", pass).put("passes", totalPasses)
                         .put("text", job.partial.toString()).put("reasoning", job.reasoning.toString().takeLast(2000)))

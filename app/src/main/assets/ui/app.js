@@ -322,15 +322,25 @@ function liveHtml() {
     <div class="body answer caret" id="liveText">${md(live.text || '')}</div></div>`;
 }
 
+/** Streamované kousky přicházejí rychle – kreslíme nejvýš jednou za snímek (plynulé i u dlouhých odpovědí). */
+let liveFrame = 0;
+const liveCache = { steps: '', text: null };
 function updateLive() {
+  if (liveFrame) return;
+  liveFrame = requestAnimationFrame(() => { liveFrame = 0; drawLive(); });
+}
+
+function drawLive() {
   if (view !== 'chat' || !live) return;
-  if (!$('#live')) { renderChat(); return; }
-  $('#livePhase').textContent = live.phase || '';
-  $('#liveSteps').innerHTML = (live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('');
+  if (!$('#live')) { liveCache.steps = ''; liveCache.text = null; renderChat(); return; }
+  const sec = live.started ? Math.round((Date.now() - live.started) / 1000) : 0;
+  $('#livePhase').textContent = (live.phase || '') + (sec >= 3 ? ' · ' + sec + ' s' : '');
+  const steps = (live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('');
+  if (steps !== liveCache.steps) { $('#liveSteps').innerHTML = steps; liveCache.steps = steps; }
   const th = $('#liveThink');
   th.textContent = (live.reasoning || '').slice(-300);
   th.classList.toggle('empty', !live.reasoning);
-  $('#liveText').innerHTML = md(live.text || '');
+  if (live.text !== liveCache.text) { $('#liveText').innerHTML = md(live.text || ''); liveCache.text = live.text; }
   const main = $('#main');
   if (main.scrollHeight - main.scrollTop - main.clientHeight < 240) main.scrollTop = main.scrollHeight;
   fab();
