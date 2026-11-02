@@ -330,7 +330,7 @@ class OmegaService : Service() {
                 val steps = meta.optJSONArray("steps")
                 val usedWeb = steps != null && (0 until steps.length()).any { steps.getJSONObject(it).optString("tool") in webTools }
                 val localBrain = route.engine == "local" || (route.engine != "node" && route.engine != "server" && route.engine != "kimi" &&
-                    route.engine != "claude" && "local" in engines)
+                    route.engine != "claude" && route.engine != "hf" && "local" in engines)
                 meta.put("private", localBrain && !usedWeb && (meta.optJSONArray("sources")?.length() ?: 0) == 0 && route.mode != Router.Mode.COUNCIL)
             }
             // UČEBNÍ SMYČKA: kalibrace jistoty, kompetence, vlastní poznatek, otevřené otázky, milníky

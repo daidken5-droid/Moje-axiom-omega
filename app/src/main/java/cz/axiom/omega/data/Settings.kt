@@ -110,6 +110,25 @@ class Settings(context: Context) {
     var loraScale: Int
         get() = p.getInt("loraScale", 100)
         set(v) = p.edit().putInt("loraScale", v.coerceIn(10, 200)).apply()
+    /** Služby Hugging Face (Inference Providers) – modely a přepínače. */
+    var hfChat: Boolean
+        get() = p.getBoolean("hfChat", true)
+        set(v) = p.edit().putBoolean("hfChat", v).apply()
+    var hfVision: Boolean
+        get() = p.getBoolean("hfVision", true)
+        set(v) = p.edit().putBoolean("hfVision", v).apply()
+    var hfChatModel: String
+        get() = p.getString("hfChatModel", cz.axiom.omega.core.hub.HfServices.DEFAULT_CHAT)!!
+        set(v) = p.edit().putString("hfChatModel", v.trim()).apply()
+    var hfVisionModel: String
+        get() = p.getString("hfVisionModel", cz.axiom.omega.core.hub.HfServices.DEFAULT_VISION)!!
+        set(v) = p.edit().putString("hfVisionModel", v.trim()).apply()
+    var hfAsrModel: String
+        get() = p.getString("hfAsrModel", cz.axiom.omega.core.hub.HfServices.DEFAULT_ASR)!!
+        set(v) = p.edit().putString("hfAsrModel", v.trim()).apply()
+    var hfImageModel: String
+        get() = p.getString("hfImageModel", cz.axiom.omega.core.hub.HfServices.DEFAULT_IMAGE)!!
+        set(v) = p.edit().putString("hfImageModel", v.trim()).apply()
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
         set(v) = p.edit().putBoolean("onboarded", v).apply()
@@ -133,7 +152,9 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual)
+        .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
+        .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
     fun apply(o: JSONObject) {
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
@@ -149,6 +170,12 @@ class Settings(context: Context) {
         if (o.has("thinking")) thinking = o.getBoolean("thinking")
         if (o.has("ctxTokens")) { val c = o.getInt("ctxTokens"); if (c <= 0) ctxManual = false else { ctxManual = true; ctxTokens = c } }
         if (o.has("power")) power = o.getString("power")
+        if (o.has("hfChat")) hfChat = o.getBoolean("hfChat")
+        if (o.has("hfVision")) hfVision = o.getBoolean("hfVision")
+        for (k in listOf("hfChatModel", "hfVisionModel", "hfAsrModel", "hfImageModel")) if (o.has(k)) {
+            val v = o.getString(k).also(::checkModelId)
+            when (k) { "hfChatModel" -> hfChatModel = v; "hfVisionModel" -> hfVisionModel = v; "hfAsrModel" -> hfAsrModel = v; else -> hfImageModel = v }
+        }
         if (o.has("theme")) theme = o.getString("theme")
         if (o.has("font")) font = o.getInt("font")
         if (o.has("userName")) userName = o.getString("userName")
@@ -171,6 +198,6 @@ class Settings(context: Context) {
     }
 
     companion object {
-        val MODES = setOf("auto", "local", "kimi", "node", "server", "claude", "council")
+        val MODES = setOf("auto", "local", "kimi", "node", "server", "claude", "hf", "council")
     }
 }

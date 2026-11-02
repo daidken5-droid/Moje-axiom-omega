@@ -368,35 +368,25 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun kbDelete(id: Long) { omega.db.deleteDocument(id); Events.emit("kb", JSONObject()) }
 
-    @JavascriptInterface fun kbImport() = activity.runOnUiThread { activity.pickText.launch(arrayOf("text/plain", "text/markdown", "text/x-markdown", "text/csv", "application/json", "application/x-ndjson", "application/zip")) }
+    @JavascriptInterface fun kbImport() = activity.runOnUiThread { activity.pickText.launch(arrayOf("*/*")) }
 
+    /** Import souborů do offline znalostí: PDF, Word, Excel, PowerPoint, OpenDocument, EPUB, HTML, obrázky (OCR), zvuk (přepis), ZIP, text. */
     fun onTextFiles(uris: List<Uri>) = async {
         var ok = 0
         var fail = 0
-        for (u in uris.take(100)) {
+        val notes = mutableListOf<String>()
+        for ((i, u) in uris.take(100).withIndex()) {
             runCatching {
-                val name = u.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':') ?: "Dokument"
-                val bytes = activity.contentResolver.openInputStream(u)!!.use { it.readBytes() }
-                require(bytes.size <= 200_000_000) { "příliš velký" }
-                ok += if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
-                    var n = 0
-                    java.util.zip.ZipInputStream(bytes.inputStream()).use { zip ->
-                        while (true) {
-                            val e = zip.nextEntry ?: break
-                            if (e.isDirectory || !e.name.substringAfterLast('.').lowercase().let { it in setOf("md", "txt", "csv", "json", "jsonl") }) continue
-                            val data = zip.readBytes()
-                            if (data.size > 50_000_000) continue
-                            n += importText(e.name.substringAfterLast('/'), String(data, Charsets.UTF_8))
-                        }
-                    }
-                    n
-                } else {
-                    importText(name, String(bytes, Charsets.UTF_8))
-                }
+                val r = omega.files.read(u) { if (uris.size == 1) Events.note(it) }
+                if (uris.size > 1) Events.note("Čtu ${i + 1}/${uris.size}: ${r.name}")
+                notes += r.notes
+                require(r.text.isNotBlank()) { "bez textu" }
+                ok += importText(r.name, r.text)
             }.onFailure { fail++ }
         }
         Events.emit("kb", JSONObject())
-        Events.note("Do offline databáze přidáno $ok dokumentů" + if (fail > 0) ", $fail souborů se nepodařilo načíst." else ".")
+        Events.note("Do offline databáze přidáno $ok dokumentů" + (if (fail > 0) ", $fail souborů bez čitelného textu." else ".") +
+            (notes.distinct().firstOrNull()?.let { " $it" } ?: ""))
         if (omega.settings.semantic && omega.embedderFile() != null && !OmegaService.RUNNING_BG.get()) OmegaService.start(activity, Intent(OmegaService.ACTION_INDEX))
     }
 
@@ -616,17 +606,16 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface fun attach() = activity.runOnUiThread {
-        activity.pickAttach.launch(arrayOf("text/*", "application/json", "application/x-ndjson", "text/csv", "text/markdown"))
+        activity.pickAttach.launch(arrayOf("*/*"))
     }
 
     fun onAttach(uri: android.net.Uri) = async {
-        val name = runCatching {
-            activity.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-        }.getOrNull() ?: "příloha.txt"
-        val bytes = activity.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-        if (bytes.size > 2_000_000) { Events.note("Příloha je příliš velká (max. 2 MB textu). Větší soubory vlož do znalostí (Paměť → Offline databáze)."); return@async }
-        val text = String(bytes, Charsets.UTF_8).replace("\u0000", "")
-        Events.emit("attach", JSONObject().put("name", name).put("text", text.take(60_000)).put("chars", text.length))
+        val r = try {
+            omega.files.read(uri) { Events.note(it) }
+        } catch (e: Exception) { Events.note("Soubor se nepodařilo přečíst: ${e.message}"); return@async }
+        if (r.text.isBlank()) { Events.note((r.notes.firstOrNull() ?: "V souboru jsem nenašel žádný text.")); return@async }
+        Events.emit("attach", JSONObject().put("name", r.name).put("kind", r.kind.label).put("text", r.text.take(60_000)).put("chars", r.text.length)
+            .put("notes", JSONArray(r.notes)))
     }
 
     private var tts: android.speech.tts.TextToSpeech? = null
@@ -646,6 +635,30 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface fun stopSpeaking() = activity.runOnUiThread { tts?.stop() }
+
+    // ------------------------------------------------------------------ Hugging Face služby
+
+    @JavascriptInterface
+    fun hfStatus(): String = JSONObject().put("token", omega.hfToken() != null).put("online", Introspect.online(activity)).toString()
+
+    @JavascriptInterface
+    fun hfModels() = async {
+        val t = omega.hfToken() ?: return@async Events.note("Nejdřív ulož token Hugging Face.")
+        val list = runCatching { cz.axiom.omega.core.hub.HfServices.chatModels(t) }.getOrDefault(emptyList())
+        if (list.isEmpty()) Events.note("Seznam modelů se nepodařilo načíst – zkontroluj token.")
+        else Events.emit("models", JSONObject().put("provider", "hf").put("models", JSONArray(list.take(300))))
+    }
+
+    @JavascriptInterface
+    fun hfTest() = async {
+        val t = omega.hfToken() ?: return@async Events.note("Nejdřív ulož token Hugging Face.")
+        val r = runCatching {
+            val e = cz.axiom.omega.core.hub.HfServices.chatEngine(t, omega.settings.hfChatModel)
+            e.generate(listOf(cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.USER, "Odpověz jedním slovem: funguješ?")),
+                cz.axiom.omega.core.llm.GenOptions(maxTokens = 20), cz.axiom.omega.core.llm.CancelToken()) {}.text
+        }
+        Events.note(r.fold({ "Hugging Face funguje (${omega.settings.hfChatModel.substringAfterLast('/')}): ${it.take(60)}" }, { "Hugging Face: ${it.message}" }))
+    }
 
     @JavascriptInterface fun cognition(): String = omega.cognition.toJson().toString()
 

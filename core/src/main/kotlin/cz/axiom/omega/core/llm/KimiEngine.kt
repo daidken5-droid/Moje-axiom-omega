@@ -37,6 +37,7 @@ class KimiEngine(
     override val label = when (kind) {
         EngineKind.KIMI_SERVER -> "Vlastní server ($model)"
         EngineKind.NODE -> "AVIOR Node ($model)"
+        EngineKind.HF -> "Hugging Face (${model.substringAfterLast('/')})"
         else -> "Kimi K3 · cloud ($model)"
     }
     override val contextBudgetChars = 400_000

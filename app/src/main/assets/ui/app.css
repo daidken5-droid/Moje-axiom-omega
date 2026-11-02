@@ -569,3 +569,5 @@ i.ev-c { background: #e9ecf0; } i.ev-s { background: #7cf2b0; } i.ev-m { backgro
 .dsearch input { border: 0; background: transparent; padding: 10px 0; }
 .dsearch input:focus { outline: none; }
 mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 3px; padding: 0 1px; }
+.hfsvc { display: grid; gap: 4px; margin: 10px 0; font-size: .8rem; color: var(--muted); }
+.hfsvc b { color: var(--text); font-weight: 600; }

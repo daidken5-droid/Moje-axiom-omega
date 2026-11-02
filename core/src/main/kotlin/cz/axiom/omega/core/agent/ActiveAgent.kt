@@ -127,6 +127,7 @@ class ActiveAgent(
                 in sec -> security
                 in file -> files && (apps == null || t.name in apps)
                 "hf_search" -> hf
+                "generate_image" -> Regex("\\b(obraz|obrazek|obrazku|foto|ilustrac|nakresli|logo|ikon|tapet|image|plakat)").containsMatchIn(f)
                 else -> true
             }
         }.ifEmpty { tools }

@@ -8,6 +8,25 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.3 – soubory a služby Hugging Face
+
+**AVIOR čte jakékoli soubory** – jako přílohu k dotazu (📎) i do offline znalostí:
+
+| Formát | Jak |
+|---|---|
+| PDF | text přes PdfBox (správná čeština); **naskenované PDF → OCR stránek v telefonu** (ML Kit, offline) |
+| Obrázky (JPG, PNG, HEIC…) | OCR textu v telefonu (offline) + volitelně popis obsahu přes HF vizi |
+| Zvuk (MP3, M4A, WAV, OGG…) | přepis řeči přes HF Whisper |
+| Word, Excel, PowerPoint, OpenDocument, EPUB, HTML, RTF | čistý Kotlin (`core/files/Extract.kt`), offline |
+| ZIP | rozbalí a přečte vše uvnitř (s ochranou proti „zip bombě“) |
+| Text, CSV, JSON, kód | včetně starých souborů v kódování windows-1250 |
+
+**Podslužby Hugging Face** (`core/hub/HfServices.kt`, jeden HF token, zdarma v rámci měsíčního kreditu):
+* **Chat** – silné otevřené modely (výchozí Llama 3.3 70B, výběr ze seznamu) jako další mozek a záloha.
+* **Vize** – popis fotky, účtenky, grafu nebo dokumentu (Qwen2.5-VL).
+* **Přepis řeči** – nahrávky na text (Whisper large-v3-turbo).
+* **Obrázky** – agent umí vytvořit obrázek z popisu (FLUX.1-schnell) a uložit ho do Stažené/AVIOR.
+
 ## Novinky 5.2 – jednodušší a praktičtější
 
 * **Jednodušší rozhraní:** u odpovědi jen kopírovat, přečíst nahlas, ✓/✗ a „⋯“ (odpovědět znovu, upravit dotaz,

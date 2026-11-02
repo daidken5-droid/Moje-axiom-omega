@@ -78,6 +78,7 @@ enum class EngineKind(val label: String, val online: Boolean) {
     KIMI_SERVER("Kimi K3 · vlastní server", false),
     NODE("AVIOR Node · cloud server", true),
     CLAUDE("Claude · Anthropic API", true),
+    HF("Hugging Face · Inference Providers", true),
 }
 
 /**

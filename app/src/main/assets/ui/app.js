@@ -93,6 +93,7 @@ const MODES = [
   { id: 'node', ic: 'N', name: 'AVIOR Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
   { id: 'claude', ic: 'C', name: 'Claude', desc: 'Volitelně přes tvé Anthropic API.' },
+  { id: 'hf', ic: 'HF', name: 'Hugging Face', desc: 'Silné otevřené modely (Llama, Qwen…) přes tvůj HF token.' },
   { id: 'council', ic: '⚖', name: 'Konzilium', desc: 'Víc mozků + rozhodčí.' },
 ];
 const KINDS = [
@@ -421,7 +422,7 @@ function composer() {
   const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '') + pw;
   return `<div class="composer"><div class="wrap">
     <div class="randy-hint" id="randyHint"></div>
-    ${attachment ? `<div class="attach-pill"><span>${ICONS.clip}</span><b>${esc(attachment.name)}</b><small>${Math.round(attachment.chars / 1000)} tis. znaků</small><button data-attach-clear aria-label="Odebrat přílohu">✕</button></div>` : ''}
+    ${attachment ? `<div class="attach-pill"><span>${ICONS.clip}</span><b>${esc(attachment.name)}</b><small>${esc(attachment.kind || '')} · ${attachment.chars >= 1000 ? Math.round(attachment.chars / 1000) + ' tis.' : attachment.chars} znaků</small><button data-attach-clear aria-label="Odebrat přílohu">✕</button></div>` : ''}
     <div class="box">
       <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se…">${esc(draft)}</textarea>
@@ -523,7 +524,10 @@ function renderModules() {
 
     <details class="x card" style="padding:0"><summary style="padding:14px 16px">DOLADĚNÍ · DOVEDNOSTI A LoRA</summary><div style="padding:0 2px 2px">${tuningHtml()}</div></details>
 
-    <div class="eyebrow">HUGGING FACE</div>
+    <div class="eyebrow">HUGGING FACE SLUŽBY</div>
+    ${hfServicesHtml()}
+
+    <div class="eyebrow">MOZKY Z HUGGING FACE</div>
     ${card(`<div class="row"><input type="search" id="hfq" placeholder="Hledat GGUF model (např. gemma 4)" value="${esc(hf.q)}"><button class="btn sm" data-hf-search>Hledat</button></div>
       <div id="hfres">${hfHtml()}</div>
       <details class="x" style="margin-top:12px"><summary>VLASTNÍ ODKAZ NEBO SOUBOR</summary><div class="in" style="white-space:normal">
@@ -558,6 +562,26 @@ function renderModules() {
       <div id="models-claude"></div>
       <div class="grid2"><button class="btn sm" data-save-key="claude">Uložit</button><button class="btn sm" data-test="claude">Ověřit</button></div>`)}
   </div>`;
+}
+
+function hfServicesHtml() {
+  const st = S.settings || {}; const k = S.keys || {};
+  const sw = (key, title, sub) => `<div class="toggle"><span>${title}<small>${sub}</small></span><label class="switch"><input type="checkbox" data-set="${key}" ${st[key] ? 'checked' : ''}><i></i></label></div>`;
+  return card(`<div class="row" style="gap:12px"><span class="v-ic">HF</span><span class="grow"><b>Podslužby Hugging Face</b>
+      <small class="muted" style="display:block">${k.hf ? 'Token uložen · ' : 'Bez tokenu · '}zdarma v rámci měsíčního kreditu HF</small></span><span class="dot ${k.hf ? 'on' : ''}"></span></div>
+    <div class="hfsvc"><span>◆ <b>Chat</b> – silné otevřené modely jako další mozek</span><span>◉ <b>Vize</b> – popis fotky, účtenky, grafu</span>
+      <span>♪ <b>Přepis řeči</b> – nahrávky na text (Whisper)</span><span>✦ <b>Obrázky</b> – generování z popisu (FLUX), přes agenta</span></div>
+    <input type="password" id="key-hf2" autocomplete="off" placeholder="${k.hf ? 'Token uložen – vlož nový pro změnu' : 'HF token (hf_…)'}">
+    <div class="grid2" style="margin-top:8px"><button class="btn sm" data-save-key-hf>Uložit token</button><button class="btn sm" data-open="https://huggingface.co/settings/tokens/new?tokenType=fineGrained">Získat token ↗</button></div>
+    ${sw('hfChat', 'Hugging Face jako mozek', 'Ve volbě mozku a jako záloha, když v telefonu žádný není.')}
+    ${sw('hfVision', 'Popis obrázků (vize)', 'Přílohy-obrázky popíše model; text z fotky čte i offline OCR v telefonu.')}
+    <details class="x"><summary>MODELY</summary><div class="in" style="white-space:normal">
+      <label>Chat</label><input type="text" data-text="hfChatModel" value="${esc(st.hfChatModel || '')}"><div id="models-hf"></div>
+      <label>Vize</label><input type="text" data-text="hfVisionModel" value="${esc(st.hfVisionModel || '')}">
+      <label>Přepis řeči</label><input type="text" data-text="hfAsrModel" value="${esc(st.hfAsrModel || '')}">
+      <label>Obrázky</label><input type="text" data-text="hfImageModel" value="${esc(st.hfImageModel || '')}">
+      <div class="grid2" style="margin-top:8px"><button class="btn sm" data-hf-models>Načíst chat modely</button><button class="btn sm" data-hf-test>Ověřit</button></div>
+    </div></details>`);
 }
 
 function tuningHtml() {
@@ -648,7 +672,7 @@ function renderMemory() {
       <p class="small muted">Stáhne až 10 článků k tématu (CC BY-SA) – pak fungují offline.</p>
       <div class="row" style="margin-top:8px"><input type="text" id="dsName" placeholder="Dataset z Hugging Face, např. wikimedia/wikipedia"><button class="btn sm" data-dataset>Stáhnout</button></div>
       <div class="row" style="margin-top:8px"><input type="text" id="dsConfig" placeholder="config (např. 20231101.cs)"><input type="text" id="dsQuery" placeholder="filtr (volitelně)"></div>
-      <button class="btn wide" data-kb-import>Vložit soubory (TXT, MD, CSV, JSON, JSONL, ZIP)</button>`)}
+      <button class="btn wide" data-kb-import>Vložit soubory (PDF, Word, Excel, PowerPoint, obrázky, zvuk, ZIP…)</button>`)}
 
     <div class="eyebrow">BALÍČKY · ${d.packs.filter(p => p.installed).length}/${d.packs.length}</div>
     ${d.packs.map(p => `<div class="row pack"><span class="grow"><b>${esc(p.name)}</b><br><span class="small muted">${esc(p.description)}</span></span>
@@ -857,7 +881,7 @@ window.omegaReceive = function (type, d) {
       const box = $('#models-' + d.provider);
       if (box) {
         box.innerHTML = `<label>Modely (${d.models.length})</label><select>${d.models.map(m => `<option>${esc(m)}</option>`).join('')}</select>`;
-        const key = { kimi: 'kimiModel', server: 'serverModel', claude: 'claudeModel', node: 'nodeModel' }[d.provider];
+        const key = { kimi: 'kimiModel', server: 'serverModel', claude: 'claudeModel', node: 'nodeModel', hf: 'hfChatModel' }[d.provider];
         box.querySelector('select').onchange = e => configure({ [key]: e.target.value });
       }
       break;
@@ -987,6 +1011,9 @@ document.addEventListener('click', e => {
     if ($('#sheet').innerHTML) kindSheet(); else render(); return; }
   if (ds.wikiDomain) { call('wikiImport', ds.wikiDomain, 'cs', 10); toast('Stahuji články z Wikipedie…'); return; }
   if (ds.checkUpdate !== undefined) { toast('Kontroluji…'); call('checkUpdate', true); return; }
+  if (ds.saveKeyHf !== undefined) { const el = $('#key-hf2'); if (el && el.value.trim()) { call('saveKey', 'hf', el.value.trim()); el.value = ''; setTimeout(() => { refresh(); renderModules(); }, 300); } else toast('Vlož token.'); return; }
+  if (ds.hfModels !== undefined) { toast('Načítám modely…'); call('hfModels'); return; }
+  if (ds.hfTest !== undefined) { toast('Ověřuji Hugging Face…'); call('hfTest'); return; }
   if (ds.loraImport !== undefined) { call('loraImport'); return; }
   if (ds.loraUse !== undefined) { call('loraUse', ds.loraUse); setTimeout(() => view === 'modules' && renderModules(), 200); return; }
   if (ds.loraDel) { if (confirm('Smazat adaptér ' + ds.loraDel + '?')) { call('loraDelete', ds.loraDel); setTimeout(() => view === 'modules' && renderModules(), 300); } return; }

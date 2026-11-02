@@ -123,7 +123,24 @@ class Omega private constructor(val app: Context) {
     fun agentTools(): List<AgentTool> {
         val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") } +
             Tools.securityOffline() + libraryTool() + Tools.files(forge)
-        return if (Introspect.online(app)) offline + Tools.online() + Tools.securityOnline() else offline
+        val online = Introspect.online(app)
+        val hfTools = if (online && hfToken() != null) listOf(imageTool()) else emptyList()
+        return if (online) offline + Tools.online() + Tools.securityOnline() + hfTools else offline
+    }
+
+    /** Generování obrázku přes Hugging Face (FLUX) → PNG ve Stažené/AVIOR. */
+    private fun imageTool(): AgentTool = object : AgentTool {
+        override val name = "generate_image"
+        override val args = """{"prompt": "popis obrázku (nejlépe anglicky)", "name": "obrazek.png"}"""
+        override val description = "vytvoří obrázek z popisu (Hugging Face FLUX) a uloží ho do Stažené/AVIOR"
+        override fun run(args: kotlinx.serialization.json.JsonObject, cancel: cz.axiom.omega.core.llm.CancelToken): String {
+            val prompt = (args["prompt"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return "Chybí prompt."
+            val bytes = cz.axiom.omega.core.hub.HfServices.generateImage(hfToken() ?: return "Chybí HF token.", prompt, settings.hfImageModel)
+            val ext = if (cz.axiom.omega.core.hub.HfServices.isPng(bytes)) "png" else "jpg"
+            val name = ((args["name"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "obrazek").substringBeforeLast('.')
+                .replace(Regex("[^A-Za-z0-9_-]+"), "-").take(40).ifBlank { "obrazek" } + ".$ext"
+            return forge.save(name, if (ext == "png") "image/png" else "image/jpeg", bytes)
+        }
     }
 
     private fun libraryTool(): AgentTool = object : AgentTool {
@@ -152,6 +169,10 @@ class Omega private constructor(val app: Context) {
 
     fun power() = cz.axiom.omega.core.device.Power.of(settings.power)
     fun effectiveCtx() = if (settings.ctxManual) settings.ctxTokens else device.ctxFor(power())
+
+    val files by lazy {
+        cz.axiom.omega.files.FileReader(app, { hfToken() }, { settings.hfVisionModel }, { settings.hfAsrModel }, { settings.hfVision && Introspect.online(app) })
+    }
 
     fun loraDir() = java.io.File(app.filesDir, "lora").apply { mkdirs() }
 
@@ -230,8 +251,16 @@ class Omega private constructor(val app: Context) {
             if (settings.serverUrl.isNotBlank()) add("server")
             if (online && vault.has(Vault.KIMI)) add("kimi")
             if (online && vault.has(Vault.CLAUDE)) add("claude")
+            if (online && settings.hfChat && vault.has(Vault.HF)) add("hf")
         }
     }
+
+    /** HF token (Inference Providers), nebo null. */
+    fun hfToken(): String? = vault.read(Vault.HF)?.takeIf { it.isNotBlank() }
+
+    fun hf(): LlmEngine = cz.axiom.omega.core.hub.HfServices.chatEngine(
+        hfToken() ?: throw EngineException("Chybí token Hugging Face – zadej ho v Moduly → Hugging Face služby."), settings.hfChatModel,
+    )
 
     fun claude(): ClaudeEngine {
         val key = vault.read(Vault.CLAUDE) ?: throw EngineException("Chybí API klíč Claude (console.anthropic.com). Zadej ho v Systému.")
@@ -248,6 +277,7 @@ class Omega private constructor(val app: Context) {
             "node" -> node()
             "server" -> server()
             "claude" -> claude()
+            "hf" -> hf()
             else -> {
                 val online = Introspect.online(app)
                 when {
@@ -256,6 +286,7 @@ class Omega private constructor(val app: Context) {
                     settings.serverUrl.isNotBlank() -> server()
                     online && vault.has(Vault.KIMI) -> kimi()
                     online && vault.has(Vault.CLAUDE) -> claude()
+                    online && settings.hfChat && vault.has(Vault.HF) -> hf()
                     else -> throw EngineException(
                         if (online) "Žádný mozek: stáhni mozek do telefonu (Moduly → Gemma 4)."
                         else "Jsi offline a lokální mozek není stažený. Připoj se a stáhni ho v sekci Mozky.",
