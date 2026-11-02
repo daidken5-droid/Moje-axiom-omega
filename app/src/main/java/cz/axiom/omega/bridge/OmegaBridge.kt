@@ -169,7 +169,10 @@ class OmegaBridge(private val activity: MainActivity) {
                 if (omega.settings.airgap) { OmegaService.cancelBg(activity); Events.note("Air-gap zapnut: AVIOR nepošle po síti ani bajt. Myslí jen telefon.") }
                 else Events.note("Air-gap vypnut – síť je zase povolená.")
             }
-            if (o.has("secureScreen")) activity.runOnUiThread { activity.applySecureScreen() }
+            if (o.has("secureScreen")) {
+                activity.runOnUiThread { activity.applySecureScreen() }
+                if (omega.settings.secureScreen) cz.axiom.omega.widget.AviorWidget.clear(activity)
+            }
             if (o.has("memSafe")) {
                 // změna způsobu načtení → mozek načíst znovu (až nic nepočítá)
                 if (!OmegaService.RUNNING_ASK.get()) cz.axiom.omega.engine.LocalEngine.releaseIfIdle()
@@ -210,6 +213,7 @@ class OmegaBridge(private val activity: MainActivity) {
         omega.cognition.reset(); omega.randy.reset()
         runCatching { java.io.File(activity.filesDir, "crash.txt").delete() }
         runCatching { omega.forge.wipe() }
+        runCatching { cz.axiom.omega.widget.AviorWidget.clear(activity) }
         Events.emit("config", JSONObject(state()))
         Events.emit("wiped", JSONObject())
         Events.note("Smazáno: konverzace, paměť, dokumenty, klíče i statistiky. Mozky a knihovna zůstaly.")
@@ -386,7 +390,8 @@ class OmegaBridge(private val activity: MainActivity) {
         omega.brains.activate(id); LocalEngine.release(); Events.emit("brains", omega.brains.toJson()); omega.warmup()
     }
 
-    @JavascriptInterface fun brainDelete(id: String) { omega.brains.delete(id); Events.emit("brains", omega.brains.toJson()) }
+    // smazání čeká na doběhnutí výpočtu (uvolnění paměti) → mimo vlákno JS mostu, jinak by UI zamrzlo
+    @JavascriptInterface fun brainDelete(id: String) = async { omega.brains.delete(id); Events.emit("brains", omega.brains.toJson()) }
 
     @JavascriptInterface fun brainImport() = activity.runOnUiThread { activity.pickBrain.launch(arrayOf("application/octet-stream", "*/*")) }
 

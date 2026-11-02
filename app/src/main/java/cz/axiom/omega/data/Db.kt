@@ -70,14 +70,18 @@ class Db private constructor(context: Context) :
         }, SQLiteDatabase.CONFLICT_REPLACE)
         // držet malé: nejvýš 2000 nejnovějších
         writableDatabase.execSQL("DELETE FROM answers WHERE id NOT IN (SELECT id FROM answers ORDER BY good DESC, at DESC LIMIT 2000)")
+        answersCache = null
     }
 
-    fun forgetAnswer(question: String) { writableDatabase.delete("answers", "question=?", arrayOf(question.trim().take(500))) }
+    fun forgetAnswer(question: String) { writableDatabase.delete("answers", "question=?", arrayOf(question.trim().take(500))); answersCache = null }
 
-    fun answers(limit: Int = 2000): List<cz.axiom.omega.core.agent.Reflex.Entry> =
-        readableDatabase.rawQuery("SELECT question, answer, conf, good, at FROM answers ORDER BY at DESC LIMIT ?", arrayOf(limit.toString())).use { c ->
+    /** Paměť odpovědí v RAM – reflex ji čte u každého dotazu, mění se jen při ✓/✗ a nové jisté odpovědi. */
+    @Volatile private var answersCache: List<cz.axiom.omega.core.agent.Reflex.Entry>? = null
+
+    fun answers(): List<cz.axiom.omega.core.agent.Reflex.Entry> = answersCache ?:
+        readableDatabase.rawQuery("SELECT question, answer, conf, good, at FROM answers ORDER BY at DESC LIMIT 2000", null).use { c ->
             buildList { while (c.moveToNext()) add(cz.axiom.omega.core.agent.Reflex.Entry(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3) == 1, c.getLong(4))) }
-        }
+        }.also { answersCache = it }
 
     fun answerCount(): Int = readableDatabase.rawQuery("SELECT count(*) FROM answers", null).use { it.moveToFirst(); it.getInt(0) }
 
@@ -323,6 +327,7 @@ class Db private constructor(context: Context) :
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
         vectorIndex = null
+        answersCache = null
         runCatching { db.execSQL("VACUUM") } // smazaná data fyzicky přepsat, ne jen označit jako volná
     }
 

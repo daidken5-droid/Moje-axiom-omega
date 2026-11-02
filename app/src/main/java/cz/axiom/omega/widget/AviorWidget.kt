@@ -42,11 +42,20 @@ class AviorWidget : AppWidgetProvider() {
 
         /** Uloží poslední odpověď a překreslí widgety (volá služba po dokončení odpovědi). */
         fun publish(context: Context, question: String, answer: String, status: String?) {
+            // SOUKROMÍ: v soukromém režimu se otázka ani odpověď na plochu nedostanou (vidí ji kdokoli s telefonem v ruce)
+            if (cz.axiom.omega.data.Settings(context).secureScreen) { clear(context, status); return }
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString("q", question.take(120))
                 .putString("a", answer.replace(Regex("[*#`>|]"), "").replace(Regex("\\s+"), " ").trim().take(240))
                 .putString("status", status ?: "")
                 .apply()
+            refresh(context)
+        }
+
+        /** Smaže otázku a odpověď z widgetu (soukromý režim, nouzové smazání). */
+        fun clear(context: Context, status: String? = null) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("q").remove("a")
+                .putString("status", status ?: "").apply()
             refresh(context)
         }
 

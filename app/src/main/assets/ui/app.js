@@ -822,7 +822,7 @@ function renderSystem() {
         <small class="muted" style="display:block">AVIOR jako tvůj vlastní model: data patří jen tobě.</small></span></div>
       ${sw('airgap', 'Air-gap – úplně offline', 'Žádný síťový požadavek z celé aplikace (vynuceno v síťové vrstvě). Myslí jen telefon.')}
       ${sw('dlp', 'DLP štít pro cloud', 'Před odesláním do cloudu zamaskuje API klíče, tokeny, privátní klíče a hesla.')}
-      ${sw('secureScreen', 'Zákaz snímků obrazovky', 'Žádné screenshoty ani náhled v přehledu aplikací.')}
+      ${sw('secureScreen', 'Soukromý režim obrazovky', 'Žádné screenshoty, náhled v přehledu aplikací ani otázky a odpovědi na widgetu.')}
       <p class="small muted" style="margin:8px 0 0">Firewall proti prompt injection běží vždy: skryté „pokyny pro AI“ ve webu, souborech a knihovně se zneškodní.</p>
       <button class="btn danger wide" data-panic style="margin-top:10px">Nouzové smazání osobních dat</button>`)}
     ${randyPanel}

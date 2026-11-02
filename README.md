@@ -8,6 +8,21 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.4 – závěrečná kontrola (vlastníma očima + očima etického hackera)
+
+**Kontrola vlastníma očima (správnost a výkon)**
+- Paměť odpovědí pro reflexy se drží v RAM (dřív se u každého dotazu četlo až 2 000 řádků z databáze).
+- Smazání mozku běží mimo vlákno JS mostu – během generování už nezamrzne rozhraní.
+
+**Kontrola očima etického hackera** – prověřeno: WebView (přísné CSP bez inline skriptů, žádný přístup
+k souborům, odkazy jen https a mimo aplikaci, escapování proti injekci do atributů), JS most dostupný
+jen lokální stránce, exportované komponenty, FileProvider jen pro vlastní složky, ošetření cest u importů,
+parametrizované SQL, žádné logování dotazů ani klíčů, zákaz zálohy dat aplikace. Opraveno:
+- **Widget na ploše** ukazoval poslední otázku a odpověď komukoli s telefonem v ruce a nouzové smazání
+  ho nečistilo → v soukromém režimu se obsah na plochu nedostane, nouzové smazání widget vyčistí.
+- **Notifikace** na zamčené obrazovce ukazují jen „AVIOR pracuje“ (VISIBILITY_PRIVATE).
+- „Zákaz snímků obrazovky“ je teď **Soukromý režim obrazovky** (screenshoty, přehled aplikací i widget).
+
 ## Novinky 6.3 – AVIOR místo Gemini a reflexy bez mozku
 
 **AVIOR jako výchozí asistent**

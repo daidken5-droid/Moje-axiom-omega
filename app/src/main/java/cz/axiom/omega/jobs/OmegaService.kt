@@ -875,6 +875,8 @@ class OmegaService : Service() {
                 .setOngoing(true).setSilent(true).setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setContentIntent(open)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK).setSmallIcon(R.drawable.ic_stat_omega).setContentTitle("AVIOR").setContentText("AVIOR pracuje").build())
                 .addAction(0, "Uvolnit paměť", unkeep)
                 .build()
         }
@@ -886,6 +888,8 @@ class OmegaService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK).setSmallIcon(R.drawable.ic_stat_omega).setContentTitle("AVIOR").setContentText("AVIOR pracuje").build())
             .addAction(0, if (lane == Lane.BG) "Pozastavit" else "Zastavit", stop)
             .apply { if (progress >= 0) setProgress(100, progress, false) }
             .build()
