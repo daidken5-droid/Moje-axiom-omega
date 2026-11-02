@@ -315,6 +315,24 @@ class OmegaService : Service() {
             omega.randy.log(JSONObject().put("prompt", text.take(80)).put("summary", plan.summary).put("decisions", randyMeta.getJSONArray("decisions"))
                 .put("interventions", randyMeta.getJSONArray("interventions")).put("ms", meta.optLong("millis")))
             agentRole?.takeIf { route.mode == Router.Mode.AGENT }?.let { meta.put("role", it.title) }
+            // MAPA DŮKAZŮ: u každé věty odkud pochází (spočítáno / doloženo / z paměti / odhad / úvaha)
+            runCatching {
+                fun strs(a: JSONArray?) = a?.let { arr -> (0 until arr.length()).map { arr.optString(it) } } ?: emptyList()
+                val ev = cz.axiom.omega.core.agent.Evidence.map(answer, strs(meta.optJSONArray("facts")), strs(meta.optJSONArray("memories")))
+                val K = cz.axiom.omega.core.agent.Evidence.Kind.entries
+                meta.put("evidence", JSONObject().put("grounded", ev.grounded)
+                    .put("counts", JSONObject().apply { K.forEach { put(it.code, ev.count(it)) } })
+                    .put("spans", JSONArray().apply { ev.spans.forEach { put(JSONArray().put(it.start).put(it.end).put(it.kind.code)) } }))
+            }
+            // PEČEŤ SOUKROMÍ: myslel mozek v telefonu a nic nešlo na internet
+            run {
+                val webTools = setOf("web_search", "fetch_url", "wiki_search", "hf_search", "http_audit", "dns", "subdomains", "rdap", "vulns")
+                val steps = meta.optJSONArray("steps")
+                val usedWeb = steps != null && (0 until steps.length()).any { steps.getJSONObject(it).optString("tool") in webTools }
+                val localBrain = route.engine == "local" || (route.engine != "node" && route.engine != "server" && route.engine != "kimi" &&
+                    route.engine != "claude" && "local" in engines)
+                meta.put("private", localBrain && !usedWeb && (meta.optJSONArray("sources")?.length() ?: 0) == 0 && route.mode != Router.Mode.COUNCIL)
+            }
             // UČEBNÍ SMYČKA: kalibrace jistoty, kompetence, vlastní poznatek, otevřené otázky, milníky
             if (learning) {
                 val raw = meta.optInt("confidence", -1).takeIf { it >= 0 }

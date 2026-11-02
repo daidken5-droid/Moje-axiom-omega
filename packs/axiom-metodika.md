@@ -26,3 +26,6 @@ Když úloha potřebuje víc dovedností, RANDY spojí podmodely do řetězce (m
 
 ## Režimy výkonu
 Základ: rychlé a úsporné odpovědi (1 průchod, bez řetězců). Pokročilé: RANDY volí hloubku, podmodely a řetězce podle úlohy. Sherlock: maximum – metoda dedukce (pozorování, hypotézy, důkazy pro a proti, vylučování, závěr s jistotou), 3 průchody, přemýšlení, delší agenti a závěrečná oponentura Ω Nemesis. Při přehřátí nebo slabé baterii RANDY Sherlock zmírní.
+
+## Mapa důkazů a pečeť soukromí
+U každé odpovědi AVIOR ukáže mapu důkazů: každou větu označí jako spočítáno (číslo ze STEP-0), doloženo (citace podkladu [n]), z paměti, odhad (sám přiznal nejistotu) nebo úvaha (bez přímé opory – vyplatí se ověřit), a uvede, kolik procent vět má oporu. Pečeť „Zůstalo v telefonu“ znamená, že odpověď vytvořil mozek v telefonu a nic neodešlo na internet. Tlačítko Oponentura nechá RANDY kriticky prověřit vlastní odpověď, Hlouběji ji promyslí znovu do hloubky.

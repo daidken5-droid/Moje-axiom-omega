@@ -7,10 +7,10 @@
       "name": "AVIOR · metodika",
       "description": "RANDY, STEP-0, sebemodel a pravidla práce s důkazy.",
       "file": "axiom-metodika.md",
-      "version": 4,
-      "bytes": 4017,
-      "sha256": "15db3db793a9a88a7710321b4282744fc61f4388e6e733adb414578280e82be0",
-      "sections": 9,
+      "version": 5,
+      "bytes": 4570,
+      "sha256": "ff0460bb44542d63bae3a17bc8afae4e4f600e5a12d2f424e088357fcb20388b",
+      "sections": 10,
       "autoInstall": true
     },
     {

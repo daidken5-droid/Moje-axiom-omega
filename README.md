@@ -8,6 +8,17 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.1 – co AVIOR umí a jiné AI ne
+
+* **Mapa důkazů u každé odpovědi** (`core/agent/Evidence.kt`): každá věta je označená podle původu –
+  *spočítáno* (číslo ze STEP-0, ne odhad modelu), *doloženo* (cituje podklad [n]), *z paměti*, *odhad* (model přiznal
+  nejistotu) nebo *úvaha* (bez opory, vyplatí se ověřit) – a AVIOR uvede, kolik procent vět je ukotveno.
+  Deterministický rozbor bez dalšího volání modelu, takže nestojí žádný čas.
+* **Pečeť soukromí „◉ Zůstalo v telefonu“** – odpověď vytvořil mozek v telefonu a nic neodešlo na internet.
+* **Oponentura a Hlouběji jedním klepnutím** – RANDY kriticky prověří vlastní odpověď (Ω Nemesis: chyby, slabá místa,
+  ověření čísel, opravená verze), nebo otázku promyslí znovu do hloubky (Ω Think).
+* **Živé sebeuvědomění na úvodní obrazovce** – co se AVIOR naposledy naučil (z deníku vývoje).
+
 ## Novinky 5.0 – rychlost, spolehlivost, souběh
 
 Celá aplikace prošla revizí kousek po kousku, s důrazem na to, aby mozek v telefonu odpovídal co nejrychleji:

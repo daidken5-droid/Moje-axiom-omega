@@ -108,6 +108,30 @@ let VARIANTS = null, ROLE_LIST = null;
 const variants = () => VARIANTS || (VARIANTS = J('variants') || [{ id: 'AUTO', title: 'Ω Auto', icon: 'Ω', tagline: 'Sám zvolí hloubku, nástroje i agenta' }]);
 const roleList = () => ROLE_LIST || (ROLE_LIST = J('roles') || ROLES.filter(r => r.id).map(r => ({ id: r.id, title: r.name, icon: r.name[0], tagline: '' })));
 const EXT_IC = { apk: '▣', pdf: 'PDF', docx: 'W', zip: 'ZIP', csv: 'CSV', html: '</>', md: 'MD', json: '{}', svg: 'SVG', ics: '◷' };
+/* ---------- Mapa důkazů a pečeť soukromí (jedinečné pro AVIOR) ---------- */
+const EV = { c: ['spočítáno', 'STEP-0 – číslo spočítal kód, ne odhad modelu'], s: ['doloženo', 'cituje podklad [n] z knihovny, znalostí nebo webu'],
+  m: ['z paměti', 'opírá se o to, co si o tobě pamatuju'], e: ['odhad', 'model sám přiznává nejistotu'], u: ['úvaha', 'vlastní úvaha modelu bez přímé opory – vyplatí se ověřit'] };
+function evidenceChip(m) {
+  const meta = m.meta || {};
+  const ev = meta.evidence;
+  const parts = [];
+  if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ Zůstalo v telefonu</span>');
+  if (ev && ev.spans && ev.spans.length >= 2) {
+    const c = ev.counts || {};
+    const txt = ['c', 's', 'm', 'e', 'u'].filter(k => c[k]).map(k => `<i class="ev-${k}"></i>${c[k]} ${EV[k][0]}`).join(' · ');
+    parts.push(`<button class="evchip" data-evidence="${m.id}" title="Odkud pochází každá věta"><b>Mapa důkazů · ${ev.grounded} % ukotveno</b><small>${txt}</small></button>`);
+  }
+  return parts.length ? `<div class="evrow">${parts.join('')}</div>` : '';
+}
+function evidenceSheet(m) {
+  const ev = (m.meta || {}).evidence; if (!ev) return;
+  const legend = Object.entries(EV).map(([k, [l, d]]) => `<div class="evleg"><i class="ev-${k}"></i><b>${l}</b><small>${d}</small></div>`).join('');
+  const body = ev.spans.map(([a, b, k]) => `<div class="evline ev-${k}"><span>${esc(m.content.slice(a, b).replace(/\*\*/g, '').replace(/`/g, '').replace(/^[-*•#>\s\d.)]+(?=\S)/, '').replace(/^\|\s*|\s*\|$/g, '').replace(/\s*\|\s*/g, ' · '))}</span><em>${EV[k][0]}</em></div>`).join('');
+  sheet(`<div class="eyebrow" style="margin-top:4px">MAPA DŮKAZŮ · ${ev.grounded} % VĚT S OPOROU</div>
+    <p class="small muted">Každou větu odpovědi jsem označil podle toho, odkud pochází. Nic z toho nepočítá další model – je to deterministický rozbor.</p>
+    ${legend}<div class="eyebrow">VĚTY</div>${body}`);
+}
+
 function fileCard(f, ref) {
   const ext = (f.name.split('.').pop() || '').toLowerCase();
   const apk = ext === 'apk';
@@ -251,6 +275,7 @@ function renderChat() {
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
       <div style="margin-top:18px">${powerSeg(false)}</div>
+      ${(() => { const cg = J('cognition'); const j = cg && cg.journal && cg.journal[0]; return j ? `<button class="learnline" data-self>✦ ${esc(j.text)}</button>` : (cg && cg.total ? `<button class="learnline" data-self>✦ ${cg.total} otázek · ${cg.insights} vlastních poznatků – podívej se, co umím</button>` : ''); })()}
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
         <div class="progress"><i style="width:${Math.max(0, S.bg.progress)}%"></i></div><div class="meta">${esc(S.bg.detail || S.bg.phase || '')}</div></div>` : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
@@ -305,10 +330,11 @@ function msgHtml(m, last) {
   return `<div class="msg ai" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>
     ${thought}<div class="body answer">${md(m.content)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
+    ${evidenceChip(m)}
     ${meta.learned ? `<span class="learned">✦ UČÍM SE · ${esc(meta.learned.icon)} ${esc(meta.learned.domain.toUpperCase())}${(meta.learned.milestones || []).length ? ' · ' + esc(meta.learned.milestones[0]) : ''}</span>` : ''}
     <div class="tools">
       <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-share="${m.id}" aria-label="Sdílet">${ICONS.share}</button>
-      ${last ? `<button data-retry="${m.id}" aria-label="Odpovědět znovu">${ICONS.retry}</button>` : ''}
+      ${last ? `<button data-retry="${m.id}" aria-label="Odpovědět znovu">${ICONS.retry}</button><button class="tx" data-critique="${m.id}" title="RANDY kriticky prověří odpověď">⚔ Oponentura</button><button class="tx" data-deeper="${m.id}" title="Promyslet znovu do hloubky">⌕ Hlouběji</button>` : ''}
       <button data-rate="${m.id}" data-good="1" class="${meta.rated === 'good' ? 'on' : ''}">✓</button><button data-rate="${m.id}" data-good="0" class="${meta.rated === 'bad' ? 'on bad' : ''}">✗</button>
       ${det.length ? `<details class="more"><summary>Podrobnosti</summary><div class="in">${det.join('')}</div></details>` : ''}
     </div></div>`;
@@ -394,12 +420,12 @@ function bindComposer() {
   $('#micBtn').onclick = () => { haptic(); call('voice'); };
 }
 
-function send(text, kind, role) {
+function send(text, kind, role, variantOverride) {
   text = (text || '').trim();
   if (!text) return;
   refresh();
   if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
-  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: kind === 'agent' && role ? '' : variant }));
+  const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: variantOverride || (kind === 'agent' && role ? '' : variant) }));
   if (!id || id < 0) return;
   draft = '';
   forcedLevel = null;
@@ -849,6 +875,15 @@ document.addEventListener('click', e => {
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
   if (ds.newThread !== undefined) { threadId = 0; msgs = []; live = null; closeDrawer(); go('chat'); return; }
   if (ds.delThread) { if (confirm('Smazat vlákno?')) { call('deleteThread', Number(ds.delThread)); if (Number(ds.delThread) === threadId) { threadId = 0; msgs = []; } openDrawer(); if (view === 'chat') renderChat(); } return; }
+  if (ds.evidence) { const m = msgs.find(x => x.id === Number(ds.evidence)); m && evidenceSheet(m); return; }
+  if (ds.critique || ds.deeper) {
+    const id = Number(ds.critique || ds.deeper); const i = msgs.findIndex(x => x.id === id); const m = msgs[i];
+    const q = msgs.slice(0, i).reverse().find(x => x.role === 'user');
+    if (!m || !q) return;
+    if (ds.critique) send(`Kriticky prověř svou předchozí odpověď na otázku „${q.content.slice(0, 300)}“: najdi chyby, slabá místa a nepodložená tvrzení, ověř čísla a dej opravenou verzi.\n\nPŮVODNÍ ODPOVĚĎ:\n${m.content.slice(0, 3000)}`, 'chat', '', 'NEMESIS');
+    else send(q.content, 'chat', '', 'THINK');
+    return;
+  }
   if (ds.variant) { variant = ds.variant; forcedKind = ''; haptic(); closeSheet(); render(); return; }
   if (ds.fileOpen !== undefined) { call('openFile', ds.fileOpen); return; }
   if (ds.fileShare !== undefined) { call('shareFile', ds.fileShare); return; }
