@@ -121,3 +121,24 @@ class RouterFilesTest {
         assertEquals(cz.axiom.omega.core.agent.Router.Mode.CHAT, R.route("Jak funguje tepelné čerpadlo?", ctx).mode)
     }
 }
+
+class AgentToolSelectionTest {
+    private fun t(n: String) = object : cz.axiom.omega.core.agent.AgentTool {
+        override val name = n; override val description = n; override val args = "{}"
+        override fun run(args: kotlinx.serialization.json.JsonObject, cancel: cz.axiom.omega.core.llm.CancelToken) = n
+    }
+    private val all = listOf("calc", "web_search", "library", "dns", "http_audit", "create_file", "create_docx", "build_apk", "hf_search").map(::t)
+    private val agent = cz.axiom.omega.core.agent.ActiveAgent(all, object : cz.axiom.omega.core.agent.MemoryStore {
+        override fun all() = emptyList<cz.axiom.omega.core.self.MemoryItem>()
+        override fun remember(item: cz.axiom.omega.core.self.MemoryItem) = 0L
+        override fun forget(query: String) = 0
+    }) { cz.axiom.omega.core.self.SelfState("t", "lokální", false) }
+
+    @Test fun picksRelevantTools() {
+        val research = agent.toolsFor(AgentRole.RESEARCHER, "Najdi ceny tepelných čerpadel").map { it.name }
+        assertEquals(listOf("calc", "web_search", "library"), research)
+        assertEquals(listOf("calc", "web_search", "library", "build_apk", "create_file").sorted(), agent.toolsFor(AgentRole.APPS, "Vytvoř aplikaci").map { it.name }.sorted())
+        assertTrue("dns" in agent.toolsFor(AgentRole.SECURITY, "Zkontroluj můj web").map { it.name })
+        assertTrue("create_docx" in agent.toolsFor(null, "Ulož mi to jako Word docx").map { it.name })
+    }
+}

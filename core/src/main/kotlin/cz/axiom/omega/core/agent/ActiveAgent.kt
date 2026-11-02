@@ -109,6 +109,29 @@ class ActiveAgent(
 ) {
     private val byName = tools.associateBy { it.name }
 
+    /**
+     * Do promptu jen nástroje, které role a zadání potřebují: méně tokenů ke čtení v každém kroku
+     * (v telefonu výrazně rychlejší). Volat jde i ostatní – výběr jen zkracuje nabídku.
+     */
+    fun toolsFor(role: AgentRole?, goal: String): List<AgentTool> {
+        val f = cz.axiom.omega.core.util.TextUtil.fold(goal)
+        val security = role == AgentRole.SECURITY || Regex("\\b(bezpecn|hesl|zranitel|cve|dns|tls|ssl|jwt|hash|subdomen|whois|rdap|unik|phishing|audit)").containsMatchIn(f)
+        val files = role in setOf(AgentRole.CODER, AgentRole.APPS, AgentRole.OFFICE, AgentRole.WRITER, AgentRole.PLANNER, AgentRole.DATA,
+            AgentRole.BUILDER, AgentRole.TRANSLATOR) || Regex("\\b(soubor|ulo[zž]|apk|aplikac|pdf|docx|word|csv|zip|html|skript|kod|kalendar|ics|export)").containsMatchIn(f)
+        val hf = Regex("\\b(model|gguf|hugging|llm|mozek)").containsMatchIn(f)
+        val sec = setOf("hash", "encode", "jwt_decode", "password_check", "secret_scan", "http_audit", "dns", "subdomains", "rdap", "vulns")
+        val file = setOf("create_file", "create_pdf", "create_docx", "create_zip", "build_apk")
+        val apps = if (role == AgentRole.APPS) setOf("build_apk", "create_file") else null
+        return tools.filter { t ->
+            when (t.name) {
+                in sec -> security
+                in file -> files && (apps == null || t.name in apps)
+                "hf_search" -> hf
+                else -> true
+            }
+        }.ifEmpty { tools }
+    }
+
     fun run(
         goal: String,
         history: List<ChatMessage>,
@@ -130,7 +153,7 @@ class ActiveAgent(
         val memories = MemoryRanker.rank(goal, memory.all(), if (local) 4 else 8)
         val system = SystemPrompt.build(RandyLevel.L2_DEEP, selfState(), memories, compact = local, userName = userName) +
             (role?.let { "\n\nROLE AGENTA – ${it.title}: ${it.instruction}" } ?: "") +
-            (style?.let { "\n\nSTYL: $it" } ?: "") + "\n\n" + protocol(limit)
+            (style?.let { "\n\nSTYL: $it" } ?: "") + "\n\n" + protocol(limit, toolsFor(role, goal))
         // Psaní kódu, aplikací a dokumentů potřebuje delší výstup v jednom kroku
         val long = role?.longOutput == true || Regex("(?i)\\b(apk|aplikac|soubor|docx|pdf|html|k[oó]d|skript)").containsMatchIn(goal)
         val facts = Step0.analyze(goal, rates)
@@ -212,10 +235,10 @@ class ActiveAgent(
         throw EngineException("Agent skončil bez odpovědi.")
     }
 
-    private fun protocol(limit: Int) = buildString {
+    private fun protocol(limit: Int, active: List<AgentTool> = tools) = buildString {
         append("REŽIM AKTIVNÍHO AGENTA: pracuješ samostatně v krocích, dokud cíl nesplníš (nejvýš $limit kroků).\n")
         append("Nástroje:\n")
-        tools.forEach { append("- ${it.name} ${it.args} — ${it.description}\n") }
+        active.forEach { append("- ${it.name} ${it.args} — ${it.description}\n") }
         append(
             """
             Každá tvoje odpověď má PŘESNĚ jeden z těchto tvarů:
