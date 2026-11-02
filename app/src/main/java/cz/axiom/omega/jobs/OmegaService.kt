@@ -433,9 +433,10 @@ class OmegaService : Service() {
         .put("memories", JSONArray().apply { r.memoriesUsed.forEach { put(it.text) } })
         .put("notes", JSONArray().apply { r.memoryNotes.forEach { put(it) } })
         .put("trace", JSONArray().apply {
-            r.trace.forEach { put(JSONObject().put("index", it.index).put("label", it.pass.label).put("millis", it.millis).put("model", it.model).put("text", it.text.take(20_000))) }
+            // text průchodů UI nezobrazuje – neukládat (dřív až 20 000 znaků na průchod → pomalé načítání vláken)
+            r.trace.forEach { put(JSONObject().put("index", it.index).put("label", it.pass.label).put("millis", it.millis).put("model", it.model)) }
         })
-        .put("reasoning", r.reasoning.take(8_000))
+        .put("reasoning", r.reasoning.take(4_000))
 
     // ------------------------------------------------------------------ mozky
 

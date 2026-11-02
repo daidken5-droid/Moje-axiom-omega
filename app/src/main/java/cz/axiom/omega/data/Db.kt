@@ -109,29 +109,37 @@ class Db private constructor(context: Context) :
         writableDatabase.insertWithOnConflict("vectors", null, ContentValues().apply {
             put("chunk", chunk); put("dim", v.size); put("vec", buf.array())
         }, SQLiteDatabase.CONFLICT_REPLACE)
+        vectorIndex = null
+    }
+
+    /** Vektory v paměti – načtou se jednou, ne při každém dotazu (dřív až desítky MB čtení na otázku). */
+    @Volatile private var vectorIndex: cz.axiom.omega.core.util.VectorIndex? = null
+
+    @Synchronized
+    private fun vectors(dim: Int): cz.axiom.omega.core.util.VectorIndex {
+        vectorIndex?.takeIf { it.dim == dim }?.let { return it }
+        val rows = ArrayList<Pair<Long, FloatArray>>()
+        readableDatabase.rawQuery("SELECT chunk, vec FROM vectors WHERE dim=?", arrayOf(dim.toString())).use { c ->
+            while (c.moveToNext()) {
+                val fb = java.nio.ByteBuffer.wrap(c.getBlob(1)).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+                rows += c.getLong(0) to FloatArray(dim).also { fb.get(it) }
+            }
+        }
+        return cz.axiom.omega.core.util.VectorIndex.build(dim, rows).also { vectorIndex = it }
     }
 
     fun vectorCount(): Int = readableDatabase.rawQuery("SELECT count(*) FROM vectors", null).use { it.moveToFirst(); it.getInt(0) }
 
     fun pruneVectors() {
         writableDatabase.execSQL("DELETE FROM vectors WHERE chunk NOT IN (SELECT docid FROM chunks)")
+        vectorIndex = null
     }
 
-    fun clearVectors() { writableDatabase.delete("vectors", null, null) }
+    fun clearVectors() { writableDatabase.delete("vectors", null, null); vectorIndex = null }
 
     /** Kosinová podobnost (vektory jsou normalizované) přes všechny úseky – pro desítky tisíc úseků stačí. */
     fun semantic(query: FloatArray, limit: Int): List<Pair<Snippet, Float>> {
-        val scored = ArrayList<Pair<Long, Float>>()
-        readableDatabase.rawQuery("SELECT chunk, dim, vec FROM vectors", null).use { c ->
-            while (c.moveToNext()) {
-                if (c.getInt(1) != query.size) continue
-                val b = java.nio.ByteBuffer.wrap(c.getBlob(2)).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
-                var dot = 0f
-                for (i in query.indices) dot += query[i] * b.get(i)
-                scored += c.getLong(0) to dot
-            }
-        }
-        return scored.sortedByDescending { it.second }.take(limit).mapNotNull { (id, score) ->
+        return vectors(query.size).top(query, limit).mapNotNull { (id, score) ->
             readableDatabase.rawQuery(
                 "SELECT chunks.document_id, chunks.title, chunks.body, docs.source FROM chunks JOIN docs ON docs.id=chunks.document_id WHERE chunks.docid=?",
                 arrayOf(id.toString()),
@@ -294,9 +302,12 @@ class Db private constructor(context: Context) :
         val db = writableDatabase
         db.beginTransaction()
         try {
+            // vektory smazaných úseků pryč (jinak by zabíraly místa mezi nejlepšími výsledky)
+            db.execSQL("DELETE FROM vectors WHERE chunk IN (SELECT docid FROM chunks WHERE document_id=?)", arrayOf(id))
             db.delete("chunks", "document_id=?", arrayOf(id.toString()))
             db.delete("docs", "id=?", arrayOf(id.toString()))
             db.setTransactionSuccessful()
+            vectorIndex = null
         } finally {
             db.endTransaction()
         }
