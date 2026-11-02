@@ -26,7 +26,7 @@ env:
   MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf
   MODEL_SHA: 06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
   DIM: "256"
-  SHARDS: "24"
+  SHARDS: "64"
 
 jobs:
   prepare:
@@ -85,7 +85,7 @@ jobs:
           ls -la lib.db
       - name: Úvody článků → části
         run: |
-          python3 tools/rag/prepare.py --db lib.db --out-dir shards --shards "$SHARDS" --limit "$LIMIT"
+          python3 tools/rag/prepare.py --db lib.db --out-dir shards --shards "$SHARDS" --limit "$LIMIT" --chars 200
           rm lib.db
           du -sh shards
       - uses: actions/upload-artifact@v4
@@ -104,28 +104,26 @@ jobs:
         shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
-      - name: Cache nástroje a modelu
+      # v cache jen model; nástroj se překládá přímo pro procesor runneru (AVX-512 apod. = výrazně rychlejší)
+      - name: Cache modelu
         uses: actions/cache@v4
         with:
-          path: |
-            ~/rag-cache
-          key: rag-${{ env.LLAMA_TAG }}-${{ hashFiles('tools/rag/avior_embed.cpp', 'tools/rag/CMakeLists.txt') }}-${{ env.MODEL_SHA }}
+          path: ~/rag-model
+          key: rag-model-${{ env.MODEL_SHA }}
       - name: Sestavení avior_embed (llama.cpp ${{ env.LLAMA_TAG }})
         run: |
-          mkdir -p ~/rag-cache
-          if [ ! -x ~/rag-cache/avior_embed ]; then
-            curl -sfL --retry 5 -o llama.tar.gz "https://github.com/ggml-org/llama.cpp/archive/refs/tags/$LLAMA_TAG.tar.gz"
-            tar xzf llama.tar.gz
-            # GGML_NATIVE=OFF + varianty CPU: cache se může obnovit i na runneru s jiným procesorem
-            cmake -S tools/rag -B build -DLLAMA_SRC="$PWD/llama.cpp-$LLAMA_TAG" -DCMAKE_BUILD_TYPE=Release \
-              -DGGML_NATIVE=OFF -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON
-            cmake --build build --target avior_embed -j"$(nproc)"
-            cp build/avior_embed ~/rag-cache/
+          mkdir -p ~/rag-cache ~/rag-model
+          lscpu | grep -E "Model name|^CPU\(s\)|Flags" | cut -c1-200
+          curl -sfL --retry 5 -o llama.tar.gz "https://github.com/ggml-org/llama.cpp/archive/refs/tags/$LLAMA_TAG.tar.gz"
+          tar xzf llama.tar.gz
+          cmake -S tools/rag -B build -DLLAMA_SRC="$PWD/llama.cpp-$LLAMA_TAG" -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON
+          cmake --build build --target avior_embed -j"$(nproc)"
+          cp build/avior_embed ~/rag-cache/
+          if [ ! -f ~/rag-model/model.gguf ]; then
+            curl -sfL --retry 5 -o ~/rag-model/model.gguf "$MODEL_URL"
           fi
-          if [ ! -f ~/rag-cache/model.gguf ]; then
-            curl -sfL --retry 5 -o ~/rag-cache/model.gguf "$MODEL_URL"
-          fi
-          echo "$MODEL_SHA  $HOME/rag-cache/model.gguf" | sha256sum -c -
+          ln -sf ~/rag-model/model.gguf ~/rag-cache/model.gguf
+          echo "$MODEL_SHA  $HOME/rag-model/model.gguf" | sha256sum -c -
       - uses: actions/download-artifact@v4
         with:
           name: rag-input
@@ -168,7 +166,7 @@ jobs:
           {"lib": "$LIB", "format": "avior-rag-int8", "model": "omega-sense-qwen3-embedding-0.6b", "modelSha256": "$MODEL_SHA",
            "dim": $DIM, "count": $COUNT, "size": $RAG_SIZE, "sha256": "$RAG_SHA",
            "file": "$LIB.rag.gz", "fileSize": $GZ_SIZE, "fileSha256": "$GZ_SHA",
-           "text": "název — úvod článku (300 znaků)", "license": "Wikipedia CC BY-SA 4.0"}
+           "text": "název — úvod článku (200 znaků)", "license": "Wikipedia CC BY-SA 4.0"}
           JSON
           cat rag-manifest.json
           ls -la "$LIB.rag.gz"

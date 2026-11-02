@@ -7,7 +7,7 @@
 // Vstup (stdin): řádky "rowid<TAB>text" (text bez tabulátorů/nových řádků).
 // Výstup (soubor): záznamy [int32 rowid][float32 scale][DIM × int8], little-endian.
 //
-// Použití: avior_embed model.gguf out.bin [dim=256] [threads=4] [max_tokens=128]
+// Použití: avior_embed model.gguf out.bin [dim=256] [threads=4] [max_tokens=128] [n_batch=512] [n_seq=8]
 #include "llama.h"
 #include "common.h"
 
@@ -40,7 +40,9 @@ int main(int argc, char **argv) {
     const int dim = argc > 3 ? atoi(argv[3]) : 256;
     const int threads = argc > 4 ? atoi(argv[4]) : 4;
     const int max_tokens = argc > 5 ? atoi(argv[5]) : 128;
-    const int n_batch = 4096, n_seq = 64;
+    // malé dávky: pozornost roste s kvadrátem délky dávky → 512 tokenů je výrazně rychlejší než 4096
+    const int n_batch = argc > 6 ? atoi(argv[6]) : 512;
+    const int n_seq = argc > 7 ? atoi(argv[7]) : 8;
 
     llama_backend_init();
     llama_log_set([](ggml_log_level lvl, const char *t, void *) { if (lvl >= GGML_LOG_LEVEL_WARN) fputs(t, stderr); }, nullptr);
