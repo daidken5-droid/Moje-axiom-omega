@@ -89,7 +89,8 @@ function md(src) {
 
 const MODES = [
   { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'Myslí mozek v telefonu; AVIOR sám volí hloubku, nástroje a agenty.' },
-  { id: 'turbo', ic: '⚡', name: 'Turbo', desc: 'Nejrychlejší: s internetem odpovídá cloud (Claude Haiku / Hugging Face) do 1–2 s, bez internetu telefon.' },
+  { id: 'turbo', ic: '⚡', name: 'Turbo', desc: 'Nejrychlejší: s internetem odpovídá cloud zdarma (Cerebras/Groq), jinak Claude Haiku / Hugging Face; bez internetu telefon.' },
+  { id: 'free', ic: '∞', name: 'Cloud zdarma', desc: 'Groq / Cerebras / OpenRouter: velké otevřené modely (gpt-oss-120b, Llama 70B) zdarma, stovky slov za sekundu, telefon nezatěžuje RAM.' },
   { id: 'local', ic: 'Φ', name: 'V telefonu', desc: 'Jen lokální mozek – úplně offline a soukromé.' },
   { id: 'node', ic: 'N', name: 'AVIOR Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
@@ -102,15 +103,15 @@ const MODES = [
 function brainPick() {
   const cur = (S.settings || {}).mode || 'auto';
   const avail = S.engines || [];
-  const cloud = ['claude', 'kimi', 'node', 'hf', 'server'].find(x => avail.includes(x));
-  const turboOk = ['claude', 'hf', 'kimi'].some(x => avail.includes(x)) || avail.includes('local');
+  const cloud = ['free', 'claude', 'kimi', 'node', 'hf', 'server'].find(x => avail.includes(x));
+  const turboOk = ['free', 'claude', 'hf', 'kimi'].some(x => avail.includes(x)) || avail.includes('local');
   const opts = [['auto', 'Ω Auto', true], ['turbo', '⚡ Turbo', turboOk], ['local', 'Telefon', avail.includes('local')]];
   if (cloud) opts.push([cloud, (MODES.find(m => m.id === cloud) || {}).name || cloud, true]);
   opts.push(['duo', '⇄ Oba', !!cloud && avail.includes('local')]);
   if (!opts.some(o => o[0] === cur)) opts.push([cur, (MODES.find(m => m.id === cur) || {}).name || cur, true]);
-  const hint = cur === 'turbo' ? (['claude', 'hf', 'kimi'].some(x => avail.includes(x)) ? 'Odpověď začne téct do 1–2 s (cloud). Bez internetu přepnu na telefon.' : 'Pro Turbo vlož klíč Claude nebo token Hugging Face (Moduly) – teď odpovídá telefon.')
+  const hint = cur === 'turbo' ? (['free', 'claude', 'hf', 'kimi'].some(x => avail.includes(x)) ? 'Odpověď začne téct do 1 s (cloud). Bez internetu přepnu na telefon.' : 'Pro Turbo stačí klíč zdarma od Groq nebo Cerebras (Moduly → Cloud zdarma) – teď odpovídá telefon.')
     : cur === 'duo' ? 'Telefon i ' + ((MODES.find(m => m.id === cloud) || {}).name || 'cloud') + ' současně – pomalejší, ale nejdůkladnější.'
-    : cur === 'auto' ? 'RANDY volí sám: běžné otázky telefon' + (cloud ? ', těžké ' + ((MODES.find(m => m.id === cloud) || {}).name) + ', hodně složité oba.' : '.')
+    : cur === 'auto' ? (avail.includes('free') && (S.settings || {}).freeFirst !== false ? 'S internetem odpovídá cloud zdarma (rychle, bez zátěže RAM), offline telefon.' : 'RANDY volí sám: běžné otázky telefon' + (cloud ? ', těžké ' + ((MODES.find(m => m.id === cloud) || {}).name) + ', hodně složité oba.' : '.'))
     : (MODES.find(m => m.id === cur) || {}).desc || '';
   return `<div class="seg brainseg">${opts.map(([id, label, ok]) => `<button data-mode="${id}" class="${cur === id ? 'on' : ''}" ${ok ? '' : 'disabled'}>${esc(label)}</button>`).join('')}</div>
     <p class="small muted" style="margin:6px 2px 0">${esc(hint)}</p>
@@ -168,6 +169,7 @@ function msgMoreSheet(m, last) {
     ((m.meta || {}).evidence ? opt(`data-evidence="${m.id}"`, '◇', 'Mapa důkazů', 'Odkud pochází každá věta') : '') +
     opt(`data-share="${m.id}"`, '↗', 'Sdílet', 'Poslat text jiné aplikaci') +
     `<div class="eyebrow">CELÉ VLÁKNO</div>` +
+    opt('data-report', '⎙', 'Report pro Clauda', 'Jak se AVIOR v tomto chatu zachoval – ke zkopírování') +
     opt('data-export="md"', 'MD', 'Exportovat jako Markdown', 'Do Stažené/AVIOR') +
     opt('data-export="pdf"', 'PDF', 'Exportovat jako PDF', 'Do Stažené/AVIOR'));
 }
@@ -179,6 +181,66 @@ function evidenceSheet(m) {
   sheet(`<div class="eyebrow" style="margin-top:4px">MAPA DŮKAZŮ · ${ev.grounded} % VĚT S OPOROU</div>
     <p class="small muted">Každou větu odpovědi jsem označil podle toho, odkud pochází. Nic z toho nepočítá další model – je to deterministický rozbor.</p>
     ${legend}<div class="eyebrow">VĚTY</div>${body}`);
+}
+
+/* ------------------------------------------------------------------ REPORT PRO CLAUDA
+ * Textový rozbor vlákna: co se ptal uživatel, kterou cestou AVIOR šel (reflex / mozek / cloud),
+ * proč (RANDY, regulátor), jak dlouho, s jakou jistotou a oporou, a co se dělo mezi tím (fáze, chyby).
+ * Klíče ani tokeny v něm nikdy nejsou; text zpráv jde vypnout. */
+const LOG = [];
+function logEv(kind, text) { if (!text) return; LOG.push([Date.now(), kind, String(text).slice(0, 200)]); if (LOG.length > 60) LOG.shift(); }
+function chatReport(withText = true) {
+  const st = S.settings || {};
+  const hm = t => new Date(t).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const cut = (t, n) => { t = String(t || '').replace(/\s+\n/g, '\n').trim(); return t.length > n ? t.slice(0, n) + ' …[+' + (t.length - n) + ' zn.]' : t; };
+  const keys = Object.entries(S.keys || {}).filter(([, v]) => v).map(([k]) => k);
+  const out = [
+    `# AVIOR report · ${S.version || '?'} (${S.build || '?'}) · ${new Date().toLocaleString('cs-CZ')}`,
+    `- režim: ${st.mode} · výkon: ${st.power || 'auto'} ${st.powerStrength || ''} % · cloud zdarma první: ${st.freeFirst !== false ? 'ano' : 'ne'} · Flash: ${st.instant !== false ? 'ano' : 'ne'} · air-gap: ${st.airgap ? 'ano' : 'ne'}`,
+    `- online: ${S.online ? 'ano' : 'ne'} · mozky: ${(S.engines || []).join(', ') || 'žádný'} · v telefonu: ${S.brain || '—'}${S.brainLoaded ? ' (v paměti)' : ''}`,
+    `- klíče uloženy: ${keys.join(', ') || 'žádné'}${Object.keys(S.freeModels || {}).length ? ' · cloud zdarma: ' + Object.entries(S.freeModels).map(([k, v]) => k + '=' + v).join(', ') : ''}`,
+  ];
+  const mem = J('memInfo'); if (mem) out.push(`- RAM volná ${mem.free} / ${mem.total} MB${mem.low ? ' · NÍZKÁ' : ''}`);
+  out.push('', `## Vlákno #${threadId || '—'} · ${msgs.length} zpráv`);
+  msgs.forEach((m, i) => {
+    const me = m.meta || {};
+    if (m.role === 'user') { out.push('', `### ${i + 1} · OTÁZKA ${m.ts ? hm(m.ts) : ''}`, withText ? '> ' + cut(m.content, 700).replace(/\n/g, '\n> ') : `> (${(m.content || '').length} znaků)`); return; }
+    const f = [];
+    f.push(me.instant ? `reflex bez mozku: ${me.instant}` : me.engine || 'mozek ?');
+    if (me.model) f.push('model ' + me.model);
+    if (me.millis != null) f.push((me.millis / 1000).toFixed(2) + ' s');
+    if (me.level) f.push('RANDY ' + me.level);
+    if (me.variant) f.push(me.variant);
+    if (me.confidence != null) f.push('jistota ' + me.confidence + (me.rawConfidence != null ? ' (surová ' + me.rawConfidence + ')' : ''));
+    if (me.evidence) f.push('ukotveno ' + me.evidence.grounded + ' %');
+    if (me.inputTokens || me.outputTokens) f.push(`tokeny ${me.inputTokens || 0}→${me.outputTokens || 0}`);
+    if (me.finish && me.finish !== 'stop' && me.finish !== 'end_turn') f.push('konec: ' + me.finish);
+    if (me.error) f.push('CHYBA');
+    out.push('', `### ${i + 1} · ODPOVĚĎ ${m.ts ? hm(m.ts) : ''}`, '- ' + f.join(' · '));
+    if (me.route) out.push('- cesta: ' + me.route);
+    if (me.governor) out.push(`- regulátor: ${me.governor.power} · náročnost ${me.governor.demand} · max ${me.governor.maxTokens} tok · ${me.governor.threads || '?'} vláken${me.governor.limited ? ' · OMEZENO' : ''}`);
+    if (me.perf) out.push(`- telefon: načtení ${me.perf.loadMs ?? '?'} ms · čtení ${me.perf.promptTps ?? '?'} tok/s · psaní ${me.perf.writeTps ?? '?'} tok/s · znalosti ${me.perf.knowledgeMs ?? '?'} ms`);
+    if (me.randy && (me.randy.interventions || []).length) out.push('- RANDY zásahy: ' + me.randy.interventions.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' | ').slice(0, 400));
+    if ((me.steps || []).length) out.push('- kroky: ' + me.steps.map(x => x.tool || x.label || '?').join(' → '));
+    if ((me.sources || []).length) out.push('- zdroje: ' + me.sources.slice(0, 6).map(x => x.title || x.url).join(' · '));
+    if (me.lesson) out.push('- poučení: ' + cut(me.lesson, 200));
+    if (m.rating) out.push('- hodnocení uživatele: ' + (m.rating > 0 ? '✓' : '✕'));
+    out.push(withText ? cut(m.content, 1500) : `(${(m.content || '').length} znaků)`);
+  });
+  if (LOG.length) { out.push('', '## Události (od spuštění aplikace)'); LOG.slice(-40).forEach(([t, k, x]) => out.push(`- ${hm(t)} ${k}: ${x}`)); }
+  out.push('', '_Report neobsahuje API klíče ani tokeny._');
+  return out.join('\n');
+}
+function reportSheet() {
+  if (!msgs.length) return toast('Otevři vlákno, ze kterého chceš report.');
+  const withText = reportSheet.text !== false;
+  const r = chatReport(withText);
+  sheet(`<div class="eyebrow" style="margin-top:4px">REPORT VLÁKNA · PRO CLAUDA</div>
+    <p class="small muted">Pošli ho Claudovi – pozná z něj, kterou cestou AVIOR odpovídal, jak dlouho, s jakou jistotou a kde chyboval. Klíče v něm nejsou.</p>
+    <div class="toggle"><span>Včetně textu zpráv<small>Vypni, pokud je konverzace soukromá – zůstane jen průběh</small></span><label class="switch"><input type="checkbox" data-report-text ${withText ? 'checked' : ''}><i></i></label></div>
+    <pre class="report">${esc(r)}</pre>
+    <div class="row" style="gap:8px;margin-top:10px"><button class="btn primary grow" data-report-copy>Kopírovat</button><button class="btn grow" data-report-share>Sdílet</button></div>`);
+  reportSheet.last = r;
 }
 
 function fileCard(f, ref) {
@@ -345,6 +407,9 @@ let brainMem = null;
 function brainChip() {
   if ((S.settings || {}).airgap) return `<div class="brainchip on"><i></i>⛨ Air-gap · nic neopouští telefon</div>`;
   const b = brainMem || (brainMem = J('brainState')) || {};
+  const st = S.settings || {};
+  if ((S.engines || []).includes('free') && (st.mode === 'free' || st.mode === 'turbo' || (st.mode === 'auto' && st.freeFirst !== false)))
+    return `<div class="brainchip on"><i></i>Odpovídá cloud zdarma – telefon šetří RAM</div>`;
   if (!b.state || !(S.engines || []).includes('local')) return '';
   if (b.state === 'loaded') return `<div class="brainchip on"><i></i>Mozek připraven v paměti – odpovídám hned</div>`;
   if (b.state === 'loading') return `<div class="brainchip wait"><i></i>Načítám mozek do paměti…</div>`;
@@ -355,7 +420,11 @@ function brainChip() {
 function speedTip() {
   const st = S.settings || {}; const avail = S.engines || [];
   const tips = [];
-  if ((st.mode === 'auto' || st.mode === 'local') && ['claude', 'hf', 'kimi'].some(x => avail.includes(x)))
+  // cloud zdarma už odpovídá → žádné tipy na rychlost nejsou potřeba
+  if (avail.includes('free') && (st.mode === 'free' || st.mode === 'turbo' || (st.mode === 'auto' && st.freeFirst !== false))) return '';
+  if (!avail.includes('free') && S.online && (st.mode === 'auto' || st.mode === 'local'))
+    tips.push(`<button class="btn sm primary" data-go="modules">Cloud zdarma</button><small>Rychlejší a přesnější odpovědi bez zátěže telefonu – stačí klíč zdarma.</small>`);
+  else if ((st.mode === 'auto' || st.mode === 'local') && ['claude', 'hf', 'kimi'].some(x => avail.includes(x)))
     tips.push(`<button class="btn sm primary" data-mode="turbo">⚡ Zapnout Turbo</button><small>Odpověď do 1–2 s přes cloud, offline dál telefon.</small>`);
   const b = J('brains') || {};
   const list = b.brains || [];
@@ -379,6 +448,8 @@ function crashSheet(d) {
 }
 
 let showLimit = 24, keepScroll = false;
+/** Výkon na výchozím nastavení (Auto, 75 %) → na úvodu ho není třeba ukazovat. */
+const powerDefault = () => curPower() === 'AUTO' && ((S.settings || {}).powerStrength || 75) === 75;
 function renderChat() {
   const main = $('#main');
   if (!msgs.length && !live) {
@@ -388,7 +459,7 @@ function renderChat() {
       ${S.update ? `<div class="card glow" style="text-align:left"><b>Nová verze AVIOR ${esc(S.update.version)}</b><p class="small muted" style="margin:4px 0 10px">Máš ${esc(S.update.current)}. Aktualizace zachová mozek, Wikipedii i paměť.</p>
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
-      <div class="row" style="gap:14px;flex-wrap:wrap">${brainChip()}<button class="brainchip" data-kind-pick>výkon: ${esc((POWERS.find(p => p.id === curPower()) || POWERS[0]).label)} · ${(S.settings || {}).powerStrength || 75} %</button></div>
+      <div class="row" style="gap:14px;flex-wrap:wrap">${brainChip()}${tech() || !powerDefault() ? `<button class="brainchip" data-kind-pick>výkon: ${esc((POWERS.find(p => p.id === curPower()) || POWERS[0]).label)} · ${(S.settings || {}).powerStrength || 75} %</button>` : ''}</div>
       ${speedTip()}
       ${!tech() ? '' : (() => { const cg = J('cognition'); const j = cg && cg.journal && cg.journal[0]; return j ? `<button class="learnline" data-self>✦ ${esc(j.text)}</button>` : (cg && cg.total ? `<button class="learnline" data-self>✦ ${cg.total} otázek · ${cg.insights} vlastních poznatků – podívej se, co umím</button>` : ''); })()}
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
@@ -456,7 +527,7 @@ function msgHtml(m, last) {
   const memo = [...(meta.memories || []), ...(meta.notes || [])];
   if (memo.length) det.push(`<div class="sub">PAMĚŤ</div><p class="small">${memo.map(esc).join('<br>')}</p>`);
   const thought = meta.reasoning && tech() ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
-  return `<div class="msg ai" data-id="${m.id}">
+  return `<div class="msg ai${last ? ' last' : ''}" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${tech() ? confHtml(meta.confidence) : ''}</div>
     ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
     ${evidenceChip(m)}
@@ -547,7 +618,7 @@ function composer() {
   return `<div class="composer"><div class="wrap">
     <div class="randy-hint" id="randyHint"></div>
     ${attachment ? `<div class="attach-pill"><span>${ICONS.clip}</span><b>${esc(attachment.name)}</b><small>${esc(attachment.kind || '')} · ${attachment.chars >= 1000 ? Math.round(attachment.chars / 1000) + ' tis.' : attachment.chars} znaků</small><button data-attach-clear aria-label="Odebrat přílohu">✕</button></div>` : ''}
-    <div class="box">
+    <div class="box${draft.trim() || attachment ? ' has-text' : ''}">
       <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' || md !== 'auto' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se…">${esc(draft)}</textarea>
       <button class="mic" data-attach aria-label="Přiložit soubor">${ICONS.clip}</button>
@@ -560,7 +631,9 @@ function bindComposer() {
   const ta = $('#input');
   const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(170, ta.scrollHeight) + 'px'; };
   grow();
-  ta.addEventListener('input', () => { draft = ta.value; grow(); randyHint(); });
+  const box = ta.closest('.box');
+  // jako Zprávy: prázdné pole = mikrofon, s textem = odeslat (o tlačítko méně na očích)
+  ta.addEventListener('input', () => { draft = ta.value; grow(); box.classList.toggle('has-text', !!draft.trim() || !!attachment); randyHint(); });
   randyHint();
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(ta.value); } });
   $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
@@ -649,6 +722,9 @@ function renderModules() {
 
     <details class="x card" style="padding:0"><summary style="padding:14px 16px">DOLADĚNÍ · DOVEDNOSTI A LoRA</summary><div style="padding:0 2px 2px">${tuningHtml()}</div></details>
 
+    <div class="eyebrow">CLOUD ZDARMA · DOPORUČENO</div>
+    ${freeCloudHtml()}
+
     <div class="eyebrow">CLAUDE · ANTHROPIC API</div>
     ${claudeHtml()}
 
@@ -684,6 +760,26 @@ function renderModules() {
       <div id="models-server"></div>
       <div class="grid2"><button class="btn sm" data-save-key="server">Uložit</button><button class="btn sm" data-test="server">Ověřit</button></div>`)}
   </div>`;
+}
+
+/** CLOUD ZDARMA: Cerebras / Groq / OpenRouter – stačí jeden klíč, víc = automatická záloha při limitu. */
+const FREE = [
+  ['cerebras', 'Cerebras', 'Nejrychlejší výstup (gpt-oss-120b, Qwen 3)', 'https://cloud.cerebras.ai'],
+  ['groq', 'Groq', 'Nejnižší latence (gpt-oss-120b, Kimi K2, Llama 70B)', 'https://console.groq.com/keys'],
+  ['openrouter', 'OpenRouter', 'Desítky modelů „:free“ – široká záloha', 'https://openrouter.ai/keys'],
+];
+function freeCloudHtml() {
+  const st = S.settings || {}; const k = S.keys || {}; const fm = S.freeModels || {};
+  const n = FREE.filter(([id]) => k[id]).length;
+  return card(`<div class="row" style="gap:12px"><span class="v-ic">∞</span><span class="grow"><b>Cloud zdarma</b>
+      <small class="muted" style="display:block">${n ? 'Připojeno ' + n + '× · ' + FREE.filter(([id]) => k[id]).map(([id, nm]) => nm + ' ' + esc((fm[id] || '').split('/').pop())).join(' · ') : 'Klíč zdarma, bez platební karty'}</small></span><span class="dot ${n ? 'on' : ''}"></span></div>
+    <p class="small">Model se 120 miliardami parametrů na cizím serveru: odpovídá rychleji a přesněji než mozek v telefonu a telefon nenačítá nic do RAM. Když jeden server narazí na limit, AVIOR plynule přejde na další.</p>
+    ${FREE.map(([id, nm, sub, url]) => `<details class="x"${!n && id === 'cerebras' ? ' open' : ''}><summary>${nm.toUpperCase()}${k[id] ? ' · ✓' : ''}</summary><div class="in" style="white-space:normal">
+      <p class="small muted" style="margin:0 0 6px">${sub}</p>
+      <input type="password" id="key-${id}" autocomplete="off" placeholder="${k[id] ? 'Klíč uložen – vlož nový pro změnu' : 'API klíč'}">
+      <div class="grid2" style="margin-top:8px"><button class="btn sm" data-save-key="${id}">Uložit</button><button class="btn sm" data-test="${id}">Ověřit</button></div>
+      <button class="link" data-open="${url}">Získat klíč zdarma ↗</button></div></details>`).join('')}
+    <div class="toggle"><span>S internetem odpovídá cloud zdarma<small>Rychlejší a přesnější, šetří baterii i RAM. Offline a v Air-gapu dál myslí telefon. Vypnuto = cloud jen když ho zvolíš.</small></span><label class="switch"><input type="checkbox" data-set="freeFirst" ${st.freeFirst !== false ? 'checked' : ''}><i></i></label></div>`);
 }
 
 /** Claude jako posila: těžké otázky, agent a Sherlock jdou na Claude, zbytek dál myslí telefon. */
@@ -1042,6 +1138,9 @@ function configure(obj) { call('configure', JSON.stringify(obj)); }
 /* ------------------------------------------------------------------ události z Kotlinu */
 
 window.omegaReceive = function (type, d) {
+  if (type === 'phase' || type === 'note') logEv(type === 'phase' ? 'fáze' : 'hláška', d.text);
+  else if (type === 'error') logEv('chyba', d.message);
+  else if (type === 'done') logEv('hotovo', (d.ms != null ? d.ms + ' ms' : '') || 'odpověď');
   switch (type) {
     case 'phase':
       if (stayHome) { refresh(); break; }
@@ -1137,6 +1236,11 @@ window.omegaBack = function () {
 
 /* ------------------------------------------------------------------ kliky */
 
+// starší odpovědi: akce (kopírovat, hodnotit…) se ukážou až po klepnutí na odpověď – klidnější vlákno
+document.addEventListener('click', e => {
+  const m = e.target.closest('.msg.ai:not(.last)');
+  if (m && !e.target.closest('button, a, details, pre, .cite')) m.classList.toggle('open');
+});
 document.addEventListener('click', e => {
   const t = e.target.closest('button, a, [data-open], [data-thread]');
   if (!t) return;
@@ -1186,6 +1290,9 @@ document.addEventListener('click', e => {
   if (ds.msgMore) { const m = msgs.find(x => x.id === Number(ds.msgMore)); m && msgMoreSheet(m, ds.last === '1'); return; }
   if (ds.speak) { const m = msgs.find(x => x.id === Number(ds.speak)); if (m) { call('speak', m.content); toast('Čtu nahlas… (klepni znovu na ikonu pro opakování)'); } return; }
   if (ds.editLast) { const i = msgs.findIndex(x => x.id === Number(ds.editLast)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); closeSheet(); if (u) { draft = u.content; render(); setTimeout(() => { const ta = $('#input'); ta && ta.focus(); }, 60); } return; }
+  if (ds.report !== undefined) { closeSheet(); reportSheet(); return; }
+  if (ds.reportCopy !== undefined) { call('copy', reportSheet.last || ''); haptic(); return; }
+  if (ds.reportShare !== undefined) { call('share', reportSheet.last || ''); return; }
   if (ds.export) { closeSheet(); if (!threadId) return toast('Nejdřív otevři vlákno.'); call('exportThread', threadId, ds.export); toast('Exportuji…'); return; }
   if (ds.attach !== undefined) { call('attach'); return; }
   if (ds.attachClear !== undefined) { attachment = null; $('#composerSlot').innerHTML = composer(); bindComposer(); return; }
@@ -1251,7 +1358,7 @@ document.addEventListener('click', e => {
   if (ds.cloudRestore !== undefined) { if (confirm('Obnovit z cloudu? Přepíše současná data.')) call('cloudRestore'); return; }
   if (ds.kbImport !== undefined) { call('kbImport'); return; }
   if (ds.kbDel) { if (confirm('Smazat dokument?')) call('kbDelete', Number(ds.kbDel)); return; }
-  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
+  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; if (FREE.some(f => f[0] === ds.saveKey)) setTimeout(() => call('testProvider', ds.saveKey), 350); setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
   if (ds.power) { configure({ power: ds.power }); S.settings = Object.assign({}, S.settings, { power: ds.power }); haptic(); toast('Výkon: ' + POWERS.find(p => p.id === ds.power).label + ' – ' + POWERS.find(p => p.id === ds.power).desc);
@@ -1300,6 +1407,7 @@ document.addEventListener('change', e => {
     try { localStorage.setItem('tech', t.checked ? '1' : '0'); } catch (err) { /* bez úložiště */ }
     refresh.brandKey = null; refresh(); toast(t.checked ? 'Technické detaily zapnuty.' : 'Technické detaily skryty.'); return;
   }
+  if (t.dataset.reportText !== undefined) { reportSheet.text = t.checked; reportSheet(); return; }
   if (t.dataset.set) configure({ [t.dataset.set]: t.checked });
   if (t.dataset.text) configure({ [t.dataset.text]: t.value });
   if (t.dataset.range) configure({ [t.dataset.range]: Number(t.value) });

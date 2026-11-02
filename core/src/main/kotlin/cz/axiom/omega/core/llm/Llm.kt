@@ -79,6 +79,7 @@ enum class EngineKind(val label: String, val online: Boolean) {
     NODE("AVIOR Node · cloud server", true),
     CLAUDE("Claude · Anthropic API", true),
     HF("Hugging Face · Inference Providers", true),
+    FREE("Cloud zdarma · Groq / Cerebras / OpenRouter", true),
 }
 
 /**

@@ -244,7 +244,11 @@ class Omega private constructor(val app: Context) {
     @Volatile var warming = false
         private set
     /** Načte mozek do paměti předem (na pozadí), aby první dotaz nečekal. Bezpečné souběžně s dotazem. */
-    fun warmup() {
+    /** S internetem odpovídá cloud zdarma → mozek v telefonu není potřeba držet v RAM. */
+    fun cloudAnswers() = freeReady() && (settings.mode == "free" || settings.mode == "turbo" || (settings.mode == "auto" && settings.freeFirst))
+
+    fun warmup(force: Boolean = false) {
+        if (!force && cloudAnswers()) return
         if (warming || !localAvailable() || cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get()) return
         if (LocalEngine.loaded()?.let { it.file == brains.active()?.first } == true) return // už je v paměti
         if (Introspect.freeRamMb(app) in 1..900) return
@@ -310,12 +314,29 @@ class Omega private constructor(val app: Context) {
         return KimiEngine(url, vault.read(Vault.NODE), settings.nodeModel, EngineKind.NODE)
     }
 
+    /** Poskytovatelé zdarma s uloženým klíčem, v pořadí Cerebras → Groq → OpenRouter. */
+    fun freeMembers(fast: Boolean = false): List<cz.axiom.omega.core.llm.FreeCloud.Member> =
+        cz.axiom.omega.core.llm.FreeCloud.PROVIDERS.mapNotNull { p ->
+            val key = vault.read(p.id)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            cz.axiom.omega.core.llm.FreeCloud.Member(p, key, settings.freeModel(p.id, fast) ?: cz.axiom.omega.core.llm.FreeCloud.pickModel(p, emptyList(), fast))
+        }
+
+    fun freeReady() = Introspect.online(app) && cz.axiom.omega.core.llm.FreeCloud.PROVIDERS.any { vault.has(it.id) }
+
+    /** CLOUD ZDARMA: řetěz poskytovatelů s přepnutím při limitu; nic se nenačítá do RAM telefonu. */
+    fun free(fast: Boolean = false): LlmEngine {
+        val m = freeMembers(fast)
+        if (m.isEmpty()) throw EngineException("Cloud zdarma potřebuje klíč Groq, Cerebras nebo OpenRouter (Moduly → Cloud zdarma).")
+        return cz.axiom.omega.core.llm.FreeCloudEngine(m, onFallback = { Events.emit("phase", org.json.JSONObject().put("text", "Přepínám na záložní server – $it")) })
+    }
+
     /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AVIOR na něm nezávisí). */
     fun availableEngines(): List<String> {
         val online = Introspect.online(app)
         // Primární je výkonný mozek v telefonu; cloudy jsou jen volitelné doplňky.
         return buildList {
             if (localAvailable()) add("local")
+            if (freeReady()) add("free")
             if (online && settings.nodeUrl.isNotBlank()) add("node")
             if (settings.serverUrl.isNotBlank()) add("server")
             if (online && vault.has(Vault.KIMI)) add("kimi")
@@ -345,15 +366,16 @@ class Omega private constructor(val app: Context) {
     fun turbo(): LlmEngine {
         val online = Introspect.online(app)
         return when {
+            freeReady() -> free(fast = true)
             online && vault.has(Vault.CLAUDE) -> ClaudeEngine(vault.read(Vault.CLAUDE)!!, ClaudeEngine.TURBO_MODEL, effortOverride = "low")
             online && vault.has(Vault.HF) -> hf()
             online && vault.has(Vault.KIMI) -> kimi()
             localAvailable() -> local()
-            else -> throw EngineException("Turbo potřebuje internet a klíč Claude nebo token Hugging Face (Moduly), nebo mozek v telefonu.")
+            else -> throw EngineException("Turbo potřebuje internet a klíč Cloud zdarma (Groq/Cerebras), Claude nebo Hugging Face – nebo mozek v telefonu.")
         }
     }
 
-    fun turboReady() = Introspect.online(app) && (vault.has(Vault.CLAUDE) || vault.has(Vault.HF) || vault.has(Vault.KIMI))
+    fun turboReady() = freeReady() || Introspect.online(app) && (vault.has(Vault.CLAUDE) || vault.has(Vault.HF) || vault.has(Vault.KIMI))
 
     /** AUTO: online → Kimi K3, jinak Claude; offline → lokální mozek, jinak vlastní K3 server. */
     fun resolve(mode: String = settings.mode): LlmEngine {
@@ -365,10 +387,13 @@ class Omega private constructor(val app: Context) {
             "claude" -> claude()
             "hf" -> hf()
             "turbo" -> turbo()
+            "free" -> free()
             else -> {
                 val online = Introspect.online(app)
                 when {
+                    settings.freeFirst && freeReady() -> free()
                     localAvailable() -> local()
+                    freeReady() -> free()
                     online && settings.nodeUrl.isNotBlank() -> node()
                     settings.serverUrl.isNotBlank() -> server()
                     online && vault.has(Vault.KIMI) -> kimi()
@@ -393,7 +418,7 @@ class Omega private constructor(val app: Context) {
 
     /** Nejsilnější dostupný cloudový partner pro režim OBA MOZKY: Claude > Kimi > Node > HF > server. */
     fun duoPartner(engines: List<String> = availableEngines()): String? =
-        listOf("claude", "kimi", "node", "hf", "server").firstOrNull { it in engines }
+        listOf("claude", "free", "kimi", "node", "hf", "server").firstOrNull { it in engines }
 
     /** OBA MOZKY: mozek v telefonu + cloudový partner; partner odpovědi spojí (je silnější). */
     fun duoMembers(partner: String): Pair<List<LlmEngine>, LlmEngine> {
@@ -410,6 +435,7 @@ class Omega private constructor(val app: Context) {
             if (online && vault.has(Vault.KIMI)) runCatching { kimi() }.getOrNull()?.let(::add)
             if (online && settings.nodeUrl.isNotBlank()) runCatching { node() }.getOrNull()?.let(::add)
             if (online && vault.has(Vault.CLAUDE)) runCatching { claude() }.getOrNull()?.let(::add)
+            if (freeReady()) runCatching { free() }.getOrNull()?.let(::add)
             if (settings.serverUrl.isNotBlank()) runCatching { server() }.getOrNull()?.let(::add)
             if (localAvailable()) runCatching { local() }.getOrNull()?.let { add(0, it) }
         }.map { shield(it) }
@@ -420,6 +446,7 @@ class Omega private constructor(val app: Context) {
             "node" -> members.firstOrNull { it.kind == EngineKind.NODE }
             "local" -> members.firstOrNull { it.kind == EngineKind.LOCAL }
             "claude" -> members.firstOrNull { it.kind == EngineKind.CLAUDE }
+            "free" -> members.firstOrNull { it.kind == EngineKind.FREE }
             else -> members.firstOrNull { it.kind == EngineKind.KIMI_CLOUD }
         } ?: members.first()
         currentLabel = "Konzilium"

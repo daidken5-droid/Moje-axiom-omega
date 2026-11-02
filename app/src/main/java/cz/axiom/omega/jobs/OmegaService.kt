@@ -208,7 +208,7 @@ class OmegaService : Service() {
         val (battery, charging) = Introspect.battery(this)
         val engines = omega.availableEngines()
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
-            local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local") ||
+            local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local" && !(mode == "auto" && omega.settings.freeFirst && "free" in engines)) ||
                 (mode == "turbo" && !omega.turboReady() && "local" in engines))
         // SEBEPOZNÁNÍ: co o sobě vím v oblasti této otázky (z každé předchozí otázky a úvahy)
         val learning = omega.settings.learning
@@ -280,7 +280,8 @@ class OmegaService : Service() {
                 sherlock = omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK,
                 duo = if (mode == "duo" || (mode == "auto" && s.autoDuo)) omega.duoPartner(engines) else null,
                 forceDuo = mode == "duo",
-                phoneFast = device.local && mode != "turbo" && omega.power() != cz.axiom.omega.core.device.Power.SHERLOCK))
+                phoneFast = device.local && mode != "turbo" && omega.power() != cz.axiom.omega.core.device.Power.SHERLOCK,
+                cloudFirst = if (mode == "auto" && s.freeFirst && "free" in engines) "free" else null))
             val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
             listener.onPhase(plan.summary + " · ${route.mode.label}" + (plan.decisions.firstOrNull()?.let { " · $it" } ?: ""))
             val watchdog = Sup.Watchdog(plan.budgetMillis, authority)

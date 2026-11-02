@@ -33,6 +33,8 @@ object Router {
         val forceDuo: Boolean = false,
         /** Myslí jen telefon v rychlém režimu → agent (mnoho generování) jen pro soubory a odkazy. */
         val phoneFast: Boolean = false,
+        /** Rychlý cloud zdarma (např. "free") má s internetem přednost před telefonem – 0 MB RAM, stovky tokenů/s. */
+        val cloudFirst: String? = null,
     )
 
     data class Route(val mode: Mode, val engine: String, val level: RandyLevel, val reason: String, val prompt: String, val duo: Boolean = false)
@@ -128,6 +130,7 @@ object Router {
                 (ctx.sherlock && level.ordinal >= RandyLevel.L1_EXPERT.ordinal)
             if (hard) { why += "těžká úloha → posila $b"; return b }
         }
+        ctx.cloudFirst?.let { if (ctx.online && it in avail) { why += "cloud zdarma (telefon šetří RAM)"; return it } }
         if ("local" in avail) { why += "mozek v telefonu"; return "local" }
         if (!ctx.online) { why += "offline"; return avail.firstOrNull { it == "server" } ?: avail.first() }
         why += "v telefonu není mozek → ${avail.first()}"

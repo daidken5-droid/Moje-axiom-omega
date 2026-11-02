@@ -30,11 +30,15 @@ class KimiEngine(
     private val apiKey: String?,
     private val model: String,
     override val kind: EngineKind,
-    private val sendReasoningEffort: Boolean = kind == EngineKind.KIMI_CLOUD,
+    /** Jak převést úsilí na `reasoning_effort` (null = neposílat). */
+    private val effortMapper: ((String) -> String?)? = if (kind == EngineKind.KIMI_CLOUD) ::mapEffort else null,
+    /** Jméno poskytovatele do chybových hlášek a vlastní štítek (Cloud zdarma: Groq, Cerebras…). */
+    private val vendor: String = "Kimi",
+    private val labelOverride: String? = null,
 ) : LlmEngine {
 
     override val id = "kimi:$model@${baseUrl.trimEnd('/')}"
-    override val label = when (kind) {
+    override val label = labelOverride ?: when (kind) {
         EngineKind.KIMI_SERVER -> "Vlastní server ($model)"
         EngineKind.NODE -> "AVIOR Node ($model)"
         EngineKind.HF -> "Hugging Face (${model.substringAfterLast('/')})"
@@ -68,11 +72,11 @@ class KimiEngine(
             Sse.read(conn.inputStream, cancel) { _, data ->
                 if (data.trim() == "[DONE]") return@read false
                 val obj = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return@read true
-                (obj["error"] as? JsonObject)?.let { throw EngineException("Kimi: ${it.str("message") ?: "chyba streamu"}") }
+                (obj["error"] as? JsonObject)?.let { throw EngineException("$vendor: ${it.str("message") ?: "chyba streamu"}", retryable = true) }
                 obj.str("model")?.let { servedModel = it }
                 val choice = (obj["choices"] as? JsonArray)?.firstOrNull() as? JsonObject
                 val delta = choice?.get("delta") as? JsonObject
-                delta?.str("reasoning_content")?.takeIf { it.isNotEmpty() }?.let {
+                (delta?.str("reasoning_content") ?: delta?.str("reasoning"))?.takeIf { it.isNotEmpty() }?.let {
                     reasoning.append(it); onDelta(Delta(it, reasoning = true))
                 }
                 delta?.str("content")?.takeIf { it.isNotEmpty() }?.let { splitter.feed(it) }
@@ -86,7 +90,7 @@ class KimiEngine(
             }
             splitter.finish()
             cancel.check()
-            if (text.isBlank()) throw EngineException("Kimi nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.")
+            if (text.isBlank()) throw EngineException("$vendor nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.")
             if (finish == "length") text.append("\n\n[Odpověď byla zkrácena limitem tokenů.]")
             return GenResult(text.toString().trim(), reasoning.toString().trim(), servedModel, finish, emptyList(), usageIn, usageOut, System.currentTimeMillis() - started)
         } catch (e: CancelledException) {
@@ -96,8 +100,8 @@ class KimiEngine(
         } catch (e: IOException) {
             if (cancel.cancelled) throw CancelledException()
             throw EngineException(
-                if (kind != EngineKind.KIMI_CLOUD) "Server ${baseUrl} neodpovídá: ${e.message}. Je zapnutý a dostupný?"
-                else "Spojení s Kimi selhalo: ${e.message}",
+                if (kind == EngineKind.KIMI_SERVER || kind == EngineKind.NODE) "Server ${baseUrl} neodpovídá: ${e.message}. Je zapnutý a dostupný?"
+                else "Spojení s $vendor selhalo: ${e.message}",
                 retryable = true, cause = e,
             )
         } finally {
@@ -110,7 +114,7 @@ class KimiEngine(
         put("stream", true)
         put("max_tokens", options.maxTokens)
         if (kind != EngineKind.KIMI_CLOUD) put("temperature", options.temperature.toDouble())
-        if (sendReasoningEffort) put("reasoning_effort", mapEffort(options.effort))
+        effortMapper?.invoke(options.effort)?.let { put("reasoning_effort", it) }
         put("messages", buildJsonArray {
             // Sloučí systémové zprávy do jedné na začátku (některé servery víc nesnesou).
             val system = messages.filter { it.role == Role.SYSTEM }.joinToString("\n\n") { it.content }
@@ -127,11 +131,11 @@ class KimiEngine(
             (o["error"] as? JsonObject)?.str("message") ?: o.str("message")
         }.getOrNull() ?: body.take(300)
         return when (code) {
-            401, 403 -> EngineException("Kimi: neplatný nebo neoprávněný API klíč (HTTP $code). $msg")
-            404 -> EngineException("Kimi: model '$model' nebo adresa nenalezena (HTTP 404). Načti seznam modelů. $msg")
-            429 -> EngineException("Kimi: limit nebo kredit vyčerpán (HTTP 429). $msg", retryable = true)
-            in 500..599 -> EngineException("Kimi: chyba serveru (HTTP $code). $msg", retryable = true)
-            else -> EngineException("Kimi: HTTP $code. $msg")
+            401, 403 -> EngineException("$vendor: neplatný nebo neoprávněný API klíč (HTTP $code). $msg")
+            404 -> EngineException("$vendor: model '$model' nebo adresa nenalezena (HTTP 404). Načti seznam modelů. $msg")
+            429 -> EngineException("$vendor: limit nebo kredit vyčerpán (HTTP 429). $msg", retryable = true)
+            in 500..599 -> EngineException("$vendor: chyba serveru (HTTP $code). $msg", retryable = true)
+            else -> EngineException("$vendor: HTTP $code. $msg")
         }
     }
 

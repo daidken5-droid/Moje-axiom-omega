@@ -389,3 +389,49 @@ main.chat .wrap { padding-bottom: 12px; }
 .speedtip { position: relative; }
 .speedtip .tip-x { position: absolute; top: 6px; right: 8px; width: 28px; height: 28px; color: var(--dim); font-size: .8rem; }
 .speedtip .grow { padding-right: 24px; }
+
+/* report pro Clauda */
+pre.report { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px; margin: 10px 0 0; max-height: 42vh; overflow: auto; font: .72rem/1.45 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; word-break: break-word; color: var(--fg2, inherit); }
+
+/* ==========================================================================
+   AVIOR 7.3 — „jednoduché na pohled, chytré uvnitř“
+   OLED černá (Pixel 9a má OLED: černé pixely nesvítí → šetří baterii),
+   plochy odlišené jen tónem (bez rámečků), méně ovládacích prvků najednou.
+   ========================================================================== */
+:root {
+  --bg: #000; --bg2: #0b0b0c; --panel: #151517; --panel2: #232326;
+  --line: rgba(255, 255, 255, .06); --line2: rgba(255, 255, 255, .11);
+  --r: 14px; --r-sm: 12px;
+}
+body.platinum { --bg: #f2f2f7; --bg2: #ffffff; --panel: #ffffff; --panel2: #e9e9ee; }
+
+/* plochy bez rámečků – hierarchii nese tón, ne čáry */
+.card { border-color: transparent; }
+.card.glow, .card.randy { border-color: var(--line); }
+header.top, .composer, nav.tabs { border-color: transparent; }
+.composer .box { border-color: transparent; background: var(--panel); }
+.seg { border-color: transparent; background: var(--panel); }
+.seg button.on { box-shadow: none; background: var(--panel2); }
+.btn { border-color: transparent; border-radius: 12px; }
+.btn.primary { border-radius: 99px; }
+
+/* typografie: větší titulek, klidnější popisky */
+.greet { font-size: 2.15rem; font-weight: 700; letter-spacing: -.035em; }
+.hero .lead { color: var(--muted); }
+.eyebrow, .sub { letter-spacing: .04em; font-weight: 600; }
+
+/* záložky: aktivní jen barvou a váhou (žádný proužek) */
+nav.tabs button.on::after { display: none; }
+nav.tabs button { transition: color .15s var(--ease); }
+
+/* list ze spodu s úchytem */
+.sheet { border-top-color: transparent; border-radius: 22px 22px 0 0; }
+.sheet::before { content: ""; display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--line2); margin: 2px auto 10px; }
+
+/* pole pro dotaz jako ve Zprávách: prázdné = mikrofon, s textem = odeslat */
+.composer .box:not(.has-text) .send:not(.stop) { display: none; }
+.composer .box.has-text #micBtn { display: none; }
+
+/* starší odpovědi: akce až po klepnutí (poslední odpověď je má vždy) */
+.msg.ai:not(.last):not(.open) .tools { display: none; }
+.msg.ai.open .tools { animation: fade .15s; }

@@ -8,6 +8,31 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 7.3 – Cloud zdarma, report pro Clauda, čistší vzhled
+
+- **Cloud zdarma (nový modul):** Cerebras, Groq a OpenRouter. Klíč je zdarma a bez platební karty, mluví se
+  přes OpenAI Chat Completions. Odpovídá velký otevřený model (gpt-oss-120b, Kimi K2, Llama 3.3 70B, Qwen 3)
+  rychlostí stovek až tisíců tokenů za sekundu. Telefon přitom do RAM nenačítá nic.
+  - Model si AVIOR vybírá z aktuální nabídky serveru (`/models`) podle pořadí preferencí, takže ho nerozbije,
+    když poskytovatel model vyřadí.
+  - Když server vrátí limit (429), výpadek nebo neznámý model dřív, než začne psát, dotaz plynule přejde na
+    dalšího poskytovatele.
+  - V režimu **Auto** s internetem odpovídá Cloud zdarma (přepínač „S internetem odpovídá cloud zdarma“).
+    Offline a v Air-gapu dál myslí telefon a mozek se do RAM nepřednačítá zbytečně.
+  - **Turbo** používá nejdřív Cloud zdarma, mozek v telefonu se po uložení klíče uvolní z paměti.
+  - DLP štít maskuje tajemství i pro tyto servery.
+- **Report pro Clauda:** v chatu ⋯ → „Report pro Clauda“ vyjede textový rozbor vlákna. U každé odpovědi uvádí
+  cestu (reflex / telefon / cloud a proč), model, čas, úroveň RANDY, jistotu, ukotvení, tokeny, regulátor,
+  výkon telefonu, zdroje a hodnocení. K tomu přidá posledních 40 událostí (fáze, přepnutí serveru, chyby).
+  Lze ho zkopírovat nebo sdílet a text zpráv jde vypnout. API klíče v něm nikdy nejsou.
+- **Vzhled „jednoduše, ale chytře“:**
+  - OLED černá (na Pixelu 9a černé pixely nesvítí, takže šetří baterii) a plochy bez rámečků.
+  - Pole pro dotaz funguje jako ve Zprávách: když je prázdné, ukazuje mikrofon, s textem šipku k odeslání.
+  - Akce u starších odpovědí se ukážou až po klepnutí, poslední odpověď je má vždy.
+  - Volba výkonu je na úvodu jen mimo výchozí nastavení a tipy na rychlost zmizí, když už odpovídá cloud.
+  - List ze spodu má úchyt.
+- Na profilu Pixelu 9a (CPU 4×) se stránka načte za 271 ms (dříve 347 ms).
+
 ## Novinky 7.2 – klid v UI, nic zbytečného na očích
 
 - **Jen to, co potřebuješ:** během odpovědi místo interních fází (RANDY, varianty, procenta jistoty) jen

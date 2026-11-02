@@ -157,6 +157,14 @@ class Settings(context: Context) {
     var loraScale: Int
         get() = p.getInt("loraScale", 100)
         set(v) = p.edit().putInt("loraScale", v.coerceIn(10, 200)).apply()
+    /** CLOUD ZDARMA: s internetem odpovídá Groq/Cerebras/OpenRouter místo mozku v telefonu (0 MB RAM). */
+    var freeFirst: Boolean
+        get() = p.getBoolean("freeFirst", true)
+        set(v) = p.edit().putBoolean("freeFirst", v).apply()
+    /** Model vybraný z aktuální nabídky poskytovatele (po „Ověřit“), jinak první preferovaný. */
+    fun freeModel(provider: String, fast: Boolean = false): String? = p.getString("free.$provider${if (fast) ".fast" else ""}", null)
+    fun setFreeModel(provider: String, model: String, fast: String) = p.edit().putString("free.$provider", model).putString("free.$provider.fast", fast).apply()
+
     /** Služby Hugging Face (Inference Providers) – modely a přepínače. */
     var hfChat: Boolean
         get() = p.getBoolean("hfChat", true)
@@ -199,7 +207,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -218,6 +226,7 @@ class Settings(context: Context) {
         if (o.has("ctxTokens")) { val c = o.getInt("ctxTokens"); if (c <= 0) ctxManual = false else { ctxManual = true; ctxTokens = c } }
         if (o.has("power")) power = o.getString("power")
         if (o.has("hfChat")) hfChat = o.getBoolean("hfChat")
+        if (o.has("freeFirst")) freeFirst = o.getBoolean("freeFirst")
         if (o.has("hfVision")) hfVision = o.getBoolean("hfVision")
         for (k in listOf("hfChatModel", "hfVisionModel", "hfAsrModel", "hfImageModel")) if (o.has(k)) {
             val v = o.getString(k).also(::checkModelId)
@@ -226,7 +235,7 @@ class Settings(context: Context) {
         if (o.has("theme")) theme = o.getString("theme")
         if (o.has("font")) font = o.getInt("font")
         if (o.has("userName")) userName = o.getString("userName")
-        if (o.has("councilJudge")) councilJudge = o.getString("councilJudge").takeIf { it in setOf("claude", "kimi", "server", "local", "node") } ?: "kimi"
+        if (o.has("councilJudge")) councilJudge = o.getString("councilJudge").takeIf { it in setOf("claude", "kimi", "server", "local", "node", "free") } ?: "kimi"
         if (o.has("onboarded")) onboarded = o.getBoolean("onboarded")
         if (o.has("nodeUrl")) nodeUrl = o.getString("nodeUrl")
         if (o.has("nodeModel")) nodeModel = o.getString("nodeModel").ifBlank { "axiom" }.also(::checkModelId)
@@ -256,6 +265,6 @@ class Settings(context: Context) {
     }
 
     companion object {
-        val MODES = setOf("auto", "turbo", "local", "kimi", "node", "server", "claude", "hf", "council", "duo")
+        val MODES = setOf("auto", "turbo", "free", "local", "kimi", "node", "server", "claude", "hf", "council", "duo")
     }
 }

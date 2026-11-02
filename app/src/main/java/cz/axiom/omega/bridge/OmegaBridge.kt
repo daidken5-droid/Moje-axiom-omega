@@ -58,8 +58,10 @@ class OmegaBridge(private val activity: MainActivity) {
             .put("job", omega.job.toJson()).put("bg", omega.bg.toJson())
             .put("settings", s.toJson())
             .put("keys", JSONObject().put("kimi", omega.vault.has(Vault.KIMI)).put("claude", omega.vault.has(Vault.CLAUDE)).put("server", omega.vault.has(Vault.SERVER))
-                .put("node", omega.vault.has(Vault.NODE)).put("hf", omega.vault.has(Vault.HF)))
+                .put("node", omega.vault.has(Vault.NODE)).put("hf", omega.vault.has(Vault.HF))
+                .put("groq", omega.vault.has(Vault.GROQ)).put("cerebras", omega.vault.has(Vault.CEREBRAS)).put("openrouter", omega.vault.has(Vault.OPENROUTER)))
             .put("engines", JSONArray(omega.availableEngines()))
+            .put("freeModels", JSONObject().apply { omega.freeMembers().forEach { put(it.provider.id, it.model) } })
             .put("sense", omega.embedderFile() != null)
             .put("online", Introspect.online(activity))
             .put("native", NativeLlama.available(activity))
@@ -218,6 +220,9 @@ class OmegaBridge(private val activity: MainActivity) {
                 activity.runOnUiThread { activity.applySecureScreen() }
                 if (omega.settings.secureScreen) cz.axiom.omega.widget.AviorWidget.clear(activity)
             }
+            if (o.has("freeFirst") || o.has("mode")) {
+                if (omega.cloudAnswers()) { if (!OmegaService.RUNNING_ASK.get()) LocalEngine.releaseIfIdle() } else omega.warmup()
+            }
             if (o.has("memSafe")) {
                 // změna způsobu načtení → mozek načíst znovu (až nic nepočítá)
                 if (!OmegaService.RUNNING_ASK.get()) cz.axiom.omega.engine.LocalEngine.releaseIfIdle()
@@ -238,10 +243,13 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     private fun saveKeyInternal(provider: String, key: String) {
-        require(provider in setOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF)) { "Neznámý poskytovatel." }
+        require(provider in Vault.ALL) { "Neznámý poskytovatel." }
         val k = key.trim()
         if (k.isNotEmpty()) require(k.length in 8..400 && k.none { it.isWhitespace() }) { "Klíč má neplatný formát." }
         omega.vault.save(provider, k)
+        // cloud zdarma teď odpovídá → mozek v telefonu uvolnit z RAM (načte se znovu jen offline)
+        if (k.isNotEmpty() && provider in setOf(Vault.GROQ, Vault.CEREBRAS, Vault.OPENROUTER) && omega.cloudAnswers() && !OmegaService.RUNNING_ASK.get())
+            LocalEngine.releaseIfIdle()
         Events.note(if (k.isEmpty()) "Klíč odstraněn." else "Klíč uložen šifrovaně (Android Keystore).")
         Events.emit("config", JSONObject(state()))
     }
@@ -253,7 +261,7 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface
     fun panicWipe() = async {
         OmegaService.cancel(activity)
-        listOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF).forEach(omega.vault::remove)
+        Vault.ALL.forEach(omega.vault::remove)
         omega.db.wipeAll()
         omega.cognition.reset(); omega.randy.reset()
         runCatching { java.io.File(activity.filesDir, "crash.txt").delete() }
@@ -266,7 +274,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun forgetKeys() {
-        listOf(Vault.KIMI, Vault.CLAUDE, Vault.SERVER, Vault.NODE, Vault.HF).forEach(omega.vault::remove)
+        Vault.ALL.forEach(omega.vault::remove)
         Events.note("Všechny klíče odstraněny.")
         Events.emit("config", JSONObject(state()))
     }
@@ -279,6 +287,16 @@ class OmegaBridge(private val activity: MainActivity) {
             "server" -> { omega.server(); KimiEngine.listModels(omega.settings.serverUrl, omega.vault.read(Vault.SERVER)) }
             "node" -> { omega.node(); KimiEngine.listModels(omega.settings.nodeUrl, omega.vault.read(Vault.NODE)) }
             "claude" -> ClaudeEngine.listModels(omega.vault.read(Vault.CLAUDE) ?: error("Nejdřív ulož klíč Claude."))
+            "groq", "cerebras", "openrouter" -> {
+                // načte aktuální nabídku a vybere nejsilnější + nejrychlejší model (seznamy se u free tarifů mění)
+                val p = cz.axiom.omega.core.llm.FreeCloud.provider(provider)!!
+                val list = KimiEngine.listModels(p.base, omega.vault.read(provider) ?: error("Nejdřív ulož klíč ${p.name}."))
+                val best = cz.axiom.omega.core.llm.FreeCloud.pickModel(p, list)
+                omega.settings.setFreeModel(provider, best, cz.axiom.omega.core.llm.FreeCloud.pickModel(p, list, fast = true))
+                Events.emit("config", JSONObject(state()))
+                Events.note("${p.name} funguje · odpovídat bude ${best.substringAfterLast('/')}")
+                return@async
+            }
             else -> error("Neznámý poskytovatel.")
         }
         Events.emit("models", JSONObject().put("provider", provider).put("models", JSONArray(models)))
@@ -883,7 +901,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     /** Ručně načíst mozek do paměti hned teď. */
     @JavascriptInterface fun preload() {
-        if (omega.settings.keepBrain) OmegaService.keep(activity, true) else omega.warmup()
+        if (omega.settings.keepBrain) OmegaService.keep(activity, true) else omega.warmup(force = true)
     }
 
     /**

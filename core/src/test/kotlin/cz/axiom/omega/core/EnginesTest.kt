@@ -76,7 +76,7 @@ class EnginesTest {
                 ex.responseBody.use { it.write(payload) }
             }
         }
-        val eng = KimiEngine("$base/v1", "sk-test", "kimi-k3", EngineKind.KIMI_SERVER, sendReasoningEffort = true)
+        val eng = KimiEngine("$base/v1", "sk-test", "kimi-k3", EngineKind.KIMI_SERVER, effortMapper = KimiEngine::mapEffort)
         val deltas = mutableListOf<Delta>()
         val r = eng.generate(
             listOf(ChatMessage(Role.SYSTEM, "sys A"), ChatMessage(Role.SYSTEM, "sys B"), ChatMessage(Role.USER, "Kdo jsi?")),
