@@ -115,7 +115,8 @@ class FreeCloudTest {
         val p = FreeCloud.Provider("x", "X", base, listOf("m"), signup = "", contextChars = 5_000)
         val msgs = listOf(ChatMessage(Role.SYSTEM, "S")) + (1..10).map { ChatMessage(if (it % 2 == 0) Role.ASSISTANT else Role.USER, "h$it " + "x".repeat(1_000)) } + ChatMessage(Role.USER, "POSLEDNI")
         FreeCloudEngine(listOf(FreeCloud.Member(p, "key-12345678", "m"))).generate(msgs, GenOptions(), CancelToken()) {}
-        assertTrue(seen.single().length < 7_000); assertTrue(seen.single().contains("POSLEDNI")); assertTrue(!seen.single().contains("h1 "))
+        // první zpráva (cíl) a poslední dotaz zůstanou, prostřední historie se ořízne
+        assertTrue(seen.single().length < 7_000); assertTrue(seen.single().contains("POSLEDNI")); assertTrue(seen.single().contains("h1 ")); assertTrue(!seen.single().contains("h2 "))
     }
 
     @Test fun needsAtLeastOneKey() { assertFailsWith<IllegalArgumentException> { FreeCloudEngine(emptyList()) } }

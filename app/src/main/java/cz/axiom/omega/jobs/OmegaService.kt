@@ -496,7 +496,7 @@ class OmegaService : Service() {
         val started = System.currentTimeMillis()
         val q = e.entity ?: text
         val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(q, 3), "E-ARL: na definici stačí knihovna, mozek netřeba") }.getOrNull() ?: return false
-        val meta = JSONObject().put("engine", "E-ARL · offline knihovna").put("millis", System.currentTimeMillis() - started)
+        val meta = JSONObject().put("engine", "E-ARL · offline knihovna").put("millis", System.currentTimeMillis() - started).put("route", e.reasons.joinToString(" · "))
             .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0")
             .put("earl", JSONObject().put("path", e.path.name).put("label", e.path.label).put("conf", e.confidence).put("category", e.category).put("reasons", JSONArray(e.reasons)))
         val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
@@ -508,7 +508,7 @@ class OmegaService : Service() {
     private fun offlineAnswer(threadId: Long, text: String, reason: String): Boolean {
         val started = System.currentTimeMillis()
         val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(text, 5), reason) }.getOrNull() ?: return false
-        val meta = JSONObject().put("engine", "Offline knihovna · bez mozku").put("millis", System.currentTimeMillis() - started)
+        val meta = JSONObject().put("engine", "Offline knihovna · bez mozku").put("millis", System.currentTimeMillis() - started).put("route", reason)
             .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0").put("offline", true)
         omega.job.busy = false
         val id = omega.db.addMessage(threadId, "assistant", a.text, meta)

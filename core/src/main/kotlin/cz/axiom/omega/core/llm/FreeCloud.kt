@@ -180,7 +180,8 @@ class FreeCloudEngine(
         val sys = messages.filter { it.role == Role.SYSTEM }
         val rest = messages.filter { it.role != Role.SYSTEM }.toMutableList()
         var total = messages.sumOf { it.content.length }
-        while (rest.size > 1 && total > budget) total -= rest.removeAt(0).content.length
+        // první zpráva (u agenta CÍL úkolu) a poslední zůstávají – ořezává se od druhé nejstarší
+        while (rest.size > 2 && total > budget) total -= rest.removeAt(1).content.length
         // i tak moc dlouhé (obří podklady v systému) → zkrátit systémovou zprávu od konce podkladů
         val sysText = sys.joinToString("\n\n") { it.content }
         val room = (budget - rest.sumOf { it.content.length }).coerceAtLeast(4_000)

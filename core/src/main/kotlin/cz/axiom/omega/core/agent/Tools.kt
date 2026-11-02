@@ -104,12 +104,21 @@ object Tools {
     )
 
     fun online(hub: HfHub = HfHub()): List<AgentTool> = listOf(
-        tool("web_search", """{"q": "dotaz"}""", "vyhledá na webu (DuckDuckGo) a vrátí odkazy s úryvky") { a, _ ->
+        tool("web_search", """{"q": "dotaz"}""", "vyhledá na webu a vrátí JEN titulky a úryvky – článek pak otevři přes fetch_url") { a, _ ->
             Web.search(a.arg("q", "query")).joinToString("\n") { "- ${it.title} — ${it.url}\n  ${TextUtil.clip(it.snippet, 240)}" }
-                .ifBlank { "Žádné výsledky (zkus wiki_search nebo jiná slova)." }
+                .ifBlank { "Žádné výsledky (zkus wiki_search nebo jiná slova)." } +
+                "\n\n(Toto jsou jen titulky a úryvky. Odpověď stav na obsahu článků – otevři 1–3 nejrelevantnější přes fetch_url.)"
         },
-        tool("fetch_url", """{"url": "https://…"}""", "otevře veřejnou https stránku a vrátí její text") { a, _ ->
-            Web.fetchText(a.arg("url"))
+        tool("fetch_url", """{"url": "https://…", "part": 1}""", "přečte CELÝ článek (režim čtení, bez menu); dlouhý článek po částech – part 2, 3…") { a, _ ->
+            val url = a.arg("url")
+            // celý text článku se stáhne jednou (Pavučina, 10 min) a vrací se po částech – agent tak přečte i dlouhý článek celý
+            val full = cz.axiom.omega.core.agent.Pavucina.memo("web:$url", ttlMs = 600_000) { Web.fetchText(url, maxChars = 60_000) }
+            val size = 9_000
+            val parts = maxOf(1, (full.length + size - 1) / size)
+            val part = ((a["part"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 1).coerceIn(1, parts)
+            val chunk = full.substring((part - 1) * size, minOf(full.length, part * size))
+            if (parts == 1) chunk
+            else "ČLÁNEK – část $part/$parts\n\n$chunk" + if (part < parts) "\n\n[Pokračování: fetch_url se stejnou url a \"part\": ${part + 1}]" else "\n\n[Konec článku]"
         },
         tool("wiki_search", """{"q": "dotaz", "lang": "cs"}""", "najde článek na Wikipedii a vrátí jeho začátek") { a, _ ->
             val lang = (a["lang"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.matches(Regex("[a-z]{2,3}")) } ?: "cs"

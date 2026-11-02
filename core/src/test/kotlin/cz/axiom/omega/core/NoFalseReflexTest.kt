@@ -17,6 +17,8 @@ class NoFalseReflexTest {
             "kolik je hodin cesty do prahy", "jakej je nejlepší telefon", "kdo vyhrál včera hokej", "kde je nejbližší lékárna",
             "kolik vydělává programátor", "jak uvařit svíčkovou", "napiš mail šéfovi", "vysvětli mi to jak pětiletýmu",
             "what is the meaning of life", "write me a poem", "how to cook pasta", "translate hello to spanish",
+            "kdy jsou vánoční prázdniny", "co dělat o vánocích", "kolik je dnes v praze stupňů", "jak se řekne že tě miluju francouzsky",
+            "přelož mi tuhle větu do angličtiny: zítra přijdu pozdě", "kdo je nejbohatší člověk", "co je nového v ai",
         )
         val c = Reflex.Ctx(Instant.Ctx(battery = 70, charging = false))
         val wrong = qs.mapNotNull { q -> Reflex.answer(q, c)?.let { "$q  →  ${it.kind}: ${it.text.take(70)}" } }

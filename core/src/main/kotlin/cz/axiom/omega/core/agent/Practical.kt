@@ -58,6 +58,40 @@ object Practical {
     private val monthsGen = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")
     private fun fmt(d: LocalDate) = "${d.dayOfMonth}. ${monthsGen[d.monthValue - 1]} ${d.year}"
 
+    /** Nejbližší (dnešní nebo budoucí) datum pojmenovaného dne. */
+    private fun namedDay(f: String, today: LocalDate): Triple<String, LocalDate, String>? {
+        if (!rx("^(kdy|kolik (dni|dnu|tydnu) (zbyva )?do|za jak dlouho|v jaky den)").containsMatchIn(f)) return null
+        fun nth(y: Int, month: Int, dow: DayOfWeek, n: Int) = LocalDate.of(y, month, 1).with(java.time.temporal.TemporalAdjusters.dayOfWeekInMonth(n, dow))
+        fun lastSun(y: Int, month: Int) = LocalDate.of(y, month, 1).with(java.time.temporal.TemporalAdjusters.lastInMonth(DayOfWeek.SUNDAY))
+        fun next(make: (Int) -> LocalDate): LocalDate = make(today.year).let { if (it.isBefore(today)) make(today.year + 1) else it }
+        return when {
+            rx("stedr\\w* den|stedrej|\\bvanoc(e|um)?\\b").containsMatchIn(f) -> Triple("Štědrý den", next { LocalDate.of(it, 12, 24) }, "")
+            rx("silvestr").containsMatchIn(f) -> Triple("Silvestr", next { LocalDate.of(it, 12, 31) }, "")
+            rx("novy rok|noveho roku|novyho roku").containsMatchIn(f) -> Triple("Nový rok", next { LocalDate.of(it, 1, 1) }, "")
+            rx("den matek").containsMatchIn(f) -> Triple("Den matek", next { nth(it, 5, DayOfWeek.SUNDAY, 2) }, " (2. neděle v květnu)")
+            rx("den otcu").containsMatchIn(f) -> Triple("Den otců", next { nth(it, 6, DayOfWeek.SUNDAY, 3) }, " (3. neděle v červnu)")
+            rx("valentyn").containsMatchIn(f) -> Triple("Valentýn", next { LocalDate.of(it, 2, 14) }, "")
+            rx("halloween").containsMatchIn(f) -> Triple("Halloween", next { LocalDate.of(it, 10, 31) }, "")
+            rx("mikulas").containsMatchIn(f) -> Triple("Mikuláš (večer)", next { LocalDate.of(it, 12, 5) }, "")
+            rx("zmen\\w* cas|meni cas|posouva cas|posun\\w* cas|letni cas|zimni cas|cas se (meni|posouva)").containsMatchIn(f) -> {
+                val toSummer = next { lastSun(it, 3) }; val toWinter = next { lastSun(it, 10) }
+                if (toSummer.isBefore(toWinter)) Triple("Přechod na letní čas", toSummer, " Ve 2:00 se ručičky posunou na 3:00 (spí se o hodinu méně).")
+                else Triple("Přechod na zimní (standardní) čas", toWinter, " Ve 3:00 se ručičky vrátí na 2:00 (spí se o hodinu déle).")
+            }
+            else -> null
+        }
+    }
+
+    /** Slovníček nejběžnějších slov: česky → (anglicky, německy). */
+    private val dict: Map<String, Pair<String, String>> by lazy {
+        runCatching {
+            Practical::class.java.classLoader?.getResourceAsStream("facts/slovnik.tsv")?.bufferedReader()?.use { r ->
+                r.readLines().filter { it.isNotBlank() }.map { it.split('\t') }.filter { it.size >= 3 }
+                    .associate { TextUtil.fold(it[0]).lowercase() to (it[1] to it[2]) }
+            }
+        }.getOrNull().orEmpty()
+    }
+
     fun answer(prompt: String, now: ZonedDateTime = ZonedDateTime.now()): Instant.Answer? = runCatching { match(prompt, now) }.getOrNull()
 
     private fun match(prompt: String, now: ZonedDateTime): Instant.Answer? {
@@ -150,6 +184,21 @@ object Practical {
             val toBd = ChronoUnit.DAYS.between(today, next)
             val birthday = born.monthValue == today.monthValue && born.dayOfMonth == today.dayOfMonth
             return ans("Narozený ${fmt(born)} má dnes **$years let**" + if (birthday) " – a dnes má narozeniny!" else "; další narozeniny za $toBd dní.", "výpočet", 99)
+        }
+
+        // ---------------- svátky a změna času („kdy je Den matek“, „kdy se mění čas“, „kolik týdnů do Vánoc“)
+        namedDay(f, today)?.let { (name, d, note) ->
+            val k = ChronoUnit.DAYS.between(today, d)
+            val weeks = rx("^kolik tydnu").containsMatchIn(f)
+            val left = when { k == 0L -> "je to **dnes**"; weeks -> "zbývá **${k / 7} týdnů a ${k % 7} dní**"; else -> "zbývá **$k ${if (k == 1L) "den" else if (k < 5) "dny" else "dní"}**" }
+            return ans("$name: **${dayNames[d.dayOfWeek.value - 1]} ${fmt(d)}** – $left.$note", "kalendář", 99)
+        }
+
+        // ---------------- slovníček (nejběžnější slova CZ → EN / DE)
+        rx("^(?:jak se (?:anglicky |nemecky )?rekne|preloz(?: mi)?|prelozit|co je|co znamena) (?:slovo )?(.{2,30}?) (?:anglicky|nemecky|do anglictiny|do nemciny|v anglictine|v nemcine|po anglicku|po nemecku)$|^(?:anglicky|nemecky|co je anglicky|co je nemecky) (.{2,30})$").find(f)?.let { m ->
+            val w = (m.groupValues[1].ifEmpty { m.groupValues[2] }).trim()
+            val de = rx("nemc|nemeck").containsMatchIn(f)
+            dict[w]?.let { (en, ge) -> return ans("„$w“ ${if (de) "německy" else "anglicky"}: **${if (de) ge else en}**", "slovníček", 95) }
         }
 
         // ---------------- dělení nulou

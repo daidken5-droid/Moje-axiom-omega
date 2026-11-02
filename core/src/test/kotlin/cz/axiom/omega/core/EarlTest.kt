@@ -19,7 +19,7 @@ class EarlTest {
         assertEquals(Earl.Path.RETRIEVE, d("co je to fotosyntéza?").path)
         assertEquals("fotosynteza", d("co je to fotosyntéza?").entity)
         // stejná otázka, ale cloud je po ruce → lehký mozek (bohatší odpověď, pořád rychle)
-        assertEquals(Earl.Path.LIGHT, d("co je to fotosyntéza?", Earl.Ctx(knowledge = wiki, cloud = true)).path)
+        assertEquals(Earl.Path.RETRIEVE, d("co je to fotosyntéza?", Earl.Ctx(knowledge = wiki, cloud = true)).path) // holá definice: stačí heslo i s cloudem
         assertEquals(Earl.Path.LIGHT, d("kdy se narodil Mozart").path)
         assertEquals(Earl.Path.DEEP, d("kolik obyvatel má Praha a jak se to změnilo za 50 let").path)
         assertEquals(Earl.Path.DEEP, d("porovnej výhody a nevýhody tepelného čerpadla a plynového kotle pro rodinný dům v horách a navrhni strategii").path)

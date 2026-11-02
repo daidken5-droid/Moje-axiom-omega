@@ -8,6 +8,49 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.9 – méně mozku, čistší odpověď, celé články
+
+**Bez mozku zvládne víc** (sada 130 běžných otázek: **58 → 118**; zbytek je počasí a kurz kryptoměn, které potřebují
+internet, povely telefonu, které řeší vlastní modul, a „kolik mi je“ bez data narození):
+- **Svátky a změna času:** Štědrý den, Silvestr, Nový rok, Den matek (2. neděle v květnu), Den otců,
+  Valentýn, Mikuláš, „kdy se mění čas“ (s tím, kterým směrem), „kolik týdnů do Vánoc“.
+- **Jednotky:** akr, ar, hektar ↔ m², dekagram, kWh ↔ J, čas (s, min, h, dny, týdny), „hodina a půl“, „kolik má litr
+  mililitrů“. Převody přijímají jednotky s číslicí (m2, km2).
+- **Kurzy a čísla:** křížový kurz („kurz eura k dolaru“), „kurz eura dnes“, zlomky s lomítkem („1/4 z 100“).
+- **Data:**
+  - Slovníček 40+ pojmů (AI, inflace, bitcoin, blockchain, cloud, gravitace, fotosyntéza, HDP, DNA, demokracie,
+    globální oteplování…).
+  - Osobnosti (s „stav k“ u funkcí), počty obyvatel 15 zemí a Evropy, Gerlachovský štít.
+  - Kalorie běžných potravin, linky pomoci (116 123, 116 111).
+  - Chatové zkratky (OK, LOL, ASAP, BTW, FYI…).
+  - Slovníček 80 slov česky → anglicky / německy.
+- **Drobná konverzace:** „jsi tam?“, „haló“, „nuda“, „řekni mi něco zajímavého“, „vyber číslo“, „nashledanou“.
+- **E-ARL:** holou definici („co je fotosyntéza“) s přesným heslem v offline Wikipedii zodpoví knihovna i tehdy,
+  když je dostupný cloud. Rozvedení mozkem je na tlačítku.
+
+**Čistší odpověď:**
+- Logo s časem jen v technickém režimu.
+- Zdroje sbalené do jednoho „N zdrojů ›“.
+- Místo štítku „bez mozku“ jen tlačítko **↻ Rozvést** u poslední odpovědi.
+- „Přečíst nahlas“ přesunuté do nabídky ⋯.
+- Technický důvod odpovědi z knihovny je v technických údajích, ne v textu.
+
+**Celé články a úvaha nad nimi:**
+- `fetch_url` čte **celý článek po částech** (část 1/3, 2/3…). Text se stáhne jednou a sdílí 10 minut.
+- `web_search` připomíná, že vrací jen titulky.
+- Pravidla agenta: otevřít 1–3 články, přečíst je celé, odpovědět z obsahu, oddělit doložená fakta (u každého,
+  z jakého článku) od vlastní úvahy (souvislosti, příčiny, co z toho plyne, co je nejisté).
+
+**Tvrdý scan – opraveno:**
+- Ořez kontextu v cloudu zdarma mohl agentovi zahodit samotný cíl úkolu. Teď první zpráva zůstává.
+- Nové vzory zúžené, aby nechytaly cizí otázky („vánoční prázdniny“ ≠ Štědrý den, „dnes“ ≠ jednotka dní).
+- Desetinná čísla z normalizátoru (Everyday mění čárky na mezery).
+
+**Testy:**
+- Nový `EverydayCoverageTest` (min. 117/130). Kontrolní sada otázek pro mozek rozšířená.
+- Správnost 94/94, slang 102/102, přirozené formulace 150/150.
+- Kliknutí na 120 tlačítek bez chyby JS.
+
 ## Novinky 8.8 – opravy podle reportů z reálného používání
 
 - **Malý mozek zopakoval minulou odpověď:** „Prezident České republiky“ po otázce na Bílou horu dostal znovu

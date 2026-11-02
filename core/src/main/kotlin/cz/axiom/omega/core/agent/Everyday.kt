@@ -54,14 +54,28 @@ object Everyday {
 
     private val unitWords = listOf(
         "kilometr\\w*" to "km", "metr\\w*" to "m", "centimetr\\w*" to "cm", "milimetr\\w*" to "mm", "mililitr\\w*" to "ml", "mil|mile|mili|milich|milim|milemi" to "mi", "palc\\w*|palec" to "in", "stop\\w*" to "ft",
-        "kilogram\\w*|kil\\b" to "kg", "gram\\w*" to "g", "tun\\w*" to "t", "liber\\w*|libr\\w*" to "lb", "unc\\w*" to "oz",
-        "litr\\w*" to "l", "mililitr\\w*" to "ml", "galon\\w*" to "gal", "hektar\\w*" to "ha",
+        "kilogram\\w*|kil\\b" to "kg", "dekagram\\w*|deka|dkg" to "dag", "gram\\w*" to "g", "tun\\w*" to "t", "liber\\w*|libr\\w*" to "lb", "unc\\w*" to "oz",
+        "litr\\w*" to "l", "mililitr\\w*" to "ml", "galon\\w*" to "gal", "hektar\\w*" to "ha", "akr\\w*" to "ac",
+        "metr\\w* ctverecn\\w*|ctverecn\\w* metr\\w*" to "m2", "kilometr\\w* ctverecn\\w*|ctverecn\\w* kilometr\\w*" to "km2",
+        "joul\\w*" to "j", "kilowatthodin\\w*" to "kwh", "minut\\w*" to "min", "hodin\\w*|hodina|hodinu" to "h", "sekund\\w*|vterin\\w*" to "s",
+        "den|dny|dni|dnu|dnech|dnum" to "d", "tyd\\w*" to "wk",
         "stupn\\w* celsia|celsi\\w*" to "c", "stupn\\w* fahrenheita|fahrenheit\\w*" to "f", "kelvin\\w*" to "k",
         "kilowatt\\w*" to "kw", "kon\\w*|koni" to "ps", "kalori\\w*" to "kcal",
         "eur\\w*" to "eur", "dolar\\w*" to "usd", "korun\\w*|kc|czk" to "czk", "libr\\w* sterlink\\w*" to "gbp", "frank\\w*" to "chf", "zlot\\w*" to "pln", "jen\\w*" to "jpy",
     )
-    private val abbrev = setOf("km", "m", "cm", "mm", "dm", "mi", "in", "ft", "yd", "kg", "g", "mg", "t", "lb", "oz", "l", "ml", "gal", "ha", "kw", "hp", "ps", "kwh", "kcal", "mph", "kmh", "km/h", "m/s", "bar", "psi", "eur", "usd", "czk", "gbp", "chf", "pln", "jpy")
+    private val abbrev = setOf("km", "m", "cm", "mm", "dm", "mi", "in", "ft", "yd", "kg", "g", "mg", "t", "lb", "oz", "l", "ml", "gal", "ha", "kw", "hp", "ps", "kwh", "kcal", "mph", "m2", "km2", "ac", "dag", "min", "j", "kj", "h", "wk", "kmh", "km/h", "m/s", "bar", "psi", "eur", "usd", "czk", "gbp", "chf", "pln", "jpy")
     private fun unit(w: String): String? = w.trim().let { t -> t.takeIf { it in abbrev } ?: unitWords.firstOrNull { rx("^(${it.first})$").matches(t) }?.second }
+
+    /** Krátké ověřené zajímavosti („řekni mi něco zajímavého“). */
+    private val funFacts = listOf(
+        "Chobotnice má tři srdce a modrou krev.", "Med se nekazí – jedlý med se našel i v egyptských hrobkách.",
+        "Světlo ze Slunce letí k Zemi asi 8 minut a 20 sekund.", "Na Zemi je víc stromů (asi 3 biliony) než hvězd v Mléčné dráze (100–400 miliard).",
+        "Kontaktní čočky v dnešní podobě vynalezl Čech Otto Wichterle – první vyrobil na dětské stavebnici Merkur.",
+        "Slovo „robot“ vymyslel Josef Čapek pro hru R.U.R. svého bratra Karla.", "Venuše se otáčí opačně než většina planet – Slunce tam vychází na západě.",
+        "Banány jsou bobule, jahody botanicky ne.", "Člověk má v těle asi 37 bilionů buněk.", "Olympus Mons na Marsu je skoro třikrát vyšší než Mount Everest.",
+        "Pražský orloj je z roku 1410 a je nejstarším dosud fungujícím orlojem svého typu.", "Sloni jsou jediní savci, kteří neumí skákat.",
+        "Neutronová hvězda je tak hustá, že lžička její hmoty by vážila miliardy tun.",
+    )
 
     fun answer(prompt: String, today: LocalDate = LocalDate.now(), rates: Rates = Rates.FALLBACK, battery: Int? = null, charging: Boolean? = null, random: Random = Random.Default): Instant.Answer? =
         runCatching { match(prompt, today, rates, battery, charging, random) }.getOrNull()
@@ -77,6 +91,15 @@ object Everyday {
         if (rx("^(ok|okej|oki|dobre|jo|jj|ano|super|skvele|paradni|fajn|v pohode|rozumim|chapu|aha|jasne|diky moc|dekuji pekne)$").matches(f))
             return ans("Kdybys něco potřeboval, jsem tady.", "konverzace")
         if (rx("^(dobrou noc|dobrou|spi sladce|jdu spat)$").matches(f)) return ans("Dobrou noc – ať se ti dobře spí.", "konverzace")
+        if (rx("^(jsi tam|jsi tu|halo|haloo|halo halo|posloucha[sš]|funguje[sš]|zijes)( avior)?$").matches(f))
+            return ans("Jsem tady. Na co se chceš zeptat?", "konverzace")
+        if (rx("^(nuda|nudim se|je mi smutno|nevim co delat|co mam delat)$").matches(f))
+            return ans("Zkus třeba: „řekni mi něco zajímavého“, „řekni vtip“, „hoď kostkou“ – nebo se zeptej na cokoli, co tě napadne.", "konverzace")
+        if (rx("^(rekni|napis)( mi)? (neco zajimaveho|zajimavost|zajimavy fakt|nejaky fakt)$|^zajimavost$").matches(f))
+            return ans("**Zajímavost:** " + funFacts.random(rnd), "zajímavost")
+        if (rx("^(vyber|dej mi|rekni|vylosuj)( mi)? (nahodne |nejake )?cislo$").matches(f))
+            return ans("Náhodné číslo od 1 do 100: **${rnd.nextInt(1, 101)}**", "náhoda")
+        if (rx("^(nashledanou|nashledano|nashledanou avior)$").matches(f)) return ans("Na shledanou – kdykoli se vrať.", "konverzace")
         if (rx("^(nashle|na shledanou|cau cau|mej se|mejte se|zatim|bye|papa|tak zatim)$").matches(f)) return ans("Měj se – kdykoli se vrať.", "konverzace")
         if (rx("^(co umis|co vsechno umis|co dokazes|s cim mi muzes pomoct|pomoc|help|napoveda|jak te pouzivat|jak to funguje)$").matches(f))
             return ans("Umím odpovídat a radit offline přímo v telefonu, počítat, převádět jednotky a měny, hledat v offline Wikipedii, pamatovat si, co mi řekneš, vytvářet soubory i aplikace, ovládat telefon povely („zapni svítilnu“, „budík na 6:30“) a s internetem hledat na webu. Jednoduché věci (čas, výpočty, svátky, hlavní města…) zvládnu okamžitě bez mozku.", "konverzace")
@@ -118,6 +141,7 @@ object Everyday {
             rx("^kolik (dni|dnu) (ma )?rok|^kolik ma rok dni").containsMatchIn(f) -> return ans("Rok má **365 dní**, přestupný **366** (${today.year} ${if (java.time.Year.isLeap(today.year.toLong())) "je" else "není"} přestupný).", "čas")
             rx("^kolik (dni|dnu) (ma )?tyden|^kolik ma tyden dni").containsMatchIn(f) -> return ans("Týden má **7 dní**.", "čas")
             rx("^kolik (dni|dnu) (ma )?prestupn\\w* rok").containsMatchIn(f) -> return ans("Přestupný rok má **366 dní** (29. února navíc).", "čas")
+            rx("^kolik hodin (ma )?rok").containsMatchIn(f) -> return ans("Rok má **8 760 hodin** (přestupný 8 784).", "čas")
             rx("^kolik (sekund|vterin) (ma )?(minuta|minutu)").containsMatchIn(f) -> return ans("Minuta má **60 sekund**.", "čas")
             rx("^kolik minut (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **60 minut**.", "čas")
             rx("^kolik hodin (ma )?(den|dni)$").containsMatchIn(f) -> return ans("Den má **24 hodin**.", "čas")
@@ -150,7 +174,7 @@ object Everyday {
         }
 
         // ---------------- převody v přirozené řeči: „5 km v metrech“, „100 eur na koruny“, „palec v cm“, „10 eur“
-        rx("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?(\\d+(?:[.,]\\d+)?)?\\s*([a-z° ]{1,28}?)\\s+(?:v|ve|na|do|=)\\s+([a-z° ]{1,28})$").find(f)?.let { m ->
+        rx("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?(\\d+(?:[.,]\\d+)?)?\\s*([a-z°][a-z0-9°/ ]{0,27}?)\\s+(?:v|ve|na|do|=)\\s+([a-z°][a-z0-9°/ ]{0,27})$").find(f)?.let { m ->
             val v = m.groupValues[1].ifBlank { "1" }.replace(',', '.').toDoubleOrNull() ?: return@let
             val from = unit(m.groupValues[2]) ?: return@let
             val to = unit(m.groupValues[3]) ?: return@let

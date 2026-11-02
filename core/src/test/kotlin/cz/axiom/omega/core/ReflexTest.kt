@@ -38,11 +38,11 @@ class ReflexTest {
         val cache = listOf(
             Reflex.Entry("Jak funguje tepelné čerpadlo?", "Odebírá teplo z okolí…", 70, good = true, at = t),
             Reflex.Entry("Jaký je dnes kurz eura?", "25 Kč", 95, good = true, at = t),
-            Reflex.Entry("Co je fotosyntéza?", "Proces v rostlinách…", 60, good = false, at = t),
+            Reflex.Entry("Co je kvantová provázanost?", "Jev kvantové mechaniky…", 60, good = false, at = t),
         )
         assertEquals("Odebírá teplo z okolí…", Reflex.answer("Jak funguje tepelné čerpadlo", ctx(cache = cache))!!.text)
         assertNull(Reflex.answer("Jaký je dnes kurz eura?", ctx(cache = cache)))     // mění se v čase
-        assertNull(Reflex.answer("Co je fotosyntéza?", ctx(cache = cache)))          // neověřená, nízká jistota
+        assertNull(Reflex.answer("Co je kvantová provázanost?", ctx(cache = cache)))  // neověřená, nízká jistota
         assertNull(Reflex.answer("/chat Jak funguje tepelné čerpadlo?", ctx(cache = cache)))
     }
 

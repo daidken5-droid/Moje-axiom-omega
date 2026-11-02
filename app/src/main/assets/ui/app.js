@@ -153,7 +153,7 @@ function evidenceChip(m) {
   if (!tech()) {
     // jen to, co uživatele zajímá: odpověď bez mozku (a možnost ji rozvést) a povel telefonu
     if (meta.phone) parts.push(`<span class="reflex">${meta.root ? '⚠︎ root' : '⚙︎ telefon'}</span>`);
-    else if (meta.reflex != null) parts.push(`<span class="reflex">ϟ bez mozku</span><button class="evchip" data-brain-retry="${m.id}">↻ rozvést mozkem</button>`);
+    // „bez mozku“ už není štítek – „↻ Rozvést“ je mezi akcemi poslední odpovědi; nic dalšího uživatel vidět nepotřebuje
     return parts.length ? `<div class="evrow">${parts.join('')}</div>` : '';
   }
   if (meta.phone) parts.push(`<span class="reflex" title="Ovládání telefonu – bez mozku">${meta.root ? '⚠︎ root' : '⚙︎ telefon'} · povel</span>`);
@@ -175,6 +175,7 @@ function msgMoreSheet(m, last) {
       opt(`data-critique="${m.id}"`, '⚔︎', 'Oponentura', 'RANDY kriticky prověří odpověď a opraví chyby') +
       opt(`data-deeper="${m.id}"`, '⌕', 'Hlouběji', 'Promyslet znovu do hloubky (Ω Think)') : '') +
     ((m.meta || {}).evidence ? opt(`data-evidence="${m.id}"`, '◇', 'Mapa důkazů', 'Odkud pochází každá věta') : '') +
+    opt(`data-speak="${m.id}"`, '♪', 'Přečíst nahlas', 'Hlasem telefonu') +
     opt(`data-share="${m.id}"`, '↗', 'Sdílet', 'Poslat text jiné aplikaci') +
     `<div class="eyebrow">CELÉ VLÁKNO</div>` +
     opt('data-report', '⎙', 'Report pro Clauda', 'Jak se AVIOR v tomto chatu zachoval – ke zkopírování') +
@@ -537,20 +538,24 @@ function msgHtml(m, last) {
   if (meta.trace && meta.trace.length > 1) det.push(`<div class="sub">PRŮCHODY RANDY</div>` + meta.trace.map(t => `<p class="small"><b>${t.index}. ${esc(t.label)}</b> · ${secs(t.millis)}</p>`).join(''));
   const srcs = (meta.sources || []).filter(s => s && s.url);
   const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
-  const cites = srcs.length ? `<div class="cites">${srcs.slice(0, 6).map((s, i) => `<button class="cite" data-open="${esc(s.url)}" title="${esc(s.title)}"><i>${i + 1}</i>${esc((s.title || host(s.url)).slice(0, 34))}<small>${esc(host(s.url))}</small></button>`).join('')}</div>` : '';
+  const citesRow = srcs.length ? `<div class="cites">${srcs.slice(0, 6).map((s, i) => `<button class="cite" data-open="${esc(s.url)}" title="${esc(s.title)}"><i>${i + 1}</i>${esc((s.title || host(s.url)).slice(0, 34))}<small>${esc(host(s.url))}</small></button>`).join('')}</div>` : '';
+  // zdroje: v technickém režimu vždy vidět, jinak sbalené do jednoho nenápadného řádku
+  const nSrc = srcs.length;
+  const cites = !nSrc ? '' : tech() ? citesRow : `<details class="srcs"><summary>${nSrc} ${nSrc === 1 ? 'zdroj' : nSrc < 5 ? 'zdroje' : 'zdrojů'}</summary>${citesRow}</details>`;
   const memo = [...(meta.memories || []), ...(meta.notes || [])];
   if (memo.length) det.push(`<div class="sub">PAMĚŤ</div><p class="small">${memo.map(esc).join('<br>')}</p>`);
   const thought = meta.reasoning && tech() ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
   return `<div class="msg ai${last ? ' last' : ''}" data-id="${m.id}">
-    <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${tech() ? confHtml(meta.confidence) : ''}</div>
+    ${tech() ? `<div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>` : ''}
     ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
     ${evidenceChip(m)}
 
     <div class="tools">
-      <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-speak="${m.id}" aria-label="Přečíst nahlas">${ICONS.speak}</button>
+      <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button>${tech() ? `<button data-speak="${m.id}" aria-label="Přečíst nahlas">${ICONS.speak}</button>` : ''}
       <button data-rate="${m.id}" data-good="1" class="${meta.rated === 'good' ? 'on' : ''}" aria-label="Dobrá odpověď">✓</button><button data-rate="${m.id}" data-good="0" class="${meta.rated === 'bad' ? 'on bad' : ''}" aria-label="Špatná odpověď">✗</button>
       <button data-msg-more="${m.id}" data-last="${last ? 1 : 0}" aria-label="Další akce">${ICONS.more}</button>
       ${last && (meta.truncated || /\[Odpověď byla zkrácena/.test(m.content)) ? '<button data-continue>Pokračovat ›</button>' : ''}
+      ${last && !tech() && meta.reflex != null && !meta.phone ? `<button data-brain-retry="${m.id}">↻ Rozvést</button>` : ''}
       ${det.length && tech() ? `<details class="more"><summary>Podrobnosti</summary><div class="in">${det.join('')}</div></details>` : ''}
     </div></div>`;
 }

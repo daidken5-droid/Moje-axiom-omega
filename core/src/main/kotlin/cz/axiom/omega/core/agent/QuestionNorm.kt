@@ -147,13 +147,15 @@ object QuestionNorm {
     private val unitGen = mapOf(
         "metru" to "m", "centimetru" to "cm", "milimetru" to "mm", "kilometru" to "km", "decimetru" to "dm", "gramu" to "g", "kilogramu" to "kg",
         "kg" to "kg", "dag" to "dag", "litru" to "l", "mililitru" to "ml", "decilitru" to "dl", "mil" to "mi", "stop" to "ft", "palcu" to "in", "liber" to "lb",
-        "unci" to "oz", "tun" to "t", "sekund" to "s", "minut" to "min", "hodin" to "h", "dni" to "d", "dnu" to "d",
+        "unci" to "oz", "tun" to "t", "sekund" to "s", "minut" to "min", "hodin" to "h", "dni" to "d", "dnu" to "d", "mililitru" to "ml",
+        "dekagramu" to "dag", "dkg" to "dag", "ctverecnich" to "m2", "metru2" to "m2",
     )
     private val unitNom = mapOf(
         "metr" to "m", "km" to "km", "kilometr" to "km", "centimetr" to "cm", "milimetr" to "mm", "kg" to "kg", "kilogram" to "kg", "gram" to "g",
         "litr" to "l", "mile" to "mi", "mil" to "mi", "stopa" to "ft", "palec" to "in", "libra" to "lb", "unce" to "oz", "tuna" to "t",
         "m" to "m", "cm" to "cm", "mm" to "mm", "g" to "g", "l" to "l", "ml" to "ml", "mi" to "mi", "ft" to "ft", "in" to "in", "lb" to "lb", "t" to "t",
-        "galon" to "gal", "gal" to "gal",
+        "galon" to "gal", "gal" to "gal", "dekagram" to "dag", "dkg" to "dag", "dag" to "dag", "litr" to "l", "mililitr" to "ml",
+        "h" to "h", "hodina" to "h", "hodiny" to "h", "minuta" to "min", "min" to "min", "den" to "d", "tyden" to "wk", "hektar" to "ha", "akr" to "ac",
     )
 
     /** Kanonické varianty otázky (bez původní), od nejmenší změny po největší. */
@@ -219,12 +221,28 @@ object QuestionNorm {
 
     private fun rephrase(s: String): String {
         var f = s
+        // „hodina a půl“, „půl hodiny“ → hodiny číslem (před rozpoznáním jednotek)
+        f = f.replace(rx("\\bhodina a pul\\b"), "1.5 h").replace(rx("\\bpul hodiny\\b"), "0.5 h").replace(rx("\\bctvrt hodiny\\b"), "0.25 h")
+        f = f.replace(rx("^kolik (?:mam |ma telefon |zbyva )?(?:procent )?baterie(?: mam| ma telefon| zbyva| mi zbyva)?$"), "kolik baterie")
         // „kolik metrů je 5 km“ / „kolik gramů má kilo“ → „5 km na m“
         rx("^kolik (\\w+) (?:je|ma|maji|obsahuje|da|dela) (\\d+(?:[.,]\\d+)?)? ?(\\w+)$").find(f)?.let { m ->
             val to = unitGen[m.groupValues[1]]; val from = unitNom[m.groupValues[3]] ?: unitGen[m.groupValues[3]]
             if (to != null && from != null) return "${m.groupValues[2].ifBlank { "1" }} $from na $to"
         }
         // „kolik je 3 kg v gramech“ už převodník zná; „3 kila v gramech“ díky slovníku
+        // „kolik má litr mililitrů“ (sloveso první) → „1 l na ml“
+        rx("^kolik (?:ma|je v|je) (\\w+) (\\w+)$").find(f)?.let { m ->
+            val from = unitNom[m.groupValues[1]]; val to = unitGen[m.groupValues[2]]
+            if (from != null && to != null) return "1 $from na $to"
+        }
+        // zlomek s lomítkem: „1/4 z 100“ → „100 * 1 / 4“
+        rx("^(?:kolik je |kolik dela )?(\\d+) ?/ ?(\\d+) (?:z|ze) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m -> return "kolik je ${m.groupValues[3]} * ${m.groupValues[1]} / ${m.groupValues[2]}" }
+        // kurz: „kurz eura dnes“ → „kurz eura“; „kurz eura k dolaru“ → „1 eur na usd“
+        f = f.replace(rx("^(kurz \\w+) (dnes|ted|aktualne|aktualni|dneska)$"), "$1").replace(rx("^(dnesni|aktualni) kurz "), "kurz ")
+        rx("^kurz (eura|eur|dolaru|usd|libry|franku|zlote\\w*|jenu) (?:k|vuci|na|v) (euru|eur|eura|dolaru|dolar|usd|libre|libru|franku|korune|korunam|kc)$").find(f)?.let { m ->
+            fun code(w: String) = when { w.startsWith("eur") -> "eur"; w.startsWith("dol") || w == "usd" -> "usd"; w.startsWith("lib") -> "gbp"; w.startsWith("fra") -> "chf"; w.startsWith("zlot") -> "pln"; w.startsWith("jen") -> "jpy"; else -> "czk" }
+            return "1 ${code(m.groupValues[1])} na ${code(m.groupValues[2])}"
+        }
         // zlomky: „třetina z 90“ → „90 / 3“, „polovina z 250“ → „250 / 2“
         rx("^(?:kolik je |kolik dela )?(\\w+) (?:z|ze) (\\d+(?:[.,]\\d+)?)$").find(f)?.let { m ->
             fractions.entries.firstOrNull { m.groupValues[1].startsWith(it.key) }?.let { return "kolik je ${m.groupValues[2]} / ${it.value}" }

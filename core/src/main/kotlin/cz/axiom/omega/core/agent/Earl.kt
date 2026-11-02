@@ -83,7 +83,8 @@ object Earl {
             if (exact != null && exact.text.length >= 120) {
                 var conf = 88
                 if (c.brainLoaded) conf -= 6          // mozek je v RAM → lehká odpověď mozkem je levná a bohatší
-                if (c.cloud) conf -= 8                // cloud odpoví rychle a lépe
+                // cloud odpoví rychle a bohatěji – ale na holou definici („co je fotosyntéza“) stačí heslo z Wikipedie hned
+                if (c.cloud && s.wordCount > 4) conf -= 8
                 val th = c.thresholds["definice"] ?: 85
                 if (conf >= th) return Decision(Path.RETRIEVE, conf, cat, listOf("přesné heslo „${exact.title}“ v offline knihovně", "mozek netřeba"), entity)
                 why += "heslo v knihovně, ale mozek/cloud je po ruce"

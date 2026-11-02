@@ -33,8 +33,8 @@ object OfflineAnswer {
         if (body.isBlank()) body = best.text.take(400)
         if (body.length > 650) body = body.take(640).substringBeforeLast(' ') + "…"
         val others = scored.drop(1).take(2).joinToString(", ") { "„${it.first.title}“" }
-        val text = "$body\n\n— *z offline zdroje „${best.title}“*" + (if (others.isNotEmpty()) " · další: $others" else "") +
-            "\n\n_Odpovídám bez mozku ($reason) – výňatek, ne úvaha._"
+        // důvod (proč bez mozku) patří do technických údajů, ne do textu odpovědi
+        val text = "$body\n\n— *z offline zdroje „${best.title}“*" + (if (others.isNotEmpty()) " · další: $others" else "")
         return Instant.Answer(text, "offline knihovna", confidence = coverage.coerceAtMost(90))
     }
 }
