@@ -141,7 +141,8 @@ function evidenceChip(m) {
   const meta = m.meta || {};
   const ev = meta.evidence;
   const parts = [];
-  if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.instant || 'reflex')}">⚡ reflex · ${esc(meta.instant || '')} · jistota ${meta.reflex} %</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
+  if (meta.phone) parts.push(`<span class="reflex" title="Ovládání telefonu – bez mozku">${meta.root ? '⚠ root' : '⚙ telefon'} · povel</span>`);
+  else if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.instant || 'reflex')}">⚡ reflex · ${esc(meta.instant || '')} · jistota ${meta.reflex} %</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
   else if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ v telefonu</span>');
   if (meta.learned) parts.push(`<span class="learned" title="Učím se z této otázky">✦ ${esc(meta.learned.domain)}</span>`);
   if (ev && ev.spans && ev.spans.length >= 2) {
@@ -832,6 +833,13 @@ function renderSystem() {
       <button class="btn primary wide" data-reclaim>Uvolnit paměť (zavřít aplikace na pozadí)</button>
       <div class="toggle" style="margin-top:6px"><span>Uvolnit automaticky před načtením mozku<small>Když je volné RAM méně než 3 GB.</small></span><label class="switch"><input type="checkbox" data-set="autoReclaim" ${st2.autoReclaim ? 'checked' : ''}><i></i></label></div>
       <button class="link" data-devopts>Trvale: omezit procesy na pozadí (vývojářské možnosti) ›</button>`); })()}
+    ${(() => { const ps = J('phoneStatus') || {}; const st3 = S.settings || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">⚙</span><span class="grow"><b>Ovládání telefonu</b>
+        <small class="muted" style="display:block">Root: ${ps.root ? '<b>ano</b> (každý root příkaz potvrzuješ)' : 'ne – ovládám vše, co Android dovolí'}</small></span><span class="dot ${ps.root ? 'on' : ''}"></span></div>
+      <p class="small">Napiš nebo řekni povel – provede se hned, bez mozku: <i>zapni svítilnu · hlasitost 40 % · ztlum zvuk · budík na 6:30 · minutka 10 minut · pauza / další · jas 30 % · zapni nerušit · vypni wifi · otevři nastavení baterie · spusť Spotify · zavolej 777 123 456 · stav telefonu</i>.</p>
+      <p class="small">S rootem navíc (vždy s potvrzením): <i>zavři aplikace na pozadí přes root · ukonči aplikaci X · vyčisti cache přes root · restartuj telefon · root: příkaz</i>.</p>
+      ${sw('phoneControl', 'Povely pro telefon', 'Jen z tvých slov – text z webu, souborů ani odpověď modelu akci nespustí.')}
+      <div class="grid2" style="margin-top:8px"><button class="btn sm ${ps.dnd ? '' : 'primary'}" data-phone-grant="dnd">${ps.dnd ? '✓ Nerušit povoleno' : 'Povolit Nerušit'}</button>
+        <button class="btn sm ${ps.write ? '' : 'primary'}" data-phone-grant="write">${ps.write ? '✓ Jas povolen' : 'Povolit jas'}</button></div>`); })()}
     ${(() => { const as = J('assistantStatus') || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">◉</span><span class="grow"><b>AVIOR místo Gemini</b>
         <small class="muted" style="display:block">${as.default ? 'AVIOR je tvůj výchozí asistent ✓' : 'Nastav AVIOR jako výchozího digitálního asistenta.'}</small></span><span class="dot ${as.default ? 'on' : ''}"></span></div>
       <p class="small">Dlouhý stisk vypínače (nebo gesto z rohu obrazovky) pak otevře AVIOR rovnou s hlasem – co řekneš, se samo odešle. Jednoduché otázky odpoví reflexem okamžitě a offline.</p>
@@ -911,7 +919,21 @@ function sheet(html) {
   $('#sheet').innerHTML = `<div class="sheet-bg" id="sheetBg"><div class="sheet"><div class="grab"></div>${html}</div></div>`;
   $('#sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closeSheet(); });
 }
-function closeSheet() { $('#sheet').innerHTML = ''; }
+let pendingPhone = null;
+function closeSheet() {
+  $('#sheet').innerHTML = '';
+  // zavřené potvrzení povelu = zrušeno (nic se neprovede)
+  if (pendingPhone) { const p = pendingPhone; pendingPhone = null; call('phoneRun', p.threadId, JSON.stringify(p.cmd), false); }
+}
+
+/** Potvrzení povelu pro telefon (root / nevratná akce). */
+function phoneConfirmSheet(d) {
+  pendingPhone = d;
+  sheet(`<div class="eyebrow" style="margin-top:4px">${d.root ? 'ROOT · POTVRZENÍ' : 'POTVRZENÍ AKCE'}</div>
+    <p style="font-size:1.05rem"><b>${esc(d.label)}</b></p>
+    <p class="small muted">${d.root ? 'Příkaz poběží s právy superuživatele. Proveď jen to, čemu rozumíš – root může změnit systém.' : 'Akce se provede až po potvrzení.'}</p>
+    <div class="grid2" style="margin-top:12px"><button class="btn" data-phone-no>Zrušit</button><button class="btn ${d.root ? 'danger' : 'primary'}" data-phone-ok>Provést</button></div>`);
+}
 
 function kindSheet() {
   const lv = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
@@ -1019,6 +1041,7 @@ window.omegaReceive = function (type, d) {
     case 'note': toast(d.text); break;
     case 'brain': brainMem = d; if (view === 'chat' && !msgs.length && !live) renderChat(); break;
     case 'crash': crashSheet(d); break;
+    case 'phoneConfirm': phoneConfirmSheet(d); break;
     case 'reclaim': { const el = $('#memFree'); if (el) el.textContent = d.after; const b = document.querySelector('[data-reclaim]'); if (b) b.disabled = false; break; }
     case 'wiped': threadId = 0; msgs = []; live = null; brainMem = null; go('chat'); break;
     case 'attach': attachment = d; if (view !== 'chat') go('chat'); else { $('#composerSlot').innerHTML = composer(); bindComposer(); } toast('Přiloženo: ' + d.name + (d.chars > 30000 ? ' (použiji prvních 30 tis. znaků)' : '')); break;
@@ -1083,6 +1106,9 @@ document.addEventListener('click', e => {
   if (ds.self !== undefined) { selfSheet(); return; }
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
+  if (ds.phoneOk !== undefined && pendingPhone) { const p = pendingPhone; pendingPhone = null; closeSheet(); call('phoneRun', p.threadId, JSON.stringify(p.cmd), true); haptic(); return; }
+  if (ds.phoneNo !== undefined) { closeSheet(); return; }
+  if (ds.phoneGrant) { call('phoneGrant', ds.phoneGrant); return; }
   if (ds.assistant !== undefined) { call('openAssistantSettings'); return; }
   if (ds.reclaim !== undefined) { call('reclaimMemory'); toast('Uvolňuji paměť – aplikace na pozadí se zavřou…'); t.disabled = true; return; }
   if (ds.devopts !== undefined) { call('openDevOptions'); return; }

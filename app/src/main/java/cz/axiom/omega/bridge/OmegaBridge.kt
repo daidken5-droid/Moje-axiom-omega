@@ -122,6 +122,16 @@ class OmegaBridge(private val activity: MainActivity) {
             }
         }
         omega.db.addMessage(threadId, "user", text)
+        // OVLÁDÁNÍ TELEFONU: povel z vlastních slov uživatele (nikdy z webu/souborů/modelu) – bez mozku, hned
+        if (omega.settings.phoneControl) cz.axiom.omega.core.phone.PhoneCommands.parse(text)?.let { cmd ->
+            if (cmd.confirm) {
+                Events.emit("phoneConfirm", JSONObject().put("threadId", threadId).put("label", cmd.label).put("root", cmd.root)
+                    .put("cmd", JSONObject().put("action", cmd.action.name).put("args", JSONObject(cmd.args as Map<*, *>)).put("label", cmd.label).put("root", cmd.root)))
+                return threadId
+            }
+            val r = cz.axiom.omega.phone.PhoneControl(activity).execute(cmd)
+            if (r.handled) { phoneReply(threadId, cmd, r.text); return threadId }
+        }
         val mode = o.optString("mode", "").takeIf { it in cz.axiom.omega.data.Settings.MODES } ?: omega.settings.mode
         OmegaService.start(
             activity,
@@ -132,6 +142,41 @@ class OmegaBridge(private val activity: MainActivity) {
                 .putExtra("level", o.optString("level", "").takeIf { RandyLevel.fromCode(it) != null }),
         )
         return threadId
+    }
+
+    private fun phoneReply(threadId: Long, cmd: cz.axiom.omega.core.phone.PhoneCommands.Command, text: String) {
+        val meta = JSONObject().put("engine", "Ovládání telefonu").put("phone", cmd.action.name).put("root", cmd.root)
+            .put("private", true).put("millis", 0)
+        val id = omega.db.addMessage(threadId, "assistant", text, meta)
+        Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", text).put("meta", meta))
+    }
+
+    /** Potvrzený povel (root / nevratná akce) – provede se až po klepnutí na „Provést“. */
+    @JavascriptInterface
+    fun phoneRun(threadId: Long, json: String, approved: Boolean) = async {
+        val o = JSONObject(json)
+        val action = cz.axiom.omega.core.phone.PhoneCommands.Action.valueOf(o.getString("action"))
+        val args = o.optJSONObject("args")?.let { a -> a.keys().asSequence().associateWith { a.getString(it) } } ?: emptyMap()
+        val cmd = cz.axiom.omega.core.phone.PhoneCommands.Command(action, args, o.optString("label"), confirm = true, root = o.optBoolean("root"))
+        if (!approved) { phoneReply(threadId, cmd, "Zrušeno – nic jsem neprovedl."); return@async }
+        Events.emit("phase", JSONObject().put("text", cmd.label))
+        phoneReply(threadId, cmd, cz.axiom.omega.phone.PhoneControl(activity).execute(cmd).text)
+    }
+
+    /** Stav oprávnění ovládání telefonu pro kartu v Nastavení. */
+    @JavascriptInterface fun phoneStatus(): String {
+        val nm = activity.getSystemService(android.app.NotificationManager::class.java)
+        return JSONObject().put("root", cz.axiom.omega.phone.RootShell.present())
+            .put("dnd", nm.isNotificationPolicyAccessGranted).put("write", android.provider.Settings.System.canWrite(activity)).toString()
+    }
+
+    @JavascriptInterface fun phoneGrant(what: String) = activity.runOnUiThread {
+        val i = when (what) {
+            "dnd" -> Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            "write" -> Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS, android.net.Uri.parse("package:" + activity.packageName))
+            else -> return@runOnUiThread
+        }
+        runCatching { activity.startActivity(i) }
     }
 
     @JavascriptInterface fun cancel() = OmegaService.cancel(activity)

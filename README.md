@@ -8,6 +8,21 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.6 – AVIOR jako rozšířené ovládání telefonu (i s rootem)
+
+Povely v češtině – napsané nebo vyslovené (i přes asistenta / dlaždici) – se provedou hned, **bez mozku**:
+- **Svítilna**, **hlasitost** (ztlum, zesil, „hlasitost 40 %“), **přehrávání** (pauza, přehraj, další, předchozí),
+  **budík** („budík na 6:30“, „vzbuď mě v 6.30“), **minutka** („minutka 10 minut“), **jas** („jas 30 %“),
+  **Nerušit**, **otevření nastavení** (Wi-Fi, Bluetooth, baterie, displej, úložiště, poloha, vývojář, NFC…),
+  **spuštění aplikace podle názvu** („spusť Spotify“), **vytočení čísla** (hovor potvrdíš), **stav telefonu**.
+- **Wi-Fi, Bluetooth, režim letadlo:** Android od verze 10/13 aplikacím přímé přepnutí zakazuje → AVIOR otevře
+  systémový panel; **s rootem přepne přímo** (`svc wifi`, `svc bluetooth`, `cmd connectivity airplane-mode`).
+- **Root** (Magisk / KernelSU), vždy s potvrzovacím dialogem: ukončení všech aplikací na pozadí (`am kill-all`),
+  násilné ukončení aplikace podle názvu, uvolnění systémové mezipaměti, restart, vlastní příkaz `root: …`.
+- **Bezpečnost:** povely se rozpoznávají jen z tvých vlastních slov – text z webu, souborů ani odpověď modelu
+  akci nespustí (prompt injection nemá cestu). Otázka ≠ povel („Jak zapnout svítilnu na iPhonu?“ jde mozku).
+  Jas a Nerušit potřebují tvé jednorázové povolení (tlačítka v kartě Ovládání telefonu). Testy.
+
 ## Novinky 6.5 – síla výkonu, uvolnění paměti, opravy
 
 - **Síla výkonu (posuvník 25–100 %)** v Nastavení i v listu voleb u pole pro dotaz. Regulátor výkonu ji
