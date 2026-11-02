@@ -127,8 +127,18 @@ class MainActivity : ComponentActivity() {
         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
     }
 
+    /** Mozek v RAM, když je aplikace na pozadí a „Mozek připraven“ je vypnuté → po 5 min uvolnit (3–5 GB zpět systému). */
+    private val idleRelease = Runnable {
+        runCatching {
+            val o = Omega.get(this)
+            if (!o.settings.keepBrain && !cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get()) cz.axiom.omega.engine.LocalEngine.releaseIfIdle()
+        }
+    }
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
     override fun onStart() {
         super.onStart()
+        handler.removeCallbacks(idleRelease)
         applySecureScreen()
         Events.listen(forward)
         dispatch("resume", JSONObject())
@@ -151,6 +161,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         Events.unlisten(forward)
+        handler.postDelayed(idleRelease, 5 * 60_000L)
         super.onStop()
     }
 

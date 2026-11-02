@@ -8,6 +8,15 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.5.1 – drobnosti, které uživatel pozná
+
+- **„Pokračovat ›“ u useknuté odpovědi:** když odpověď narazí na limit délky (telefon, cloud i Claude), poslední
+  zpráva nabídne pokračování přesně tam, kde skončila. Dřív končila v půlce bez možnosti navázat.
+- **Mozek se na pozadí uvolní:** při vypnutém „Mozek připraven“ AVIOR uvolní mozek z RAM (3–5 GB zpět systému)
+  po 5 minutách v pozadí. Telefon je pak svižnější v jiných aplikacích. Po návratu se mozek znovu přednačte.
+- **Rozepsaná zpráva přežije zavření aplikace systémem.** Ukládá se po chvilce klidu, ne při každém písmenu.
+- **Úvod nenačítá katalog mozků při každém vykreslení.** Drží ho v mezipaměti a obnoví ho až po změně mozků.
+
 ## Novinky 8.5 – doporučení zapracována, poslední kolo oprav
 
 - **Paměť odpovědí pozná přeformulovanou otázku:** „Jaké je hlavní město Austrálie?“ (dřív ověřeno ✓) a „hele,

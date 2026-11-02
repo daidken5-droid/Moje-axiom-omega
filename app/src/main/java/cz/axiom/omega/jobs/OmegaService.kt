@@ -607,7 +607,7 @@ class OmegaService : Service() {
 
     private fun metaOf(r: AskResult): JSONObject = JSONObject()
         .put("level", r.level.code).put("levelTitle", r.level.title).put("levelExplicit", r.levelExplicit)
-        .put("engine", r.engineLabel).put("model", r.model).put("millis", r.millis)
+        .put("engine", r.engineLabel).put("model", r.model).put("millis", r.millis).put("truncated", r.truncated)
         .put("confidence", r.confidence ?: JSONObject.NULL).put("lesson", r.lesson ?: JSONObject.NULL)
         .put("facts", JSONArray().apply { r.facts.forEach { put(it.toString()) } })
         .put("sources", JSONArray().apply { r.sources.forEach { put(JSONObject().put("title", it.title).put("url", it.url)) } })

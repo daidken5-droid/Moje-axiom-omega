@@ -310,7 +310,7 @@ let live = null;
 let forcedKind = '';
 let forcedLevel = null;
 let memTab = 'mem';
-let draft = '';
+let draft = (() => { try { return localStorage.getItem('draft') || ''; } catch (e) { return ''; } })();
 let hf = { q: '', models: null, repo: null, files: null };
 
 /* ------------------------------------------------------------------ základ */
@@ -425,6 +425,10 @@ function brainChip() {
   return `<button class="brainchip" data-preload><i></i>Mozek není v paměti – klepni a načtu ho předem</button>`;
 }
 
+/** Katalog mozků – úvod ho potřebuje při každém vykreslení; načte se znovu jen po změně (událost „brains“). */
+let brainsCache = null;
+const brainsJ = () => brainsCache || (brainsCache = J('brains'));
+
 /** Rychlost: nabídne Turbo (cloud) nebo rychlejší mozek v telefonu, když je aktivní pomalý. */
 function speedTip() {
   const st = S.settings || {}; const avail = S.engines || [];
@@ -435,7 +439,7 @@ function speedTip() {
     tips.push(`<button class="btn sm primary" data-go="modules">Cloud zdarma</button><small>Rychlejší a přesnější odpovědi bez zátěže telefonu – stačí klíč zdarma.</small>`);
   else if ((st.mode === 'auto' || st.mode === 'local') && ['claude', 'hf', 'kimi'].some(x => avail.includes(x)))
     tips.push(`<button class="btn sm primary" data-mode="turbo">ϟ Zapnout Turbo</button><small>Odpověď do 1–2 s přes cloud, offline dál telefon.</small>`);
-  const b = J('brains') || {};
+  const b = brainsJ() || {};
   const list = b.brains || [];
   const act = list.find(x => x.active);
   const lite = list.find(x => x.id === 'omega-lite-gemma4-e2b-q4km');
@@ -546,6 +550,7 @@ function msgHtml(m, last) {
       <button data-copy="${m.id}" aria-label="Kopírovat">${ICONS.copy}</button><button data-speak="${m.id}" aria-label="Přečíst nahlas">${ICONS.speak}</button>
       <button data-rate="${m.id}" data-good="1" class="${meta.rated === 'good' ? 'on' : ''}" aria-label="Dobrá odpověď">✓</button><button data-rate="${m.id}" data-good="0" class="${meta.rated === 'bad' ? 'on bad' : ''}" aria-label="Špatná odpověď">✗</button>
       <button data-msg-more="${m.id}" data-last="${last ? 1 : 0}" aria-label="Další akce">${ICONS.more}</button>
+      ${last && (meta.truncated || /\[Odpověď byla zkrácena/.test(m.content)) ? '<button data-continue>Pokračovat ›</button>' : ''}
       ${det.length && tech() ? `<details class="more"><summary>Podrobnosti</summary><div class="in">${det.join('')}</div></details>` : ''}
     </div></div>`;
 }
@@ -643,7 +648,11 @@ function bindComposer() {
   grow();
   const box = ta.closest('.box');
   // jako Zprávy: prázdné pole = mikrofon, s textem = odeslat (o tlačítko méně na očích)
-  ta.addEventListener('input', () => { draft = ta.value; grow(); box.classList.toggle('has-text', !!draft.trim() || !!attachment); randyHint(); });
+  ta.addEventListener('input', () => {
+    draft = ta.value; grow(); box.classList.toggle('has-text', !!draft.trim() || !!attachment); randyHint();
+    // rozepsaná zpráva přežije zavření aplikace systémem (uloží se po chvilce klidu, ne při každém písmenu)
+    clearTimeout(bindComposer.t); bindComposer.t = setTimeout(() => { try { localStorage.setItem('draft', draft); } catch (e) { /* bez úložiště */ } }, 600);
+  });
   randyHint();
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(ta.value); } });
   $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
@@ -664,7 +673,7 @@ function send(text, kind, role, variantOverride) {
   const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: variantOverride || (kind === 'agent' && role ? '' : variant) }));
   if (!id || id < 0) return;
   stayHome = false;
-  draft = '';
+  draft = ''; try { localStorage.removeItem('draft'); } catch (e) { /* bez úložiště */ }
   forcedLevel = null;
   haptic();
   loadThread(id);
@@ -711,7 +720,7 @@ function renderAgents() {
 /* ------------------------------------------------------------------ moduly */
 
 function renderModules() {
-  const data = J('brains') || { brains: [] };
+  const data = J('brains') || { brains: [] }; brainsCache = data;
   const st = S.settings || {};
   const k = S.keys || {};
   const job = S.bg || {};
@@ -1203,7 +1212,7 @@ window.omegaReceive = function (type, d) {
       if (view === 'modules') renderModules();
       if (view === 'memory' && memTab === 'kb' && !document.activeElement?.matches('input,textarea')) renderMemory();
       break;
-    case 'brains': refresh(); if (view === 'modules') renderModules(); break;
+    case 'brains': brainsCache = null; refresh(); if (view === 'modules') renderModules(); break;
     case 'hf_models': hf.models = d.models; hf.files = null; if (view === 'modules') $('#hfres').innerHTML = hfHtml(); break;
     case 'hf_files': hf.repo = d.repo; hf.files = d.files; if (view === 'modules') $('#hfres').innerHTML = hfHtml(); break;
     case 'models': {
@@ -1342,6 +1351,7 @@ document.addEventListener('click', e => {
       { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, m.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
+  if (ds.continue !== undefined) { send('Pokračuj přesně tam, kde jsi skončil – nic neopakuj.'); return; }
   if (ds.brainRetry) { const i = msgs.findIndex(x => x.id === Number(ds.brainRetry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send('/chat ' + u.content.replace(/^\/\w+\s*/, '')); return; }
   if (ds.retry) { closeSheet(); const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
   if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); goalDraft = ''; threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }

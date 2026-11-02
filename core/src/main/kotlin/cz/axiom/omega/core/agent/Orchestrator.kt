@@ -76,6 +76,8 @@ data class AskResult(
     val engineLabel: String,
     val reasoning: String,
     val millis: Long,
+    /** odpověď narazila na limit délky → UI nabídne „Pokračovat“ */
+    val truncated: Boolean = false,
 )
 
 interface AskListener {
@@ -207,6 +209,7 @@ class Orchestrator(
             engineLabel = engine.label,
             reasoning = reasoning,
             millis = System.currentTimeMillis() - started,
+            truncated = last!!.stopReason in setOf("length", "max_tokens"),
         )
     }
 
