@@ -568,16 +568,34 @@ function phaseText() {
 }
 
 function liveHtml() {
+  // nový DOM živé odpovědi → přírůstkové vykreslení začíná znovu (celý text je v #liveTail)
+  liveCache.stable = ''; liveCache.text = live.text; liveCache.steps = '';
   return `<div class="msg ai live" id="live">
     <div class="head">${logo('pulse')}<span class="meta grow" id="livePhase">${esc(phaseText())}</span></div>
     <div id="liveSteps">${(live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('')}</div>
     <div class="think ${live.reasoning ? '' : 'empty'}" id="liveThink">${esc((live.reasoning || '').slice(-300))}</div>
-    <div class="body answer caret" id="liveText">${md(live.text || '')}</div></div>`;
+    <div class="body answer caret" id="liveText"><div id="liveStable"></div><div id="liveTail">${md(live.text || '')}</div></div></div>`;
 }
 
 /** Streamované kousky přicházejí rychle – kreslíme nejvýš jednou za snímek (plynulé i u dlouhých odpovědí). */
 let liveFrame = 0;
-const liveCache = { steps: '', text: null };
+const liveCache = { steps: '', text: null, stable: '' };
+
+/**
+ * PŘÍRŮSTKOVÉ VYKRESLENÍ: hotové odstavce (před posledním prázdným řádkem mimo blok kódu) se převedou
+ * jednou a připojí; v každém snímku se převádí jen rozepsaný konec. Dřív se celý text převáděl v každém
+ * snímku → u dlouhých odpovědí z rychlého cloudu kvadratická práce.
+ */
+function splitStable(t) {
+  let i = t.lastIndexOf('\n\n');
+  while (i > 0) {
+    const head = t.slice(0, i);
+    // uvnitř otevřeného bloku ``` nelze dělit; tabulka pokračující přes hranici taky ne (ukončí ji prázdný řádek → OK)
+    if ((head.match(/```/g) || []).length % 2 === 0) return i;
+    i = t.lastIndexOf('\n\n', i - 1);
+  }
+  return 0;
+}
 function updateLive() {
   if (liveFrame) return;
   liveFrame = requestAnimationFrame(() => { liveFrame = 0; drawLive(); });
@@ -585,7 +603,7 @@ function updateLive() {
 
 function drawLive() {
   if (view !== 'chat' || !live) return;
-  if (!$('#live')) { liveCache.steps = ''; liveCache.text = null; renderChat(); return; }
+  if (!$('#live')) { liveCache.steps = ''; liveCache.text = null; liveCache.stable = ''; renderChat(); return; }
   const sec = live.started ? Math.round((Date.now() - live.started) / 1000) : 0;
   $('#livePhase').textContent = phaseText() + (sec >= 3 ? ' · ' + sec + ' s' : '');
   const steps = (live.steps || []).map(st => `<div class="step done"><b>✓ ${st.tool ? esc(st.tool) : 'závěr'}</b> ${esc(st.thought || '')}</div>`).join('');
@@ -594,7 +612,16 @@ function drawLive() {
   const showThink = tech() && !!live.reasoning;
   if (showThink) th.textContent = live.reasoning.slice(-300);
   th.classList.toggle('empty', !showThink);
-  if (live.text !== liveCache.text) { $('#liveText').innerHTML = md(live.text || ''); liveCache.text = live.text; }
+  if (live.text !== liveCache.text) {
+    const t = live.text || '';
+    const cut = splitStable(t);
+    const stable = t.slice(0, cut);
+    if (!stable.startsWith(liveCache.stable) || stable.length < liveCache.stable.length) { $('#liveStable').innerHTML = md(stable); }
+    else if (stable.length > liveCache.stable.length) $('#liveStable').insertAdjacentHTML('beforeend', md(stable.slice(liveCache.stable.length)));
+    liveCache.stable = stable;
+    $('#liveTail').innerHTML = md(t.slice(cut));
+    liveCache.text = live.text;
+  }
   const main = $('#main');
   if (main.scrollHeight - main.scrollTop - main.clientHeight < 240) main.scrollTop = main.scrollHeight;
   fab();

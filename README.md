@@ -8,6 +8,19 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.6 – nezávislý průchod celou aplikací
+
+Průchod částmi, které dřív neprošly podrobnou revizí (mozek v telefonu, databáze, agent, streamování v UI):
+- **Přírůstkové vykreslování odpovědi:** hotové odstavce se převedou z markdownu jednou a připojí se. V každém snímku
+  se převádí jen rozepsaný konec. Dřív se celý text převáděl při každém snímku, takže u dlouhých odpovědí
+  z rychlého cloudu práce rostla kvadraticky. U odpovědi s 10 800 znaky (CPU 4× zpomaleno) je nejhorší snímek
+  **15,4 → 9,8 ms** a rozdíl s délkou roste. Výsledek je ověřeně shodný s celým převodem, včetně bloků kódu.
+- **Bezpečné zrušení:** zrušení dotazu už nevolá nativní `cancel` nad mozkem, který byl mezitím uvolněn z paměti.
+- **Bez nálezu:**
+  - Databáze: WAL, indexy na vláknech a zprávách, transakce, FTS4.
+  - Agent: hlídač opakovaných volání, firewall proti skrytým pokynům, limit kroků a času.
+  - Mozek: zámek proti souběhu, úsporné načtení, znovupoužití KV cache.
+
 ## Novinky 8.5.1 – drobnosti, které uživatel pozná
 
 - **„Pokračovat ›“ u useknuté odpovědi:** když odpověď narazí na limit délky (telefon, cloud i Claude), poslední

@@ -143,7 +143,8 @@ class LocalEngine private constructor(
 
     private fun generateLocked(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val started = System.currentTimeMillis()
-        cancel.onCancel { NativeLlama.nativeCancel(handle) }
+        // po uvolnění mozku už nativní handle neexistuje → zrušení nesmí sáhnout do uvolněné paměti
+        cancel.onCancel { if (!closed) runCatching { NativeLlama.nativeCancel(handle) } }
         val text = StringBuilder()
         val reasoning = StringBuilder()
         val splitter = ThinkSplitter { d ->
