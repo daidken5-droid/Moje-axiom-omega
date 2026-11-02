@@ -215,10 +215,11 @@ class OmegaService : Service() {
         val earl = if (userForced) null else runCatching {
             cz.axiom.omega.core.agent.Earl.decide(sig, cz.axiom.omega.core.agent.Earl.Ctx(
                 knowledge = { q -> omega.quickKnowledge().search(q, 3) }, brainLoaded = LocalEngine.loaded() != null,
-                cloud = Introspect.online(this) && engines.any { it != "local" && it != "server" }, thresholds = omega.earlThresholds(),
+                cloud = mode != "local" && Introspect.online(this) && engines.any { it != "local" && it != "server" }, thresholds = omega.earlThresholds(),
             ))
         }.getOrNull()
-        if (earl?.path == cz.axiom.omega.core.agent.Earl.Path.RETRIEVE && earlRetrieve(threadId, text, earl)) return
+        // výňatek místo mozku jen v Auto – když si uživatel výslovně zvolil telefon / cloud / Turbo, dostane ho
+        if (earl?.path == cz.axiom.omega.core.agent.Earl.Path.RETRIEVE && mode == "auto" && earlRetrieve(threadId, text, earl)) return
         val light = earl?.path == cz.axiom.omega.core.agent.Earl.Path.LIGHT
         // ŽÁDNÝ MOZEK (offline bez staženého mozku, bez cloudu) → odpověď z offline knihovny místo chyby
         if (engines.isEmpty() && offlineAnswer(threadId, text, if (Introspect.online(this)) "není stažený mozek ani připojený cloud" else "jsi offline a v telefonu není mozek")) return
@@ -304,7 +305,8 @@ class OmegaService : Service() {
             var escalatedTo: cz.axiom.omega.core.agent.Variant? = null
             val meta: JSONObject
             val answer: String
-            if (plan.pipeline.size >= 2 && route.mode != Router.Mode.COUNCIL && budget.allowPipeline) {
+            // E-ARL LIGHT: krátká jasná otázka → žádný řetězec podmodelů (zbytečná práce)
+            if (plan.pipeline.size >= 2 && route.mode != Router.Mode.COUNCIL && budget.allowPipeline && !light) {
                 // RANDY ŘETĚZEC: víc podmodelů za sebou, každý navazuje na výstup předchozího
                 val (a, m) = runPipeline(plan, route.prompt, route.engine, route.reason, history, insight, watchdog, threadId, listener, cancel)
                 meta = m; answer = a

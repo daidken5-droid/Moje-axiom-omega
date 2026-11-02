@@ -47,3 +47,13 @@ class EarlTest {
         assertEquals(2, calls)
     }
 }
+
+class ParaphraseCacheTest {
+    @Test fun cachedAnswerRecognizesRephrasedQuestion() {
+        val e = Reflex.Entry("Jaké je hlavní město Austrálie?", "Hlavním městem Austrálie je **Canberra**.", 95, good = true, at = System.currentTimeMillis())
+        // jiná formulace, slang a překlep → stejná ověřená odpověď z paměti, bez mozku
+        val a = Reflex.cached("hele, jaký je hlavák austrálie", listOf(e))
+        kotlin.test.assertNotNull(a); kotlin.test.assertTrue(a.text.contains("Canberra"))
+        kotlin.test.assertNull(Reflex.cached("jaké je počasí v austrálii", listOf(e)))
+    }
+}

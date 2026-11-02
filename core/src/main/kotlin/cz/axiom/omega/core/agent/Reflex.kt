@@ -122,9 +122,20 @@ object Reflex {
         return (x intersect y).size.toDouble() / (x union y).size
     }
 
+    private val canonMemo = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private fun canon(q: String): String = canonMemo[q] ?: (QuestionNorm.variants(q).lastOrNull() ?: q).also { if (canonMemo.size < 4000) canonMemo[q] = it }
+
     fun cached(prompt: String, entries: List<Entry>, now: Long = System.currentTimeMillis()): Instant.Answer? {
         if (timeSensitive(prompt) || key(prompt).size < 2) return null
-        val scored = entries.asSequence().filter { now - it.at < 60L * 86_400_000 }.map { it to similarity(prompt, it.question) }
+        val pk = key(prompt)
+        // PŘEFORMULOVANÁ OTÁZKA: když se slova přímo neshodují, porovnat kanonické tvary (slang, překlepy, obaly pryč).
+        // Úsporně: jen u záznamů, které sdílí aspoň jedno klíčové slovo, a kanonický tvar se pamatuje.
+        fun sim(e: Entry): Double {
+            val direct = similarity(prompt, e.question)
+            if (direct >= 0.8 || (pk intersect key(e.question)).isEmpty()) return direct
+            return maxOf(direct, similarity(canon(prompt), canon(e.question)))
+        }
+        val scored = entries.asSequence().filter { now - it.at < 60L * 86_400_000 }.map { it to sim(it) }
         // téměř stejná otázka jako dřív → vrátit dřívější odpověď mozku (i bez ✓), ušetří celé generování
         scored.filter { (e, sim) -> sim >= 0.95 && e.confidence >= 75 }.maxByOrNull { it.second }?.let { (e, _) ->
             if (!e.good && e.confidence < 90) return Instant.Answer(e.answer, "dřívější odpověď (stejná otázka)", confidence = 88)

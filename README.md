@@ -8,6 +8,23 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.5 – doporučení zapracována, poslední kolo oprav
+
+- **Paměť odpovědí pozná přeformulovanou otázku:** „Jaké je hlavní město Austrálie?“ (dřív ověřeno ✓) a „hele,
+  jaký je hlavák austrálie“ vrátí uloženou odpověď bez mozku.
+  - Bez modelu pro význam (ten by stál RAM): porovnávají se kanonické tvary z normalizátoru.
+  - Jen u záznamů se společným klíčovým slovem, kanonický tvar se pamatuje.
+- **E-ARL v podrobnostech odpovědi** (technický režim) a v reportu: cesta, kategorie, jistota, důvody.
+- **Opravy:**
+  - Výňatek z knihovny místo mozku jen v režimu **Auto**. Výslovná volba „V telefonu“, „Cloud“ nebo „Turbo“ má
+    přednost.
+  - U volby „V telefonu“ E-ARL nepočítá s cloudem.
+  - Lehká cesta E-ARL nespouští řetězec podmodelů RANDY.
+- **RAG index české Wikipedie hotový:** 533 800 článků, vektory 256 rozměrů int8, ke stažení 127 MB.
+- **Úmyslně odloženo, protože by zatížilo:**
+  - Rozpoznávání podle významu v E-ARL (embedder trvale v RAM).
+  - Minifikace kódu R8 (riziko pádu, nutný test na telefonu).
+
 ## Novinky 8.4.1 – zásada: každá úprava musí šetřit
 
 Nové moduly (normalizátor, oprava překlepů, E-ARL) prošly měřením nejhoršího případu, tedy otázky, která
