@@ -28,6 +28,12 @@ object Introspect {
         return mi.availMem / 1_048_576
     }
 
+    fun totalRamMb(context: Context): Long {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        return mi.totalMem / 1_048_576
+    }
+
     fun battery(context: Context): Pair<Int?, Boolean?> {
         val i: Intent? = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = i?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1

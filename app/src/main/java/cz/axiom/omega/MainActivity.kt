@@ -127,7 +127,16 @@ class MainActivity : ComponentActivity() {
         window.decorView.postDelayed({ runCatching { bridge.checkUpdate(false) } }, 6_000)
         publishShortcuts()
         // předehřátí mozku: načíst do paměti hned, ne až při prvním dotazu
-        window.decorView.postDelayed({ runCatching { Omega.get(this).warmup() } }, 1_500)
+        // + služba „AVIOR připraven“ drží proces i mozek naživu i po odchodu z aplikace
+        window.decorView.postDelayed({
+            runCatching {
+                val o = Omega.get(this)
+                if (o.settings.keepBrain && o.localAvailable() && o.brains.active() != null) cz.axiom.omega.jobs.OmegaService.keep(this, true)
+                else o.warmup()
+            }
+        }, 1_200)
+        // proč se aplikace minule ukončila (pád / nedostatek paměti) → ukázat a přizpůsobit se
+        window.decorView.postDelayed({ runCatching { bridge.reportLastExit() } }, 2_500)
     }
 
     override fun onStop() {

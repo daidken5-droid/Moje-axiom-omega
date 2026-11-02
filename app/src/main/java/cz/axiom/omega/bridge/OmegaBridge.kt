@@ -1,5 +1,6 @@
 package cz.axiom.omega.bridge
 
+import android.os.Build
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -162,7 +163,14 @@ class OmegaBridge(private val activity: MainActivity) {
             val o = JSONObject(json)
             omega.settings.apply(o)
             if (o.has("power")) cz.axiom.omega.widget.AviorWidget.refresh(activity)
+            if (o.has("keepBrain")) OmegaService.keep(activity, omega.settings.keepBrain && omega.localAvailable())
+            if (o.has("memSafe")) {
+                // změna způsobu načtení → mozek načíst znovu (až nic nepočítá)
+                if (!OmegaService.RUNNING_ASK.get()) cz.axiom.omega.engine.LocalEngine.releaseIfIdle()
+                omega.warmup()
+            }
             Events.emit("config", JSONObject(state()))
+            Events.emit("brain", omega.brainState())
         } catch (e: Exception) {
             Events.note(e.message ?: "Neplatné nastavení.")
         }
@@ -732,6 +740,55 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface fun cognitionReset() { omega.cognition.reset(); Events.note("Paměť učení vymazána – začínám znovu.") }
+
+    /** Stav mozku v paměti (loaded / loading / none). */
+    @JavascriptInterface fun brainState(): String = omega.brainState().toString()
+
+    /** Ručně načíst mozek do paměti hned teď. */
+    @JavascriptInterface fun preload() {
+        if (omega.settings.keepBrain) OmegaService.keep(activity, true) else omega.warmup()
+    }
+
+    /**
+     * Proč se AVIOR minule ukončil (Android 11+: ApplicationExitInfo; plus vlastní záznam pádu).
+     * Při pádu kvůli paměti nebo v nativním kódu se zapne paměťově bezpečný režim a UI dostane vysvětlení.
+     */
+    fun reportLastExit() {
+        val s = omega.settings
+        var reason: String? = null
+        var detail = ""
+        var time = 0L
+        var memory = false
+        if (Build.VERSION.SDK_INT >= 30) runCatching {
+            val am = activity.getSystemService(android.app.ActivityManager::class.java)
+            val e = am.getHistoricalProcessExitReasons(activity.packageName, 0, 1).firstOrNull()
+            if (e != null && e.timestamp > s.exitSeen) {
+                time = e.timestamp
+                when (e.reason) {
+                    android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> { reason = "Systém AVIOR ukončil kvůli nedostatku paměti RAM."; memory = true }
+                    android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> { reason = "Pád v nativním jádru mozku (llama.cpp)."; memory = true }
+                    android.app.ApplicationExitInfo.REASON_CRASH -> reason = "Pád aplikace."
+                    android.app.ApplicationExitInfo.REASON_ANR -> reason = "Aplikace přestala reagovat (ANR)."
+                    android.app.ApplicationExitInfo.REASON_SIGNALED -> if (e.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE) { reason = "Systém AVIOR ukončil (signál ${e.status}) – nejspíš kvůli paměti."; memory = true }
+                }
+                detail = e.description.orEmpty()
+            }
+        }
+        val crash = java.io.File(activity.filesDir, "crash.txt")
+        if (crash.exists()) {
+            val txt = runCatching { crash.readText() }.getOrDefault("")
+            val ts = txt.substringBefore('\n').toLongOrNull() ?: 0L
+            if (ts > s.exitSeen) { reason = reason ?: "Pád aplikace."; detail = txt.substringAfter('\n').lineSequence().take(4).joinToString(" · "); time = maxOf(time, ts) }
+            crash.delete()
+        }
+        if (reason == null) return
+        s.exitSeen = maxOf(time, System.currentTimeMillis())
+        val wasSafe = s.memSafe
+        if (memory && !wasSafe) s.memSafe = true
+        val big = omega.brains.active()?.second?.id?.contains("e4b") == true && omega.device.ramGb <= 8.5
+        Events.emit("crash", JSONObject().put("reason", reason).put("detail", detail.take(600))
+            .put("memSafeOn", memory && !wasSafe).put("suggestLite", memory && big))
+    }
 
     /** Automatické samostudium: nabíjí se, Wi-Fi, aspoň 2 otevřené otázky, naposledy před 6 h. */
     fun maybeSelfStudy() {

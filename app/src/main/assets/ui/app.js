@@ -286,6 +286,25 @@ function loadThread(id) {
   if (changed) msgs.forEach(m => seen.add(m.id)); // přepnutí vlákna = bez animace
 }
 
+/** Stav mozku v paměti: připraven / načítám / nenačten (klepnutím načíst předem). */
+let brainMem = null;
+function brainChip() {
+  const b = brainMem || (brainMem = J('brainState')) || {};
+  if (!b.state || !(S.engines || []).includes('local')) return '';
+  if (b.state === 'loaded') return `<div class="brainchip on"><i></i>Mozek připraven v paměti – odpovídám hned</div>`;
+  if (b.state === 'loading') return `<div class="brainchip wait"><i></i>Načítám mozek do paměti…</div>`;
+  return `<button class="brainchip" data-preload><i></i>Mozek není v paměti – klepni a načtu ho předem</button>`;
+}
+
+function crashSheet(d) {
+  sheet(`<div class="eyebrow" style="margin-top:4px">MINULE SE AVIOR UKONČIL</div>
+    <p><b>${esc(d.reason)}</b></p>
+    ${d.detail ? `<p class="small mono muted" style="word-break:break-word">${esc(d.detail)}</p>` : ''}
+    ${d.memSafeOn ? '<p class="small">Zapnul jsem <b>paměťově bezpečný režim</b>: menší kontext (4k), úsporné načtení vah, bez sémantického hledání. Vypnout ho můžeš v Nastavení.</p>' : ''}
+    ${d.suggestLite ? '<p class="small">Mozek Gemma 4 E4B (5 GB) je na 8GB telefonu na hraně. <b>OMEGA Lite (E2B, 3 GB)</b> je výrazně rychlejší a do paměti se vejde s rezervou.</p><button class="btn primary wide" data-go="modules">Otevřít Mozky</button>' : ''}
+    <button class="btn wide" data-close-sheet style="margin-top:8px">Rozumím</button>`);
+}
+
 function renderChat() {
   const main = $('#main');
   if (!msgs.length && !live) {
@@ -295,6 +314,7 @@ function renderChat() {
       ${S.update ? `<div class="card glow" style="text-align:left"><b>Nová verze AVIOR ${esc(S.update.version)}</b><p class="small muted" style="margin:4px 0 10px">Máš ${esc(S.update.current)}. Aktualizace zachová mozek, Wikipedii i paměť.</p>
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
+      ${brainChip()}
       <div style="margin-top:18px">${powerSeg(false)}</div>
       ${(() => { const cg = J('cognition'); const j = cg && cg.journal && cg.journal[0]; return j ? `<button class="learnline" data-self>✦ ${esc(j.text)}</button>` : (cg && cg.total ? `<button class="learnline" data-self>✦ ${cg.total} otázek · ${cg.insights} vlastních poznatků – podívej se, co umím</button>` : ''); })()}
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
@@ -732,6 +752,8 @@ function renderSystem() {
       ${sw('selfStudy', 'Samostudium', 'Při nabíjení na Wi-Fi si dohledám, co jsem nevěděl.')}
       ${sw('reflect', 'Sebereflexe', 'Po odpovědi se ohodnotím a zapíšu poučení.')}
       ${sw('semantic', 'Hledání podle významu', 'Používá rozšíření OMEGA Sense, je-li stažené.')}
+      ${sw('keepBrain', 'Mozek trvale v paměti', 'Načtu ho hned po spuštění a držím připravený (oznámení „AVIOR připraven“) – dotaz nečeká na načítání.')}
+      ${sw('memSafe', 'Paměťově bezpečný režim', 'Menší kontext a úsporné načtení – když telefon aplikaci zavírá kvůli paměti.')}
       ${sw('web', 'Web u Claude', 'Claude smí hledat na webu.')}
       ${sw('thinking', 'Hluboké přemýšlení v telefonu', 'Přesnější, ale pomalejší.')}`)}
     ${card(`<label style="margin-top:0">Kroky agenta (max.)</label>${seg('agentSteps', [[5, '5'], [10, '10'], [15, '15'], [25, '25']])}
@@ -896,6 +918,8 @@ window.omegaReceive = function (type, d) {
       break;
     }
     case 'note': toast(d.text); break;
+    case 'brain': brainMem = d; if (view === 'chat' && !msgs.length && !live) renderChat(); break;
+    case 'crash': crashSheet(d); break;
     case 'attach': attachment = d; if (view !== 'chat') go('chat'); else { $('#composerSlot').innerHTML = composer(); bindComposer(); } toast('Přiloženo: ' + d.name + (d.chars > 30000 ? ' (použiji prvních 30 tis. znaků)' : '')); break;
     case 'quick':
       if (d.what === 'self') { refresh(); selfSheet(); break; }
@@ -909,6 +933,7 @@ window.omegaReceive = function (type, d) {
     case 'tasks': if (view === 'agents') renderAgents(); break;
     case 'state':
     case 'resume':
+      if (type === 'resume' || !thinkingJob()) brainMem = null; // po dotazu / návratu znovu zjistit stav mozku
       refresh();
       if (thinkingJob()) {
         live = live || { phase: S.job.phase, text: S.job.partial, reasoning: S.job.reasoning, steps: [] };
@@ -945,6 +970,8 @@ document.addEventListener('click', e => {
   if (ds.kind !== undefined && t.classList.contains('opt')) { forcedKind = ds.kind; closeSheet(); render(); return; }
   if (ds.level !== undefined) { forcedLevel = ds.level || null; closeSheet(); render(); return; }
   if (ds.self !== undefined) { selfSheet(); return; }
+  if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
+  if (ds.closeSheet !== undefined) { closeSheet(); return; }
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
   if (ds.newThread !== undefined) { threadId = 0; msgs = []; live = null; closeDrawer(); go('chat'); return; }
   if (ds.delThread) { if (confirm('Smazat vlákno?')) { call('deleteThread', Number(ds.delThread)); if (Number(ds.delThread) === threadId) { threadId = 0; msgs = []; } openDrawer(); if (view === 'chat') renderChat(); } return; }

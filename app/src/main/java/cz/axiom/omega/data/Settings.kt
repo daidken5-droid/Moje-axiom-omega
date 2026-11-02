@@ -75,6 +75,18 @@ class Settings(context: Context) {
     var ctxManual: Boolean
         get() = p.getBoolean("ctxManual", false)
         set(v) = p.edit().putBoolean("ctxManual", v).apply()
+    /** Mozek držet trvale v paměti (služba „AVIOR připraven“) – dotazy bez čekání na načtení. */
+    var keepBrain: Boolean
+        get() = p.getBoolean("keepBrain", true)
+        set(v) = p.edit().putBoolean("keepBrain", v).apply()
+    /** Paměťově bezpečný režim (zapne se sám po pádu kvůli paměti): menší kontext, bez sémantiky, úsporné váhy. */
+    var memSafe: Boolean
+        get() = p.getBoolean("memSafe", false)
+        set(v) = p.edit().putBoolean("memSafe", v).apply()
+    /** Čas posledního ukončení procesu, které už uživatel viděl (ApplicationExitInfo). */
+    var exitSeen: Long
+        get() = p.getLong("exitSeen", 0)
+        set(v) = p.edit().putLong("exitSeen", v).apply()
     /** Režim výkonu: BASIC | ADVANCED | SHERLOCK */
     var power: String
         get() = p.getString("power", "ADVANCED")!!
@@ -152,7 +164,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("memSafe", memSafe)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -191,6 +203,8 @@ class Settings(context: Context) {
         if (o.has("selfStudy")) selfStudy = o.getBoolean("selfStudy")
         if (o.has("lora")) lora = o.getString("lora").takeIf { it.isEmpty() || it.matches(Regex("[A-Za-z0-9._ -]{1,120}")) } ?: ""
         if (o.has("loraScale")) loraScale = o.getInt("loraScale")
+        if (o.has("keepBrain")) keepBrain = o.getBoolean("keepBrain")
+        if (o.has("memSafe")) memSafe = o.getBoolean("memSafe")
     }
 
     private fun checkModelId(id: String) {

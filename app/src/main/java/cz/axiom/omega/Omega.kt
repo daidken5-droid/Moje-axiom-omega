@@ -94,7 +94,7 @@ class Omega private constructor(val app: Context) {
             private fun docs(query: String, limit: Int): List<Snippet> {
                 val words = d.search(query, limit)
                 // sémantika jen když má co hledat (indexované úseky) – jinak by zbytečně načítala 600MB model
-                if (!settings.semantic || d.vectorCount() == 0 || !ensureEmbedder()) return words
+                if (!settings.semantic || settings.memSafe || d.vectorCount() == 0 || !ensureEmbedder()) return words
                 val q = Embedder.embedQuery(query) ?: return words
                 val sem = d.semantic(q, limit).filter { it.second > 0.35f }.map { it.first }
                 // proložit: nejlepší sémantické + nejlepší slovní, bez duplicit
@@ -168,7 +168,7 @@ class Omega private constructor(val app: Context) {
     }
 
     fun power() = cz.axiom.omega.core.device.Power.of(settings.power)
-    fun effectiveCtx() = if (settings.ctxManual) settings.ctxTokens else device.ctxFor(power())
+    fun effectiveCtx() = (if (settings.ctxManual) settings.ctxTokens else device.ctxFor(power())).let { if (settings.memSafe) minOf(it, 4096) else it }
 
     val files by lazy {
         cz.axiom.omega.files.FileReader(app, { hfToken() }, { settings.hfVisionModel }, { settings.hfAsrModel }, { settings.hfVision && Introspect.online(app) })
@@ -219,22 +219,43 @@ class Omega private constructor(val app: Context) {
      * PŘEDEHŘÁTÍ: po otevření aplikace načte mozek do paměti a jedním tokenem „prohřeje“ váhy (stránky
      * modelu jsou pak v RAM) – první dotaz nečeká na načítání. Tiché (bez událostí do UI), ustoupí dotazu.
      */
-    @Volatile private var warming = false
+    @Volatile var warming = false
+        private set
+    /** Načte mozek do paměti předem (na pozadí), aby první dotaz nečekal. Bezpečné souběžně s dotazem. */
     fun warmup() {
         if (warming || !localAvailable() || cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get()) return
-        if (Introspect.freeRamMb(app) in 1..1_200) return
+        if (LocalEngine.loaded()?.let { it.file == brains.active()?.first } == true) return // už je v paměti
+        if (Introspect.freeRamMb(app) in 1..900) return
         warming = true
+        Events.emit("brain", org.json.JSONObject().put("state", "loading"))
         Thread({
             try {
                 val e = local(quiet = true)
+                // dotaz mezitím převzal mozek → nepřekážet (zámek v LocalEngine by ho jinak zdržel)
+                if (cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get() || e.busy) return@Thread
                 e.quiet = true
                 try {
-                    e.generate(listOf(cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.USER, "ok")),
+                    // předehřát i neměnný začátek systémového promptu (identita, zásady) → zůstane v KV cache
+                    // a první dotaz ho už nemusí číst
+                    val sys = cz.axiom.omega.core.self.SystemPrompt.build(cz.axiom.omega.core.randy.RandyLevel.L1_EXPERT, selfState(), emptyList(), compact = true)
+                    e.generate(listOf(cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.SYSTEM, sys),
+                        cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.USER, "ok")),
                         cz.axiom.omega.core.llm.GenOptions(maxTokens = 1), cz.axiom.omega.core.llm.CancelToken()) {}
                 } finally { e.quiet = false }
             } catch (_: Throwable) {
-            } finally { warming = false }
+            } finally {
+                warming = false
+                Events.emit("brain", brainState())
+            }
         }, "omega-warmup").apply { priority = Thread.MIN_PRIORITY }.start()
+    }
+
+    /** Stav mozku v paměti pro UI: loaded / loading / none. */
+    fun brainState(): org.json.JSONObject {
+        val e = LocalEngine.loaded()
+        return org.json.JSONObject().put("state", if (e != null) "loaded" else if (warming) "loading" else "none")
+            .put("label", e?.label ?: "").put("lean", e?.lean == true).put("memSafe", settings.memSafe)
+            .put("keep", settings.keepBrain)
     }
 
     fun local(quiet: Boolean = false): LocalEngine {
@@ -243,7 +264,7 @@ class Omega private constructor(val app: Context) {
             cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Načítám mozek ${spec?.name ?: ""} do paměti – jen u prvního dotazu, chvilku…"))
         }
         val lora = settings.lora.takeIf { it.isNotBlank() }?.let { java.io.File(loraDir(), it) }?.takeIf { it.exists() }
-        return LocalEngine.obtain(app, file, spec, effectiveCtx(), lora, settings.loraScale / 100f, device.threads)
+        return LocalEngine.obtain(app, file, spec, effectiveCtx(), lora, settings.loraScale / 100f, device.threads, settings.memSafe)
     }
 
     fun kimi(): KimiEngine {

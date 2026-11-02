@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import cz.axiom.omega.Events
+import cz.axiom.omega.engine.LocalEngine
 import cz.axiom.omega.MainActivity
 import cz.axiom.omega.Omega
 import cz.axiom.omega.OmegaApp
@@ -57,11 +58,38 @@ class OmegaService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onDestroy() {
+        KEEPING.set(false)
+        super.onDestroy()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null) { if (!busyAny()) stopSelf(); return START_NOT_STICKY }
+        if (intent == null) { if (!busyAny() && Lane.KEEP !in active) stopSelf(); return START_NOT_STICKY }
         if (intent.action == ACTION_CANCEL) {
             if (intent.getStringExtra("lane") == "bg") bgToken?.cancel() else askToken?.cancel()
-            if (!busyAny()) stopSelf()
+            if (!busyAny() && Lane.KEEP !in active) stopSelf()
+            return START_NOT_STICKY
+        }
+        // MOZEK PŘIPRAVEN: služba v popředí drží proces (a s ním načtený mozek) naživu i v pozadí →
+        // dotaz nezačíná načítáním 3–5 GB, systém aplikaci nezabíjí kvůli paměti.
+        if (intent.action == ACTION_KEEP) {
+            runCatching { promote(Lane.KEEP, keepText()) }.onFailure { KEEPING.set(false); return START_NOT_STICKY }
+            KEEPING.set(true)
+            omega.warmup()
+            // po načtení přepsat oznámení na „Připraven · mozek v paměti“
+            Thread({
+                var n = 0
+                while (n++ < 240 && (omega.warming || LocalEngine.loaded() == null) && KEEPING.get()) Thread.sleep(500)
+                if (KEEPING.get() && Lane.KEEP in active && active.size == 1)
+                    runCatching { getSystemService(NotificationManager::class.java).notify(Lane.KEEP.notif, notification(keepText(), -1, Lane.KEEP)) }
+            }, "omega-keep").apply { isDaemon = true }.start()
+            return START_NOT_STICKY
+        }
+        if (intent.action == ACTION_UNKEEP) {
+            KEEPING.set(false)
+            if (Lane.KEEP in active) demote(Lane.KEEP)
+            if (intent.getBooleanExtra("release", false) && !busyAny()) LocalEngine.releaseIfIdle()
+            Events.emit("brain", omega.brainState())
             return START_NOT_STICKY
         }
         // DVĚ NEZÁVISLÉ LINKY: myšlení (odpovědi, samostudium) a pozadí (stahování, knihovny, indexace, importy)
@@ -70,7 +98,7 @@ class OmegaService : Service() {
         val lock = if (bg) RUNNING_BG else RUNNING_ASK
         if (!lock.compareAndSet(false, true)) {
             Events.note(if (bg) "Na pozadí už běží jiné stahování – počkej nebo ho pozastav." else "Právě přemýšlím – počkej nebo mě zastav.")
-            if (!busyAny()) stopSelf()
+            if (!busyAny() && Lane.KEEP !in active) stopSelf()
             return START_NOT_STICKY
         }
         val lane = if (bg) Lane.BG else Lane.ASK
@@ -119,6 +147,12 @@ class OmegaService : Service() {
     private enum class Lane(val notif: Int, val type: Int) {
         ASK(7, if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC),
         BG(8, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC),
+        KEEP(9, if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC),
+    }
+
+    private fun keepText(): String {
+        val e = LocalEngine.loaded()
+        return if (e != null) "Připraven · ${e.label} v paměti – odpovídám okamžitě" else "Připravuji mozek do paměti…"
     }
 
     private val active = java.util.concurrent.CopyOnWriteArraySet<Lane>()
@@ -135,14 +169,17 @@ class OmegaService : Service() {
     private fun demote(lane: Lane) {
         active -= lane
         val nm = getSystemService(NotificationManager::class.java)
-        val other = active.firstOrNull()
+        // KEEP se ukazuje až jako poslední (pracovní linky mají přednost)
+        val other = active.firstOrNull { it != Lane.KEEP } ?: active.firstOrNull()
         if (other == null) {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             nm.cancel(lane.notif)
             stopSelf()
         } else {
             // druhá linka převezme roli oznámení v popředí
-            ServiceCompat.startForeground(this, other.notif, notification(if (other == Lane.BG) omega.bg.phase else omega.job.phase, -1, other), other.type)
+            val type = active.fold(0) { acc, l -> acc or l.type }
+            val text = when (other) { Lane.BG -> omega.bg.phase; Lane.KEEP -> keepText(); else -> omega.job.phase }
+            ServiceCompat.startForeground(this, other.notif, notification(text, -1, other), type)
             nm.cancel(lane.notif)
         }
     }
@@ -734,6 +771,18 @@ class OmegaService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, lane.notif, Intent(this, OmegaService::class.java).setAction(ACTION_CANCEL)
             .putExtra("lane", if (lane == Lane.BG) "bg" else "ask"), PendingIntent.FLAG_IMMUTABLE)
+        if (lane == Lane.KEEP) {
+            val unkeep = PendingIntent.getService(this, 9, Intent(this, OmegaService::class.java).setAction(ACTION_UNKEEP).putExtra("release", true), PendingIntent.FLAG_IMMUTABLE)
+            return NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK)
+                .setSmallIcon(R.drawable.ic_stat_omega)
+                .setContentTitle("AVIOR")
+                .setContentText(text)
+                .setOngoing(true).setSilent(true).setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setContentIntent(open)
+                .addAction(0, "Uvolnit paměť", unkeep)
+                .build()
+        }
         return NotificationCompat.Builder(this, OmegaApp.CHANNEL_WORK)
             .setSmallIcon(R.drawable.ic_stat_omega)
             .setContentTitle("AVIOR")
@@ -789,6 +838,10 @@ class OmegaService : Service() {
         const val ACTION_WIKI = "cz.axiom.omega.WIKI"
         const val ACTION_LIBRARY = "cz.axiom.omega.LIBRARY"
         const val ACTION_STUDY = "cz.axiom.omega.STUDY"
+        const val ACTION_KEEP = "cz.axiom.omega.KEEP"
+        const val ACTION_UNKEEP = "cz.axiom.omega.UNKEEP"
+        /** Běží služba „AVIOR připraven“ (mozek držený v paměti)? */
+        val KEEPING = AtomicBoolean(false)
         /** Akce linky „pozadí“ – běží souběžně s myšlením. */
         val BG_ACTIONS = setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_INDEX)
         val RUNNING_ASK = AtomicBoolean(false)
@@ -798,6 +851,14 @@ class OmegaService : Service() {
 
         /** Je obsazená linka, do které patří [action]? */
         fun busyFor(action: String) = if (action in BG_ACTIONS) RUNNING_BG.get() else RUNNING_ASK.get()
+
+        /** Spustí / ukončí držení mozku v paměti (jen z popředí – Android jinak FGS nedovolí). */
+        fun keep(context: Context, on: Boolean) {
+            runCatching {
+                if (on) ContextCompat.startForegroundService(context, Intent(context, OmegaService::class.java).setAction(ACTION_KEEP))
+                else if (KEEPING.get()) context.startService(Intent(context, OmegaService::class.java).setAction(ACTION_UNKEEP))
+            }
+        }
 
         fun start(context: Context, intent: Intent) {
             ContextCompat.startForegroundService(context, intent.setClass(context, OmegaService::class.java))

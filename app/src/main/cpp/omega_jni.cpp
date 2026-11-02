@@ -228,9 +228,13 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeInit(JNIEnv *env, jobject, jstring 
 }
 
 JNIEXPORT jlong JNICALL
-Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring jpath, jint n_ctx, jint n_threads, jint n_threads_batch) {
+Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring jpath, jint n_ctx, jint n_threads, jint n_threads_batch, jboolean lean) {
     const std::string path = jstr(env, jpath);
     llama_model_params mp = llama_model_default_params();
+    // ÚSPORNÉ NAČTENÍ (velký mozek na 8GB telefonu): bez přeskládání vah (repack) zůstanou váhy jen
+    // namapované ze souboru → systém je umí kdykoli uvolnit a znovu načíst z flash, místo aby
+    // aplikaci zabil kvůli ~5 GB anonymní paměti (příčina pádů při dotazu).
+    if (lean) mp.use_extra_bufts = false;
     llama_model *model = llama_model_load_from_file(path.c_str(), mp);
     if (!model) { LOGE("model se nenačetl: %s", path.c_str()); return 0; }
 
@@ -287,7 +291,7 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring 
     } catch (const std::exception &e) {
         LOGE("šablona chatu: %s", e.what());
     }
-    LOGI("model načten: ctx=%d vláken=%d", o->n_ctx, (int) n_threads);
+    LOGI("model načten: ctx=%d vláken=%d úsporně=%d", o->n_ctx, (int) n_threads, (int) lean);
     return reinterpret_cast<jlong>(o);
 }
 

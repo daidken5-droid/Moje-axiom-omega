@@ -8,6 +8,22 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.5 – stabilita: mozek trvale v paměti, žádné pády při dotazu
+
+- **Oprava pádu při dotazu:** předehřátí mozku a dotaz mohly počítat nad stejným nativním kontextem současně
+  (pád v C++). Každý mozek má teď zámek – jeden výpočet naráz, další počká.
+- **Žádné uvolnění paměti uprostřed výpočtu:** úklid při nedostatku RAM mozek ani embedder neuvolní, dokud
+  je něco používá (dřív use-after-free → pád).
+- **Úsporné načtení velkého mozku:** u E4B (5 GB) na 8GB telefonu se váhy nepřeskládávají do anonymní paměti,
+  zůstanou namapované ze souboru – systém je umí uvolnit a aplikaci kvůli tomu nezabije.
+- **Mozek trvale v paměti:** služba „AVIOR připraven“ načte mozek hned po spuštění a drží ho připravený
+  i po odchodu z aplikace (vypínatelné v Nastavení, v oznámení tlačítko „Uvolnit paměť“). Předehřeje
+  i začátek systémového promptu, takže první dotaz nečte znovu identitu a zásady.
+- **Indikátor na úvodní obrazovce:** „Mozek připraven v paměti“ / „Načítám…“ / klepnutím načíst předem.
+- **Diagnostika pádů:** při dalším spuštění AVIOR řekne, proč se minule ukončil (Android ApplicationExitInfo
+  + vlastní záznam), a po pádu kvůli paměti sám zapne **paměťově bezpečný režim** (kontext 4k, úsporné
+  váhy, bez sémantiky) a doporučí OMEGA Lite (E2B), pokud je E4B na 8GB telefonu na hraně.
+
 ## Novinky 5.4 – rychlost v telefonu
 
 Hlavní příčina pomalých odpovědí: RANDY volil i pro mozek v telefonu „serverové“ postupy – Ω Think se skrytým

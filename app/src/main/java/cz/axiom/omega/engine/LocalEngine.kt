@@ -42,7 +42,7 @@ object NativeLlama {
     }
 
     external fun nativeInit(libDir: String)
-    external fun nativeLoad(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int): Long
+    external fun nativeLoad(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int, lean: Boolean): Long
     external fun nativeInfo(handle: Long): String
     external fun nativeGenerate(
         handle: Long, roles: Array<String>, contents: Array<String>, maxTokens: Int,
@@ -74,6 +74,8 @@ object Embedder {
 
     fun ready() = handle != 0L
 
+    /** Synchronizováno s [close] – dřív mohl úklid paměti uvolnit embedder uprostřed výpočtu (pád). */
+    @Synchronized
     fun embed(text: String): FloatArray? {
         val h = handle
         if (h == 0L) return null
@@ -117,7 +119,23 @@ class LocalEngine private constructor(
 
     val info: String get() = runCatching { NativeLlama.nativeInfo(handle) }.getOrDefault("")
 
+    /**
+     * Jeden nativní kontext = jeden výpočet naráz. Dřív mohlo předehřátí a dotaz (nebo samostudium)
+     * běžet nad stejným kontextem současně → pád aplikace v C++. Zámek drží i [close].
+     */
+    private val gate = java.util.concurrent.locks.ReentrantLock()
+    @Volatile private var closed = false
+    val busy: Boolean get() = gate.isLocked
+
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
+        gate.lockInterruptibly()
+        try {
+            if (closed) throw EngineException("Mozek byl mezitím uvolněn z paměti – zkus dotaz znovu.")
+            return generateLocked(messages, options, cancel, onDelta)
+        } finally { gate.unlock() }
+    }
+
+    private fun generateLocked(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val started = System.currentTimeMillis()
         cancel.onCancel { NativeLlama.nativeCancel(handle) }
         val text = StringBuilder()
@@ -211,14 +229,33 @@ class LocalEngine private constructor(
 
     fun stats(): String = runCatching { NativeLlama.nativeStats(handle) }.getOrDefault("")
 
-    fun close() = NativeLlama.nativeFree(handle)
+    /** Počká na doběhnutí výpočtu a teprve pak uvolní nativní paměť (žádné use-after-free). */
+    fun close() {
+        gate.lock()
+        try {
+            if (!closed) { closed = true; NativeLlama.nativeFree(handle) }
+        } finally { gate.unlock() }
+    }
+
+    /** Uvolní jen pokud zrovna nic nepočítá; jinak nechá být. */
+    fun closeIfIdle(): Boolean {
+        if (!gate.tryLock()) return false
+        try {
+            if (!closed) { closed = true; NativeLlama.nativeFree(handle) }
+        } finally { gate.unlock() }
+        return true
+    }
+
+    /** Načteno úsporně (bez přeskládání vah – systém může váhy uvolňovat a mozek přežije). */
+    var lean = false
+        private set
 
     companion object {
         @Volatile private var current: LocalEngine? = null
 
         @Synchronized
-        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int, lora: File? = null, loraScale: Float = 1f, nThreads: Int = 0): LocalEngine {
-            current?.let { if (it.file == file && it.requestedCtx == ctxTokens) { it.applyLora(lora, loraScale); return it } }
+        fun obtain(context: Context, file: File, spec: BrainSpec?, ctxTokens: Int, lora: File? = null, loraScale: Float = 1f, nThreads: Int = 0, memSafe: Boolean = false): LocalEngine {
+            current?.let { if (!it.closed && it.file == file && it.requestedCtx == ctxTokens && (!memSafe || it.lean)) { it.applyLora(lora, loraScale); return it } }
             release()
             if (!NativeLlama.available(context)) {
                 throw EngineException("Lokální mozek není v tomto sestavení dostupný (${NativeLlama.loadError ?: "bez nativní knihovny"}).")
@@ -233,9 +270,13 @@ class LocalEngine private constructor(
             if (freeMb in 1..1_200 && ctx > 2048) ctx = 2048
             // prefill na všech jádrech kromě jednoho (UI zůstane plynulé), generování jen na výkonných
             val batchThreads = (Runtime.getRuntime().availableProcessors() - 1).coerceIn(threads, 8)
-            val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads, batchThreads)
+            // Velký mozek vůči RAM (E4B ≈ 5 GB na 8GB telefonu) → úsporné načtení: váhy zůstanou
+            // namapované ze souboru (systém je může uvolnit), místo ~5 GB anonymní paměti → LMK zabití.
+            val totalMb = cz.axiom.omega.sys.Introspect.totalRamMb(context)
+            val lean = memSafe || (totalMb > 0 && file.length() / 1_048_576.0 > totalMb * 0.45)
+            val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads, batchThreads, lean)
             if (h == 0L) throw EngineException("Mozek se nepodařilo načíst (poškozený soubor nebo málo paměti RAM).")
-            return LocalEngine(h, spec, file, ctx, ctxTokens).also { current = it; it.applyLora(lora, loraScale) }
+            return LocalEngine(h, spec, file, ctx, ctxTokens).also { it.lean = lean; current = it; it.applyLora(lora, loraScale) }
         }
 
         @Synchronized
@@ -244,6 +285,16 @@ class LocalEngine private constructor(
             current = null
         }
 
-        fun loadedLabel(): String? = current?.label
+        /** Úklid při nedostatku paměti: uvolní mozek jen když zrovna nepřemýšlí. */
+        @Synchronized
+        fun releaseIfIdle(): Boolean {
+            val c = current ?: return true
+            if (!c.closeIfIdle()) return false
+            current = null
+            return true
+        }
+
+        fun loadedLabel(): String? = current?.takeIf { !it.closed }?.label
+        fun loaded(): LocalEngine? = current?.takeIf { !it.closed }
     }
 }

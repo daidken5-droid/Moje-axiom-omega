@@ -571,3 +571,10 @@ i.ev-c { background: #e9ecf0; } i.ev-s { background: #7cf2b0; } i.ev-m { backgro
 mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 3px; padding: 0 1px; }
 .hfsvc { display: grid; gap: 4px; margin: 10px 0; font-size: .8rem; color: var(--muted); }
 .hfsvc b { color: var(--text); font-weight: 600; }
+
+/* stav mozku v paměti */
+.brainchip { display: inline-flex; align-items: center; gap: 8px; margin: 12px auto 0; font-size: .76rem; color: var(--muted); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; }
+.brainchip i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.brainchip.on i { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.brainchip.wait i { background: #d9c48a; animation: brainpulse 1.2s ease-in-out infinite; }
+@keyframes brainpulse { 50% { opacity: .3; } }
