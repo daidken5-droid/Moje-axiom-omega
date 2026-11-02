@@ -550,3 +550,22 @@ i.ev-c { background: #e9ecf0; } i.ev-s { background: #7cf2b0; } i.ev-m { backgro
 .evline.ev-c { border-color: #e9ecf0; } .evline.ev-s { border-color: #7cf2b0; } .evline.ev-m { border-color: #9bb8ff; } .evline.ev-e { border-color: #ffc27a; } .evline.ev-u { border-color: #3a4152; color: var(--muted); }
 .tools button.tx { font-size: .74rem; padding: 7px 10px; color: var(--ti-text); }
 .learnline { display: block; margin: 14px auto 0; max-width: 100%; font-size: .78rem; color: var(--muted); padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- v5.2: jednodušší UI ---------- */
+.hero .orbit, .hero .orbit img, .hero .orbit svg { width: 112px; height: 112px; }
+.hero .orbit:before { width: 160px; height: 74px; } .hero .orbit:after { width: 140px; height: 86px; }
+.greet { font-size: 1.7rem; margin-top: 14px; }
+.evrow { gap: 5px; margin-top: 8px; }
+.privacy, .learned, .evchip { font: 9px var(--mono); letter-spacing: .5px; padding: 4px 8px; border-radius: 999px; margin: 0; }
+.evchip { display: inline-block; color: var(--ti-text); }
+.learned { color: var(--muted); border: 1px solid var(--line); }
+.tools { gap: 4px; }
+.tools button { padding: 7px 9px; }
+.attach-pill { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 0 2px 6px; border-radius: 12px; border: 1px solid var(--line2); background: var(--panel); font-size: .8rem; }
+.attach-pill b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+.attach-pill small { color: var(--muted); flex: 1; }
+.attach-pill svg { width: 15px; height: 15px; color: var(--muted); }
+.dsearch { display: flex; align-items: center; gap: 8px; margin: 4px 14px 8px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line2); background: var(--panel); color: var(--muted); }
+.dsearch input { border: 0; background: transparent; padding: 10px 0; }
+.dsearch input:focus { outline: none; }
+mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 3px; padding: 0 1px; }

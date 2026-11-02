@@ -587,6 +587,66 @@ class OmegaBridge(private val activity: MainActivity) {
         } else if (manual) Events.note(if (l == null) "Nepodařilo se ověřit aktualizace." else "Máš nejnovější verzi ($local).")
     }
 
+    // ------------------------------------------------------------------ vlákna: hledání, export, příloha, čtení nahlas
+
+    @JavascriptInterface fun searchThreads(q: String): String = omega.db.searchThreads(q).toString()
+
+    /** Export konverzace do Stažené/AVIOR jako Markdown (md) nebo PDF. */
+    @JavascriptInterface
+    fun exportThread(threadId: Long, format: String) = async {
+        val title = runCatching {
+            val arr = omega.db.threads(); (0 until arr.length()).map { arr.getJSONObject(it) }.first { it.getLong("id") == threadId }.getString("title")
+        }.getOrDefault("Konverzace")
+        val msgs = omega.db.messages(threadId)
+        val md = buildString {
+            append("# ").append(title).append("\n\n")
+            for (i in 0 until msgs.length()) {
+                val m = msgs.getJSONObject(i)
+                if (m.optJSONObject("meta")?.optBoolean("error") == true) continue
+                append(if (m.getString("role") == "user") "## Ty\n\n" else "## AVIOR\n\n").append(m.getString("content").trim()).append("\n\n")
+            }
+            append("---\nExportováno z AVIOR ${java.text.SimpleDateFormat("d. M. yyyy HH:mm", java.util.Locale("cs")).format(java.util.Date())}\n")
+        }
+        val base = cz.axiom.omega.core.forge.FileForge.safeName(
+            java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").replace(Regex("[^A-Za-z0-9]+"), "-").trim('-').take(50).ifBlank { "konverzace" }, "md",
+        ).substringBeforeLast('.')
+        val msg = if (format == "pdf") omega.forge.save("$base.pdf", "application/pdf", omega.forge.pdf(title, md.replace(Regex("(?m)^#+ "), "")))
+        else omega.forge.save("$base.md", "text/markdown", md.toByteArray())
+        Events.note(msg)
+    }
+
+    @JavascriptInterface fun attach() = activity.runOnUiThread {
+        activity.pickAttach.launch(arrayOf("text/*", "application/json", "application/x-ndjson", "text/csv", "text/markdown"))
+    }
+
+    fun onAttach(uri: android.net.Uri) = async {
+        val name = runCatching {
+            activity.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull() ?: "příloha.txt"
+        val bytes = activity.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+        if (bytes.size > 2_000_000) { Events.note("Příloha je příliš velká (max. 2 MB textu). Větší soubory vlož do znalostí (Paměť → Offline databáze)."); return@async }
+        val text = String(bytes, Charsets.UTF_8).replace("\u0000", "")
+        Events.emit("attach", JSONObject().put("name", name).put("text", text.take(60_000)).put("chars", text.length))
+    }
+
+    private var tts: android.speech.tts.TextToSpeech? = null
+
+    /** Přečte text nahlas českým hlasem Androidu (funguje offline, pokud je stažený český hlas). */
+    @JavascriptInterface
+    fun speak(text: String) = activity.runOnUiThread {
+        val clean = text.replace(Regex("[*#`>|_]"), " ").replace(Regex("\\[(\\d+)]"), "").replace(Regex("\\s+"), " ").trim().take(3_900)
+        val t = tts
+        if (t != null) { t.stop(); t.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "avior"); return@runOnUiThread }
+        tts = android.speech.tts.TextToSpeech(activity) { status ->
+            if (status == android.speech.tts.TextToSpeech.SUCCESS) {
+                tts?.language = java.util.Locale("cs", "CZ")
+                tts?.speak(clean, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "avior")
+            } else Events.note("Čtení nahlas není v telefonu dostupné.")
+        }
+    }
+
+    @JavascriptInterface fun stopSpeaking() = activity.runOnUiThread { tts?.stop() }
+
     @JavascriptInterface fun cognition(): String = omega.cognition.toJson().toString()
 
     @JavascriptInterface

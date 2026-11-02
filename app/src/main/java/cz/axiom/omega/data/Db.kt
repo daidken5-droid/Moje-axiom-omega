@@ -165,6 +165,23 @@ class Db private constructor(context: Context) :
         return out
     }
 
+    /** Hledání ve všech konverzacích (název i obsah zpráv). */
+    fun searchThreads(q: String, limit: Int = 30): JSONArray {
+        val out = JSONArray()
+        val like = "%" + q.trim().replace("%", "").replace("_", "") + "%"
+        if (like.length < 4) return out
+        readableDatabase.rawQuery(
+            "SELECT t.id, t.title, t.updated, (SELECT substr(m.content, max(1, instr(lower(m.content), lower(?)) - 40), 160) FROM messages m " +
+                "WHERE m.thread_id=t.id AND m.content LIKE ? ORDER BY m.id DESC LIMIT 1) AS hit " +
+                "FROM threads t WHERE t.title LIKE ? OR EXISTS (SELECT 1 FROM messages m WHERE m.thread_id=t.id AND m.content LIKE ?) " +
+                "ORDER BY t.updated DESC LIMIT ?",
+            arrayOf(q.trim(), like, like, like, limit.toString()),
+        ).use { c ->
+            while (c.moveToNext()) out.put(JSONObject().put("id", c.getLong(0)).put("title", c.getString(1)).put("updated", c.getLong(2)).put("preview", c.getString(3) ?: ""))
+        }
+        return out
+    }
+
     fun newThread(title: String): Long {
         val now = System.currentTimeMillis()
         return writableDatabase.insertOrThrow("threads", null, ContentValues().apply {

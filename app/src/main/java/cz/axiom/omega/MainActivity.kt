@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
     val pickMemory = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onMemoryFile) }
     val exportDb = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-sqlite3")) { uri -> uri?.let(bridge::onExport) }
     val importDb = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onRestore) }
+    /** Příloha k dotazu (textový soubor) – obsah se vloží do dotazu, ne do znalostí. */
+    val pickAttach = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onAttach) }
     val pickLora = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onLoraFile) }
     /** Hlasové zadávání: systémové rozpoznávání řeči (offline, pokud má telefon stažený český balík). */
     val voice = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->

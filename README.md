@@ -8,6 +8,17 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.2 – jednodušší a praktičtější
+
+* **Jednodušší rozhraní:** u odpovědi jen kopírovat, přečíst nahlas, ✓/✗ a „⋯“ (odpovědět znovu, upravit dotaz,
+  oponentura, hlouběji, mapa důkazů, sdílet, export); štítky v jednom nenápadném řádku; menší logo a 4 návrhy;
+  doladění v Modulech sbalené.
+* **Hledání v konverzacích** (šuplík Vlákna) – v názvech i obsahu, se zvýrazněním.
+* **Čtení odpovědi nahlas** českým hlasem Androidu (offline, pokud je stažený český hlas).
+* **Upravit dotaz** – poslední otázka se vrátí do pole k úpravě.
+* **Příloha k dotazu** (📎) – textový soubor (TXT, MD, CSV, JSON) se vloží do otázky („shrň“, „najdi chyby“…).
+* **Export konverzace** do Stažené/AVIOR jako Markdown nebo PDF.
+
 ## Novinky 5.1 – co AVIOR umí a jiné AI ne
 
 * **Mapa důkazů u každé odpovědi** (`core/agent/Evidence.kt`): každá věta je označená podle původu –
