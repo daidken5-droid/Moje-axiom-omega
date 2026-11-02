@@ -532,3 +532,4 @@ input[type=range] { accent-color: #c3c8cf; }
 .dom-kb { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .kbchip { font: 9px var(--mono); letter-spacing: .5px; padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line2); color: var(--muted); }
 .kbchip.add { color: var(--ti-text); border-color: var(--ti3); }
+.mem .badge { min-width: 86px; text-align: center; flex: none; }

@@ -738,7 +738,7 @@ function modeSheet() {
 function welcomeSheet() {
   sheet(`<div style="text-align:center;padding:6px 0 4px"><div style="width:96px;height:96px;margin:0 auto">${appIcon()}</div>
     <h2 style="margin-top:12px">AVIOR</h2><p>Vodicí hvězda v tvém telefonu – AI, která se učí z každé otázky.</p></div>
-    <button class="opt" data-onboard="brain"><span class="ic">Φ</span><span class="grow"><b>V telefonu (offline)</b><small>Doporučím nejsilnější Gemma 4, která se vejde do tvého telefonu.</small></span></button>
+    <button class="opt" data-onboard="brain"><span class="ic">Φ</span><span class="grow"><b>Mozek do telefonu (offline)</b><small>Hned začnu stahovat nejsilnější Gemma 4, která se do telefonu vejde – na pozadí.</small></span></button>
     <button class="opt" data-onboard="node"><span class="ic">N</span><span class="grow"><b>AVIOR Node (free cloud)</b><small>Vlastní server zdarma.</small></span></button>
     <button class="btn ghost wide" data-onboard="later">Později</button>`);
 }
@@ -915,6 +915,12 @@ document.addEventListener('click', e => {
   if (ds.onboard) {
     configure({ onboarded: true });
     closeSheet();
+    if (ds.onboard === 'brain') {
+      // jedním klepnutím: stáhnout mozek doporučený pro tento telefon (na pozadí – mezitím jde psát)
+      const b = J('brains') || {};
+      const rec = (b.brains || []).find(x => x.id === b.recommended && !x.installed);
+      if (rec) { call('brainDownload', rec.id); toast('Stahuji ' + rec.name + ' (' + rec.size + ') na pozadí – mezitím se klidně ptej.'); }
+    }
     if (ds.onboard !== 'later') { go('modules'); }
     if (ds.onboard === 'node') setTimeout(() => { const d = [...document.querySelectorAll('details.conn')][1]; if (d) { d.open = true; d.scrollIntoView({ block: 'center' }); } }, 80);
     return;

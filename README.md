@@ -8,6 +8,23 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.0 – rychlost, spolehlivost, souběh
+
+Celá aplikace prošla revizí kousek po kousku, s důrazem na to, aby mozek v telefonu odpovídal co nejrychleji:
+
+* **Odpovědi už nevisí:** dotaz nečeká na kurzy ČNB (obnovují se na pozadí), služba při chybě spuštění uvolní zámek
+  a ohlásí chybu, rozhraní nikdy neukazuje nekonečné načítání.
+* **Mozek nečte zadání pořád znovu:** neměnná část pokynů je nahoře a díky plné SWA cache (Gemma 3/4)
+  se mezi dotazy znovupoužije – další otázky začnou odpovídat výrazně dřív.
+* **Viditelný průběh:** „Načítám mozek do paměti“ → „Čtu zadání 40 % · 1800 tokenů“ → „Píšu odpověď…“, odpočet sekund;
+  v podrobnostech odpovědi rychlost čtení/psaní (tok/s), tokeny z cache, čas načtení mozku a hledání podkladů.
+* **Méně zbytečné práce:** v telefonu 1 průchod pro běžné otázky (2 pro náročné), podklady z knihovny jen s dostatečnou
+  relevancí, sémantické hledání jen když je co hledat, vektorový index v paměti (top-k), agent dostává jen nástroje
+  potřebné pro svou roli, štíhlejší ukládání zpráv.
+* **Souběh:** odpovídání a stahování (mozek, Wikipedie, rozšíření) běží ve dvou nezávislých linkách.
+* **Rozhraní:** hlavička už není pod stavovým řádkem (kontejner s odsazením podle lišt, výřezu a klávesnice),
+  plynulé streamování (vykreslení max. jednou za snímek), uvítání jedním klepnutím rovnou stáhne doporučený mozek.
+
 ## Novinky 4.2 – finální verze
 
 * **Widget na plochu** (4×2, měnitelná velikost): černé sklo s titanovou hranou a logem, stav učení, poslední
