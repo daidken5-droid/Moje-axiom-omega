@@ -294,6 +294,23 @@ class OmegaBridge(private val activity: MainActivity) {
         Events.emit("config", JSONObject(state()))
     }
 
+    /** Nabídka modelů cloudu pro výběr v UI (z posledního ověření) + ručně zvolený model. */
+    @JavascriptInterface
+    fun cloudModels(provider: String): String = JSONObject()
+        .put("models", JSONArray(omega.settings.freeList(provider)))
+        .put("pinned", omega.settings.freePinned(provider) ?: "")
+        .put("auto", omega.settings.freeAuto(provider) ?: cz.axiom.omega.core.llm.FreeCloud.provider(provider)?.preferred?.firstOrNull() ?: "")
+        .toString()
+
+    /** Ruční volba modelu cloudu ("" = automaticky nejlepší dostupný). */
+    @JavascriptInterface
+    fun setCloudModel(provider: String, model: String) {
+        if (cz.axiom.omega.core.llm.FreeCloud.provider(provider) == null) return
+        omega.settings.setFreePinned(provider, model.trim().takeIf { it.isNotEmpty() })
+        Events.emit("config", JSONObject(state()))
+        Events.note(if (model.isBlank()) "Model vybírám automaticky." else "Cloud bude odpovídat modelem ${model.substringAfterLast('/')}.")
+    }
+
     /** Ověří spojení krátkým dotazem a načte modely. */
     @JavascriptInterface
     fun testProvider(provider: String) = async {
@@ -308,8 +325,11 @@ class OmegaBridge(private val activity: MainActivity) {
                 val list = KimiEngine.listModels(p.base, omega.vault.read(provider) ?: error("Nejdřív ulož klíč ${p.name}."))
                 val best = cz.axiom.omega.core.llm.FreeCloud.pickModel(p, list)
                 omega.settings.setFreeModel(provider, best, cz.axiom.omega.core.llm.FreeCloud.pickModel(p, list, fast = true))
+                omega.settings.setFreeList(provider, cz.axiom.omega.core.llm.FreeCloud.usableModels(p, list))
+                // ručně zvolený model, který server už nenabízí → zpět na automatický výběr
+                omega.settings.freePinned(provider)?.let { pin -> if (list.isNotEmpty() && list.none { it.equals(pin, true) }) { omega.settings.setFreePinned(provider, null); Events.note("${p.name}: zvolený model $pin už není v nabídce – vybírám automaticky.") } }
                 Events.emit("config", JSONObject(state()))
-                Events.note("${p.name} funguje · odpovídat bude ${best.substringAfterLast('/')}")
+                Events.note("${p.name} funguje · odpovídat bude ${omega.settings.freeModel(provider)?.substringAfterLast('/') ?: best}")
                 return@async
             }
             else -> error("Neznámý poskytovatel.")

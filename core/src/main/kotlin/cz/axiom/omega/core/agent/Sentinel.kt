@@ -52,8 +52,38 @@ object Sentinel {
         return if (d != null && m != null && d in 1..31 && m in 1..12) When(year, d, m) else When(year)
     }
 
+    // RYCHLÉ SÍTO: bez slovesa „narodil, zemřel, založen…“ nebo životopisné závorky „(1939–2019)“, „(* 1950)“ není co ověřovat.
+    // String.contains (intrinsika) místo regexu s alternativami → 99 % odpovědí (výpočty, čas, převody) skončí za desítky ns.
+    private val KEYS = arrayOf("narodil", "zemřel", "umřel", "založen", "zřízen", "vznikl")
+    private val parenClaim = Regex("\\(\\s*\\*|\\d{4}\\s*[–—-]\\s*(?:†\\s*)?\\d")
+
+    /** Obsahuje text tvrzení, které Strážce umí ověřit? (bez hledání v knihovně) */
+    fun mayClaim(text: String): Boolean {
+        if (text.length < 10) return false
+        val claim = KEYS.any { text.contains(it) } || (text.indexOf('(') >= 0 && parenClaim.containsMatchIn(text))
+        return claim && anyYear.containsMatchIn(text)
+    }
+
+    // PAMĚŤ VÝSLEDKŮ: reflex ověřuje stejné uložené odpovědi opakovaně (i pro varianty otázky) → hledat jen jednou
+    private const val MEMO_MS = 10 * 60_000L
+    private val memo = object : LinkedHashMap<String, Pair<Long, List<Flag>>>(64, .75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Long, List<Flag>>>?) = size > 128
+    }
+
     fun check(answer: String, k: KnowledgeSource?, maxLookups: Int = 3): List<Flag> {
-        if (k == null || !anyYear.containsMatchIn(answer)) return emptyList()
+        if (k == null || !mayClaim(answer)) return emptyList()
+        val key = "${System.identityHashCode(k)}|$answer"
+        val now = System.currentTimeMillis()
+        synchronized(memo) { memo[key]?.let { (at, f) -> if (now - at < MEMO_MS) return f } }
+        val flags = verify(answer, k, maxLookups)
+        synchronized(memo) { memo[key] = now to flags }
+        return flags
+    }
+
+    /** Vyprázdní paměť výsledků (po stažení / smazání knihovny). */
+    fun reset() = synchronized(memo) { memo.clear() }
+
+    private fun verify(answer: String, k: KnowledgeSource, maxLookups: Int): List<Flag> {
         data class Claim(val name: String, val born: When?, val died: When?, val founded: String? = null)
         val claims = LinkedHashMap<String, Claim>()
         fun add(name: String, b: When?, d: When?, f: String? = null) {

@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       lib:
-        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs | wiki-pl"
+        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs"
         default: "wiki-cs"
 
 permissions:
@@ -30,7 +30,6 @@ jobs:
             wiki-cs) DS=wikimedia/wikipedia; CFG=20231101.cs ;;
             wiki-sk) DS=wikimedia/wikipedia; CFG=20231101.sk ;;
             wiki-simple) DS=wikimedia/wikipedia; CFG=20231101.simple ;;
-            wiki-pl) DS=wikimedia/wikipedia; CFG=20231101.pl ;;
             wikisource-cs) DS=wikimedia/wikisource; CFG=20231201.cs ;;
             *) echo "Neznámá knihovna $LIB"; exit 1 ;;
           esac

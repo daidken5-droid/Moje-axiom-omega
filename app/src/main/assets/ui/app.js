@@ -823,17 +823,34 @@ const FREE = [
 /** LEVNÉ PLACENÉ: jednotky dolarů měsíčně, silnější modely a vyšší limity. */
 const PAID = [
   ['deepseek', 'DeepSeek', 'Platíš jen spotřebu (kredit od 2 $). DeepSeek V3/V4 – špičková čeština, logika i kód za zlomek ceny. Servery v Číně: citlivá data jen s DLP štítem.', 'https://platform.deepseek.com/api_keys'],
-  ['chutes', 'Chutes', 'Kredit (platíš spotřebu), případně paušál – podle aktuální nabídky na chutes.ai/pricing. Modely Kimi, GLM, DeepSeek.', 'https://chutes.ai/app/api'],
+  ['chutes', 'Chutes', 'Kredit (platíš spotřebu). Modely Kimi, GLM, DeepSeek.', 'https://chutes.ai/app/api'],
 ];
+/** PAUŠÁL: pevná měsíční cena za výkonné open-source modely (Kimi K2, GLM, DeepSeek, Qwen) – jeden klíč. Ceny ověř na webu. */
+const FLAT = [
+  ['nanogpt', 'NanoGPT', 'Doporučeno: nejlevnější paušál (zhruba 12 $ měsíčně, ověř na webu) na stovky open-source modelů – DeepSeek, Kimi K2, GLM, Qwen. Uzavřené modely (GPT, Claude) se platí zvlášť.', 'https://nano-gpt.com/api'],
+  ['ollama', 'Ollama Cloud', 'Pro zhruba 20 $ měsíčně: velké modely (DeepSeek V3.1, Kimi K2, GLM, Qwen3 Coder, gpt-oss 120B) na serverech Ollama.', 'https://ollama.com/settings/keys'],
+  ['synthetic', 'Synthetic', 'Paušál zhruba od 20 $ měsíčně (limit zpráv na 5 h): DeepSeek, Kimi K2, GLM, Qwen. Soukromí: data neukládá.', 'https://synthetic.new'],
+];
+const CLOUDS = () => [...FREE, ...PAID, ...FLAT];
 function freeCloudHtml() {
   const st = S.settings || {}; const k = S.keys || {}; const fm = S.freeModels || {};
-  const all = [...FREE, ...PAID];
+  const all = CLOUDS();
   const on = all.filter(([id]) => k[id]);
-  const prov = ([id, nm, sub, url], open) => `<details class="x"${open ? ' open' : ''}><summary>${nm.toUpperCase()}${k[id] ? ' · ✓ ' + esc((fm[id] || '').split('/').pop()) : ''}</summary><div class="in" style="white-space:normal">
+  // VÝBĚR MODELU: nabídka z posledního ověření klíče; „Automaticky“ = nejsilnější dostupný (sám se opraví, když model zmizí)
+  const modelPick = id => {
+    const cm = J('cloudModels', id) || { models: [], pinned: '', auto: '' };
+    if (!cm.models.length) return `<p class="small muted" style="margin:8px 0 0">Klepni na Ověřit – načtu nabídku modelů a vybereš si.</p>`;
+    const short = m => esc(m.replace(/^hf:/, '').split('/').pop());
+    return `<label>Model</label><select data-cloud-model="${id}"><option value="">Automaticky · ${short(cm.auto || cm.models[0])}</option>${cm.models.map(m => `<option value="${esc(m)}"${m === cm.pinned ? ' selected' : ''}>${short(m)}</option>`).join('')}</select>`;
+  };
+  const prov = ([id, nm, sub, url], open) => `<details class="x"${open ? ' open' : ''}><summary>${nm.toUpperCase()}${k[id] ? ' · ✓ ' + esc((fm[id] || '').replace(/^hf:/, '').split('/').pop()) : ''}${st.cloudPrimary === id ? ' · HLAVNÍ' : ''}</summary><div class="in" style="white-space:normal">
       <p class="small muted" style="margin:0 0 6px">${sub}</p>
       <input type="password" id="key-${id}" autocomplete="off" placeholder="${k[id] ? 'Klíč uložen – vlož nový pro změnu' : 'API klíč'}">
       <div class="grid2" style="margin-top:8px"><button class="btn sm" data-save-key="${id}">Uložit</button><button class="btn sm" data-test="${id}">Ověřit</button></div>
+      ${k[id] ? modelPick(id) : ''}
       <button class="link" data-open="${url}">Získat klíč ↗</button></div></details>`;
+  const primary = on.length > 1 ? `<label>Hlavní cloud</label><select data-cloud-primary><option value="">Automaticky (podle priority)</option>${on.map(([id, nm]) => `<option value="${id}"${st.cloudPrimary === id ? ' selected' : ''}>${nm}</option>`).join('')}</select>
+    <p class="small muted" style="margin-top:6px">Hlavní cloud odpovídá vždy první, ostatní připojené jsou záloha při limitu nebo výpadku.</p>` : '';
   return card(`<div class="row" style="gap:12px"><span class="v-ic">∞</span><span class="grow"><b>Cloud</b>
       <small class="muted" style="display:block">${on.length ? 'Připojeno ' + on.length + '× · ' + on.map(x => x[1]).join(' · ') : 'Stačí jeden klíč – zdarma bez karty'}</small></span><span class="dot ${on.length ? 'on' : 'off'}"></span></div>
     <p class="small">Velký model na cizím serveru: rychlejší a přesnější než mozek v telefonu a telefon nenačítá nic do RAM. Víc klíčů = automatická záloha, když jeden server narazí na limit.</p>
@@ -841,9 +858,12 @@ function freeCloudHtml() {
     ${FREE.map((f, i) => prov(f, !on.length && i === 0)).join('')}
     <div class="sub">LEVNÉ · KREDIT OD PÁR DOLARŮ</div>
     ${PAID.map(f => prov(f, false)).join('')}
+    <div class="sub">PAUŠÁL · VÝKONNÉ MODELY ZA PEVNOU CENU</div>
+    ${FLAT.map(f => prov(f, false)).join('')}
+    ${primary}
     <label>Priorita</label>
     <div class="seg"><button data-setv="cloudPriority" data-val="speed" class="${st.cloudPriority !== 'quality' ? 'on' : ''}">Rychlost</button><button data-setv="cloudPriority" data-val="quality" class="${st.cloudPriority === 'quality' ? 'on' : ''}">Kvalita</button></div>
-    <p class="small muted" style="margin-top:6px">Rychlost = nejdřív Cerebras/Groq (stovky slov za sekundu). Kvalita = nejdřív placené silné modely (DeepSeek, Chutes), zdarma jako záloha.</p>
+    <p class="small muted" style="margin-top:6px">Rychlost = nejdřív Cerebras/Groq (stovky slov za sekundu). Kvalita = nejdřív placené silné modely (paušál, DeepSeek, Chutes), zdarma jako záloha.</p>
     <div class="toggle"><span>S internetem odpovídá cloud<small>Offline a v Air-gapu dál myslí telefon. Vypnuto = cloud jen když ho zvolíš.</small></span><label class="switch"><input type="checkbox" data-set="freeFirst" ${st.freeFirst !== false ? 'checked' : ''}><i></i></label></div>`);
 }
 
@@ -1440,7 +1460,7 @@ document.addEventListener('click', e => {
   if (ds.cloudRestore !== undefined) { if (confirm('Obnovit z cloudu? Přepíše současná data.')) call('cloudRestore'); return; }
   if (ds.kbImport !== undefined) { call('kbImport'); return; }
   if (ds.kbDel) { if (confirm('Smazat dokument?')) call('kbDelete', Number(ds.kbDel)); return; }
-  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; if ([...FREE, ...PAID].some(f => f[0] === ds.saveKey)) setTimeout(() => call('testProvider', ds.saveKey), 350); setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
+  if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; if (CLOUDS().some(f => f[0] === ds.saveKey)) setTimeout(() => call('testProvider', ds.saveKey), 350); setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
   if (ds.test) { toast('Ověřuji…'); call('testProvider', ds.test); return; }
   if (ds.setv) { const v = ds.val; configure({ [ds.setv]: /^\d+$/.test(v) ? Number(v) : v }); return; }
   if (ds.power) { configure({ power: ds.power }); S.settings = Object.assign({}, S.settings, { power: ds.power }); haptic(); toast('Výkon: ' + POWERS.find(p => p.id === ds.power).label + ' – ' + POWERS.find(p => p.id === ds.power).desc);
@@ -1490,6 +1510,8 @@ document.addEventListener('change', e => {
     refresh.brandKey = null; refresh(); toast(t.checked ? 'Technické detaily zapnuty.' : 'Technické detaily skryty.'); return;
   }
   if (t.dataset.reportText !== undefined) { reportSheet.text = t.checked; reportSheet(); return; }
+  if (t.dataset.cloudModel) { call('setCloudModel', t.dataset.cloudModel, t.value); return; }
+  if (t.dataset.cloudPrimary !== undefined) { configure({ cloudPrimary: t.value }); toast(t.value ? 'Hlavní cloud: ' + ((CLOUDS().find(c => c[0] === t.value) || [])[1] || t.value) : 'Pořadí cloudů podle priority.'); return; }
   if (t.dataset.set) configure({ [t.dataset.set]: t.checked });
   if (t.dataset.text) configure({ [t.dataset.text]: t.value });
   if (t.dataset.range) configure({ [t.dataset.range]: Number(t.value) });

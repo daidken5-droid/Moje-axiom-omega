@@ -170,8 +170,23 @@ class Settings(context: Context) {
         get() = p.getString("cloudPriority", "speed")!!
         set(v) = p.edit().putString("cloudPriority", if (v == "quality") "quality" else "speed").apply()
     /** Model vybraný z aktuální nabídky poskytovatele (po „Ověřit“), jinak první preferovaný. */
-    fun freeModel(provider: String, fast: Boolean = false): String? = p.getString("free.$provider${if (fast) ".fast" else ""}", null)
+    /** Model poskytovatele; ručně zvolený (připnutý) platí i pro rychlé dotazy – uživatel chce právě ten. */
+    fun freeModel(provider: String, fast: Boolean = false): String? =
+        freePinned(provider) ?: p.getString("free.$provider${if (fast) ".fast" else ""}", null)
+    /** Automatický výběr (po ověření klíče) – ruční volbu nepřepíše. */
     fun setFreeModel(provider: String, model: String, fast: String? = null) = p.edit().putString("free.$provider", model).apply { if (fast != null) putString("free.$provider.fast", fast) }.apply()
+    fun freeAuto(provider: String): String? = p.getString("free.$provider", null)
+    /** Ručně zvolený model (null = automaticky nejlepší dostupný). */
+    fun freePinned(provider: String): String? = p.getString("free.$provider.pin", null)?.takeIf { it.isNotBlank() }
+    fun setFreePinned(provider: String, model: String?) = p.edit().apply { if (model.isNullOrBlank()) remove("free.$provider.pin") else putString("free.$provider.pin", model) }.apply()
+    /** Poslední načtená nabídka modelů poskytovatele (pro výběr v UI bez dalšího dotazu na síť). */
+    fun freeList(provider: String): List<String> = p.getString("free.$provider.list", "")!!.split('\n').filter { it.isNotBlank() }
+    fun setFreeList(provider: String, models: List<String>) = p.edit().putString("free.$provider.list", models.joinToString("\n")).apply()
+
+    /** Hlavní cloud (id poskytovatele) – odpovídá první, ostatní jsou záloha; prázdné = podle priority. */
+    var cloudPrimary: String
+        get() = p.getString("cloudPrimary", "")!!
+        set(v) = p.edit().putString("cloudPrimary", v).apply()
 
     /** Služby Hugging Face (Inference Providers) – modely a přepínače. */
     var hfChat: Boolean
@@ -215,7 +230,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst).put("cloudPriority", cloudPriority)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst).put("cloudPriority", cloudPriority).put("cloudPrimary", cloudPrimary)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -236,6 +251,7 @@ class Settings(context: Context) {
         if (o.has("hfChat")) hfChat = o.getBoolean("hfChat")
         if (o.has("freeFirst")) freeFirst = o.getBoolean("freeFirst")
         if (o.has("cloudPriority")) cloudPriority = o.getString("cloudPriority")
+        if (o.has("cloudPrimary")) cloudPrimary = o.getString("cloudPrimary").takeIf { id -> id.isEmpty() || cz.axiom.omega.core.llm.FreeCloud.provider(id) != null } ?: ""
         if (o.has("hfVision")) hfVision = o.getBoolean("hfVision")
         for (k in listOf("hfChatModel", "hfVisionModel", "hfAsrModel", "hfImageModel")) if (o.has(k)) {
             val v = o.getString(k).also(::checkModelId)

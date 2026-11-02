@@ -71,11 +71,11 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
         return runCatching {
             // NO_LOCALIZED_COLLATORS: soubor je jen ke čtení, Android by jinak zkoušel zapsat android_metadata
             SQLiteDatabase.openDatabase(f.path, null, SQLiteDatabase.OPEN_READONLY or SQLiteDatabase.NO_LOCALIZED_COLLATORS)
-        }.getOrNull()?.also { prebuiltOpen[lib] = it }
+        }.getOrNull()?.also { prebuiltOpen[lib] = it; cz.axiom.omega.core.agent.Sentinel.reset() }
     }
 
     @Synchronized
-    fun closePrebuilt(lib: String) { prebuiltOpen.remove(lib)?.close() }
+    fun closePrebuilt(lib: String) { prebuiltOpen.remove(lib)?.close(); cz.axiom.omega.core.agent.Sentinel.reset() }
 
     private fun prebuiltArticles(lib: String): Int = runCatching {
         prebuilt(lib)?.rawQuery("SELECT offset FROM progress LIMIT 1", null)?.use { if (it.moveToFirst()) it.getInt(0) else 0 } ?: 0

@@ -72,10 +72,41 @@ object FreeCloud {
             fast = listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
             signup = "chutes.ai", paid = true, maxOut = 8192, contextChars = 120_000,
         ),
+        // ---- PAUŠÁL za open-source modely (Kimi, GLM, DeepSeek, Qwen) – jeden klíč, pevná měsíční cena
+        Provider(
+            "nanogpt", "NanoGPT", "https://nano-gpt.com/api/v1",
+            preferred = listOf("deepseek-ai/DeepSeek-V3.1-Terminus", "moonshotai/Kimi-K2-Instruct-0905", "zai-org/GLM-4.6", "deepseek-ai/DeepSeek-V3.1", "Qwen/Qwen3-235B-A22B-Instruct-2507", "openai/gpt-oss-120b"),
+            fast = listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+            signup = "nano-gpt.com", paid = true, maxOut = 8192, contextChars = 120_000,
+        ),
+        Provider(
+            "ollama", "Ollama Cloud", "https://ollama.com/v1",
+            preferred = listOf("deepseek-v3.1:671b", "kimi-k2:1t", "glm-4.6", "qwen3-coder:480b", "gpt-oss:120b"),
+            fast = listOf("gpt-oss:120b", "gpt-oss:20b"),
+            signup = "ollama.com/settings/keys", paid = true, maxOut = 8192, contextChars = 120_000,
+        ),
+        Provider(
+            "synthetic", "Synthetic", "https://api.synthetic.new/openai/v1",
+            preferred = listOf("hf:deepseek-ai/DeepSeek-V3.1-Terminus", "hf:moonshotai/Kimi-K2-Instruct-0905", "hf:zai-org/GLM-4.6", "hf:deepseek-ai/DeepSeek-V3.1", "hf:Qwen/Qwen3-235B-A22B-Instruct-2507", "hf:openai/gpt-oss-120b"),
+            fast = listOf("hf:openai/gpt-oss-120b"),
+            signup = "synthetic.new", paid = true, maxOut = 8192, contextChars = 120_000,
+        ),
     )
 
     /** Pořadí členů: „rychlost“ = nejdřív nejrychlejší servery zdarma, „kvalita“ = nejdřív placené silné modely. */
-    fun order(quality: Boolean): List<Provider> = if (quality) PROVIDERS.sortedByDescending { it.paid } else PROVIDERS
+    fun order(quality: Boolean, primary: String? = null): List<Provider> {
+        val base = if (quality) PROVIDERS.sortedByDescending { it.paid } else PROVIDERS
+        // HLAVNÍ CLOUD zvolený uživatelem jde vždy první, ostatní zůstávají jako záloha
+        return if (primary.isNullOrBlank()) base else base.sortedBy { if (it.id == primary) 0 else 1 }
+    }
+
+    /** Chatovací modely z nabídky poskytovatele pro výběr v UI: preferované první, pak podle síly; bez embeddingů, audia… */
+    fun usableModels(p: Provider, available: List<String>, limit: Int = 60): List<String> {
+        val usable = available.distinct().filter { !Regex("embed|whisper|tts|guard|vision|image|audio|rerank|moderat|dall-e|flux|sdxl").containsMatchIn(it.lowercase()) }
+        val pref = (p.preferred + p.fast).map { it.lowercase() }
+        return usable.sortedWith(compareBy<String> { m -> pref.indexOf(m.removePrefix("models/").lowercase()).let { if (it < 0) Int.MAX_VALUE else it } }
+            .thenByDescending { modelScore(it) }).take(limit)
+    }
 
     fun provider(id: String) = PROVIDERS.firstOrNull { it.id == id }
 

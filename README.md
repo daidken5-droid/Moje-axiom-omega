@@ -23,14 +23,31 @@ Beneš?“, „Která řeka je delší, Vltava nebo Labe?“, „Je Sněžka vy�
 | Knihovna | Obsah | Použití |
 |---|---|---|
 | Wikizdroje – české texty | 43 tis. textů: zákony a Ústava, historické listiny, Erben, Němcová, Neruda, Mácha… | podklad pro mozek |
-| Polská Wikipedie | 1,6 mil. článků (velká, ~7 GB) | podklad pro mozek |
 
 - Build pipeline (`build-library.yml`, `build-rag.yml`) teď umí libovolný dataset Wikimedia na Hugging Face.
-- Velká knihovna dostane víc RAG úloh (192).
-- Výsledky nesou svůj zdroj („Wikizdroje: Babička“, „Wikipedia PL: …“).
-- Odpovědím bez mozku a Strážci faktů věří **jen česká Wikipedie**, takže reflex nikdy neodpoví polsky ani úryvkem básně.
+- Výsledky nesou svůj zdroj („Wikizdroje: Babička“, „Wikipedia EN: …“).
+- Odpovědím bez mozku a Strážci faktů věří **jen česká Wikipedie**, takže reflex nikdy neodpoví anglicky ani úryvkem básně.
+
+**Volba cloudu a modelu:**
+- V Moduly → Cloud vybereš **hlavní cloud**, který odpovídá vždy první. Ostatní připojené jsou záloha při limitu nebo výpadku.
+- U každého poskytovatele si vybereš **konkrétní model** z nabídky, kterou server opravdu má (načte se při „Ověřit“).
+- „Automaticky“ znamená nejsilnější dostupný model.
+- Ručně zvolený model, který server přestane nabízet, se sám vrátí na automatický výběr.
+
+**Nové paušály s výkonnými modely (DeepSeek, Kimi K2, GLM, Qwen, gpt-oss 120B):**
+
+| Služba | Cena (orientačně, ověř na webu) | Poznámka |
+|---|---|---|
+| **NanoGPT** (doporučeno) | ~12 $/měsíc | open-source modely v předplatném, jeden klíč, OpenAI API |
+| Ollama Cloud | Pro ~20 $/měsíc | velké modely na serverech Ollama |
+| Synthetic | od ~20 $/měsíc | limit zpráv na 5 h, data neukládá |
 
 **Δ Strážce faktů v2:**
+- **Primárně pro režim bez mozku:**
+  - odpověď z paměti odpovědí nebo tabulek, kterou offline Wikipedie vyvrací, se nepoužije a smaže; odpoví Wikipedie,
+  - odpověď mozku, kterou Strážce vyvrátí, se do paměti odpovědí **vůbec neuloží**,
+  - rychlé síto (String.contains, bez regexu) přeskočí výpočty, čas a převody za desítky ns,
+  - paměť výsledků zajistí, že se stejná odpověď hledá v knihovně jen jednou.
 - Kontroluje i **celé datum** (stejný rok, jiný den → upozorní).
 - Kontroluje závorky typu „(* 1950)“ a „(14. 7. 1939 – 1. 10. 2019)“.
 - Kontroluje **rok založení** („Univerzita Karlova byla založena 1350“ → Wikipedie: 1348).

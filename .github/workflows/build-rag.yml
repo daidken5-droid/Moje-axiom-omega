@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       lib:
-        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs | wiki-pl"
+        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs"
         default: "wiki-cs"
       limit:
         description: "jen pro test: max. počet článků (0 = vše)"
@@ -52,7 +52,6 @@ jobs:
             wiki-cs) DS=wikimedia/wikipedia; CFG=20231101.cs ;;
             wiki-sk) DS=wikimedia/wikipedia; CFG=20231101.sk ;;
             wiki-simple) DS=wikimedia/wikipedia; CFG=20231101.simple ;;
-            wiki-pl) DS=wikimedia/wikipedia; CFG=20231101.pl ;;
             wikisource-cs) DS=wikimedia/wikisource; CFG=20231201.cs ;;
             *) echo "Neznámá knihovna $LIB"; exit 1 ;;
           esac
@@ -62,8 +61,6 @@ jobs:
           echo "TAG=library-$LIB-${CFG%%.*}" >> "$GITHUB_ENV"
           echo "LIMIT=${LIMIT:-0}" >> "$GITHUB_ENV"
           echo "limit=${LIMIT:-0}" >> "$GITHUB_OUTPUT"
-          # velká knihovna (1,6 mil. článků) → víc souběžných úloh, ať se každá vejde do časového limitu
-          if [ "$LIB" = "wiki-pl" ]; then echo "SHARDS=192" >> "$GITHUB_ENV"; SHARDS=192; fi
           # testovací běh (limit) stačí na pár úloh
           if [ "${LIMIT:-0}" != "0" ]; then echo "SHARDS=2" >> "$GITHUB_ENV"; SHARDS=2; fi
           python3 -c "import json; print('shards=' + json.dumps(list(range(int('$SHARDS')))))" >> "$GITHUB_OUTPUT"

@@ -23,7 +23,7 @@ data class LibrarySpec(
     /**
      * Jak se zdroj jmenuje v odpovědích („Wikipedie: Brno“, „Wikizdroje: Babička“). Jen česká „Wikipedie“ je
      * referenční – jí věří odpovědi BEZ MOZKU (WikiReflex) a Strážce faktů (Δ). Jiné jazyky a Wikizdroje slouží
-     * jen jako podklad pro mozek (reflex by jinak odpověděl polsky nebo úryvkem básně).
+     * jen jako podklad pro mozek (reflex by jinak odpověděl anglicky nebo úryvkem básně).
      */
     val source: String = "Wikipedie",
 )
@@ -45,10 +45,6 @@ object Libraries {
         LibrarySpec(
             "wikisource-cs", "Wikizdroje – české texty", "43 tisíc volných textů: zákony a ústava, historické listiny, básně a próza klasiků (Erben, Němcová, Neruda, Mácha…).",
             "wikimedia/wikisource", "20231201.cs", "train", 42_735, 0.6, "cs", "CC BY-SA 4.0", 0.15, source = "Wikizdroje",
-        ),
-        LibrarySpec(
-            "wiki-pl", "Polská Wikipedie – celá", "1,6 milionu článků v polštině – nejbližší velká slovanská encyklopedie (velká, ~7 GB).",
-            "wikimedia/wikipedia", "20231101.pl", "train", 1_587_721, 7.0, "pl", "CC BY-SA 4.0", 2.8, source = "Wikipedia PL",
         ),
     )
 

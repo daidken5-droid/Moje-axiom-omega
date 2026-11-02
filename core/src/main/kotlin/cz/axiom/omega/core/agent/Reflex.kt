@@ -164,6 +164,11 @@ object Reflex {
         val threshold: Int = 85,
         /** definice z knihovny smí odpovídat (Flash vždy, Auto jen při velmi jisté shodě) */
         val definitions: Boolean = true,
+        /**
+         * Δ STRÁŽCE BEZ MOZKU: odpověď z paměti / tabulek, kterou offline Wikipedie vyvrací, se NEPOUŽIJE
+         * (dotaz převezme další reflex nebo mozek) a aplikace ji může z paměti odpovědí smazat.
+         */
+        val onRejected: (Instant.Answer, List<Sentinel.Flag>) -> Unit = { _, _ -> },
     )
 
     private val compound = Regex("\\S+\\s+\\S+[\\s,]+(a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
@@ -198,6 +203,22 @@ object Reflex {
                 WikiReflex.answer(prompt, c.instant.knowledge)?.let { yield(it) }
             }
         }
-        return candidates.firstOrNull { it.confidence >= c.threshold }
+        return candidates.firstOrNull { it.confidence >= c.threshold && verified(it, c) }
     }
+
+    /**
+     * Ověří tvrzení reflexní odpovědi proti offline Wikipedii. Odpovědi přímo z Wikipedie (WikiReflex, srovnávač)
+     * se neověřují samy proti sobě; výpočty a čas neprojdou rychlým sítem (mikrosekundy, žádné hledání).
+     */
+    private fun verified(a: Instant.Answer, c: Ctx): Boolean {
+        val k = c.instant.knowledge ?: return true
+        if (a.kind.startsWith("Wikipedie") || a.kind.startsWith("Δ srovnání") || !Sentinel.mayClaim(a.text)) return true
+        val flags = runCatching { Sentinel.check(a.text, k) }.getOrDefault(emptyList())
+        if (flags.isEmpty()) return true
+        runCatching { c.onRejected(a, flags) }
+        return false
+    }
+
+    /** Pochází odpověď z paměti odpovědí (dá se smazat)? */
+    fun fromCache(a: Instant.Answer) = a.kind == "ověřená odpověď (✓)" || a.kind == "dřívější jistá odpověď"
 }

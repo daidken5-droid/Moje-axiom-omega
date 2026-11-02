@@ -458,8 +458,13 @@ class OmegaService : Service() {
                 // milníky učení se už neukazují jako vyskakovací zpráva (rozptylovaly) – jsou ve Vědomí
 
             }
+            // Δ STRÁŽCE FAKTŮ: ověření odpovědi proti offline Wikipedii (data narození/úmrtí, vznik) – bez internetu, ms.
+            // Běží PŘED uložením do paměti odpovědí: vyvrácená odpověď se nikdy nestane odpovědí „bez mozku“.
+            // úklid artefaktů modelů (citační značky gpt-oss 【4】, zbytky značek sebereflexe)
+            val clean = cz.axiom.omega.core.agent.Conversation.clean(answer)
+            val deltaFlags = runCatching { cz.axiom.omega.core.agent.Sentinel.check(clean, omega.quickKnowledge()) }.getOrDefault(emptyList())
             // PAMĚŤ ODPOVĚDÍ: jistou, nadčasovou odpověď si uložit → příště stejná otázka bez mozku
-            runCatching {
+            if (deltaFlags.isEmpty()) runCatching {
                 // mozek v telefonu nevrací číselnou jistotu → uložit s 80 (použije se jen u téměř stejné otázky)
                 val c = meta.optInt("confidence", -1).takeIf { it >= 0 } ?: if (meta.optBoolean("private")) 80 else -1
                 if (c >= 80 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && text.length <= 200 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
@@ -467,13 +472,7 @@ class OmegaService : Service() {
             }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
-            // úklid artefaktů modelů (citační značky gpt-oss 【4】, zbytky značek sebereflexe)
-            val clean = cz.axiom.omega.core.agent.Conversation.clean(answer)
-            // Δ STRÁŽCE FAKTŮ: ověření odpovědi proti offline Wikipedii (data narození/úmrtí) – bez internetu, ms
-            runCatching {
-                val flags = cz.axiom.omega.core.agent.Sentinel.check(clean, omega.quickKnowledge())
-                if (flags.isNotEmpty()) meta.put("delta", JSONArray().apply { flags.forEach { put(JSONObject().put("text", it.text()).put("title", it.title)) } })
-            }
+            if (deltaFlags.isNotEmpty()) meta.put("delta", JSONArray().apply { deltaFlags.forEach { put(JSONObject().put("text", it.text()).put("title", it.title)) } })
             val id = omega.db.addMessage(threadId, "assistant", clean, meta)
             runCatching {
                 val cg = omega.cognition
@@ -542,6 +541,8 @@ class OmegaService : Service() {
             cz.axiom.omega.core.agent.Reflex.answer(text, cz.axiom.omega.core.agent.Reflex.Ctx(
                 instant = ictx, memories = omega.db.all(), cache = omega.db.answers(),
                 threshold = if (flash) 70 else 85, definitions = true,
+                // Δ STRÁŽCE BEZ MOZKU: uložená odpověď, kterou offline Wikipedie vyvrací, se nepoužije a smaže
+                onRejected = { bad, _ -> if (cz.axiom.omega.core.agent.Reflex.fromCache(bad)) { omega.db.forgetMatching(text); Events.note("Δ Uložená odpověď nesouhlasila s Wikipedií – smazal jsem ji a odpovím znovu.") } },
             ))
         }.getOrNull() ?: return false
         val ms = System.currentTimeMillis() - started
