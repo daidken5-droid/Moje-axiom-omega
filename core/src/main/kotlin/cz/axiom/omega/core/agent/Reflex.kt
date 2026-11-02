@@ -150,6 +150,7 @@ object Reflex {
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
         val candidates = sequence {
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
+            Facts.answer(prompt, c.today)?.let { yield(it) }
             calendar(prompt, c.today)?.let { yield(it) }
             recall(prompt, c.memories)?.let { yield(it) }
             cached(prompt, c.cache)?.let { yield(it) }

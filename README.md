@@ -8,6 +8,20 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.7 – offline databáze faktů (odpovědi bez mozku)
+
+Nový reflex `core/agent/Facts.kt` s kurátorovanými daty v `core/src/main/resources/facts/` – odpovídá
+okamžitě, offline a bez mozku (jistota 97 %), rozumí českému skloňování:
+- **Jmeniny** – celý občanský kalendář (366 dní): „Kdo má dnes/zítra svátek?“, „Kdo má svátek 24. 12.?“,
+  „Kdy má svátek Jana?“, „Kdy slaví Petr?“ (i se dnem v týdnu a počtem dní do svátku).
+- **Státní svátky ČR** včetně pohyblivých **Velikonoc** (výpočet pro libovolný rok): „Kdy jsou Velikonoce 2027?“,
+  „Je dnes státní svátek?“, „Kdy je příští státní svátek?“, seznam svátků roku.
+- **Hlavní města všech 195 států** a kontinent: „Jaké je hlavní město Německa?“, „Praha je hlavní město čeho?“.
+- **Všech 118 chemických prvků**: „Jaká je značka zlata?“, „Co je Fe za prvek?“, „prvek číslo 92“.
+- **Kraje ČR** a krajská města, **planety**, **fyzikální konstanty**, **předpony SI**, **tísňová čísla**.
+- **Převodníky**: římské číslice (oběma směry), Morseova abeceda (oběma směry), hláskování NATO, přestupný rok.
+- 7 testových sad včetně ochrany proti falešným shodám („Proč slaví lidé Vánoce?“ jde mozku).
+
 ## Novinky 6.6 – AVIOR jako rozšířené ovládání telefonu (i s rootem)
 
 Povely v češtině – napsané nebo vyslovené (i přes asistenta / dlaždici) – se provedou hned, **bez mozku**:
