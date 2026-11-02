@@ -69,8 +69,29 @@ object Web {
     fun fetchText(url: String, maxChars: Int = 12_000): String {
         val (type, body) = get(url)
         val title = Regex("(?is)<title[^>]*>(.*?)</title>").find(body)?.groupValues?.get(1)?.let { decodeEntities(it).trim() }
-        val text = if (type.contains("html") || body.trimStart().startsWith("<")) htmlToText(body) else body
+        val text = if (type.contains("html") || body.trimStart().startsWith("<")) mainContent(body) else body
         return TextUtil.clip((title?.let { "$it\n\n" } ?: "") + text, maxChars)
+    }
+
+    /**
+     * REŽIM ČTENÍ: z novinové stránky vytáhne SAMOTNÝ ČLÁNEK, ne menu a seznam dalších titulků.
+     * Dřív se převedla celá stránka a agent dostal prvních pár tisíc znaků = navigaci a nadpisy jiných článků.
+     * Pořadí: articleBody ze strukturovaných dat (JSON-LD, mají ho ČT24, iROZHLAS, Novinky…) → <article> → <main>
+     * → odstavce <p> delší než 60 znaků. Když nic z toho nedá aspoň 400 znaků, vrátí se celý text stránky.
+     */
+    fun mainContent(html: String): String {
+        Regex("(?s)\"articleBody\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").findAll(html).map { m ->
+            runCatching { (json.parseToJsonElement("\"" + m.groupValues[1] + "\"") as JsonPrimitive).content }.getOrNull().orEmpty()
+        }.maxByOrNull { it.length }?.let { b -> decodeEntities(Regex("<[^>]+>").replace(b, " ")).trim() }?.takeIf { it.length >= 400 }?.let { return it }
+        val clean = html.replace(Regex("(?is)<(script|style|noscript|svg|nav|footer|header|form|iframe|aside|figure)[^>]*>.*?</\\1>"), " ")
+        fun paragraphs(fragment: String) = Regex("(?is)<(p|h2|h3|li)[^>]*>(.*?)</\\1>").findAll(fragment)
+            .map { decodeEntities(it.groupValues[2].replace(Regex("<[^>]+>"), " ")).let(TextUtil::normalize) }
+            .filter { it.length >= 60 || (it.length >= 20 && !it.contains("›")) && it.split(' ').size >= 5 }.joinToString("\n\n")
+        val blocks = Regex("(?is)<article[^>]*>(.*?)</article>").findAll(clean).map { it.groupValues[1] }.toList() +
+            listOfNotNull(Regex("(?is)<main[^>]*>(.*?)</main>").find(clean)?.groupValues?.get(1))
+        blocks.map(::paragraphs).maxByOrNull { it.length }?.takeIf { it.length >= 400 }?.let { return it }
+        paragraphs(clean).takeIf { it.length >= 400 }?.let { return it }
+        return htmlToText(html)
     }
 
     data class Hit(val title: String, val url: String, val snippet: String)

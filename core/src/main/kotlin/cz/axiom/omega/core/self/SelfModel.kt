@@ -17,7 +17,7 @@ import kotlin.math.ln
 object Identity {
     const val NAME = "AVIOR"
     const val CODENAME = "AVIOR"
-    const val VERSION = "8.7.0"
+    const val VERSION = "8.8.0"
     const val LINEAGE = "AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.x → AVIOR 4.0 (učí se z každé otázky)"
 
     val principles = listOf(
@@ -173,7 +173,8 @@ object Reflection {
 
     fun parse(text: String): Parsed {
         val m = markerRx.find(text) ?: return Parsed(text.trim(), null, null)
-        val block = m.groupValues[1]
+        // zbytek koncové značky (⟨/SEBEREFLEXE⟩) by skončil v poučení
+        val block = m.groupValues[1].replace(Regex("⟨/SEBEREFLEXE⟩|</SEBEREFLEXE>|\\[/SEBEREFLEXE]"), "")
         val conf = confRx.find(block)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(0, 100)
         val lesson = lessonRx.find(block)?.groupValues?.get(1)?.trim()?.trimEnd('.')
             ?.takeIf { it.length in 8..300 && !it.lowercase().startsWith("žádné") && !it.lowercase().startsWith("zadne") }

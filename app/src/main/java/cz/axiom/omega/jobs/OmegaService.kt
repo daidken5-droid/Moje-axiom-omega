@@ -255,11 +255,22 @@ class OmegaService : Service() {
         Events.emit("state", job.toJson())
         omega.refreshRatesIfStale()
 
-        val history = omega.db.messages(threadId, 40).let { arr ->
+        val fullHistory = omega.db.messages(threadId, 40).let { arr ->
             (0 until arr.length()).map { arr.getJSONObject(it) }
                 .filter { it.getString("role") in setOf("user", "assistant") && it.optJSONObject("meta")?.optBoolean("error") != true }
                 .map { ChatMessage(if (it.getString("role") == "user") Role.USER else Role.ASSISTANT, it.getString("content")) }
         }.dropLast(1) // poslední je právě odeslaný dotaz
+        val prevQ = fullHistory.lastOrNull { it.role == Role.USER }?.content
+        val prevA = fullHistory.lastOrNull { it.role == Role.ASSISTANT }?.content
+        // OPRAVA OD UŽIVATELE („Špatně, hraje to Petr Rychlý“) → špatnou odpověď zapomenout a opravu si zapamatovat
+        if (prevQ != null && cz.axiom.omega.core.agent.Conversation.isCorrection(text)) runCatching {
+            omega.db.forgetMatching(prevQ)
+            omega.db.remember(cz.axiom.omega.core.self.MemoryItem(kind = cz.axiom.omega.core.self.MemoryKind.FACT,
+                text = cz.axiom.omega.core.agent.Conversation.correctionMemory(prevQ, text), weight = 0.95))
+        }
+        // MALÝ MOZEK V TELEFONU: nová otázka na jiné téma → bez staré výměny (malý model ji jinak zkopíroval)
+        // a s kratším zadáním (rychlejší čtení); navazující otázky a cloud dostávají historii dál
+        val history = if (device.local && cz.axiom.omega.core.agent.Conversation.standalone(text, prevQ)) emptyList() else fullHistory
 
         val s = omega.settings
         var lastEmit = 0L
@@ -391,6 +402,12 @@ class OmegaService : Service() {
                         )
                         if ((r2.confidence ?: 0) >= (r.confidence ?: 0)) { r = r2; escalatedTo = up }
                     }
+                    // OZVĚNA: mozek v telefonu zopakoval minulou odpověď na jinou otázku → znovu bez historie
+                    if (engine.kind == EngineKind.LOCAL && history.isNotEmpty() && cz.axiom.omega.core.agent.Conversation.isEcho(r.answer, prevA, text, prevQ)) {
+                        listener.onPhase("Odpověď zopakovala minulou – ptám se znovu bez historie")
+                        job.partial.setLength(0); job.reasoning.setLength(0)
+                        r = orch.run(req(engine).copy(history = emptyList()), engine, cancel, listener)
+                    }
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason + (failover?.let { " · cloud selhal ($it) → telefon" } ?: "")); answer = r.answer
                     (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it.put("loadMs", loadMs).put("knowledgeMs", orch.knowledgeMillis)); omega.rememberSpeed(it.optDouble("writeTps")) }
@@ -450,13 +467,15 @@ class OmegaService : Service() {
             }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
-            val id = omega.db.addMessage(threadId, "assistant", answer, meta)
+            // úklid artefaktů modelů (citační značky gpt-oss 【4】, zbytky značek sebereflexe)
+            val clean = cz.axiom.omega.core.agent.Conversation.clean(answer)
+            val id = omega.db.addMessage(threadId, "assistant", clean, meta)
             runCatching {
                 val cg = omega.cognition
                 cz.axiom.omega.widget.AviorWidget.publish(this, text, answer,
                     "${cg.totalQuestions()} otázek · ${plan.power.label}" + (meta.optString("variant").takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""))
             }
-            Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", answer).put("meta", meta))
+            Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", clean).put("meta", meta))
         } catch (e: CancelledException) {
             val partial = job.partial.toString().trim()
             if (partial.isNotEmpty()) {

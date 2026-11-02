@@ -262,6 +262,9 @@ object QuestionNorm {
         rx("^kolik (?:ma|je v) (nato|eu|evropska unie|osn) (clenu|statu|zemi|clenskych statu)$").find(f)?.let { return "kolik ${it.groupValues[2].substringBefore(' ')} ma ${it.groupValues[1]}" }
         f = f.replace(rx("^kdy jsme vstoupili do "), "kdy vstoupila cr do ").replace(rx("^kdy cesko vstoupilo do "), "kdy vstoupila cr do ")
         f = f.replace(rx("^(vyznam|co znamena) zkratk[ay] "), "co znamena ").replace(rx("^co je zkratka "), "co znamena ")
+        // holá fráze bez otázky („Prezident České republiky“, „premiér“, „hlavní město Polska“) → otázka
+        rx("^(prezident|prezidentka|premier|premierka|predseda vlady|kancler|kral|kralovna|papez|generalni tajemnik)( .{0,40})?$").find(f)?.let { return "kdo je ${it.value}" }
+        rx("^(hlavni mesto|mena|rozloha|pocet obyvatel|nejvyssi hora|nejdelsi reka) .{2,40}$").find(f)?.let { if (!f.startsWith("jak")) return if (f.startsWith("hlavni")) "jake je ${it.value}" else "jaka je ${it.value}" }
         // identita a náhoda
         f = f.replace(rx("^(jsi|ty jsi|jsi ty) (ai|umela inteligence|robot|chatbot|bot|clovek)$"), "kdo jsi")
         f = f.replace(rx("^(vyber|vylosuj|rekni|dej mi) (nahodne )?cislo od "), "nahodne cislo od ")

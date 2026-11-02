@@ -230,7 +230,8 @@ class ActiveAgent(
             // FIREWALL: web, soubory a nástroje můžou obsahovat skryté „pokyny pro AI“ → zneškodnit dřív, než je model uvidí
             val guarded = cz.axiom.omega.core.security.InjectionGuard.scan(observation)
             if (guarded.suspicious) listener.onPhase("Firewall: zneškodněna podezřelá instrukce ve výstupu ${call.first} (${guarded.hits.joinToString()})")
-            val obs = TextUtil.clip(guarded.text, if (local) 1_500 else 6_000)
+            // cloud: celý článek (režim čtení v Web.mainContent) – dřív se vešlo jen ~6 000 znaků = často jen úvod
+            val obs = TextUtil.clip(guarded.text, if (local) 1_500 else 10_000)
             val step = AgentStep(i, parsed.thought, call.first, call.second.toString(), obs, System.currentTimeMillis() - t0)
             steps += step
             listener.onStep(step)

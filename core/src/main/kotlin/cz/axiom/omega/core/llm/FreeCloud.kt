@@ -88,7 +88,20 @@ object FreeCloud {
         if (available.isEmpty()) return wanted.first()
         val norm = available.associateBy { it.removePrefix("models/").lowercase() }
         wanted.firstOrNull { it.lowercase() in norm }?.let { return norm.getValue(it.lowercase()) }
-        return available.firstOrNull(p.anyFree) ?: available.firstOrNull { !Regex("embed|whisper|tts|guard|vision|image|audio").containsMatchIn(it.lowercase()) } ?: wanted.first()
+        // nic z preferencí → nejsilnější obecný model z nabídky (dřív první v abecedě – i malý model na kód)
+        val usable = available.filter { !Regex("embed|whisper|tts|guard|vision|image|audio|rerank|moderat").containsMatchIn(it.lowercase()) }
+        val pool = usable.filter(p.anyFree).ifEmpty { usable }
+        return pool.maxByOrNull { modelScore(it) } ?: wanted.first()
+    }
+
+    /** Odhad síly obecného chatovacího modelu z názvu: velikost (B), bez specializací (kód, mini, vision). */
+    fun modelScore(id: String): Double {
+        val m = id.lowercase()
+        val size = Regex("(\\d+(?:\\.\\d+)?)b\\b").findAll(m).mapNotNull { it.groupValues[1].toDoubleOrNull() }.maxOrNull() ?: 20.0
+        var s = kotlin.math.ln(size + 1)
+        if (Regex("code|coder|math|mini|small|tiny|nano|lite|vl\\b|-vision").containsMatchIn(m)) s -= 2.0
+        if (Regex("instruct|chat|-it\\b|gpt-oss|deepseek|qwen|llama|kimi|glm").containsMatchIn(m)) s += 0.5
+        return s
     }
 
     /** gpt-oss a Qwen 3 přijímají reasoning_effort low|medium|high; ostatní ho ignorují nebo odmítnou → neposílat. */

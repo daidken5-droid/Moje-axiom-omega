@@ -8,6 +8,27 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.8 – opravy podle reportů z reálného používání
+
+- **Malý mozek zopakoval minulou odpověď:** „Prezident České republiky“ po otázce na Bílou horu dostal znovu
+  Bílou horu.
+  - Nová otázka na jiné téma teď jde mozku v telefonu **bez staré výměny**. Navazující otázky („a kdo ji vyhrál?“,
+    „proč?“) a cloud historii dostávají dál.
+  - **Pojistka proti ozvěně:** když mozek i tak vrátí skoro stejnou odpověď, AVIOR se zeptá znovu bez historie.
+  - Kratší zadání přineslo i rychlejší čtení (v reportu 33 s ze 38 s padlo na čtení 1 435 tokenů).
+- **Holé fráze bez otázky:** „Prezident České republiky“, „premiér“, „hlavní město Polska“ odpoví reflex (0,04 s),
+  ne mozek.
+- **Oprava od uživatele** („Špatně, hraje to Petr Rychlý“, „Ne, …“, „Mýlíš se…“): špatná odpověď se zapomene
+  i v paměti odpovědí. Oprava se uloží jako fakt do paměti, takže příště ji uvidí i mozek.
+- **Čtení celých článků:** agent dřív z novinové stránky dostal menu a titulky jiných článků. Nový režim čtení
+  (`Web.mainContent`) bere text článku v tomto pořadí: strukturovaná data (articleBody), `<article>`, `<main>`,
+  odstavce. Agent v cloudu vidí až 10 000 znaků článku.
+- **Úklid odpovědí:** citační značky modelu gpt-oss (`【4】`, `【zdroj…】`) a zbytky značky sebereflexe
+  (`⟨/SEBEREFLEXE⟩` v poučení) zmizí.
+- **OpenRouter zdarma:** když v nabídce není nic z preferencí, vybere nejsilnější obecný model podle velikosti
+  (dřív první v abecedě, např. malý model na kód).
+- **Chutes:** text v aplikaci odpovídá aktuální nabídce (kredit, případně paušál).
+
 ## Novinky 8.7 – chyby z běžného používání
 
 Hledání chyb očima běžného uživatele: správnost odpovědí (ne jen „něco odpověděl“) a typické toky v aplikaci.
