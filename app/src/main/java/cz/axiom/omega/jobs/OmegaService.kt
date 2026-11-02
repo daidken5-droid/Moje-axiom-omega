@@ -132,7 +132,8 @@ class OmegaService : Service() {
                 }
             } catch (e: Throwable) {
                 job.phase = "Chyba"
-                Events.emit("error", JSONObject().put("message", e.message ?: e.javaClass.simpleName).put("lane", lane.name.lowercase()))
+                Events.emit("error", JSONObject().put("message", e.message ?: e.javaClass.simpleName).put("lane", lane.name.lowercase())
+                    .put("threadId", intent.getLongExtra("threadId", 0)))
             } finally {
                 job.busy = false
                 if (bg) bgToken = null else askToken = null
@@ -259,7 +260,8 @@ class OmegaService : Service() {
                 job.pass = pass; job.passes = totalPasses
                 if (delta.reasoning) job.reasoning.append(delta.text) else job.partial.append(delta.text)
                 val now = System.currentTimeMillis()
-                if (now - lastEmit > 80) {
+                // dlouhé odpovědi (cloud píše stovky tokenů/s) → řidší snímky: každý nese celý text přes most do WebView
+                if (now - lastEmit > 80 + job.partial.length / 150) {
                     lastEmit = now
                     Events.emit("stream", JSONObject().put("pass", pass).put("passes", totalPasses)
                         .put("text", job.partial.toString()).put("reasoning", job.reasoning.toString().takeLast(2000)))
@@ -392,9 +394,8 @@ class OmegaService : Service() {
                 val webTools = setOf("web_search", "fetch_url", "wiki_search", "hf_search", "http_audit", "dns", "subdomains", "rdap", "vulns")
                 val steps = meta.optJSONArray("steps")
                 val usedWeb = steps != null && (0 until steps.length()).any { steps.getJSONObject(it).optString("tool") in webTools }
-                val localBrain = route.engine == "local" || (route.engine != "node" && route.engine != "server" && route.engine != "kimi" &&
-                    route.engine != "claude" && route.engine != "hf" && "local" in engines) &&
-                    !(route.engine == "turbo" && omega.turboReady())
+                // výčet POVOLENÝCH (ne zakázaných) cest: nový cloud se tak nikdy omylem neoznačí jako „v telefonu“
+                val localBrain = route.engine == "local" || (route.engine == "turbo" && !omega.turboReady() && "local" in engines)
                 meta.put("private", localBrain && !usedWeb && (meta.optJSONArray("sources")?.length() ?: 0) == 0 && route.mode != Router.Mode.COUNCIL)
             }
             // UČEBNÍ SMYČKA: kalibrace jistoty, kompetence, vlastní poznatek, otevřené otázky, milníky

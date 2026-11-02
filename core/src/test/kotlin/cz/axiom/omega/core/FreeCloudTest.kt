@@ -83,5 +83,40 @@ class FreeCloudTest {
         assertEquals("deepseek-chat", FreeCloud.pickModel(FreeCloud.provider("deepseek")!!, listOf("deepseek-reasoner", "deepseek-chat")))
     }
 
+    @Test fun capsMaxTokensPerProvider() {
+        val seen = mutableListOf<String>()
+        val base = serve(200, """{"content":"ok"}""", seen = seen)
+        val p = FreeCloud.provider("deepseek")!!.copy(base = base)
+        FreeCloudEngine(listOf(FreeCloud.Member(p, "key-12345678", "deepseek-chat")))
+            .generate(listOf(ChatMessage(Role.USER, "x")), GenOptions(maxTokens = 32_000), CancelToken()) {}
+        assertTrue(seen.single().contains("\"max_tokens\":8192"), seen.single())
+    }
+
+    @Test fun healsUnknownModelFromModelList() {
+        val healed = mutableListOf<String>()
+        val s = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        s.createContext("/v1/chat/completions") { ex ->
+            val body = ex.requestBody.readBytes().decodeToString()
+            val ok = body.contains("\"model\":\"good-model\"")
+            val payload = if (ok) "data: {\"choices\":[{\"delta\":{\"content\":\"Opraveno\"}}]}\n\ndata: [DONE]\n\n".toByteArray() else """{"error":{"message":"model not found"}}""".toByteArray()
+            ex.sendResponseHeaders(if (ok) 200 else 404, payload.size.toLong()); ex.responseBody.use { it.write(payload) }
+        }
+        s.start(); servers += s
+        val base = "http://127.0.0.1:${s.address.port}/v1"
+        val m = FreeCloud.Member(FreeCloud.Provider("x", "X", base, listOf("gone-model"), signup = ""), "key-12345678", "gone-model")
+        val eng = FreeCloudEngine(listOf(m), listModels = { _, _ -> listOf("good-model") }, onModel = { id, model -> healed += "$id=$model" })
+        assertEquals("Opraveno", eng.generate(listOf(ChatMessage(Role.USER, "x")), GenOptions(), CancelToken()) {}.text)
+        assertEquals(listOf("x=good-model"), healed)
+    }
+
+    @Test fun trimsOldHistoryToProviderWindow() {
+        val seen = mutableListOf<String>()
+        val base = serve(200, """{"content":"ok"}""", seen = seen)
+        val p = FreeCloud.Provider("x", "X", base, listOf("m"), signup = "", contextChars = 5_000)
+        val msgs = listOf(ChatMessage(Role.SYSTEM, "S")) + (1..10).map { ChatMessage(if (it % 2 == 0) Role.ASSISTANT else Role.USER, "h$it " + "x".repeat(1_000)) } + ChatMessage(Role.USER, "POSLEDNI")
+        FreeCloudEngine(listOf(FreeCloud.Member(p, "key-12345678", "m"))).generate(msgs, GenOptions(), CancelToken()) {}
+        assertTrue(seen.single().length < 7_000); assertTrue(seen.single().contains("POSLEDNI")); assertTrue(!seen.single().contains("h1 "))
+    }
+
     @Test fun needsAtLeastOneKey() { assertFailsWith<IllegalArgumentException> { FreeCloudEngine(emptyList()) } }
 }

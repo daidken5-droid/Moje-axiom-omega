@@ -167,7 +167,7 @@ class Settings(context: Context) {
         set(v) = p.edit().putString("cloudPriority", if (v == "quality") "quality" else "speed").apply()
     /** Model vybraný z aktuální nabídky poskytovatele (po „Ověřit“), jinak první preferovaný. */
     fun freeModel(provider: String, fast: Boolean = false): String? = p.getString("free.$provider${if (fast) ".fast" else ""}", null)
-    fun setFreeModel(provider: String, model: String, fast: String) = p.edit().putString("free.$provider", model).putString("free.$provider.fast", fast).apply()
+    fun setFreeModel(provider: String, model: String, fast: String? = null) = p.edit().putString("free.$provider", model).apply { if (fast != null) putString("free.$provider.fast", fast) }.apply()
 
     /** Služby Hugging Face (Inference Providers) – modely a přepínače. */
     var hfChat: Boolean

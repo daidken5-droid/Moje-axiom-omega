@@ -1089,14 +1089,14 @@ let pendingPhone = null;
 function closeSheet() {
   $('#sheet').innerHTML = '';
   // zavřené potvrzení povelu = zrušeno (nic se neprovede)
-  if (pendingPhone) { const p = pendingPhone; pendingPhone = null; call('phoneRun', p.threadId, JSON.stringify(p.cmd), false); }
+  if (pendingPhone) { const p = pendingPhone; pendingPhone = null; call('phoneRun', p.threadId, p.token || '', false); }
 }
 
 /** Potvrzení povelu pro telefon (root / nevratná akce). */
 function phoneConfirmSheet(d) {
   pendingPhone = d;
   sheet(`<div class="eyebrow" style="margin-top:4px">${d.root ? 'ROOT · POTVRZENÍ' : 'POTVRZENÍ AKCE'}</div>
-    <p style="font-size:1.05rem"><b>${esc(d.label)}</b></p>
+    <p style="font-size:1.05rem"><b>${esc(d.label)}</b></p>${d.detail ? `<pre class="report" style="max-height:120px">${esc(d.detail)}</pre>` : ''}
     <p class="small muted">${d.root ? 'Příkaz poběží s právy superuživatele. Proveď jen to, čemu rozumíš – root může změnit systém.' : 'Akce se provede až po potvrzení.'}</p>
     <div class="grid2" style="margin-top:12px"><button class="btn" data-phone-no>Zrušit</button><button class="btn ${d.root ? 'danger' : 'primary'}" data-phone-ok>Provést</button></div>`);
 }
@@ -1294,7 +1294,7 @@ document.addEventListener('click', e => {
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
   if (ds.tipOff !== undefined) { try { localStorage.setItem('speedTipOff', '1'); } catch (e) { /* */ } renderChat(); return; }
   if (ds.older !== undefined) { const m = $('#main'); const h = m.scrollHeight, top = m.scrollTop; showLimit += 40; keepScroll = true; renderChat(); m.scrollTop = m.scrollHeight - h + top; return; }
-  if (ds.phoneOk !== undefined && pendingPhone) { const p = pendingPhone; pendingPhone = null; closeSheet(); call('phoneRun', p.threadId, JSON.stringify(p.cmd), true); haptic(); return; }
+  if (ds.phoneOk !== undefined && pendingPhone) { const p = pendingPhone; pendingPhone = null; closeSheet(); call('phoneRun', p.threadId, p.token || '', true); haptic(); return; }
   if (ds.phoneNo !== undefined) { closeSheet(); return; }
   if (ds.phoneGrant) { call('phoneGrant', ds.phoneGrant); return; }
   if (ds.assistant !== undefined) { call('openAssistantSettings'); return; }

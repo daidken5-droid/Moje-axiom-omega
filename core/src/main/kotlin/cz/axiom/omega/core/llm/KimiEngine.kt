@@ -35,6 +35,8 @@ class KimiEngine(
     /** Jméno poskytovatele do chybových hlášek a vlastní štítek (Cloud zdarma: Groq, Cerebras…). */
     private val vendor: String = "Kimi",
     private val labelOverride: String? = null,
+    /** Strop výstupu – poskytovatelé s menším limitem jinak vrátí HTTP 400 (HF Inference Providers ~8k). */
+    private val maxOut: Int = if (kind == EngineKind.HF) 8192 else Int.MAX_VALUE,
 ) : LlmEngine {
 
     override val id = "kimi:$model@${baseUrl.trimEnd('/')}"
@@ -44,7 +46,7 @@ class KimiEngine(
         EngineKind.HF -> "Hugging Face (${model.substringAfterLast('/')})"
         else -> "Kimi K3 · cloud ($model)"
     }
-    override val contextBudgetChars = 400_000
+    override val contextBudgetChars = if (kind == EngineKind.HF) 60_000 else 400_000
 
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val started = System.currentTimeMillis()
@@ -112,7 +114,7 @@ class KimiEngine(
     internal fun buildRequest(messages: List<ChatMessage>, options: GenOptions): JsonObject = buildJsonObject {
         put("model", model)
         put("stream", true)
-        put("max_tokens", options.maxTokens)
+        put("max_tokens", options.maxTokens.coerceAtMost(maxOut))
         if (kind != EngineKind.KIMI_CLOUD) put("temperature", options.temperature.toDouble())
         effortMapper?.invoke(options.effort)?.let { put("reasoning_effort", it) }
         put("messages", buildJsonArray {

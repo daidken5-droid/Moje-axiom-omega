@@ -8,6 +8,32 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.1 – tvrdý audit kódu
+
+**Chyby (opraveno):**
+- **Cloud padal na limitech:** orchestrátor posílal cloudu `max_tokens` 32 000. DeepSeek přijímá nejvýš 8 192 (jinak
+  HTTP 400) a bezplatné tarify Groq a Cerebras požadavek odmítly jako příliš velký. Teď má každý poskytovatel
+  vlastní strop výstupu a okno kontextu. Nejstarší historie se ořízne, systémová zpráva a poslední dotaz zůstanou.
+  Hugging Face má strop 8 192.
+- **Samooprava modelu:** když server model nezná (HTTP 404, free tarify je často mění), AVIOR stáhne aktuální
+  nabídku, vybere platný model, zapamatuje si ho a dotaz zopakuje.
+- **Soukromí:** pečeť „v telefonu“ se počítala ze seznamu zakázaných mozků, ve kterém chyběl nový cloud. Odpověď
+  z cloudu tak mohla být označena jako soukromá. Teď se pečeť počítá ze seznamu povolených cest.
+- **Povely pro telefon (root):** potvrzovaný příkaz drží Kotlin pod jednorázovým tokenem a UI posílá jen token a
+  ano/ne. Kompromitované UI by tak nemohlo spustit jiný root příkaz, než jaký uživatel napsal. Příkaz shellu je
+  vidět přímo v potvrzení.
+- **LoRA:** mazání a volba adaptéru přijímají jen jméno souboru ve složce adaptérů (ochrana proti `../`).
+- **Cloud bez internetu:** ručně zvolený cloud bez sítě teď odpoví mozkem v telefonu místo chyby spojení.
+- **Konzilium:** rozhoduje nejsilnější dostupný mozek (Claude → cloud → Kimi…), ne telefon.
+- **Neočekávaná chyba dotazu** nese číslo vlákna, takže se UI správně obnoví.
+- **JNI:** popis modelu z GGUF jde do Javy jen jako tisknutelné ASCII, aby vlastní model se speciálními znaky
+  nemohl shodit aplikaci.
+
+**Výkon:**
+- `state()`, který UI volá každou sekundu během odpovědi, už nedešifruje API klíče přes Android Keystore.
+- Streamování dlouhých odpovědí posílá snímky řidčeji podle délky textu, takže je méně dat přes most do WebView.
+- Okno, stavový řádek a navigace jsou čistě černé (OLED).
+
 ## Novinky 8.0 – TITAN: nový design od nuly, levné cloudy
 
 - **Design TITAN (napsaný od nuly):** jen černá a titan, nikde nic barevného.

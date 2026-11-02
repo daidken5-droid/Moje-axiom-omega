@@ -61,7 +61,11 @@ class OmegaBridge(private val activity: MainActivity) {
                 .put("node", omega.vault.has(Vault.NODE)).put("hf", omega.vault.has(Vault.HF))
                 .apply { Vault.CLOUD.forEach { put(it, omega.vault.has(it)) } })
             .put("engines", JSONArray(omega.availableEngines()))
-            .put("freeModels", JSONObject().apply { omega.freeMembers().forEach { put(it.provider.id, it.model) } })
+            // jen názvy modelů – bez dešifrování klíčů (state() volá UI každou sekundu během odpovědi)
+            .put("freeModels", JSONObject().apply {
+                cz.axiom.omega.core.llm.FreeCloud.PROVIDERS.filter { omega.vault.has(it.id) }
+                    .forEach { put(it.id, omega.settings.freeModel(it.id) ?: cz.axiom.omega.core.llm.FreeCloud.pickModel(it, emptyList())) }
+            })
             .put("sense", omega.embedderFile() != null)
             .put("online", Introspect.online(activity))
             .put("native", NativeLlama.available(activity))
@@ -127,8 +131,12 @@ class OmegaBridge(private val activity: MainActivity) {
         // OVLÁDÁNÍ TELEFONU: povel z vlastních slov uživatele (nikdy z webu/souborů/modelu) – bez mozku, hned
         if (omega.settings.phoneControl) cz.axiom.omega.core.phone.PhoneCommands.parse(text)?.let { cmd ->
             if (cmd.confirm) {
-                Events.emit("phoneConfirm", JSONObject().put("threadId", threadId).put("label", cmd.label).put("root", cmd.root)
-                    .put("cmd", JSONObject().put("action", cmd.action.name).put("args", JSONObject(cmd.args as Map<*, *>)).put("label", cmd.label).put("root", cmd.root)))
+                // povel zůstává v Kotlinu; UI dostane jen jednorázový token → nejde podvrhnout jiný (root) příkaz
+                val token = java.util.UUID.randomUUID().toString()
+                pendingPhone.entries.removeIf { System.currentTimeMillis() - it.value.at > 10 * 60_000 }
+                pendingPhone[token] = PendingPhone(threadId, cmd, System.currentTimeMillis())
+                Events.emit("phoneConfirm", JSONObject().put("threadId", threadId).put("label", cmd.label).put("root", cmd.root).put("token", token)
+                    .put("detail", cmd.args["cmd"] ?: JSONObject.NULL))
                 return threadId
             }
             val r = cz.axiom.omega.phone.PhoneControl(activity).execute(cmd)
@@ -153,13 +161,15 @@ class OmegaBridge(private val activity: MainActivity) {
         Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", text).put("meta", meta))
     }
 
-    /** Potvrzený povel (root / nevratná akce) – provede se až po klepnutí na „Provést“. */
+    private class PendingPhone(val threadId: Long, val cmd: cz.axiom.omega.core.phone.PhoneCommands.Command, val at: Long)
+    private val pendingPhone = java.util.concurrent.ConcurrentHashMap<String, PendingPhone>()
+
+    /** Potvrzený povel (root / nevratná akce) – provede se až po klepnutí na „Provést“, jen podle tokenu z Kotlinu. */
     @JavascriptInterface
-    fun phoneRun(threadId: Long, json: String, approved: Boolean) = async {
-        val o = JSONObject(json)
-        val action = cz.axiom.omega.core.phone.PhoneCommands.Action.valueOf(o.getString("action"))
-        val args = o.optJSONObject("args")?.let { a -> a.keys().asSequence().associateWith { a.getString(it) } } ?: emptyMap()
-        val cmd = cz.axiom.omega.core.phone.PhoneCommands.Command(action, args, o.optString("label"), confirm = true, root = o.optBoolean("root"))
+    fun phoneRun(threadId: Long, token: String, approved: Boolean) = async {
+        val p = pendingPhone.remove(token)?.takeIf { it.threadId == threadId && System.currentTimeMillis() - it.at <= 10 * 60_000 }
+            ?: run { Events.note("Povel vypršel – napiš ho prosím znovu."); return@async }
+        val cmd = p.cmd
         if (!approved) { phoneReply(threadId, cmd, "Zrušeno – nic jsem neprovedl."); return@async }
         Events.emit("phase", JSONObject().put("text", cmd.label))
         phoneReply(threadId, cmd, cz.axiom.omega.phone.PhoneControl(activity).execute(cmd).text)
@@ -817,9 +827,14 @@ class OmegaBridge(private val activity: MainActivity) {
         Events.note("Adaptér $name nahrán a zapnut – projeví se u dalšího dotazu.")
     }
 
+    /** Jen jméno souboru přímo ve složce adaptérů (žádné „../“ – obrana i kdyby UI bylo kompromitováno). */
+    private fun loraFile(name: String): java.io.File? =
+        name.takeIf { it.matches(Regex("[A-Za-z0-9_ -][A-Za-z0-9._ -]{0,119}")) }?.let { java.io.File(omega.loraDir(), it) }
+            ?.takeIf { it.parentFile?.canonicalPath == omega.loraDir().canonicalPath }
+
     @JavascriptInterface
     fun loraUse(name: String) {
-        omega.settings.lora = name.takeIf { it.isEmpty() || java.io.File(omega.loraDir(), it).exists() } ?: ""
+        omega.settings.lora = name.takeIf { it.isEmpty() || loraFile(it)?.exists() == true } ?: ""
         cz.axiom.omega.engine.LocalEngine.release()
         Events.emit("config", JSONObject(state()))
         Events.note(if (name.isEmpty()) "Doladění vypnuto – základní mozek." else "Doladění $name zapnuto.")
@@ -827,7 +842,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface
     fun loraDelete(name: String) = async {
-        java.io.File(omega.loraDir(), name).delete()
+        loraFile(name)?.delete() ?: return@async
         if (omega.settings.lora == name) { omega.settings.lora = ""; cz.axiom.omega.engine.LocalEngine.release() }
         Events.emit("config", JSONObject(state()))
     }

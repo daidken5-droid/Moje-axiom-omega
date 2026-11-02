@@ -57,12 +57,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // edge-to-edge všude stejně: okraje (lišty i klávesnici) řešíme sami přes insets → žádné dvojité odsazení
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.parseColor("#05060A")
-        window.navigationBarColor = Color.parseColor("#05060A")
+        window.statusBarColor = Color.BLACK
+        window.navigationBarColor = Color.BLACK
 
         val loader = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
         web = WebView(this).apply {
-            setBackgroundColor(Color.parseColor("#05060A"))
+            setBackgroundColor(Color.BLACK)
             overScrollMode = View.OVER_SCROLL_NEVER
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
         // a pod gesta. Proto ho zabalíme do kontejneru, který dostane odsazení podle systémových lišt,
         // výřezu kamery (Pixel 9a) a klávesnice.
         val root = android.widget.FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#05060A"))
+            setBackgroundColor(Color.BLACK)
             addView(web, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->

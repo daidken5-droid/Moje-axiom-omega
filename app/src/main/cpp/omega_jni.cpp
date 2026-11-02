@@ -305,6 +305,9 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeInfo(JNIEnv *env, jobject, jlong h)
     std::string s = std::string(desc) + "|" + std::to_string(llama_model_n_params(o->model)) + "|" +
                     std::to_string(llama_model_size(o->model)) + "|" + std::to_string(o->n_ctx) + "|" +
                     std::to_string(llama_model_n_ctx_train(o->model)) + "|" + (tmpl ? "template" : "no-template");
+    // popis pochází z GGUF (i z vlastních importovaných modelů) → jen tisknutelné ASCII:
+    // NewStringUTF vyžaduje „modified UTF-8“ a 4bajtové znaky by JNI shodily
+    for (char &ch : s) if ((unsigned char) ch < 0x20 || (unsigned char) ch > 0x7e) ch = '?';
     return env->NewStringUTF(s.c_str());
 }
 

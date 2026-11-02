@@ -32,6 +32,13 @@ object FreeCloud {
         val anyFree: (String) -> Boolean = { false },
         /** Placený (levný) tarif – silnější/stabilnější, platí se kreditem nebo paušálem. */
         val paid: Boolean = false,
+        /**
+         * Strop max_tokens. Orchestrátor posílá cloudu až 32 000 – DeepSeek ale přijímá max. 8 192 (jinak HTTP 400)
+         * a bezplatné tarify Groq/Cerebras počítají požadovaný výstup do limitu tokenů za minutu (6–8 tis.) → 413/429.
+         */
+        val maxOut: Int = 4096,
+        /** Kolik znaků historie a podkladů poslat (free tarify mají malé okno a limit tokenů za minutu). */
+        val contextChars: Int = 20_000,
     )
 
     val PROVIDERS = listOf(
@@ -57,13 +64,13 @@ object FreeCloud {
         Provider(
             "deepseek", "DeepSeek", "https://api.deepseek.com/v1",
             preferred = listOf("deepseek-chat", "deepseek-reasoner"),
-            signup = "platform.deepseek.com", paid = true,
+            signup = "platform.deepseek.com", paid = true, maxOut = 8192, contextChars = 120_000,
         ),
         Provider(
             "chutes", "Chutes", "https://llm.chutes.ai/v1",
             preferred = listOf("deepseek-ai/DeepSeek-V3.2", "moonshotai/Kimi-K2.5", "zai-org/GLM-5", "deepseek-ai/DeepSeek-V3.1", "Qwen/Qwen3-235B-A22B-Instruct-2507", "openai/gpt-oss-120b"),
             fast = listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
-            signup = "chutes.ai", paid = true,
+            signup = "chutes.ai", paid = true, maxOut = 8192, contextChars = 120_000,
         ),
     )
 
@@ -106,36 +113,65 @@ class FreeCloudEngine(
     private val members: List<FreeCloud.Member>,
     private val factory: (FreeCloud.Member) -> LlmEngine = FreeCloud::engine,
     private val onFallback: (String) -> Unit = {},
+    /** Seznam modelů poskytovatele (samooprava, když server model nezná). */
+    private val listModels: (FreeCloud.Provider, String) -> List<String> = { p, k -> KimiEngine.listModels(p.base, k) },
+    /** Zapamatovat opravený model (aby se příště nezkoušel ten neplatný). */
+    private val onModel: (String, String) -> Unit = { _, _ -> },
 ) : LlmEngine {
     init { require(members.isNotEmpty()) { "Cloud: chybí klíč (Cerebras, Groq, OpenRouter, DeepSeek nebo Chutes)." } }
 
     override val id = "free:" + members.joinToString(",") { it.provider.id + "/" + it.model }
     override val label get() = lastLabel
     override val kind = EngineKind.FREE
-    /** Bezplatné tarify mívají menší kontext a limit tokenů za minutu – posílat úsporně. */
-    override val contextBudgetChars = 48_000
+    /** Podle prvního (preferovaného) poskytovatele – free tarify mají malé okno, placené velké. */
+    override val contextBudgetChars = members.first().provider.contextChars
 
     @Volatile private var lastLabel = factory(members.first()).label
 
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         var last: Exception? = null
-        for ((i, m) in members.withIndex()) {
-            cancel.check()
-            val eng = factory(m)
-            var started = false
-            try {
-                val r = eng.generate(messages, options, cancel) { d -> started = true; onDelta(d) }
-                lastLabel = eng.label
-                return r
-            } catch (e: CancelledException) {
-                throw e
-            } catch (e: Exception) {
-                last = e
-                // už psal → nepřepínat (odpověď by byla slepená); jinak zkusit dalšího
-                if (started || i == members.lastIndex) break
-                onFallback("${m.provider.name}: ${e.message?.take(80)} → ${members[i + 1].provider.name}")
+        for ((i, m0) in members.withIndex()) {
+            var m = m0
+            var healed = false
+            while (true) {
+                cancel.check()
+                val eng = factory(m)
+                var started = false
+                try {
+                    val opts = options.copy(maxTokens = options.maxTokens.coerceIn(256, m.provider.maxOut))
+                    val r = eng.generate(fit(messages, m.provider.contextChars), opts, cancel) { d -> started = true; onDelta(d) }
+                    lastLabel = eng.label
+                    return r
+                } catch (e: CancelledException) {
+                    throw e
+                } catch (e: Exception) {
+                    last = e
+                    if (started) throw e // už psal → nikdy nemíchat dvě odpovědi
+                    // SAMOOPRAVA: model zmizel z nabídky (free tarify je často mění) → vybrat platný a zkusit znovu
+                    if (!healed && Regex("HTTP 404|model.{0,40}(not found|nenalezen|does not exist|not exist)", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) {
+                        healed = true
+                        val fixed = runCatching { FreeCloud.pickModel(m.provider, listModels(m.provider, m.key)) }.getOrNull()
+                        if (fixed != null && fixed != m.model) { m = m.copy(model = fixed); onModel(m.provider.id, fixed); continue }
+                    }
+                    break
+                }
             }
+            if (i < members.lastIndex) onFallback("${m.provider.name}: ${last?.message?.take(80)} → ${members[i + 1].provider.name}")
         }
-        throw (last as? EngineException) ?: EngineException("Cloud zdarma: ${last?.message}", retryable = true, cause = last)
+        throw (last as? EngineException) ?: EngineException("Cloud: ${last?.message}", retryable = true, cause = last)
+    }
+
+    /** Ořízne nejstarší historii, aby se dotaz vešel do okna poskytovatele (systém a poslední dotaz zůstanou). */
+    private fun fit(messages: List<ChatMessage>, budget: Int): List<ChatMessage> {
+        if (messages.sumOf { it.content.length } <= budget) return messages
+        val sys = messages.filter { it.role == Role.SYSTEM }
+        val rest = messages.filter { it.role != Role.SYSTEM }.toMutableList()
+        var total = messages.sumOf { it.content.length }
+        while (rest.size > 1 && total > budget) total -= rest.removeAt(0).content.length
+        // i tak moc dlouhé (obří podklady v systému) → zkrátit systémovou zprávu od konce podkladů
+        val sysText = sys.joinToString("\n\n") { it.content }
+        val room = (budget - rest.sumOf { it.content.length }).coerceAtLeast(4_000)
+        val sysMsg = if (sysText.isEmpty()) emptyList() else listOf(ChatMessage(Role.SYSTEM, if (sysText.length > room) sysText.take(room) + "\n[…zkráceno]" else sysText))
+        return sysMsg + rest
     }
 }

@@ -327,7 +327,9 @@ class Omega private constructor(val app: Context) {
     fun free(fast: Boolean = false): LlmEngine {
         val m = freeMembers(fast)
         if (m.isEmpty()) throw EngineException("Cloud potřebuje klíč – Cerebras, Groq, OpenRouter (zdarma) nebo DeepSeek, Chutes (levné). Moduly → Cloud.")
-        return cz.axiom.omega.core.llm.FreeCloudEngine(m, onFallback = { Events.emit("phase", org.json.JSONObject().put("text", "Přepínám na záložní server – $it")) })
+        return cz.axiom.omega.core.llm.FreeCloudEngine(m,
+            onFallback = { Events.emit("phase", org.json.JSONObject().put("text", "Přepínám na záložní server – $it")) },
+            onModel = { id, model -> if (fast) settings.setFreeModel(id, settings.freeModel(id) ?: model, model) else settings.setFreeModel(id, model) })
     }
 
     /** Mozky, které jsou právě použitelné, v pořadí síly (Claude je až poslední – AVIOR na něm nezávisí). */
@@ -387,7 +389,8 @@ class Omega private constructor(val app: Context) {
             "claude" -> claude()
             "hf" -> hf()
             "turbo" -> turbo()
-            "free" -> free()
+            // cloud zvolený ručně, ale není internet → odpoví telefon (místo chyby spojení)
+            "free" -> if (!Introspect.online(app) && localAvailable()) local() else free()
             else -> {
                 val online = Introspect.online(app)
                 when {
@@ -448,7 +451,8 @@ class Omega private constructor(val app: Context) {
             "claude" -> members.firstOrNull { it.kind == EngineKind.CLAUDE }
             "free" -> members.firstOrNull { it.kind == EngineKind.FREE }
             else -> members.firstOrNull { it.kind == EngineKind.KIMI_CLOUD }
-        } ?: members.first()
+        } ?: listOf(EngineKind.CLAUDE, EngineKind.FREE, EngineKind.KIMI_CLOUD, EngineKind.NODE, EngineKind.KIMI_SERVER)
+            .firstNotNullOfOrNull { k -> members.firstOrNull { it.kind == k } } ?: members.first() // rozhoduje nejsilnější, ne telefon
         currentLabel = "Konzilium"
         currentKind = judge.kind
         return members to judge
