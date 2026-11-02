@@ -299,7 +299,6 @@ function greeting() {
   const h = new Date().getHours();
   return h < 5 ? 'Dobrou noc' : h < 10 ? 'Dobré ráno' : h < 12 ? 'Dobré dopoledne' : h < 18 ? 'Dobré odpoledne' : 'Dobrý večer';
 }
-const seen = new Set();
 /** Technické detaily (RANDY, jistota, fáze, úvahy) – ve výchozím stavu skryté, zapnou se v Nastavení. */
 const tech = () => { try { return localStorage.getItem('tech') === '1'; } catch (e) { return false; } };
 const haptic = () => { try { B.haptic(); } catch (e) { /* starší sestavení */ } };
@@ -410,7 +409,6 @@ function loadThread(id) {
   const changed = (id || 0) !== threadId;
   threadId = id || 0;
   msgs = threadId ? (J('messages', threadId) || []) : [];
-  if (changed) msgs.forEach(m => seen.add(m.id)); // přepnutí vlákna = bez animace
 }
 
 /** Stav mozku v paměti: připraven / načítám / nenačten (klepnutím načíst předem). */
@@ -489,7 +487,6 @@ function renderChat() {
   const shown = msgs.length > showLimit ? msgs.slice(-showLimit) : msgs;
   const older = msgs.length - shown.length;
   main.innerHTML = `<div class="wrap">${older ? `<button class="more-older" data-older>Zobrazit starší (${older})</button>` : ''}${shown.map(m => msgHtml(m, m === lastAi && !live)).join('')}${live ? liveHtml() : ''}</div>`;
-  main.querySelectorAll('.msg[data-id]').forEach(el => { const id = Number(el.dataset.id); if (!seen.has(id)) { el.classList.add('rise'); seen.add(id); } });
   if (keepScroll) { keepScroll = false; fab(); return; }
   requestAnimationFrame(() => { main.scrollTop = main.scrollHeight; fab(); });
 }
@@ -964,12 +961,12 @@ function renderMemory() {
     <input type="search" id="kbq" placeholder="Hledat v databázi" style="margin-top:12px"><div id="kbres"></div>
 
     <div class="eyebrow">OFFLINE KNIHOVNA · ${cz(((lib.bytes || 0) / 1e9).toFixed(2))} GB</div>
-    ${lib.libraries.map(l => { const dl = busy('library') && (S.bg.phase || '').includes(l.name); return card(`<div class="row" style="gap:8px;align-items:center"><b class="grow">${esc(l.name)} ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}</b>${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>
+    ${lib.libraries.map(l => { const dl = busy('library') && (S.bg.phase || '').includes(l.name); return card(`<div class="row" style="gap:8px;align-items:center"><b class="grow">${esc(l.name)} ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}${l.source && l.source !== 'Wikipedie' ? ' <span class="badge">PRO MOZEK</span>' : ''}</b>${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>
       <p class="small">${esc(l.description)}</p>
       <div class="meta">${l.done ? cz(((l.bytes || 0) / 1e9).toFixed(2)) + ' GB v telefonu' : (l.downloadGb ? '~' + cz(l.downloadGb) + ' GB stažení · ' : '') + '~' + cz(l.approxGb) + ' GB v telefonu'} · ${esc(l.license)}</div>
       ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.bg.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.bg.detail) : l.percent + ' % – naváže'}</div>` : ''}
       ${dl || !l.done ? `<div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel-bg>Pozastavit</button>' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}</div>` : ''}
-      ${l.prebuilt ? `<div class="ragrow"><span class="grow"><b>RAG index · hledání podle významu</b><small>${l.rag ? 'Aktivní · ' + cz(((l.ragBytes || 0) / 1e6).toFixed(0)) + ' MB · najde článek, i když použiješ jiná slova' + (S.sense ? '' : ' (chybí OMEGA Sense v Modulech)') : 'Předpočítané vektory všech článků (~140 MB) – AVIOR najde odpověď podle smyslu, ne jen podle slov.'}</small></span>
+      ${l.prebuilt ? `<div class="ragrow"><span class="grow"><b>RAG index · hledání podle významu</b><small>${l.rag ? 'Aktivní · ' + cz(((l.ragBytes || 0) / 1e6).toFixed(0)) + ' MB · najde článek, i když použiješ jiná slova' + (S.sense ? '' : ' (chybí OMEGA Sense v Modulech)') : `Předpočítané vektory všech článků (~${Math.max(1, Math.round((l.rows || 0) * 260 / 1e6))} MB) – AVIOR najde odpověď podle smyslu, ne jen podle slov.`}</small></span>
         ${l.rag ? `<button class="icon-btn" data-rag-remove="${l.id}" aria-label="Smazat RAG index">${ICONS.trash}</button>` : (busy('library') ? '' : `<button class="btn sm primary" data-rag-start="${l.id}">Stáhnout</button>`)}</div>` : ''}`); }).join('')}
 
     <div class="eyebrow">PŘIDAT ZNALOSTI</div>

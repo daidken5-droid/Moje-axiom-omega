@@ -8,6 +8,51 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## AVIOR Delta III
+
+**Δ Srovnávač bez mozku (nová jedinečná funkce):** „Co je větší, Praha nebo Brno?“, „Kdo byl starší, Masaryk nebo
+Beneš?“, „Která řeka je delší, Vltava nebo Labe?“, „Je Sněžka vyšší než Praděd?“, „Porovnej Prahu s Brnem“.
+- Najde **obě** hesla v offline Wikipedii, i ve tvaru „Prahu / Brnem“ nebo jen podle příjmení.
+- Z úvodu hesel vytáhne čísla: obyvatelé, rozloha, výška, délka, narození, vznik.
+- Postaví z nich tabulku a **spočítá verdikt** („**Praha** je větší – 496 km² proti 230 km² (2,2×)“).
+- Žádný jazykový model: čísla jsou přímo z encyklopedie, výpočet je deterministický, odpověď přijde za milisekundy.
+- Když chybí heslo nebo údaj, mlčí a otázku převezme mozek.
+
+**Nové databáze ke stažení (s RAG indexy):**
+
+| Knihovna | Obsah | Použití |
+|---|---|---|
+| Wikizdroje – české texty | 43 tis. textů: zákony a Ústava, historické listiny, Erben, Němcová, Neruda, Mácha… | podklad pro mozek |
+| Polská Wikipedie | 1,6 mil. článků (velká, ~7 GB) | podklad pro mozek |
+
+- Build pipeline (`build-library.yml`, `build-rag.yml`) teď umí libovolný dataset Wikimedia na Hugging Face.
+- Velká knihovna dostane víc RAG úloh (192).
+- Výsledky nesou svůj zdroj („Wikizdroje: Babička“, „Wikipedia PL: …“).
+- Odpovědím bez mozku a Strážci faktů věří **jen česká Wikipedie**, takže reflex nikdy neodpoví polsky ani úryvkem básně.
+
+**Δ Strážce faktů v2:**
+- Kontroluje i **celé datum** (stejný rok, jiný den → upozorní).
+- Kontroluje závorky typu „(* 1950)“ a „(14. 7. 1939 – 1. 10. 2019)“.
+- Kontroluje **rok založení** („Univerzita Karlova byla založena 1350“ → Wikipedie: 1348).
+- Méně planých poplachů:
+  - u jmenovců mlčí,
+  - rok z vedlejší věty („narodil se v Plzni, kde v roce 1945…“) ignoruje,
+  - nejistá data („asi 1045“) nekontroluje,
+  - věří jen české Wikipedii.
+
+**UI od nuly (FRESH):** ploché, svěží, minimalistické, stále jen černá a titan.
+- Odstraněno:
+  - přechody barev,
+  - stíny,
+  - průhledné hrany,
+  - skenovací animace při psaní,
+  - animace příchodu zpráv,
+  - posun a filtr u oznámení,
+  - neviditelné SVG gradienty (−20 uzlů DOM).
+- Animuje se jen transform a opacity.
+- Aktivní záložka = titanová kapsle.
+- Tabulky mají čitelný první sloupec.
+
 ## AVIOR Delta II
 
 **Δ Strážce faktů (jedinečná funkce):** každou odpověď mozku nebo cloudu AVIOR ověří **přímo v telefonu proti

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Sestaví předpřipravenou offline knihovnu AXIOM Ω (SQLite FTS4) z Wikipedie na Hugging Face.
+Sestaví předpřipravenou offline knihovnu AVIOR (SQLite FTS4) z Wikimedia dat na Hugging Face (Wikipedie, Wikizdroje).
 
 Výstup má PŘESNĚ schéma, které čte aplikace (app/.../data/LibraryDb.kt):
   progress(lib, offset, total, done, updated)
@@ -8,7 +8,7 @@ Výstup má PŘESNĚ schéma, které čte aplikace (app/.../data/LibraryDb.kt):
 
 Použití:
   python3 tools/build_library.py --lib wiki-cs --parquet-dir ./parquet --out wiki-cs.db [--limit N]
-Licence dat: Wikipedie CC BY-SA 4.0 (uveď zdroj při dalším šíření).
+Licence dat: Wikimedia CC BY-SA 4.0 (uveď zdroj při dalším šíření).
 """
 import argparse
 import glob

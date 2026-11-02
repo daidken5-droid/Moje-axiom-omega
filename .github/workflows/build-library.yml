@@ -1,4 +1,4 @@
-name: Build offline knihovny (Wikipedie)
+name: Build offline knihovny (Wikipedie, Wikizdroje)
 
 # Spuštění: změna souboru library-requests/build.txt (obsahuje id knihovny, např. wiki-cs)
 # na libovolné větvi, nebo ručně v Actions (po sloučení do main).
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       lib:
-        description: "wiki-cs | wiki-sk | wiki-simple"
+        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs | wiki-pl"
         default: "wiki-cs"
 
 permissions:
@@ -19,7 +19,7 @@ permissions:
 jobs:
   library:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - name: Výběr knihovny
@@ -27,27 +27,30 @@ jobs:
           LIB="${{ github.event.inputs.lib }}"
           if [ -z "$LIB" ] && [ -f library-requests/build.txt ]; then LIB=$(head -n1 library-requests/build.txt | tr -d '[:space:]'); fi
           case "$LIB" in
-            wiki-cs) CFG=20231101.cs ;;
-            wiki-sk) CFG=20231101.sk ;;
-            wiki-simple) CFG=20231101.simple ;;
+            wiki-cs) DS=wikimedia/wikipedia; CFG=20231101.cs ;;
+            wiki-sk) DS=wikimedia/wikipedia; CFG=20231101.sk ;;
+            wiki-simple) DS=wikimedia/wikipedia; CFG=20231101.simple ;;
+            wiki-pl) DS=wikimedia/wikipedia; CFG=20231101.pl ;;
+            wikisource-cs) DS=wikimedia/wikisource; CFG=20231201.cs ;;
             *) echo "Neznámá knihovna $LIB"; exit 1 ;;
           esac
           echo "LIB=$LIB" >> "$GITHUB_ENV"
           echo "CFG=$CFG" >> "$GITHUB_ENV"
+          echo "DS=$DS" >> "$GITHUB_ENV"
           echo "TAG=library-$LIB-${CFG%%.*}" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Závislosti
         run: pip install pyarrow==21.0.0
-      - name: Stažení Wikipedie (parquet z Hugging Face)
+      - name: Stažení dat (parquet z Hugging Face)
         run: |
           mkdir -p parquet
-          curl -sf "https://huggingface.co/api/datasets/wikimedia/wikipedia/tree/main/$CFG" \
+          curl -sf "https://huggingface.co/api/datasets/$DS/tree/main/$CFG" \
             | python3 -c "import json,sys; [print(f['path']) for f in json.load(sys.stdin) if f['path'].endswith('.parquet')]" > files.txt
           cat files.txt
           while read -r f; do
-            curl -sfL --retry 5 -o "parquet/$(basename "$f")" "https://huggingface.co/datasets/wikimedia/wikipedia/resolve/main/$f"
+            curl -sfL --retry 5 -o "parquet/$(basename "$f")" "https://huggingface.co/datasets/$DS/resolve/main/$f"
           done < files.txt
           du -sh parquet
       - name: Sestavení databáze (FTS4)
@@ -75,7 +78,8 @@ jobs:
               parts.append({"name": os.path.basename(p), "size": os.path.getsize(p), "sha256": h.hexdigest()})
           json.dump({"lib": "$LIB", "config": "$CFG", "format": "sqlite-fts4-gzip", "articles": int("$ARTICLES"),
                      "dbSize": int("$DB_SIZE"), "dbSha256": "$DB_SHA", "parts": parts,
-                     "license": "Wikipedia CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)"},
+                     "source": "$DS",
+                     "license": "Wikimedia ($DS) CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)"},
                     open("manifest.json", "w"), indent=2)
           print(open("manifest.json").read())
           PY
@@ -86,7 +90,7 @@ jobs:
           name: "Offline knihovna ${{ env.LIB }} (${{ env.CFG }})"
           body: |
             Předpřipravená offline knihovna pro AXIOM Ω – stáhne se v aplikaci (Paměť → Offline databáze).
-            Zdroj: Wikipedie (${{ env.CFG }}) přes Hugging Face `wikimedia/wikipedia`, licence CC BY-SA 4.0.
+            Zdroj: ${{ env.DS }} (${{ env.CFG }}) přes Hugging Face, licence CC BY-SA 4.0.
           files: |
             manifest.json
             ${{ env.LIB }}.db.gz.part*

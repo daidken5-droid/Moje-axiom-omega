@@ -56,7 +56,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
                 db.rawQuery("SELECT rowid, title, url, substr(body, 1, 900) FROM articles WHERE rowid IN (${hits.joinToString(",") { it.first.toString() }})", null).use { c ->
                     while (c.moveToNext()) {
                         val id = c.getInt(0)
-                        rows[id] = Snippet(((i + 1).toLong() shl 40) or id.toLong(), "Wikipedie: ${c.getString(1)}", c.getString(3), c.getString(2))
+                        rows[id] = Snippet(((i + 1).toLong() shl 40) or id.toLong(), "${spec.source}: ${c.getString(1)}", c.getString(3), c.getString(2))
                     }
                 }
             }
@@ -183,7 +183,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
                         val snip = c.getString(5)
                         val text = if (intro.contains(snip.trim('…').take(40))) intro else "$intro\n…\n$snip"
                         // id: horní bity rozliší databázi, aby se výsledky z různých souborů nepletly
-                        out[id] = Snippet((dbIndex.toLong() shl 40) or id, "Wikipedie: $title", text, c.getString(2)) to Libraries.score(query, title, snip)
+                        out[id] = Snippet((dbIndex.toLong() shl 40) or id, "${Libraries.label(c.getString(3))}: $title", text, c.getString(2)) to Libraries.score(query, title, snip)
                     }
                 }
             }
@@ -201,7 +201,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
             val done = pre || streamedDone
             arr.put(
                 JSONObject().put("id", l.id).put("name", l.name).put("description", l.description).put("rows", l.rows)
-                    .put("approxGb", l.approxGb).put("downloadGb", l.downloadGb).put("license", l.license).put("offset", offset).put("done", done)
+                    .put("approxGb", l.approxGb).put("downloadGb", l.downloadGb).put("source", l.source).put("license", l.license).put("offset", offset).put("done", done)
                     .put("percent", if (done) 100 else if (l.rows > 0) (offset * 100L / l.rows).toInt() else 0).put("started", offset > 0)
                     .put("prebuilt", pre).put("bytes", if (pre) prebuiltFile(l.id).length() else 0L)
                     .put("rag", hasRag(l.id)).put("ragBytes", if (hasRag(l.id)) ragFile(l.id).length() else 0L),

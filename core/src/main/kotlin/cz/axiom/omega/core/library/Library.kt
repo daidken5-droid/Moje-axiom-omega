@@ -20,6 +20,12 @@ data class LibrarySpec(
     val license: String,
     /** Odhad velikosti předpřipraveného balíku ke stažení (gzip). */
     val downloadGb: Double = 0.0,
+    /**
+     * Jak se zdroj jmenuje v odpovědích („Wikipedie: Brno“, „Wikizdroje: Babička“). Jen česká „Wikipedie“ je
+     * referenční – jí věří odpovědi BEZ MOZKU (WikiReflex) a Strážce faktů (Δ). Jiné jazyky a Wikizdroje slouží
+     * jen jako podklad pro mozek (reflex by jinak odpověděl polsky nebo úryvkem básně).
+     */
+    val source: String = "Wikipedie",
 )
 
 object Libraries {
@@ -30,15 +36,26 @@ object Libraries {
         ),
         LibrarySpec(
             "wiki-sk", "Slovenská Wikipedie – celá", "242 tisíc článků ve slovenštině.",
-            "wikimedia/wikipedia", "20231101.sk", "train", 242_235, 1.3, "sk", "CC BY-SA 4.0", 0.5,
+            "wikimedia/wikipedia", "20231101.sk", "train", 242_235, 1.3, "sk", "CC BY-SA 4.0", 0.5, source = "Wikipedia SK",
         ),
         LibrarySpec(
             "wiki-simple", "Simple English Wikipedia", "242 tisíc článků v jednoduché angličtině – srozumitelné výklady pojmů.",
-            "wikimedia/wikipedia", "20231101.simple", "train", 241_787, 0.9, "en", "CC BY-SA 4.0", 0.35,
+            "wikimedia/wikipedia", "20231101.simple", "train", 241_787, 0.9, "en", "CC BY-SA 4.0", 0.35, source = "Wikipedia EN",
+        ),
+        LibrarySpec(
+            "wikisource-cs", "Wikizdroje – české texty", "43 tisíc volných textů: zákony a ústava, historické listiny, básně a próza klasiků (Erben, Němcová, Neruda, Mácha…).",
+            "wikimedia/wikisource", "20231201.cs", "train", 42_735, 0.6, "cs", "CC BY-SA 4.0", 0.15, source = "Wikizdroje",
+        ),
+        LibrarySpec(
+            "wiki-pl", "Polská Wikipedie – celá", "1,6 milionu článků v polštině – nejbližší velká slovanská encyklopedie (velká, ~7 GB).",
+            "wikimedia/wikipedia", "20231101.pl", "train", 1_587_721, 7.0, "pl", "CC BY-SA 4.0", 2.8, source = "Wikipedia PL",
         ),
     )
 
     fun of(id: String) = ALL.firstOrNull { it.id == id }
+
+    /** Předpona názvu výsledku podle knihovny (ruční importy témat jsou česká Wikipedie). */
+    fun label(lib: String?) = of(lib ?: "")?.source ?: "Wikipedie"
 
     /**
      * FTS dotaz s jednoduchým „stemmingem“ pro češtinu: slova delší než 5 znaků se hledají
