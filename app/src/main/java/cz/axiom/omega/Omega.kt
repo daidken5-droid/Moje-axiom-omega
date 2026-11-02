@@ -215,9 +215,31 @@ class Omega private constructor(val app: Context) {
 
     // ------------------------------------------------------------------ enginy
 
-    fun local(): LocalEngine {
+    /**
+     * PŘEDEHŘÁTÍ: po otevření aplikace načte mozek do paměti a jedním tokenem „prohřeje“ váhy (stránky
+     * modelu jsou pak v RAM) – první dotaz nečeká na načítání. Tiché (bez událostí do UI), ustoupí dotazu.
+     */
+    @Volatile private var warming = false
+    fun warmup() {
+        if (warming || !localAvailable() || cz.axiom.omega.jobs.OmegaService.RUNNING_ASK.get()) return
+        if (Introspect.freeRamMb(app) in 1..1_200) return
+        warming = true
+        Thread({
+            try {
+                val e = local(quiet = true)
+                e.quiet = true
+                try {
+                    e.generate(listOf(cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.USER, "ok")),
+                        cz.axiom.omega.core.llm.GenOptions(maxTokens = 1), cz.axiom.omega.core.llm.CancelToken()) {}
+                } finally { e.quiet = false }
+            } catch (_: Throwable) {
+            } finally { warming = false }
+        }, "omega-warmup").apply { priority = Thread.MIN_PRIORITY }.start()
+    }
+
+    fun local(quiet: Boolean = false): LocalEngine {
         val (file, spec) = brains.active() ?: throw EngineException("Lokální mozek není stažený. Otevři Mozky a stáhni doporučený.")
-        if (LocalEngine.loadedLabel() == null) {
+        if (LocalEngine.loadedLabel() == null && !quiet) {
             cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Načítám mozek ${spec?.name ?: ""} do paměti – jen u prvního dotazu, chvilku…"))
         }
         val lora = settings.lora.takeIf { it.isNotBlank() }?.let { java.io.File(loraDir(), it) }?.takeIf { it.exists() }

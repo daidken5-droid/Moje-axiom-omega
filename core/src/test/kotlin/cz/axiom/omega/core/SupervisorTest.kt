@@ -171,3 +171,22 @@ class PowerAndDeviceTest {
         cz.axiom.omega.core.self.Cognition.Domain.entries.flatMap { it.packs }.forEach { assertTrue("chybí balíček $it", it in packs) }
     }
 }
+
+class FastLocalTest {
+    private fun plan(t: String, p: cz.axiom.omega.core.device.Power = cz.axiom.omega.core.device.Power.ADVANCED) =
+        Supervisor.plan(Request(t, power = p, localBrain = true), Device(80, false, online = true), emptyMap(), Authority.FULL)
+
+    @Test fun phoneBrainIsFast() {
+        val think = plan("Proč je inflace v ČR vyšší než v eurozóně a co s tím?")
+        assertEquals(1, think.passes); assertEquals(false, think.thinking); assertFalse(think.mayEscalate)
+        assertTrue(think.extraStyle!!.contains("stručně"))
+        val ver = plan("Je pravda, že chemtrails ovládají lidi?")
+        assertEquals(Router.Mode.CHAT, ver.mode)
+        assertTrue(ver.extraStyle!!.contains("Ověř tvrzení"))
+        // Sherlock zůstává důkladný i v telefonu
+        val sh = plan("Proč je inflace v ČR vyšší než v eurozóně?", cz.axiom.omega.core.device.Power.SHERLOCK)
+        assertEquals(3, sh.passes); assertEquals(true, sh.thinking)
+        // tvorba souborů zůstává agentem
+        assertEquals(Router.Mode.AGENT, plan("Vytvoř mi aplikaci APK na poznámky").mode)
+    }
+}

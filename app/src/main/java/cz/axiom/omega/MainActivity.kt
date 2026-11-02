@@ -126,6 +126,8 @@ class MainActivity : ComponentActivity() {
         window.decorView.postDelayed({ runCatching { bridge.maybeSelfStudy() } }, 4_000)
         window.decorView.postDelayed({ runCatching { bridge.checkUpdate(false) } }, 6_000)
         publishShortcuts()
+        // předehřátí mozku: načíst do paměti hned, ne až při prvním dotazu
+        window.decorView.postDelayed({ runCatching { Omega.get(this).warmup() } }, 1_500)
     }
 
     override fun onStop() {

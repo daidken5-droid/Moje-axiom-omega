@@ -860,6 +860,15 @@ window.omegaReceive = function (type, d) {
       if (!live) live = { phase: '', text: '', steps: [] };
       live.steps = [...(live.steps || []), d]; live.text = ''; updateLive(); break;
     case 'done':
+      // tip na rychlejší mozek, když je ten současný v telefonu pomalý
+      try {
+        const pf = d.meta && d.meta.perf;
+        if (pf && pf.writeTps > 0 && pf.writeTps < 5 && !localStorage.getItem('tipLite') && /E4B|Ultra|Max/i.test(d.meta.engine || '')) {
+          localStorage.setItem('tipLite', '1');
+          setTimeout(() => toast('Tip: mozek píše ' + cz(pf.writeTps.toFixed(1)) + ' tok/s. OMEGA Lite (Gemma 4 E2B) odpovídá zhruba 2× rychleji – Moduly → Mozky.'), 1500);
+        }
+      } catch (e) { /* bez localStorage */ }
+      // falls through
     case 'error':
       if (d.lane === 'bg') { toast(d.message || 'Úloha na pozadí skončila chybou.'); refresh(); if (view === 'modules') renderModules(); if (view === 'memory') renderMemory(); break; }
       if (live) haptic();

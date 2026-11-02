@@ -42,7 +42,7 @@ object NativeLlama {
     }
 
     external fun nativeInit(libDir: String)
-    external fun nativeLoad(path: String, nCtx: Int, nThreads: Int): Long
+    external fun nativeLoad(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int): Long
     external fun nativeInfo(handle: Long): String
     external fun nativeGenerate(
         handle: Long, roles: Array<String>, contents: Array<String>, maxTokens: Int,
@@ -136,12 +136,12 @@ class LocalEngine private constructor(
                 private var first = true
                 private var lastPct = -1
                 override fun onBytes(bytes: ByteArray): Boolean {
-                    if (first) { first = false; cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Píšu odpověď…")) }
+                    if (first && !quiet) { first = false; cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Píšu odpověď…")) }
                     splitter.feed(String(bytes, Charsets.UTF_8))
                     return !cancel.cancelled
                 }
                 override fun onProgress(done: Int, total: Int) {
-                    if (total < 200) return
+                    if (total < 200 || quiet) return
                     val pct = done * 100 / total
                     if (pct == lastPct || (pct - lastPct < 10 && pct != 100)) return
                     lastPct = pct
@@ -175,6 +175,9 @@ class LocalEngine private constructor(
             millis = System.currentTimeMillis() - started,
         )
     }
+
+    /** Tichý běh (předehřátí) – bez událostí do UI. */
+    @Volatile var quiet = false
 
     @Volatile private var loraKey = ""
     /** Popis nasazeného LoRA adaptéru (doladění), nebo null. */
@@ -228,7 +231,9 @@ class LocalEngine private constructor(
             val freeMb = cz.axiom.omega.sys.Introspect.freeRamMb(context)
             if (freeMb in 1..2_500 && ctx > 4096) ctx = 4096
             if (freeMb in 1..1_200 && ctx > 2048) ctx = 2048
-            val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads)
+            // prefill na všech jádrech kromě jednoho (UI zůstane plynulé), generování jen na výkonných
+            val batchThreads = (Runtime.getRuntime().availableProcessors() - 1).coerceIn(threads, 8)
+            val h = NativeLlama.nativeLoad(file.absolutePath, ctx, threads, batchThreads)
             if (h == 0L) throw EngineException("Mozek se nepodařilo načíst (poškozený soubor nebo málo paměti RAM).")
             return LocalEngine(h, spec, file, ctx, ctxTokens).also { current = it; it.applyLora(lora, loraScale) }
         }

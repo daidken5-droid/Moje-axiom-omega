@@ -8,6 +8,16 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.4 – rychlost v telefonu
+
+Hlavní příčina pomalých odpovědí: RANDY volil i pro mozek v telefonu „serverové“ postupy – Ω Think se skrytým
+přemýšlením a 2 průchody, vícekrokového agenta pro ověřování a opakování nejisté odpovědi. Na CPU telefonu to jsou minuty.
+* **Úsporné řízení pro mozek v telefonu** (Základ i Pokročilé): 1 průchod, bez skrytého přemýšlení, bez opakování,
+  ověřování přímo z offline znalostí (ne agent), stručné odpovědi do ~150 slov. **Sherlock zůstává plně důkladný.**
+* **Předehřátí:** po otevření aplikace se mozek na pozadí načte a „prohřeje“ – první dotaz nečeká na načítání 5GB souboru.
+* **Rychlejší čtení zadání:** prefill na 7 jádrech (psaní dál na 4 výkonných).
+* **Kratší limity délky** odpovědi v telefonu; tip na OMEGA Lite (Gemma 4 E2B, ~2× rychlejší), když je mozek pomalý.
+
 ## Novinky 5.3 – soubory a služby Hugging Face
 
 **AVIOR čte jakékoli soubory** – jako přílohu k dotazu (📎) i do offline znalostí:

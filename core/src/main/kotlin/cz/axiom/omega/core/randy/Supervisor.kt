@@ -73,6 +73,8 @@ object Supervisor {
         val power: cz.axiom.omega.core.device.Power = cz.axiom.omega.core.device.Power.ADVANCED,
         /** od jaké teploty (THERMAL_STATUS) šetřit – podle profilu zařízení */
         val thermalCaution: Int = 3,
+        /** Myslí mozek v telefonu → RANDY šetří čas (každý průchod i krok agenta jsou na CPU drahé). */
+        val localBrain: Boolean = false,
     )
 
     data class Plan(
@@ -234,7 +236,22 @@ object Supervisor {
             }
         }
 
-        val mayEscalate = pipeline.isEmpty() && req.power != Power.BASIC && authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !saving
+        // f) RYCHLOST V TELEFONU: mimo Sherlock jeden průchod, bez skrytého přemýšlení, bez opakování,
+        //    ověřování a rešerše offline jako přímá odpověď z offline znalostí (ne vícekrokový agent).
+        val fast = req.localBrain && req.power != Power.SHERLOCK
+        if (fast) {
+            if (passes == null || passes > 1) passes = 1
+            if (!explicitAny || thinking == true) thinking = false
+            if (!explicitAny && mode == Router.Mode.AGENT && v in setOf(Variant.VERITAS, Variant.RESEARCH) && pipeline.size < 2) {
+                mode = Router.Mode.CHAT
+                extraStyle = listOfNotNull(extraStyle, if (v == Variant.VERITAS) VERIFY_STYLE else null).joinToString("\n").ifBlank { null }
+                why += "v telefonu ověřím přímo z offline znalostí (rychleji než agent)"
+            }
+            pipeline = pipeline.filter { it.variant != Variant.THINK || pipeline.size <= 2 }.let { if (it.size >= 2) it else emptyList() }
+            extraStyle = listOfNotNull(extraStyle, FAST_STYLE).joinToString("\n")
+            why += "mozek v telefonu → stručně a v jednom průchodu"
+        }
+        val mayEscalate = !fast && pipeline.isEmpty() && req.power != Power.BASIC && authority == Authority.FULL && !explicitAny && mode != Router.Mode.AGENT && !saving
         if (authority == Authority.ADVISORY) {
             // poradní režim: nic nemění, jen radí
             return Plan(req.variant, req.kind ?: req.variant.mode, req.role ?: req.variant.role, req.level ?: req.variant.level, req.variant.passes,
@@ -271,6 +288,9 @@ object Supervisor {
         // drž poslední (výstupní) fázi: když je moc fází, vynech prostřední
         return if (stages.size <= max) stages else stages.take(max - 1) + stages.last()
     }
+
+    const val FAST_STYLE = "Odpovídej stručně a k věci (zhruba do 150 slov), pokud uživatel výslovně nechce podrobnosti. Žádné zbytečné úvody ani opakování otázky."
+    const val VERIFY_STYLE = "Ověř tvrzení: rozděl ho na dílčí výroky a u každého uveď PRAVDA / ZAVÁDĚJÍCÍ / NEPODLOŽENO / NEPRAVDA s krátkým důvodem a zdrojem z podkladů."
 
     const val SHERLOCK_STYLE = "REŽIM SHERLOCK – metoda dedukce: 1) pozorování (co přesně víme, včetně drobností), " +
         "2) hypotézy (všechna rozumná vysvětlení), 3) důkazy pro a proti každé, 4) vylučování – co zbude, je nejpravděpodobnější, " +

@@ -228,7 +228,7 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeInit(JNIEnv *env, jobject, jstring 
 }
 
 JNIEXPORT jlong JNICALL
-Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring jpath, jint n_ctx, jint n_threads) {
+Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring jpath, jint n_ctx, jint n_threads, jint n_threads_batch) {
     const std::string path = jstr(env, jpath);
     llama_model_params mp = llama_model_default_params();
     llama_model *model = llama_model_load_from_file(path.c_str(), mp);
@@ -247,7 +247,8 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring 
     cp.n_batch = (uint32_t) o->n_batch;
     cp.n_ubatch = (uint32_t) o->n_batch;
     cp.n_threads = std::max(1, (int) n_threads);
-    cp.n_threads_batch = std::max(1, (int) n_threads);
+    // čtení zadání (prefill) je dobře paralelní → víc jader; psaní jen na výkonných jádrech
+    cp.n_threads_batch = std::max(1, (int) (n_threads_batch > 0 ? n_threads_batch : n_threads));
     cp.abort_callback = abort_cb;
     cp.abort_callback_data = o;
     // Výkon: flash attention (auto) + KV cache v Q8_0 = cca poloviční paměť kontextu, delší kontext na telefonu.

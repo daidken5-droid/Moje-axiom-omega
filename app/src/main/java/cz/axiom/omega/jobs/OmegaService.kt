@@ -175,7 +175,7 @@ class OmegaService : Service() {
         val competence = omega.cognition.competence(domain)
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
             weakDomain = if (learning && competence?.weak == true) domain.label else null,
-            power = omega.power(), thermalCaution = omega.device.thermalCaution), device, omega.randy.stats(), authority)
+            power = omega.power(), thermalCaution = omega.device.thermalCaution, localBrain = device.local), device, omega.randy.stats(), authority)
         // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
         // v telefonu stojí každý token čas – ukázku přidáme jen cloudu nebo v režimu Sherlock
         val exemplar = if (learning && (!device.local || omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK)) omega.cognition.exemplar(domain) else null

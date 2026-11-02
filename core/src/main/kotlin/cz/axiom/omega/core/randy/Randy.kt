@@ -177,7 +177,7 @@ object Randy {
     /** Doporučené tokeny výstupu pro lokální mozek (malé modely se rády zacyklí). */
     fun localMaxTokens(level: RandyLevel): Int = when (level) {
         RandyLevel.L0_DIRECT -> 384
-        RandyLevel.L1_EXPERT -> 640
-        else -> 896
+        RandyLevel.L1_EXPERT -> 560
+        else -> 768
     }
 }
