@@ -17,7 +17,7 @@ import kotlin.math.ln
 object Identity {
     const val NAME = "AVIOR"
     const val CODENAME = "AVIOR"
-    const val VERSION = "5.6.0"
+    const val VERSION = "5.7.0"
     const val LINEAGE = "AXIOM 2.1 Hybrid → AXIOM Titanium 5.5 (RANDY, STEP-0, ASTRAEA +EV) → AXIOM Ω 3.x → AVIOR 4.0 (učí se z každé otázky)"
 
     val principles = listOf(

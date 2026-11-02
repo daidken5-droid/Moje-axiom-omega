@@ -8,6 +8,17 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.7 – výběr mozku a „Oba mozky“
+
+- **Výběr mozku přímo v chatu:** klepni na štítek vlevo v poli pro dotaz → **Ω Auto · Telefon · Claude · ⇄ Oba**.
+  Zvolený mozek je vidět na štítku. Všechny ostatní mozky a připojení jsou o klepnutí dál.
+- **Oba mozky (Duo):** telefon i Claude (nebo jiný připojený cloud) přemýšlí **současně**, Claude pak obě
+  odpovědi porovná – shody, rozpory, kdo má pravdu – a složí finální odpověď. Když jeden z mozků selže,
+  dostaneš odpověď toho druhého.
+- **Automaticky u hodně složitých otázek:** v režimu Auto RANDY sám zapojí oba mozky u nejtěžších úloh
+  (úroveň L4+ nebo Sherlock s hlubokou analýzou). Běžné otázky dál telefon, těžké Claude. Vypínatelné
+  přepínačem „Oba mozky u hodně složitých otázek“ v kartě Claude.
+
 ## Novinky 5.6 – okamžité odpovědi, nejrychlejší mozek, Claude jako posila
 
 - **Ω Flash · okamžitě:** jednoduché otázky odpoví AVIOR v milisekundách **bez mozku** – pozdrav, čas, datum,

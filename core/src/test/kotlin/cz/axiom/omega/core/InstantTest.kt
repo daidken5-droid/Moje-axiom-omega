@@ -59,3 +59,17 @@ class ClaudeBoostRouterTest {
         assertEquals("local", cz.axiom.omega.core.agent.Router.route("/agent najdi let", ctx.copy(boost = null)).engine)
     }
 }
+
+class DuoRouterTest {
+    @Test fun veryHardQuestionsUseBothBrains() {
+        val ctx = cz.axiom.omega.core.agent.Router.Context(true, listOf("local", "claude"), duo = "claude")
+        val easy = cz.axiom.omega.core.agent.Router.route("Kolik stojí chleba?", ctx)
+        assertEquals("local", easy.engine); assertTrue(!easy.duo)
+        val forced = cz.axiom.omega.core.agent.Router.route("Kolik stojí chleba?", ctx.copy(forceDuo = true))
+        assertTrue(forced.duo); assertEquals(cz.axiom.omega.core.agent.Router.Mode.COUNCIL, forced.mode); assertEquals("claude", forced.engine)
+        val hard = cz.axiom.omega.core.agent.Router.route("/L4 Najdi slabiny v mém podnikatelském plánu", ctx.copy(userMode = cz.axiom.omega.core.agent.Router.Mode.CHAT))
+        assertTrue(hard.duo)
+        val offline = cz.axiom.omega.core.agent.Router.route("Kolik stojí chleba?", ctx.copy(online = false, forceDuo = true))
+        assertTrue(!offline.duo); assertTrue(offline.reason.contains("oba mozky teď nejdou"))
+    }
+}

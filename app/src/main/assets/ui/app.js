@@ -94,8 +94,25 @@ const MODES = [
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
   { id: 'claude', ic: 'C', name: 'Claude', desc: 'Volitelně přes tvé Anthropic API.' },
   { id: 'hf', ic: 'HF', name: 'Hugging Face', desc: 'Silné otevřené modely (Llama, Qwen…) přes tvůj HF token.' },
+  { id: 'duo', ic: '⇄', name: 'Oba mozky', desc: 'Telefon i Claude (nebo jiný cloud) přemýšlí současně a cloud odpovědi spojí – pro hodně složité otázky.' },
   { id: 'council', ic: '⚖', name: 'Konzilium', desc: 'Víc mozků + rozhodčí.' },
 ];
+/** Rychlá volba mozku v chatu: Auto · Telefon · Claude/cloud · Oba. */
+function brainPick() {
+  const cur = (S.settings || {}).mode || 'auto';
+  const avail = S.engines || [];
+  const cloud = ['claude', 'kimi', 'node', 'hf', 'server'].find(x => avail.includes(x));
+  const opts = [['auto', 'Ω Auto', true], ['local', 'Telefon', avail.includes('local')]];
+  if (cloud) opts.push([cloud, (MODES.find(m => m.id === cloud) || {}).name || cloud, true]);
+  opts.push(['duo', '⇄ Oba', !!cloud && avail.includes('local')]);
+  if (!opts.some(o => o[0] === cur)) opts.push([cur, (MODES.find(m => m.id === cur) || {}).name || cur, true]);
+  const hint = cur === 'duo' ? 'Telefon i ' + ((MODES.find(m => m.id === cloud) || {}).name || 'cloud') + ' současně – pomalejší, ale nejdůkladnější.'
+    : cur === 'auto' ? 'RANDY volí sám: běžné otázky telefon' + (cloud ? ', těžké ' + ((MODES.find(m => m.id === cloud) || {}).name) + ', hodně složité oba.' : '.')
+    : (MODES.find(m => m.id === cur) || {}).desc || '';
+  return `<div class="seg brainseg">${opts.map(([id, label, ok]) => `<button data-mode="${id}" class="${cur === id ? 'on' : ''}" ${ok ? '' : 'disabled'}>${esc(label)}</button>`).join('')}</div>
+    <p class="small muted" style="margin:6px 2px 0">${esc(hint)}</p>
+    <button class="link" data-mode-sheet style="margin-top:4px">Všechny mozky a připojení ›</button>`;
+}
 const KINDS = [
   { id: '', name: 'Automaticky', desc: 'Odpověď, nebo agent s nástroji – podle zadání.' },
   { id: 'chat', name: 'Odpověď', desc: 'Rychlá odpověď s RANDY průchody.' },
@@ -439,12 +456,14 @@ function composer() {
   const k = KINDS.find(x => x.id === forcedKind);
   const v = variants().find(x => x.id === variant) || variants()[0];
   const pw = curPower() === 'SHERLOCK' ? ' · ⌕' : curPower() === 'BASIC' ? ' · ◇' : '';
-  const chip = (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '') + pw;
+  const md = (S.settings || {}).mode || 'auto';
+  const bl = md === 'auto' ? '' : (md === 'duo' ? '⇄ Oba' : md === 'local' ? 'Telefon' : ((MODES.find(m => m.id === md) || {}).name || md)) + ' · ';
+  const chip = bl + (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '') + pw;
   return `<div class="composer"><div class="wrap">
     <div class="randy-hint" id="randyHint"></div>
     ${attachment ? `<div class="attach-pill"><span>${ICONS.clip}</span><b>${esc(attachment.name)}</b><small>${esc(attachment.kind || '')} · ${attachment.chars >= 1000 ? Math.round(attachment.chars / 1000) + ' tis.' : attachment.chars} znaků</small><button data-attach-clear aria-label="Odebrat přílohu">✕</button></div>` : ''}
     <div class="box">
-      <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
+      <button class="kind ${forcedKind || forcedLevel || variant !== 'AUTO' || md !== 'auto' ? 'on' : ''}" data-kind-pick>${esc(chip)}</button>
       <textarea id="input" rows="1" maxlength="32000" placeholder="Zeptej se…">${esc(draft)}</textarea>
       <button class="mic" data-attach aria-label="Přiložit soubor">${ICONS.clip}</button>
       <button class="mic" id="micBtn" aria-label="Diktovat">${ICONS.mic}</button>
@@ -595,7 +614,8 @@ function claudeHtml() {
     <label>Model</label><div class="seg">${models.map(([v, l]) => `<button data-setv="claudeModel" data-val="${v}" class="${(st.claudeModel || 'claude-opus-5-5') === v ? 'on' : ''}">${l}</button>`).join('')}</div>
     <p class="small muted" style="margin-top:6px">Opus 5.5 = nejchytřejší (výchozí) · Sonnet 5.5 = rychlejší a levnější · Haiku 5.5 = nejrychlejší.</p>
     <div id="models-claude"></div>
-    ${sw('claudeBoost', 'Claude jako posila', 'Těžké otázky automaticky Claude, ostatní telefon. Vypnuto = Claude jen když ho zvolíš.')}`);
+    ${sw('claudeBoost', 'Claude jako posila', 'Těžké otázky automaticky Claude, ostatní telefon. Vypnuto = Claude jen když ho zvolíš.')}
+    ${sw('autoDuo', 'Oba mozky u hodně složitých otázek', 'Telefon i Claude přemýšlí současně, Claude odpovědi porovná a spojí. Vybrat „Oba“ můžeš i ručně v chatu.')}`);
 }
 
 function hfServicesHtml() {
@@ -832,7 +852,8 @@ function closeSheet() { $('#sheet').innerHTML = ''; }
 
 function kindSheet() {
   const lv = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
-  sheet(`<div class="eyebrow" style="margin-top:4px">VÝKON</div>${powerSeg(true)}
+  sheet(`<div class="eyebrow" style="margin-top:4px">MOZEK</div>${brainPick()}
+    <div class="eyebrow">VÝKON</div>${powerSeg(true)}
     <div class="eyebrow">Ω VARIANTY · PODMODELY</div>
     <div class="vgrid">${variants().map(v => `<button class="vcard ${variant === v.id ? 'on' : ''}" data-variant="${v.id}"><span class="v-ic">${esc(v.icon)}</span>
       <b>${esc(v.title)}</b><small>${esc(v.tagline)}</small>${v.agent ? '<i>AGENT</i>' : ''}</button>`).join('')}</div>
@@ -980,7 +1001,16 @@ document.addEventListener('click', e => {
   if (ds.open) { e.preventDefault(); call('open', ds.open); return; }
   if (ds.go) { closeSheet(); go(ds.go); return; }
   if (ds.suggest) { send(ds.suggest); return; }
-  if (ds.mode) { configure({ mode: ds.mode }); closeSheet(); refresh(); if (view === 'modules') renderModules(); return; }
+  if (ds.mode) {
+    const inPick = !!t.closest('.brainseg');
+    configure({ mode: ds.mode }); S.settings = Object.assign({}, S.settings, { mode: ds.mode }); haptic();
+    const m = MODES.find(x => x.id === ds.mode); if (m) toast('Mozek: ' + m.name);
+    if (inPick) kindSheet(); else closeSheet();
+    refresh(); if (view === 'modules') renderModules();
+    if (view === 'chat' && $('#composerSlot')) { $('#composerSlot').innerHTML = composer(); bindComposer(); }
+    return;
+  }
+  if (ds.modeSheet !== undefined) { modeSheet(); return; }
   if (ds.kindPick !== undefined) { kindSheet(); return; }
   if (ds.kind !== undefined && t.classList.contains('opt')) { forcedKind = ds.kind; closeSheet(); render(); return; }
   if (ds.level !== undefined) { forcedLevel = ds.level || null; closeSheet(); render(); return; }

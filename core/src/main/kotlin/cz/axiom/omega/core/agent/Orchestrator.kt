@@ -198,16 +198,40 @@ class Orchestrator(
      * KONZILIUM (DNA "Porovnat 2 AI" z AXIOM 2.1, dotažené do konce):
      * více mozků odpoví nezávisle, rozhodčí najde shody a rozpory a složí finální odpověď.
      */
-    fun council(req: AskRequest, members: List<LlmEngine>, judge: LlmEngine, cancel: CancelToken, listener: AskListener = object : AskListener {}): AskResult {
+    fun council(
+        req: AskRequest, members: List<LlmEngine>, judge: LlmEngine, cancel: CancelToken, listener: AskListener = object : AskListener {},
+        /** OBA MOZKY: členové přemýšlí současně (telefon počítá lokálně, cloud vzdáleně → žádné čekání za sebou). */
+        parallel: Boolean = false,
+    ): AskResult {
         require(members.size >= 2) { "Konzilium potřebuje alespoň 2 mozky." }
-        val answers = members.mapIndexed { i, eng ->
+        val name = if (parallel) "Oba mozky" else "Konzilium"
+        val answers = if (parallel) {
+            listener.onPhase("$name · " + members.joinToString(" a ") { it.label } + " přemýšlí současně…")
+            val results = arrayOfNulls<AskResult>(members.size)
+            val errors = arrayOfNulls<Throwable>(members.size)
+            val threads = members.mapIndexed { i, eng ->
+                Thread({
+                    try {
+                        results[i] = run(req.copy(maxPasses = 1, reflect = false), eng, cancel, object : AskListener {})
+                        listener.onPhase("$name · ${eng.label} hotovo")
+                    } catch (t: Throwable) { errors[i] = t }
+                }, "omega-duo-$i").apply { start() }
+            }
+            threads.forEach { it.join() }
+            cancel.check()
+            val ok = members.indices.filter { results[it] != null }
+            // jeden z mozků selhal → vrátit odpověď toho druhého (lepší než nic)
+            if (ok.isEmpty()) throw errors.firstOrNull { it != null }!!
+            if (ok.size == 1) return results[ok.single()]!!.copy(engineLabel = "$name: ${members[ok.single()].label} (druhý selhal: ${errors.firstOrNull { it != null }?.message ?: "chyba"})")
+            ok.map { members[it] to results[it]!! }
+        } else members.mapIndexed { i, eng ->
             listener.onPhase("Konzilium · ${eng.label} (${i + 1}/${members.size})")
             eng to run(req.copy(maxPasses = 1, reflect = false), eng, cancel, object : AskListener {
                 override fun onDelta(pass: Int, totalPasses: Int, delta: Delta) = listener.onDelta(i + 1, members.size + 1, delta)
             })
         }
         cancel.check()
-        listener.onPhase("Konzilium · rozhodčí ${judge.label}")
+        listener.onPhase("$name · ${judge.label} spojuje odpovědi")
         val first = answers.first().second
         val panel = answers.joinToString("\n\n") { (eng, r) -> "=== ODPOVĚĎ: ${eng.label} ===\n${TextUtil.clip(r.answer, 20_000)}" }
         val msgs = listOf(
@@ -231,8 +255,8 @@ class Orchestrator(
             lesson = parsed.lesson,
             sources = answers.flatMap { it.second.sources }.distinctBy { it.url },
             model = res.model,
-            engineLabel = "Konzilium: " + members.joinToString(" + ") { it.label } + " → " + judge.label,
-            millis = answers.sumOf { it.second.millis } + (System.currentTimeMillis() - t0),
+            engineLabel = "$name: " + members.joinToString(" + ") { it.label } + " → " + judge.label,
+            millis = (if (parallel) answers.maxOf { it.second.millis } else answers.sumOf { it.second.millis }) + (System.currentTimeMillis() - t0),
         )
     }
 

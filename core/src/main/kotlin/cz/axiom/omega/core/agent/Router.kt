@@ -27,9 +27,13 @@ object Router {
         val boost: String? = null,
         /** Režim výkonu Sherlock – maximum, posila dostane každou otázku kromě triviálních. */
         val sherlock: Boolean = false,
+        /** Partner pro režim OBA MOZKY (telefon + cloud současně), např. "claude". */
+        val duo: String? = null,
+        /** Uživatel zvolil „Oba mozky“ → u každé odpovědi (ne jen u velmi složitých). */
+        val forceDuo: Boolean = false,
     )
 
-    data class Route(val mode: Mode, val engine: String, val level: RandyLevel, val reason: String, val prompt: String)
+    data class Route(val mode: Mode, val engine: String, val level: RandyLevel, val reason: String, val prompt: String, val duo: Boolean = false)
 
     private val agentCmd = Regex("""^\s*/(?:agent|úkol|ukol)\b[:\s]*""", RegexOption.IGNORE_CASE)
     private val chatCmd = Regex("""^\s*/(?:chat|odpověď|odpoved)\b[:\s]*""", RegexOption.IGNORE_CASE)
@@ -88,14 +92,26 @@ object Router {
         }
 
         // Výslovná volba uživatele platí vždy (když není dostupná, uživatel dostane jasnou hlášku, ne tichou náhradu).
-        val engine = ctx.userEngine ?: pickEngine(level, mode!!, prompt, ctx, why)
+        var engine = ctx.userEngine ?: pickEngine(level, mode!!, prompt, ctx, why)
         if (ctx.userEngine != null) why += "zvolený mozek"
+        // OBA MOZKY: velmi složitá otázka (nebo výslovná volba) → telefon i cloud současně, cloud odpovědi spojí
+        var duo = false
+        val partner = ctx.duo
+        if (mode == Mode.CHAT && ctx.userEngine == null && partner != null) {
+            val ready = partner in ctx.engines && "local" in ctx.engines && ctx.online
+            val veryHard = level.ordinal >= RandyLevel.L4_NEMESIS_REDTEAM.ordinal ||
+                (ctx.sherlock && level.ordinal >= RandyLevel.L3_STRATEGIC_EV.ordinal)
+            if (ready && (ctx.forceDuo || veryHard)) {
+                mode = Mode.COUNCIL; engine = partner; duo = true
+                why += if (ctx.forceDuo) "oba mozky (telefon + $partner)" else "velmi složité → oba mozky (telefon + $partner)"
+            } else if (ctx.forceDuo && !ready) why += "oba mozky teď nejdou (chybí ${if ("local" !in ctx.engines) "mozek v telefonu" else "internet nebo $partner"})"
+        }
         if (mode == Mode.COUNCIL && ctx.engines.size < 2) {
             mode = Mode.CHAT
             why += "Konzilium potřebuje 2 mozky"
         }
         if (why.isEmpty()) why += "RANDY ${level.code}"
-        return Route(mode!!, engine, level, why.joinToString(" · "), prompt)
+        return Route(mode!!, engine, level, why.joinToString(" · "), prompt, duo)
     }
 
     private fun pickEngine(level: RandyLevel, mode: Router.Mode, prompt: String, ctx: Context, why: MutableList<String>): String {

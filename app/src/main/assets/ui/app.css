@@ -578,3 +578,4 @@ mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 
 .brainchip.on i { background: var(--good); box-shadow: 0 0 8px var(--good); }
 .brainchip.wait i { background: #d9c48a; animation: brainpulse 1.2s ease-in-out infinite; }
 @keyframes brainpulse { 50% { opacity: .3; } }
+.seg button:disabled { opacity: .35; }

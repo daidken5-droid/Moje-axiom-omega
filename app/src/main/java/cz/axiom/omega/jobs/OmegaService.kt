@@ -207,7 +207,7 @@ class OmegaService : Service() {
         val (battery, charging) = Introspect.battery(this)
         val engines = omega.availableEngines()
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
-            local = mode == "local" || (mode == "auto" && engines.firstOrNull() == "local"))
+            local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local"))
         // SEBEPOZNÁNÍ: co o sobě vím v oblasti této otázky (z každé předchozí otázky a úvahy)
         val learning = omega.settings.learning
         val (domain, selfInsight) = omega.cognition.brief(text)
@@ -259,12 +259,14 @@ class OmegaService : Service() {
         }
 
         try {
-            val userEngine = mode.takeIf { it != "auto" && it != "council" }
+            val userEngine = mode.takeIf { it != "auto" && it != "council" && it != "duo" }
             val role = plan.role
             synchronized(omega.forge.session) { omega.forge.session.clear() }
             val route = Router.route(text, Router.Context(Introspect.online(this), engines, userEngine, plan.mode,
                 boost = if (s.claudeBoost && "claude" in engines) "claude" else null,
-                sherlock = omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK))
+                sherlock = omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK,
+                duo = if (mode == "duo" || (mode == "auto" && s.autoDuo)) omega.duoPartner(engines) else null,
+                forceDuo = mode == "duo"))
             val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
             listener.onPhase(plan.summary + " · ${route.mode.label}" + (plan.decisions.firstOrNull()?.let { " · $it" } ?: ""))
             val watchdog = Sup.Watchdog(plan.budgetMillis, authority)
@@ -277,10 +279,10 @@ class OmegaService : Service() {
                 meta = m; answer = a
             } else when (route.mode) {
                 Router.Mode.COUNCIL -> {
-                    val (members, judge) = omega.councilMembers()
+                    val (members, judge) = if (route.duo) omega.duoMembers(route.engine) else omega.councilMembers()
                     val r = omega.orchestrator().council(
                         AskRequest(route.prompt, history, forced, 1, s.reflect, s.web, s.thinking, true, s.rates, s.userName.ifBlank { null }),
-                        members, judge, cancel, listener,
+                        members, judge, cancel, listener, parallel = route.duo,
                     )
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r); answer = r.answer

@@ -342,6 +342,19 @@ class Omega private constructor(val app: Context) {
         return e
     }
 
+    /** Nejsilnější dostupný cloudový partner pro režim OBA MOZKY: Claude > Kimi > Node > HF > server. */
+    fun duoPartner(engines: List<String> = availableEngines()): String? =
+        listOf("claude", "kimi", "node", "hf", "server").firstOrNull { it in engines }
+
+    /** OBA MOZKY: mozek v telefonu + cloudový partner; partner odpovědi spojí (je silnější). */
+    fun duoMembers(partner: String): Pair<List<LlmEngine>, LlmEngine> {
+        val cloud = resolve(partner)
+        val phone = local()
+        currentLabel = "Oba mozky"
+        currentKind = cloud.kind
+        return listOf(phone, cloud) to cloud
+    }
+
     fun councilMembers(): Pair<List<LlmEngine>, LlmEngine> {
         val online = Introspect.online(app)
         val members = buildList {
