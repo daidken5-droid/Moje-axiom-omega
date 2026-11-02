@@ -208,6 +208,18 @@ class OmegaService : Service() {
         val authority = Sup.Authority.of(omega.settings.randyAuthority)
         val (battery, charging) = Introspect.battery(this)
         val engines = omega.availableEngines()
+        // E-ARL: rozhodne, kolik myšlení je potřeba (výňatek / lehký mozek / mozek / hloubka) – RANDY pak neplánuje triviality
+        val sig = cz.axiom.omega.core.agent.Pavucina.of(text)
+        val userForced = userKind != null || userRole != null || userLevel != null || userVariant != cz.axiom.omega.core.agent.Variant.AUTO ||
+            mode !in setOf("auto", "local", "free", "turbo") || text.trimStart().startsWith("/")
+        val earl = if (userForced) null else runCatching {
+            cz.axiom.omega.core.agent.Earl.decide(sig, cz.axiom.omega.core.agent.Earl.Ctx(
+                knowledge = { q -> omega.quickKnowledge().search(q, 3) }, brainLoaded = LocalEngine.loaded() != null,
+                cloud = Introspect.online(this) && engines.any { it != "local" && it != "server" }, thresholds = omega.earlThresholds(),
+            ))
+        }.getOrNull()
+        if (earl?.path == cz.axiom.omega.core.agent.Earl.Path.RETRIEVE && earlRetrieve(threadId, text, earl)) return
+        val light = earl?.path == cz.axiom.omega.core.agent.Earl.Path.LIGHT
         // ŽÁDNÝ MOZEK (offline bez staženého mozku, bez cloudu) → odpověď z offline knihovny místo chyby
         if (engines.isEmpty() && offlineAnswer(threadId, text, if (Introspect.online(this)) "není stažený mozek ani připojený cloud" else "jsi offline a v telefonu není mozek")) return
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
@@ -334,19 +346,21 @@ class OmegaService : Service() {
                 }
                 Router.Mode.CHAT -> {
                     val tLoad = System.currentTimeMillis()
-                    val engine = omega.resolve(route.engine)
+                    // E-ARL LIGHT + cloud → rychlý model poskytovatele (gpt-oss-20b / 8B), stačí na krátkou jasnou otázku
+                    val engine = if (light && route.engine == "free") omega.shield(omega.free(fast = true)) else omega.resolve(route.engine)
                     val loadMs = System.currentTimeMillis() - tLoad
                     (engine as? cz.axiom.omega.engine.LocalEngine)?.setThreads(budget.threads, budget.batchThreads)
                     listener.onPhase("Probouzím ${engine.label}…")
                     // RYCHLOST v telefonu: každý průchod = celé čtení + psaní znovu. Běžný dotaz 1 průchod,
                     // strategické/kritické (L3+) 2, Sherlock nejvýš 2 + oponentura v řetězci.
-                    val passes = if (engine.kind == EngineKind.LOCAL) {
-                        val lvl = (forced ?: cz.axiom.omega.core.randy.Randy.detect(route.prompt).level).ordinal
+                    val passes = if (light) 1 else if (engine.kind == EngineKind.LOCAL) {
+                        // PAVUČINA: úroveň RANDY už je spočítaná v signálu dotazu
+                        val lvl = (forced ?: if (route.prompt == text) sig.level else cz.axiom.omega.core.randy.Randy.detect(route.prompt).level).ordinal
                         minOf(plan.passes ?: if (lvl >= RandyLevel.L3_STRATEGIC_EV.ordinal) 2 else 1, s.localMaxPasses, 2)
                     } else plan.passes ?: s.maxPasses
                     val orch = omega.orchestrator()
                     fun req(e: cz.axiom.omega.core.llm.LlmEngine) = AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && e.kind == EngineKind.CLAUDE,
-                        (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
+                        !light && (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
                         s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
                         maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge)
                     var failover: String? = null
@@ -383,6 +397,7 @@ class OmegaService : Service() {
             val finalVariant = escalatedTo ?: variant
             if (finalVariant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", finalVariant.title)
             meta.put("power", plan.power.label)
+            earl?.let { e -> meta.put("earl", JSONObject().put("path", e.path.name).put("label", e.path.label).put("conf", e.confidence).put("category", e.category).put("reasons", JSONArray(e.reasons))) }
             meta.put("governor", JSONObject().put("power", budget.power.label).put("demand", budget.demand).put("maxTokens", budget.maxTokens).put("strength", omega.settings.powerStrength)
                 .put("threads", budget.threads).put("limited", budget.limited).put("auto", omega.powerAuto())
                 .put("reasons", JSONArray().apply { budget.reasons.forEach { put(it) } }))
@@ -453,6 +468,19 @@ class OmegaService : Service() {
             omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("error", true))
             Events.emit("error", JSONObject().put("threadId", threadId).put("message", msg))
         }
+    }
+
+    /** E-ARL RETRIEVE: přesné heslo v offline knihovně → výňatek místo načítání mozku. */
+    private fun earlRetrieve(threadId: Long, text: String, e: cz.axiom.omega.core.agent.Earl.Decision): Boolean {
+        val started = System.currentTimeMillis()
+        val q = e.entity ?: text
+        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(q, 3), "E-ARL: na definici stačí knihovna, mozek netřeba") }.getOrNull() ?: return false
+        val meta = JSONObject().put("engine", "E-ARL · offline knihovna").put("millis", System.currentTimeMillis() - started)
+            .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0")
+            .put("earl", JSONObject().put("path", e.path.name).put("label", e.path.label).put("conf", e.confidence).put("category", e.category).put("reasons", JSONArray(e.reasons)))
+        val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
+        Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))
+        return true
     }
 
     /** Odpověď z offline knihovny (Wikipedie, dokumenty, balíčky) – extraktivní, se zdrojem. false = nic vhodného. */

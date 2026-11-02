@@ -149,13 +149,16 @@ object Reflex {
 
     private val compound = Regex("\\S+\\s+\\S+[\\s,]+(a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
 
+    fun isCompound(prompt: String): Boolean = compound.containsMatchIn(TextUtil.fold(prompt))
+
     fun answer(prompt: String, c: Ctx): Instant.Answer? {
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
         // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
-        if (compound.containsMatchIn(TextUtil.fold(prompt))) return null
+        val sig = Pavucina.of(prompt) // PAVUČINA: varianty a signály se sdílí s E-ARL, RANDY i nápovědou
+        if (sig.compound) return null
         answerExact(prompt, c)?.let { return it }
         // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
-        for (v in QuestionNorm.variants(prompt).take(9)) answerExact(v, c)?.let { return it }
+        for (v in sig.variants.take(9)) answerExact(v, c)?.let { return it }
         return null
     }
 

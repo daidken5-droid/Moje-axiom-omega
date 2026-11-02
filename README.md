@@ -8,6 +8,40 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.4 – E-ARL, Neurální pavučina, hloubkový scan
+
+**E-ARL (Early Answer Routing Layer)** – modul před RANDYm, který u každé otázky za zlomek milisekundy rozhodne,
+kolik myšlení je potřeba:
+
+| Cesta | Kdy | Co se stane |
+|---|---|---|
+| REFLEX | odpověď zná deterministický reflex | 0 ms mozku |
+| RETRIEVE | definice („co je fotosyntéza“) s přesným heslem v offline knihovně, mozek není v RAM ani cloud | výňatek se zdrojem, 3–5 GB mozek se vůbec nenačte |
+| LIGHT | krátká jasná otázka (fakt, definice, konverzace) | 1 průchod, bez přemýšlení, v cloudu rychlý model |
+| BRAIN | běžná otázka | RANDY volí hloubku |
+| DEEP | složené otázky, strategie (RANDY L3+), dlouhá analýza či tvorba, kód | RANDY naplno |
+
+- **Učí se z hodnocení:**
+  - ✗ u výňatku zpřísní práh dané kategorie o 5 bodů, ✓ ho uvolní o 1.
+  - Opakované ✗ u lehké cesty pošle kategorii rovnou plnému mozku.
+  - Prahy jsou uložené v telefonu.
+- **Ruční volba má přednost:** vlastní volba uživatele (varianta, role, úroveň, `/příkaz`, konkrétní mozek) E-ARL nikdy
+  nepřebije.
+- **Rozhodnutí je vidět** v reportu pro Clauda: cesta, kategorie, jistota a důvody.
+
+**Neurální pavučina** – sdílené signály jednoho dotazu napříč celým AVIORem. Reflexy, E-ARL, RANDY, znalosti
+i offline odpověď se ptají na totéž: text bez diakritiky, kanonické varianty, úroveň RANDY, časovou citlivost
+a výsledky hledání. Každý signál se teď spočítá **nejvýš jednou a líně** a sdílí se:
+- Uzel dotazu žije v paměti posledních 48 dotazů a nic neběží na pozadí.
+- Výsledky hledání ve znalostech se sdílí 90 s. Při změně znalostí (import, balíček, smazání) se automaticky
+  zapomenou.
+
+**Hloubkový scan – opraveno:**
+- Sekvenční Konzilium: jeden selhaný člen (limit, výpadek) shodil celou odpověď. Teď se přeskočí a rozhodne
+  zbytek.
+- E-ARL by bral „napiš mi…“ jako obecnou otázku, protože normalizátor odstraní obal. Tvorba a analýza se teď
+  poznávají z původního znění.
+
 ## Novinky 8.3 – rozumí slangu, nářečí, slovenštině i angličtině; odpoví v každém režimu
 
 **Bez mozku – rozpoznávání otázek (`QuestionNorm`, vrstvy od nejmenší změny):**

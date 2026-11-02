@@ -161,6 +161,10 @@ class Settings(context: Context) {
     var freeFirst: Boolean
         get() = p.getBoolean("freeFirst", true)
         set(v) = p.edit().putBoolean("freeFirst", v).apply()
+    /** E-ARL: naučené prahy kategorií (JSON). */
+    var earl: String
+        get() = p.getString("earl", "{}")!!
+        set(v) = p.edit().putString("earl", v).apply()
     /** Cloud: „speed“ = nejdřív nejrychlejší servery zdarma, „quality“ = nejdřív placené silné modely. */
     var cloudPriority: String
         get() = p.getString("cloudPriority", "speed")!!

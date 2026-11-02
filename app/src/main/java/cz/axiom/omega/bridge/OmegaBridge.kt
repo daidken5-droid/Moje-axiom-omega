@@ -205,6 +205,10 @@ class OmegaBridge(private val activity: MainActivity) {
             .put("passes", d.level.passes.size).put("facts", JSONArray(facts.map { it.toString() })).toString()
     }
 
+    /** E-ARL se učí z hodnocení: ✗ u výňatku / lehkého mozku zpřísní práh kategorie. */
+    @JavascriptInterface
+    fun earlRate(category: String, path: String, good: Boolean) = omega.earlLearn(category.take(40), path.take(20), good)
+
     /** Uživatel potvrdil/odmítl odpověď (DNA "Potvrdit ověření") → posílí/oslabí poučení v paměti. */
     @JavascriptInterface
     fun rate(messageId: Long, good: Boolean, lesson: String?) {

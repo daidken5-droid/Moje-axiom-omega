@@ -225,6 +225,7 @@ function chatReport(withText = true) {
     if (me.finish && me.finish !== 'stop' && me.finish !== 'end_turn') f.push('konec: ' + me.finish);
     if (me.error) f.push('CHYBA');
     out.push('', `### ${i + 1} · ODPOVĚĎ ${m.ts ? hm(m.ts) : ''}`, '- ' + f.join(' · '));
+    if (me.earl) out.push(`- E-ARL: ${me.earl.label} (${me.earl.category}, ${me.earl.conf} %) – ${(me.earl.reasons || []).join(', ')}`);
     if (me.route) out.push('- cesta: ' + me.route);
     if (me.governor) out.push(`- regulátor: ${me.governor.power} · náročnost ${me.governor.demand} · max ${me.governor.maxTokens} tok · ${me.governor.threads || '?'} vláken${me.governor.limited ? ' · OMEZENO' : ''}`);
     if (me.perf) out.push(`- telefon: načtení ${me.perf.loadMs ?? '?'} ms · čtení ${me.perf.promptTps ?? '?'} tok/s · psaní ${me.perf.writeTps ?? '?'} tok/s · znalosti ${me.perf.knowledgeMs ?? '?'} ms`);
@@ -1336,7 +1337,7 @@ document.addEventListener('click', e => {
   if (ds.share) { const m = msgs.find(x => x.id === Number(ds.share)); m && call('share', m.content + '\n\n— AVIOR'); return; }
   if (ds.rate) {
     const m = msgs.find(x => x.id === Number(ds.rate));
-    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1');
+    if (m) { call('rate', m.id, ds.good === '1', (m.meta && m.meta.lesson) || ''); if (m.meta && m.meta.randy && m.meta.randy.variantId) call('randyRate', m.meta.randy.variantId, ds.good === '1'); if (m.meta && m.meta.earl) call('earlRate', m.meta.earl.category || '', m.meta.earl.path || '', ds.good === '1');
       { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, m.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }

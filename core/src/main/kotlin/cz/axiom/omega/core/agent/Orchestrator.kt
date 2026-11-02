@@ -240,11 +240,20 @@ class Orchestrator(
             if (ok.isEmpty()) throw errors.firstOrNull { it != null }!!
             if (ok.size == 1) return results[ok.single()]!!.copy(engineLabel = "$name: ${members[ok.single()].label} (druhý selhal: ${errors.firstOrNull { it != null }?.message ?: "chyba"})")
             ok.map { members[it] to results[it]!! }
-        } else members.mapIndexed { i, eng ->
-            listener.onPhase("Konzilium · ${eng.label} (${i + 1}/${members.size})")
-            eng to run(req.copy(maxPasses = 1, reflect = false), eng, cancel, object : AskListener {
-                override fun onDelta(pass: Int, totalPasses: Int, delta: Delta) = listener.onDelta(i + 1, members.size + 1, delta)
-            })
+        } else {
+            // člen, který selže (limit, výpadek), se přeskočí – konzilium pokračuje se zbytkem
+            val errs = mutableListOf<Throwable>()
+            val got = members.mapIndexedNotNull { i, eng ->
+                listener.onPhase("Konzilium · ${eng.label} (${i + 1}/${members.size})")
+                try {
+                    eng to run(req.copy(maxPasses = 1, reflect = false), eng, cancel, object : AskListener {
+                        override fun onDelta(pass: Int, totalPasses: Int, delta: Delta) = listener.onDelta(i + 1, members.size + 1, delta)
+                    })
+                } catch (e: cz.axiom.omega.core.llm.CancelledException) { throw e } catch (t: Throwable) { errs += t; null }
+            }
+            if (got.isEmpty()) throw errs.first()
+            if (got.size == 1) return got.single().second.copy(engineLabel = "$name: ${got.single().first.label} (ostatní selhali: ${errs.firstOrNull()?.message?.take(80) ?: "chyba"})")
+            got
         }
         cancel.check()
         listener.onPhase("$name · ${judge.label} spojuje odpovědi")

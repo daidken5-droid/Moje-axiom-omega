@@ -37,6 +37,8 @@ object Events {
     fun unlisten(l: (String, JSONObject) -> Unit) { listeners -= l }
 
     fun emit(type: String, data: JSONObject = JSONObject()) {
+        // PAVUČINA: změna znalostí (import, balíček, smazání) → zapomenout uložené výsledky hledání
+        if (type == "kb") cz.axiom.omega.core.agent.Pavucina.invalidateKnowledge()
         main.post { listeners.forEach { runCatching { it(type, data) } } }
     }
 
@@ -81,7 +83,7 @@ class Omega private constructor(val app: Context) {
     val bg = JobState()
     private val confidences = ArrayDeque<Int>()
 
-    fun orchestrator(): Orchestrator = Orchestrator(knowledge(), db, { selfState(currentLabel, currentKind) })
+    fun orchestrator(): Orchestrator = Orchestrator(cz.axiom.omega.core.agent.Pavucina.shared("full", knowledge()), db, { selfState(currentLabel, currentKind) })
 
     /** Hybridní znalosti: fulltext + (je-li nainstalovaný OMEGA Sense) hledání podle významu. */
     fun knowledge(): KnowledgeSource {
@@ -115,10 +117,22 @@ class Omega private constructor(val app: Context) {
     }
 
     /** Jen fulltext (bez načítání modelu OMEGA Sense) – pro okamžité odpovědi Ω Flash. */
-    fun quickKnowledge(): KnowledgeSource = object : KnowledgeSource {
+    /** Rychlé znalosti (fulltext) – přes PAVUČINU: reflex, E-ARL i offline odpověď sdílí jeden výsledek hledání. */
+    fun quickKnowledge(): KnowledgeSource = cz.axiom.omega.core.agent.Pavucina.shared("quick", object : KnowledgeSource {
         override fun search(query: String, limit: Int): List<Snippet> =
             (runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, limit, minScore = 3) }.getOrDefault(emptyList()) +
                 runCatching { db.search(query, limit) }.getOrDefault(emptyList())).distinctBy { it.title }.take(limit)
+    })
+
+    /** E-ARL: naučené prahy (perzistentní) a rozhodnutí pro dotaz. */
+    fun earlThresholds(): MutableMap<String, Int> = runCatching {
+        val o = org.json.JSONObject(settings.earl); o.keys().asSequence().associateWith { o.getInt(it) }.toMutableMap()
+    }.getOrDefault(mutableMapOf())
+
+    fun earlLearn(category: String, path: String, good: Boolean) {
+        val p = runCatching { cz.axiom.omega.core.agent.Earl.Path.valueOf(path) }.getOrNull() ?: return
+        val th = earlThresholds(); cz.axiom.omega.core.agent.Earl.learn(th, category, p, good)
+        settings.earl = org.json.JSONObject(th as Map<*, *>).toString()
     }
 
     fun embedderFile(): java.io.File? = brains.catalog().firstOrNull { it.kind == "embedding" && brains.isInstalled(it) }?.let { brains.fileFor(it) }
