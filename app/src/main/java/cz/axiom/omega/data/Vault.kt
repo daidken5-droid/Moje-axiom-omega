@@ -75,7 +75,10 @@ class Vault(context: Context) {
         const val GROQ = "groq"
         const val CEREBRAS = "cerebras"
         const val OPENROUTER = "openrouter"
+        const val DEEPSEEK = "deepseek"
+        const val CHUTES = "chutes"
         /** Všechny klíče (nouzové smazání, „zapomenout klíče“). */
-        val ALL = listOf(KIMI, CLAUDE, SERVER, NODE, HF, GROQ, CEREBRAS, OPENROUTER)
+        val ALL = listOf(KIMI, CLAUDE, SERVER, NODE, HF, GROQ, CEREBRAS, OPENROUTER, DEEPSEEK, CHUTES)
+        val CLOUD = listOf(GROQ, CEREBRAS, OPENROUTER, DEEPSEEK, CHUTES)
     }
 }

@@ -60,7 +60,7 @@ class ReflexTest {
         has("převeď 100 eur na koruny", "Kč", "100"); has("kolik je 30 stupňů celsia ve fahrenheitech", "**86")
         has("jaký bude zítra den", "úterý"); has("kolik dní má únor 2028", "**29 dní**"); has("kolik je mi let když jsem se narodil 1990", "**36 let**")
         has("kolik let je od roku 1989", "**37 let**"); has("kurz eura", "Kč"); has("kolik baterie", "64 %")
-        has("jak se máš", "mám se dobře"); has("co umíš", "offline"); has("hoď kostkou", "🎲"); has("náhodné číslo od 1 do 100", "🎲")
+        has("jak se máš", "mám se dobře"); has("co umíš", "offline"); has("hoď kostkou", "**"); has("náhodné číslo od 1 do 100", "náhodně od 1 do 100")
         // ne-povely a skutečné otázky jdou mozku
         assertNull(e("Jak se má tvoje rodina a co si myslíš o životě?"))
         assertNull(e("Proč je 7 krát 8 tak těžké si zapamatovat?"))

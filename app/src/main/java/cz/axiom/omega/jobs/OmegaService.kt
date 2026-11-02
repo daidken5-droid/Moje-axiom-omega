@@ -827,7 +827,7 @@ class OmegaService : Service() {
             learned++
         }
         Events.emit("kb", JSONObject())
-        Events.note(if (learned > 0) "✦ Samostudium hotovo: naučil jsem se $learned ${if (learned == 1) "novou věc" else "nové věci"}." else "Samostudium: zatím jsem odpovědi nenašel, zkusím to příště.")
+        Events.note(if (learned > 0) "Samostudium hotovo: naučil jsem se $learned ${if (learned == 1) "novou věc" else "nové věci"}." else "Samostudium: zatím jsem odpovědi nenašel, zkusím to příště.")
     }
 
     /** Články z Wikipedie k tématu → offline znalosti. */

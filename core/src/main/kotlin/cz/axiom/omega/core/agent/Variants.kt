@@ -25,7 +25,7 @@ enum class Variant(
 ) {
     AUTO("Ω Auto", "Ω", "Sám zvolí hloubku, nástroje i agenta", "adaptivní směrování"),
     FLASH(
-        "Ω Flash", "⚡", "Jednoduché otázky okamžitě bez mozku, jinak stručně", "rychlé „flash/mini“ modely",
+        "Ω Flash", "ϟ", "Jednoduché otázky okamžitě bez mozku, jinak stručně", "rychlé „flash/mini“ modely",
         mode = Router.Mode.CHAT, passes = 1, thinking = false, temperature = 0.5f,
         style = "Odpovídej okamžitě a stručně: jádro věci v 1–4 větách, bez úvodu. Podrobnosti jen na vyžádání.",
     ),

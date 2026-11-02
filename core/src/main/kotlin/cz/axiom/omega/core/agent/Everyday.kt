@@ -74,26 +74,26 @@ object Everyday {
         if (Regex("^((ahoj|cau|nazdar|zdravim|dobry den|hej) )?(jak se mas|jak se vede|jak to jde|jak je|co ty)( ty)?( avior)?$").matches(f))
             return ans("Díky, mám se dobře – mozek připravený, paměť v pořádku. A jak se máš ty? S čím ti můžu pomoct?", "konverzace")
         if (Regex("^(ok|okej|oki|dobre|jo|jj|ano|super|skvele|paradni|fajn|v pohode|rozumim|chapu|aha|jasne|diky moc|dekuji pekne)$").matches(f))
-            return ans("👍 Kdybys něco potřeboval, jsem tady.", "konverzace")
-        if (Regex("^(dobrou noc|dobrou|spi sladce|jdu spat)$").matches(f)) return ans("Dobrou noc – ať se ti dobře spí. 🌙", "konverzace")
-        if (Regex("^(nashle|na shledanou|cau cau|mej se|mejte se|zatim|bye|papa|tak zatim)$").matches(f)) return ans("Měj se – kdykoli se vrať. 👋", "konverzace")
+            return ans("Kdybys něco potřeboval, jsem tady.", "konverzace")
+        if (Regex("^(dobrou noc|dobrou|spi sladce|jdu spat)$").matches(f)) return ans("Dobrou noc – ať se ti dobře spí.", "konverzace")
+        if (Regex("^(nashle|na shledanou|cau cau|mej se|mejte se|zatim|bye|papa|tak zatim)$").matches(f)) return ans("Měj se – kdykoli se vrať.", "konverzace")
         if (Regex("^(co umis|co vsechno umis|co dokazes|s cim mi muzes pomoct|pomoc|help|napoveda|jak te pouzivat|jak to funguje)$").matches(f))
             return ans("Umím odpovídat a radit offline přímo v telefonu, počítat, převádět jednotky a měny, hledat v offline Wikipedii, pamatovat si, co mi řekneš, vytvářet soubory i aplikace, ovládat telefon povely („zapni svítilnu“, „budík na 6:30“) a s internetem hledat na webu. Jednoduché věci (čas, výpočty, svátky, hlavní města…) zvládnu okamžitě bez mozku.", "konverzace")
-        if (Regex("^(co delas|co ted delas|co delas ted)$").matches(f)) return ans("Čekám na tvou otázku – mozek mám připravený v paměti. 🙂", "konverzace")
+        if (Regex("^(co delas|co ted delas|co delas ted)$").matches(f)) return ans("Čekám na tvou otázku – mozek mám připravený v paměti.", "konverzace")
         if (Regex("^(kdo te (vytvoril|udelal|naprogramoval|stvoril)|kdo je tvuj (autor|tvurce)|odkud jsi)$").matches(f))
             return ans("Jsem ${Identity.NAME} – vznikl jsem jako tvoje vlastní AI na míru: běžím přímo v tvém telefonu na otevřených modelech (Gemma), s vlastní pamětí, reflexy a RANDY Supervisorem. Kód je v repozitáři Moje-axiom-omega.", "konverzace")
         if (Regex("^(rekni (mi )?vtip|vtip|nejaky vtip|pobav me|zasmej me)$").matches(f)) return ans(jokes[rnd.nextInt(jokes.size)], "vtip")
 
         // ---------------- náhoda
-        if (Regex("^(hod|hodit|hodis|hod si|hod mi)( si)? minci|^(panna nebo orel|mince)$").containsMatchIn(f)) return ans(if (rnd.nextBoolean()) "🪙 **Panna**" else "🪙 **Orel**", "náhoda")
+        if (Regex("^(hod|hodit|hodis|hod si|hod mi)( si)? minci|^(panna nebo orel|mince)$").containsMatchIn(f)) return ans(if (rnd.nextBoolean()) "**Panna**" else "**Orel**", "náhoda")
         Regex("^(hod|hodit|hod si|hod mi)( si)? (kostkou|kostkami|(\\d) kostk\\w*)").find(f)?.let { m ->
             val n = m.groupValues[4].toIntOrNull()?.coerceIn(1, 6) ?: 1
             val r = List(n) { rnd.nextInt(1, 7) }
-            return ans("🎲 " + r.joinToString(" + ") { "**$it**" } + if (n > 1) " = **${r.sum()}**" else "", "náhoda")
+            return ans(r.joinToString(" + ") { "**$it**" } + if (n > 1) " = **${r.sum()}**" else "", "náhoda")
         }
         Regex("nahodne cislo (od |mezi )?(-?\\d+) (do|a) (-?\\d+)").find(f)?.let { m ->
             val a = m.groupValues[2].toLong(); val b = m.groupValues[4].toLong()
-            if (b > a && b - a < 1_000_000_000L) return ans("🎲 **${rnd.nextLong(a, b + 1)}** (náhodně od $a do $b)", "náhoda")
+            if (b > a && b - a < 1_000_000_000L) return ans("**${rnd.nextLong(a, b + 1)}** (náhodně od $a do $b)", "náhoda")
         }
 
         // ---------------- kalendář a čas

@@ -314,9 +314,9 @@ class Omega private constructor(val app: Context) {
         return KimiEngine(url, vault.read(Vault.NODE), settings.nodeModel, EngineKind.NODE)
     }
 
-    /** Poskytovatelé zdarma s uloženým klíčem, v pořadí Cerebras → Groq → OpenRouter. */
+    /** Cloudoví poskytovatelé s uloženým klíčem v pořadí podle priority (rychlost: zdarma první, kvalita: placené první). */
     fun freeMembers(fast: Boolean = false): List<cz.axiom.omega.core.llm.FreeCloud.Member> =
-        cz.axiom.omega.core.llm.FreeCloud.PROVIDERS.mapNotNull { p ->
+        cz.axiom.omega.core.llm.FreeCloud.order(settings.cloudPriority == "quality").mapNotNull { p ->
             val key = vault.read(p.id)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             cz.axiom.omega.core.llm.FreeCloud.Member(p, key, settings.freeModel(p.id, fast) ?: cz.axiom.omega.core.llm.FreeCloud.pickModel(p, emptyList(), fast))
         }
@@ -326,7 +326,7 @@ class Omega private constructor(val app: Context) {
     /** CLOUD ZDARMA: řetěz poskytovatelů s přepnutím při limitu; nic se nenačítá do RAM telefonu. */
     fun free(fast: Boolean = false): LlmEngine {
         val m = freeMembers(fast)
-        if (m.isEmpty()) throw EngineException("Cloud zdarma potřebuje klíč Groq, Cerebras nebo OpenRouter (Moduly → Cloud zdarma).")
+        if (m.isEmpty()) throw EngineException("Cloud potřebuje klíč – Cerebras, Groq, OpenRouter (zdarma) nebo DeepSeek, Chutes (levné). Moduly → Cloud.")
         return cz.axiom.omega.core.llm.FreeCloudEngine(m, onFallback = { Events.emit("phase", org.json.JSONObject().put("text", "Přepínám na záložní server – $it")) })
     }
 
@@ -414,7 +414,7 @@ class Omega private constructor(val app: Context) {
     /** DLP štít: všechno, co jde do cloudu, projde maskováním tajemství (mozek v telefonu ne – data neopouští). */
     fun shield(e: LlmEngine): LlmEngine =
         if (e.kind == EngineKind.LOCAL || !settings.dlp || e is cz.axiom.omega.core.security.DlpEngine) e
-        else cz.axiom.omega.core.security.DlpEngine(e) { Events.note("🛡 DLP: před odesláním do cloudu zamaskováno – ${it.joinToString()}") }
+        else cz.axiom.omega.core.security.DlpEngine(e) { Events.note("DLP: před odesláním do cloudu zamaskováno – ${it.joinToString()}") }
 
     /** Nejsilnější dostupný cloudový partner pro režim OBA MOZKY: Claude > Kimi > Node > HF > server. */
     fun duoPartner(engines: List<String> = availableEngines()): String? =

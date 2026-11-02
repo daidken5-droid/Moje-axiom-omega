@@ -161,6 +161,10 @@ class Settings(context: Context) {
     var freeFirst: Boolean
         get() = p.getBoolean("freeFirst", true)
         set(v) = p.edit().putBoolean("freeFirst", v).apply()
+    /** Cloud: „speed“ = nejdřív nejrychlejší servery zdarma, „quality“ = nejdřív placené silné modely. */
+    var cloudPriority: String
+        get() = p.getString("cloudPriority", "speed")!!
+        set(v) = p.edit().putString("cloudPriority", if (v == "quality") "quality" else "speed").apply()
     /** Model vybraný z aktuální nabídky poskytovatele (po „Ověřit“), jinak první preferovaný. */
     fun freeModel(provider: String, fast: Boolean = false): String? = p.getString("free.$provider${if (fast) ".fast" else ""}", null)
     fun setFreeModel(provider: String, model: String, fast: String) = p.edit().putString("free.$provider", model).putString("free.$provider.fast", fast).apply()
@@ -207,7 +211,7 @@ class Settings(context: Context) {
         .put("reflect", reflect).put("web", web).put("thinking", thinking).put("ctxTokens", ctxTokens)
         .put("theme", theme).put("font", font).put("userName", userName).put("councilJudge", councilJudge)
         .put("onboarded", onboarded).put("rates", rates.label())
-        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst)
+        .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst).put("cloudPriority", cloudPriority)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
@@ -227,6 +231,7 @@ class Settings(context: Context) {
         if (o.has("power")) power = o.getString("power")
         if (o.has("hfChat")) hfChat = o.getBoolean("hfChat")
         if (o.has("freeFirst")) freeFirst = o.getBoolean("freeFirst")
+        if (o.has("cloudPriority")) cloudPriority = o.getString("cloudPriority")
         if (o.has("hfVision")) hfVision = o.getBoolean("hfVision")
         for (k in listOf("hfChatModel", "hfVisionModel", "hfAsrModel", "hfImageModel")) if (o.has(k)) {
             val v = o.getString(k).also(::checkModelId)

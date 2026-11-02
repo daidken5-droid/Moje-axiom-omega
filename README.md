@@ -8,6 +8,34 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.0 – TITAN: nový design od nuly, levné cloudy
+
+- **Design TITAN (napsaný od nuly):** jen černá a titan, nikde nic barevného.
+  - Stav se vyjadřuje tvarem a jasem: plná tečka = připraveno, pulz = pracuje, prázdný kroužek = nedostupné,
+    čárkovaný okraj = chyba nebo odhad.
+  - Popisky ve stylu HUD (mono, verzálky, titanová čárka), velký tenký titulek a kovový přechod jen na několika
+    malých prvcích (odeslat, přepínač, průběh).
+  - Při psaní odpovědi běží nad textem tenká skenovací linka.
+  - Emoji z odpovědí modelu se vykreslují šedě a barevné symboly v textech aplikace jsou nahrazené textovými.
+- **Levné placené cloudy** ve stejném modulu (Moduly → Cloud), pořád bez zátěže RAM:
+  - **DeepSeek** – platíš jen spotřebu, kredit od 2 $. Při běžném chatování obvykle stojí jednotky dolarů
+    měsíčně. Servery jsou v Číně; tajemství maskuje DLP štít.
+  - **Chutes** – paušál od 3 $ měsíčně (za 10 $ vlajkové modely Kimi K2.5, GLM-5, DeepSeek).
+  - Volba **Priorita: Rychlost / Kvalita**. Rychlost = nejdřív Cerebras/Groq zdarma, Kvalita = nejdřív placené
+    silné modely a zdarma jako záloha.
+- **Doporučení, jak cloud nastavit:**
+  - Zdarma: Cerebras + Groq (stačí jeden, oba = záloha).
+  - Nejlepší poměr cena/výkon: přidej DeepSeek (dobij 5 $), nebo Chutes 10 $/měs., pokud chceš pevnou cenu.
+  - Groq lze přepnout na tarif Developer: platí se spotřeba (gpt-oss-120b zhruba 0,15 $ / 0,60 $ za milion
+    tokenů) a limity jsou vyšší.
+
+### Jak připojit cloud (2 minuty)
+1. Otevři odkaz „Získat klíč“ u poskytovatele v Moduly → Cloud (Cerebras: cloud.cerebras.ai, Groq:
+   console.groq.com/keys, DeepSeek: platform.deepseek.com/api_keys, Chutes: chutes.ai/app/api).
+2. Přihlas se (Google účet stačí) a vytvoř API klíč. U DeepSeeku dobij kredit, u Chutes zvol tarif.
+3. Vlož klíč do AVIORu a klepni na Uložit. AVIOR spojení sám ověří a vybere nejsilnější dostupný model.
+4. Hotovo: s internetem odpovídá cloud, offline telefon.
+
 ## Novinky 7.3 – Cloud zdarma, report pro Clauda, čistší vzhled
 
 - **Cloud zdarma (nový modul):** Cerebras, Groq a OpenRouter. Klíč je zdarma a bez platební karty, mluví se

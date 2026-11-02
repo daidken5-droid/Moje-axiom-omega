@@ -30,6 +30,8 @@ object FreeCloud {
         val signup: String,
         /** Vlastní filtr pro „cokoli zdarma“, když nic z preferencí není v seznamu. */
         val anyFree: (String) -> Boolean = { false },
+        /** Placený (levný) tarif – silnější/stabilnější, platí se kreditem nebo paušálem. */
+        val paid: Boolean = false,
     )
 
     val PROVIDERS = listOf(
@@ -51,7 +53,22 @@ object FreeCloud {
             signup = "openrouter.ai/keys",
             anyFree = { it.endsWith(":free") },
         ),
+        // ---- LEVNÉ PLACENÉ (jednotky dolarů měsíčně při běžném používání)
+        Provider(
+            "deepseek", "DeepSeek", "https://api.deepseek.com/v1",
+            preferred = listOf("deepseek-chat", "deepseek-reasoner"),
+            signup = "platform.deepseek.com", paid = true,
+        ),
+        Provider(
+            "chutes", "Chutes", "https://llm.chutes.ai/v1",
+            preferred = listOf("deepseek-ai/DeepSeek-V3.2", "moonshotai/Kimi-K2.5", "zai-org/GLM-5", "deepseek-ai/DeepSeek-V3.1", "Qwen/Qwen3-235B-A22B-Instruct-2507", "openai/gpt-oss-120b"),
+            fast = listOf("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
+            signup = "chutes.ai", paid = true,
+        ),
     )
+
+    /** Pořadí členů: „rychlost“ = nejdřív nejrychlejší servery zdarma, „kvalita“ = nejdřív placené silné modely. */
+    fun order(quality: Boolean): List<Provider> = if (quality) PROVIDERS.sortedByDescending { it.paid } else PROVIDERS
 
     fun provider(id: String) = PROVIDERS.firstOrNull { it.id == id }
 
@@ -90,7 +107,7 @@ class FreeCloudEngine(
     private val factory: (FreeCloud.Member) -> LlmEngine = FreeCloud::engine,
     private val onFallback: (String) -> Unit = {},
 ) : LlmEngine {
-    init { require(members.isNotEmpty()) { "Cloud zdarma: chybí klíč (Groq, Cerebras nebo OpenRouter)." } }
+    init { require(members.isNotEmpty()) { "Cloud: chybí klíč (Cerebras, Groq, OpenRouter, DeepSeek nebo Chutes)." } }
 
     override val id = "free:" + members.joinToString(",") { it.provider.id + "/" + it.model }
     override val label get() = lastLabel

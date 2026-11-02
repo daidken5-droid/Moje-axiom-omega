@@ -77,5 +77,11 @@ class FreeCloudTest {
         assertEquals("local", cz.axiom.omega.core.agent.Router.route("Jak funguje tepelné čerpadlo?", ctx.copy(cloudFirst = null)).engine)
     }
 
+    @Test fun qualityPutsPaidFirst() {
+        assertEquals("cerebras", FreeCloud.order(quality = false).first().id)
+        assertTrue(FreeCloud.order(quality = true).first().paid)
+        assertEquals("deepseek-chat", FreeCloud.pickModel(FreeCloud.provider("deepseek")!!, listOf("deepseek-reasoner", "deepseek-chat")))
+    }
+
     @Test fun needsAtLeastOneKey() { assertFailsWith<IllegalArgumentException> { FreeCloudEngine(emptyList()) } }
 }

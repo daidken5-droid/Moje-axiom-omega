@@ -62,7 +62,7 @@ class PhoneControl(private val context: Context) {
                 ?: return ok("Telefon nemá přisvícení.")
             val on = c.args["on"] == "true"
             cm.setTorchMode(id, on)
-            ok(if (on) "🔦 Svítilna zapnuta." else "Svítilna vypnuta.")
+            ok(if (on) "Svítilna zapnuta." else "Svítilna vypnuta.")
         }
         Action.VOLUME -> {
             val am = context.getSystemService(AudioManager::class.java)
@@ -103,7 +103,7 @@ class PhoneControl(private val context: Context) {
             } else {
                 val on = c.args["on"] == "true"
                 nm.setInterruptionFilter(if (on) NotificationManager.INTERRUPTION_FILTER_PRIORITY else NotificationManager.INTERRUPTION_FILTER_ALL)
-                ok(if (on) "🔕 Nerušit zapnuto." else "Nerušit vypnuto.")
+                ok(if (on) "Nerušit zapnuto." else "Nerušit vypnuto.")
             }
         }
         Action.BRIGHTNESS -> {
@@ -114,7 +114,7 @@ class PhoneControl(private val context: Context) {
                 val pct = c.args["pct"]!!.toInt()
                 Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                 Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS, (pct * 255 / 100).coerceIn(1, 255))
-                ok("☀ Jas $pct % (automatický jas vypnut).")
+                ok("Jas $pct % (automatický jas vypnut).")
             }
         }
         Action.LAUNCH -> {
@@ -122,7 +122,7 @@ class PhoneControl(private val context: Context) {
             val i = context.packageManager.getLaunchIntentForPackage(pkg.first) ?: return Result(false, "")
             ok(if (start(i)) "Spouštím ${pkg.second}." else "Aplikaci ${pkg.second} nejde spustit.")
         }
-        Action.DIAL -> ok(if (start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + c.args["number"])))) "📞 Číslo připraveno – hovor potvrď zeleným tlačítkem." else "Telefon nejde otevřít.")
+        Action.DIAL -> ok(if (start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + c.args["number"])))) "Číslo připraveno – hovor potvrď zeleným tlačítkem." else "Telefon nejde otevřít.")
         Action.STATUS -> ok(status())
         Action.ROOT_STATUS -> ok(if (!RootShell.present()) "Telefon **nemá root** (su nenalezeno). Bez rootu ovládám vše, co Android aplikacím dovolí." else if (RootShell.granted()) "Root je **aktivní** a AVIOR ho smí použít (každý root příkaz potvrzuješ)." else "su existuje, ale přístup nebyl povolen (povol AVIOR v Magisku / KernelSU).")
         Action.ROOT_KILL_BACKGROUND -> rootOk(RootShell.run("am kill-all"), "Aplikace na pozadí ukončeny (am kill-all).")
