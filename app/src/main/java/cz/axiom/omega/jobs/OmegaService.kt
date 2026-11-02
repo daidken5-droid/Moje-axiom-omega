@@ -74,8 +74,18 @@ class OmegaService : Service() {
             return START_NOT_STICKY
         }
         val lane = if (bg) Lane.BG else Lane.ASK
-        promote(lane, "Připravuji…")
-        acquireLocks(lane)
+        try {
+            promote(lane, "Připravuji…")
+            acquireLocks(lane)
+        } catch (e: Exception) {
+            // nikdy nenechat zámek viset (dřív: další dotazy pak „čekaly“ navždy)
+            lock.set(false)
+            active -= lane
+            Events.emit("error", JSONObject().put("message", "Službu se nepodařilo spustit: ${e.message ?: e.javaClass.simpleName}")
+                .put("lane", lane.name.lowercase()).put("threadId", intent.getLongExtra("threadId", 0)))
+            if (!busyAny()) stopSelf()
+            return START_NOT_STICKY
+        }
 
         val cancel = CancelToken().also { if (bg) bgToken = it else askToken = it }
         Thread({
@@ -167,7 +177,8 @@ class OmegaService : Service() {
             weakDomain = if (learning && competence?.weak == true) domain.label else null,
             power = omega.power(), thermalCaution = omega.device.thermalCaution), device, omega.randy.stats(), authority)
         // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
-        val exemplar = if (learning && omega.settings.ctxTokens >= 8192) omega.cognition.exemplar(domain) else null
+        // v telefonu stojí každý token čas – ukázku přidáme jen cloudu nebo v režimu Sherlock
+        val exemplar = if (learning && (!device.local || omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK)) omega.cognition.exemplar(domain) else null
         val insight = if (learning) listOfNotNull(selfInsight, exemplar).joinToString("\n\n") else null
         val variant = plan.variant
         val forced = plan.level
@@ -262,7 +273,12 @@ class OmegaService : Service() {
                 Router.Mode.CHAT -> {
                     val engine = omega.resolve(route.engine)
                     listener.onPhase("Probouzím ${engine.label}…")
-                    val passes = plan.passes ?: if (engine.kind == EngineKind.LOCAL) s.localMaxPasses else s.maxPasses
+                    // RYCHLOST v telefonu: každý průchod = celé čtení + psaní znovu. Běžný dotaz 1 průchod,
+                    // strategické/kritické (L3+) 2, Sherlock nejvýš 2 + oponentura v řetězci.
+                    val passes = if (engine.kind == EngineKind.LOCAL) {
+                        val lvl = (forced ?: cz.axiom.omega.core.randy.Randy.detect(route.prompt).level).ordinal
+                        minOf(plan.passes ?: if (lvl >= RandyLevel.L3_STRATEGIC_EV.ordinal) 2 else 1, s.localMaxPasses, 2)
+                    } else plan.passes ?: s.maxPasses
                     var r = omega.orchestrator().run(
                         AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
                             s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight),
@@ -281,6 +297,7 @@ class OmegaService : Service() {
                     }
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason); answer = r.answer
+                    (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it) }
                 }
             }
             val finalVariant = escalatedTo ?: variant
@@ -375,7 +392,8 @@ class OmegaService : Service() {
                     out = r.answer
                 } else {
                     val r = omega.orchestrator().run(
-                        AskRequest(stagePrompt, if (i == 0) history else emptyList(), v.level, v.passes ?: if (local) s.localMaxPasses else s.maxPasses,
+                        AskRequest(stagePrompt, if (i == 0) history else emptyList(), v.level,
+                            if (local) minOf(v.passes ?: 1, if (i == n - 1) 2 else 1) else v.passes ?: s.maxPasses,
                             s.reflect && i == n - 1, false, if (plan.power == cz.axiom.omega.core.device.Power.SHERLOCK) true else v.thinking ?: s.thinking, true, s.rates,
                             s.userName.ifBlank { null }, listOfNotNull(v.style, plan.extraStyle).joinToString("\n").ifBlank { null }, v.temperature, insight),
                         engine, cancel, listener,

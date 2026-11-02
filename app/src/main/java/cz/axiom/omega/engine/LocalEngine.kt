@@ -182,6 +182,16 @@ class LocalEngine private constructor(
         }
     }
 
+    /** Výkon posledního běhu: čtení (prefill) a psaní v tokenech/s, kolik se ušetřilo z cache. */
+    fun perf(): org.json.JSONObject? = runCatching {
+        val p = NativeLlama.nativeStats(handle).split('|')
+        val prompt = p[0].toInt(); val reused = p[1].toInt(); val gen = p[2].toInt()
+        val pms = p[3].toDouble(); val gms = p[4].toDouble()
+        org.json.JSONObject().put("prompt", prompt).put("reused", reused).put("gen", gen)
+            .put("readTps", if (pms > 0) (prompt - reused).coerceAtLeast(0) * 1000.0 / pms else 0.0)
+            .put("writeTps", if (gms > 0) gen * 1000.0 / gms else 0.0)
+    }.getOrNull()
+
     fun stats(): String = runCatching { NativeLlama.nativeStats(handle) }.getOrDefault("")
 
     fun close() = NativeLlama.nativeFree(handle)

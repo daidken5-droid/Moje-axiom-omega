@@ -111,7 +111,7 @@ class OmegaBridge(private val activity: MainActivity) {
         val text = o.getString("text").trim()
         require(text.isNotEmpty()) { "Prázdný dotaz." }
         require(text.length <= 32_000) { "Dotaz je příliš dlouhý (max. 32 000 znaků)." }
-        if (OmegaService.RUNNING_ASK.get()) { Events.note("Právě přemýšlím – počkej nebo mě zastav."); return o.optLong("threadId", 0) }
+        if (OmegaService.RUNNING_ASK.get()) { Events.note("Právě přemýšlím – počkej nebo mě zastav."); return -1L }
         var threadId = o.optLong("threadId", 0)
         if (threadId <= 0) threadId = omega.db.newThread(TextUtil.clip(Randy.detect(text).cleanedPrompt.ifBlank { text }, 48))
         else omega.db.threads().let { arr ->

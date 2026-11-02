@@ -195,6 +195,9 @@ class Omega private constructor(val app: Context) {
 
     fun local(): LocalEngine {
         val (file, spec) = brains.active() ?: throw EngineException("Lokální mozek není stažený. Otevři Mozky a stáhni doporučený.")
+        if (LocalEngine.loadedLabel() == null) {
+            cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Načítám mozek ${spec?.name ?: ""} do paměti – jen u prvního dotazu, chvilku…"))
+        }
         val lora = settings.lora.takeIf { it.isNotBlank() }?.let { java.io.File(loraDir(), it) }?.takeIf { it.exists() }
         return LocalEngine.obtain(app, file, spec, effectiveCtx(), lora, settings.loraScale / 100f, device.threads)
     }
@@ -288,8 +291,17 @@ class Omega private constructor(val app: Context) {
     }
 
     /** Kurzy ČNB jednou denně (jen online, chyba nevadí – zůstanou poslední/vestavěné). */
+    @Volatile private var ratesRefreshing = false
+
+    /** Kurzy ČNB se obnovují na pozadí – dotaz na ně nikdy nečeká (dřív až 35 s bez signálu). */
     fun refreshRatesIfStale() {
-        if (System.currentTimeMillis() - settings.ratesAt < 12 * 3_600_000L || !Introspect.online(app)) return
+        if (System.currentTimeMillis() - settings.ratesAt < 12 * 3_600_000L || ratesRefreshing) return
+        ratesRefreshing = true
+        Thread({ try { refreshRatesNow() } finally { ratesRefreshing = false } }, "omega-rates").start()
+    }
+
+    private fun refreshRatesNow() {
+        if (!Introspect.online(app)) return
         runCatching {
             val c = Http.open(Rates.CNB_URL, readMs = 15_000)
             try {

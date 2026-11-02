@@ -292,6 +292,7 @@ function msgHtml(m, last) {
     [...(rd.decisions || []).map(x => `<span>› ${esc(x)}</span>`), ...(rd.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`)].join('') + '</div>');
   if (chain) det.push(`<div class="sub">ŘETĚZEC PODMODELŮ</div>` + chain.map((c, i) => `<div class="step"><b>${i + 1}. ${esc(c.variant)}</b> · ${esc(c.purpose)} · ${secs(c.millis)}<div class="obs">${esc(c.preview || '')}</div></div>`).join(''));
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
+  if (meta.perf) det.push(`<p class="small"><b>Výkon v telefonu:</b> čtení ${Math.round(meta.perf.readTps)} tok/s · psaní ${cz(meta.perf.writeTps.toFixed(1))} tok/s · ${meta.perf.gen} tokenů odpovědi${meta.perf.reused ? ' · ' + meta.perf.reused + ' tokenů z paměti (cache)' : ''}</p>`);
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
   if (meta.trace && meta.trace.length > 1) det.push(`<div class="sub">PRŮCHODY RANDY</div>` + meta.trace.map(t => `<p class="small"><b>${t.index}. ${esc(t.label)}</b> · ${secs(t.millis)}</p>`).join(''));
@@ -394,7 +395,7 @@ function send(text, kind, role) {
   forcedLevel = null;
   haptic();
   loadThread(id);
-  live = { phase: 'Rozhoduji, jak na to…', text: '', reasoning: '', steps: [] };
+  live = { phase: 'Rozhoduji, jak na to…', text: '', reasoning: '', steps: [], started: Date.now(), last: Date.now() };
   if (view !== 'chat') { view = 'chat'; nav(); }
   render();
 }
@@ -752,10 +753,10 @@ window.omegaReceive = function (type, d) {
   switch (type) {
     case 'phase':
       if (!live) live = { text: '', reasoning: '', steps: [] };
-      live.phase = d.text; updateLive(); refresh(); break;
+      live.phase = d.text; live.last = Date.now(); updateLive(); refresh(); break;
     case 'stream':
       if (!live) live = { phase: '', steps: [] };
-      Object.assign(live, { text: d.text, reasoning: d.reasoning }); updateLive(); break;
+      Object.assign(live, { text: d.text, reasoning: d.reasoning, last: Date.now() }); updateLive(); break;
     case 'step':
       if (!live) live = { phase: '', text: '', steps: [] };
       live.steps = [...(live.steps || []), d]; live.text = ''; updateLive(); break;
@@ -932,5 +933,17 @@ $('#brand').onclick = selfSheet;
   else if (threads.length) loadThread(threads[0].id);
   render();
   if (!(S.settings || {}).onboarded) welcomeSheet();
-  setInterval(() => { if (busy()) refresh(); }, 2000);
+  setInterval(() => {
+    if (busy()) refresh();
+    if (!live) return;
+    const t0 = live.started || Date.now();
+    const sec = Math.round((Date.now() - t0) / 1000);
+    const el = $('#livePhase');
+    if (el) el.textContent = (live.phase || 'Přemýšlím…') + (sec >= 3 ? ' · ' + sec + ' s' : '') + (sec > 20 && !live.text ? ' · mozek čte zadání' : '');
+    // Pojistka: služba neběží a nic nepřichází → neukazovat nekonečné načítání
+    if (!(S.job && S.job.busy) && Date.now() - (live.last || t0) > 12000) {
+      live = null; loadThread(threadId); render();
+      toast('AVIOR neodpověděl – zkus to prosím znovu (podrobnosti jsou ve vlákně).');
+    }
+  }, 1000);
 })();

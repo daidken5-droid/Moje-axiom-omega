@@ -103,7 +103,9 @@ class RandySelfTest {
         )
         assertTrue(sp.contains("AVIOR"))
         assertTrue(sp.contains("SEBEMODEL"))
-        assertTrue(sp.contains("Baterie 64 %"))
+        assertTrue(sp.contains("baterie 64 %", ignoreCase = true))
+        // neměnná část (protokol RANDY) je před proměnlivým stavem → mozek v telefonu ji drží v cache
+        assertTrue(sp.indexOf("RANDY L3") < sp.indexOf("SEBEMODEL"))
         assertTrue(sp.contains("RANDY L3"))
         assertTrue(sp.contains("Daniel"))
     }

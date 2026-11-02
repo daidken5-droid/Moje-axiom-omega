@@ -31,8 +31,8 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 422
-        versionName = "4.2.2"
+        versionCode = 423
+        versionName = "4.2.3"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
         if (withNative) {
