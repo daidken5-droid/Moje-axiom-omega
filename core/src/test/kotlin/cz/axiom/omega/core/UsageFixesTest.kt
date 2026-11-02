@@ -67,7 +67,7 @@ class DeltaVersionTest {
         kotlin.test.assertEquals("Wikizdroje", L.of("wikisource-cs")!!.source)
         kotlin.test.assertEquals("wikimedia/wikisource", L.of("wikisource-cs")!!.dataset)
         kotlin.test.assertEquals("Wikipedie", L.label("wiki-cs")); kotlin.test.assertEquals("Wikipedie", L.label(null))
-        assertFalse(cz.axiom.omega.core.agent.WikiReflex.titleMatches("Wikipedia PL: Praga", "praga"))
+        assertFalse(cz.axiom.omega.core.agent.WikiReflex.titleMatches("Wikipedia EN: Prague", "prague"))
         assertFalse(cz.axiom.omega.core.agent.WikiReflex.titleMatches("Wikizdroje: Babička", "babicka"))
         assertTrue(cz.axiom.omega.core.agent.WikiReflex.titleMatches("Wikipedie: Babička", "babicka"))
         kotlin.test.assertEquals("library-wikisource-cs-20231201", cz.axiom.omega.core.library.Prebuilt.tag(L.of("wikisource-cs")!!))
@@ -108,7 +108,6 @@ class SentinelTest {
                     Snippet(4, "Wikipedie: Jan Novák (politik)", "Jan Novák (5. 5. 1921 – 1. 1. 1990) byl politik.", "wiki"))
                 "karlova" in q -> listOf(Snippet(5, "Wikipedie: Univerzita Karlova", "Univerzita Karlova je nejstarší vysoká škola ve střední Evropě. Byla založena roku 1348 Karlem IV.", "wiki"))
                 "kosmas" in q -> listOf(Snippet(6, "Wikipedie: Kosmas Pražský", "Kosmas Pražský (asi 1045 – 21. října 1125 Praha) byl kronikář.", "wiki"))
-                "polsk" in q || "warszaw" in q -> listOf(Snippet(7, "Wikipedia PL: Karel Gott", "Karel Gott (ur. 14 lipca 1939 w Pilźnie, zm. 1 października 2018)", "wiki-pl"))
                 else -> emptyList()
             }
         }
