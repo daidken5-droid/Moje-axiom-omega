@@ -8,6 +8,22 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 7.2 – klid v UI, nic zbytečného na očích
+
+- **Jen to, co potřebuješ:** během odpovědi místo interních fází (RANDY, varianty, procenta jistoty) jen
+  „Přemýšlím… / Píšu… / Pracuji na úkolu…“. U hotové odpovědi zůstává čas, zdroje a akce. Jistota, myšlenkový
+  pochod, Podrobnosti a štítky modulů jsou schované.
+- **Hlavička:** štítek vpravo nahoře se ukáže jen při stahování (↓ %) nebo když nejedeš v režimu Auto. Podtitul
+  píše jen „offline“ nebo „stahuji … na pozadí“, jinak je prázdný.
+- **Technické detaily na přání:** Nastavení → Vzhled → „Technické detaily“ vrátí všechno (fáze, jistotu, RANDY
+  nápovědu, „co jsem se naučil“, myšlenky).
+- **Méně vyrušování:** pryč jsou hlášky o milnících učení, průběžné „Čtu 3/40…“ při importu i mezikrok
+  „Stavím sémantický index“. Tip na Turbo jde zavřít ✕.
+- **Méně práce na pozadí:** hlavička se překresluje jen při změně (dřív každou sekundu i s logem). Časovač stojí,
+  když je aplikace schovaná, a při stahování se obnovuje jen co 3 s. RANDY nápověda už nevolá jádro při každém
+  stisku klávesy. Na profilu Pixelu 9a (CPU 4×): vlákno s 200 zprávami 47 → 31 ms, Moduly 32 → 19 ms,
+  načtení 367 → 347 ms.
+
 ## Novinky 7.1 – domů, méně mozku, rychlost měřená jako na Pixelu 9a
 
 - **Návrat na domovskou obrazovku:** klepnutí na logo AVIOR, druhé klepnutí na záložku Chat, nebo „⌂ Domů“

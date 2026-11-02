@@ -404,7 +404,8 @@ class OmegaService : Service() {
                 }
                 val milestones = omega.cognition.learn(route.prompt, answer, raw, ok = true)
                 meta.put("learned", JSONObject().put("domain", domain.label).put("icon", domain.icon).put("milestones", JSONArray(milestones)))
-                milestones.firstOrNull()?.let { Events.note("✦ $it") }
+                // milníky učení se už neukazují jako vyskakovací zpráva (rozptylovaly) – jsou ve Vědomí
+
             }
             // PAMĚŤ ODPOVĚDÍ: jistou, nadčasovou odpověď si uložit → příště stejná otázka bez mozku
             runCatching {
@@ -576,8 +577,7 @@ class OmegaService : Service() {
             }
             Events.emit("brains", omega.brains.toJson())
             if (spec.kind == "embedding") {
-                Events.note("${spec.name} je stažený. Stavím sémantický index…")
-                index(cancel)
+                index(cancel) // průběh ukazuje štítek ↓ %, hláška přijde až po dokončení
             } else {
                 Events.note("${spec.name} je stažený, ověřený a aktivní.")
             }

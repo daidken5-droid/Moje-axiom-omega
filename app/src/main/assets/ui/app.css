@@ -386,3 +386,6 @@ i.ev-c { background: #8fb6ff; } i.ev-s { background: var(--good); } i.ev-m { bac
 .kind { color: var(--muted); }
 main.chat .wrap { padding-bottom: 12px; }
 @media (min-width: 760px) { .wrap { padding-top: 28px; } .hero { padding-top: 10vh; } }
+.speedtip { position: relative; }
+.speedtip .tip-x { position: absolute; top: 6px; right: 8px; width: 28px; height: 28px; color: var(--dim); font-size: .8rem; }
+.speedtip .grow { padding-right: 24px; }

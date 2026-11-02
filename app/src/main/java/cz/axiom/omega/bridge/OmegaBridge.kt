@@ -472,10 +472,9 @@ class OmegaBridge(private val activity: MainActivity) {
         var ok = 0
         var fail = 0
         val notes = mutableListOf<String>()
-        for ((i, u) in uris.take(100).withIndex()) {
+        for (u in uris.take(100)) {
             runCatching {
                 val r = omega.files.read(u) { if (uris.size == 1) Events.note(it) }
-                if (uris.size > 1) Events.note("Čtu ${i + 1}/${uris.size}: ${r.name}")
                 notes += r.notes
                 require(r.text.isNotBlank()) { "bez textu" }
                 ok += importText(r.name, r.text)
