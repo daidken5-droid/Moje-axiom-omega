@@ -16,9 +16,10 @@ import cz.axiom.omega.core.llm.Role
 import cz.axiom.omega.core.llm.ThinkSplitter
 import java.io.File
 
-/** Callback z C++: kus UTF-8 (vždy celé znaky). Vrátí false = zastavit. */
-fun interface TokenSink {
+/** Callback z C++: kus UTF-8 (vždy celé znaky; false = zastavit) a průběh čtení zadání (tokeny hotovo/celkem). */
+interface TokenSink {
     fun onBytes(bytes: ByteArray): Boolean
+    fun onProgress(done: Int, total: Int)
 }
 
 /** JNI rozhraní k libomega.so (llama.cpp). */
@@ -131,10 +132,23 @@ class LocalEngine private constructor(
             handle, roles, contents, options.maxTokens,
             temp = if (options.temperature != 0.6f) options.temperature else if (options.effort == "low") 0.4f else 0.6f, topP = 0.95f, minP = 0.05f, repeatPenalty = 1.08f,
             thinking = options.thinking && spec?.thinking != false,
-        ) { bytes ->
-            splitter.feed(String(bytes, Charsets.UTF_8))
-            !cancel.cancelled
-        }
+            sink = object : TokenSink {
+                private var first = true
+                private var lastPct = -1
+                override fun onBytes(bytes: ByteArray): Boolean {
+                    if (first) { first = false; cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Píšu odpověď…")) }
+                    splitter.feed(String(bytes, Charsets.UTF_8))
+                    return !cancel.cancelled
+                }
+                override fun onProgress(done: Int, total: Int) {
+                    if (total < 200) return
+                    val pct = done * 100 / total
+                    if (pct == lastPct || (pct - lastPct < 10 && pct != 100)) return
+                    lastPct = pct
+                    cz.axiom.omega.Events.emit("phase", org.json.JSONObject().put("text", "Čtu zadání $pct % · $total tokenů"))
+                }
+            },
+        )
         splitter.finish()
         when (rc) {
             0, 2 -> Unit

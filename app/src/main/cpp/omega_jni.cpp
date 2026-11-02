@@ -166,10 +166,24 @@ bool format_and_tokenize(Omega *o, const std::vector<common_chat_msg> &msgs, boo
     return true;
 }
 
-int decode_tokens(Omega *o, const llama_token *toks, int n, int start_pos) {
+/** Volitelné hlášení průběhu čtení zadání do Kotlinu (sink.onProgress(hotovo, celkem)). */
+struct Progress {
+    JNIEnv *env = nullptr;
+    jobject sink = nullptr;
+    jmethodID mid = nullptr;
+    int base = 0, total = 0;
+    void report(int done) const {
+        if (!env || !mid) return;
+        env->CallVoidMethod(sink, mid, (jint) (base + done), (jint) total);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    }
+};
+
+int decode_tokens(Omega *o, const llama_token *toks, int n, int start_pos, const Progress *prog = nullptr) {
     llama_batch batch = llama_batch_init(o->n_batch, 0, 1);
     int rc = 0;
     for (int i = 0; i < n && rc == 0; i += o->n_batch) {
+        if (prog && i > 0) prog->report(i);
         const int cur = std::min(o->n_batch, n - i);
         batch.n_tokens = cur;
         for (int j = 0; j < cur; ++j) {
@@ -183,6 +197,7 @@ int decode_tokens(Omega *o, const llama_token *toks, int n, int start_pos) {
         const int r = llama_decode(o->ctx, batch);
         if (r != 0) rc = (r == 2 || o->cancel.load()) ? 1 : -1;  // 2 = přerušeno abort callbackem
     }
+    if (prog && rc == 0) prog->report(n);
     llama_batch_free(batch);
     return rc;
 }
@@ -239,7 +254,15 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeLoad(JNIEnv *env, jobject, jstring 
     cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
     cp.type_k = GGML_TYPE_Q8_0;
     cp.type_v = GGML_TYPE_Q8_0;
+    // Modely s posuvným oknem (Gemma 3/4 – SWA) bez plné SWA cache nedovolí znovupoužít prefix:
+    // každý dotaz by se četl celý znovu. Do 8k kontextu je plná cache levná, zrychlí další dotazy.
+    cp.swa_full = ctx_size <= 8192;
     o->ctx = llama_init_from_model(model, cp);
+    if (!o->ctx && cp.swa_full) {
+        LOGI("plná SWA cache se nevešla – zkouším bez ní");
+        cp.swa_full = false;
+        o->ctx = llama_init_from_model(model, cp);
+    }
     if (!o->ctx) {
         LOGI("Q8 KV cache nepodporována – zkouším F16");
         cp.type_k = GGML_TYPE_F16;
@@ -314,6 +337,8 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeGenerate(
     jclass sink_cls = env->GetObjectClass(sink);
     jmethodID on_bytes = env->GetMethodID(sink_cls, "onBytes", "([B)Z");
     if (!on_bytes) return RC_BAD_HANDLE;
+    jmethodID on_progress = env->GetMethodID(sink_cls, "onProgress", "(II)V");
+    if (!on_progress) env->ExceptionClear();
 
     std::vector<common_chat_msg> msgs;
     const jsize n_msgs = env->GetArrayLength(jroles);
@@ -368,7 +393,10 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeGenerate(
     o->cached.assign(f.tokens.begin(), f.tokens.begin() + (long) common);
 
     const auto t0 = std::chrono::steady_clock::now();
-    const int drc = decode_tokens(o, f.tokens.data() + common, (int) (f.tokens.size() - common), (int) common);
+    Progress prog;
+    if (on_progress) { prog.env = env; prog.sink = sink; prog.mid = on_progress; prog.base = (int) common; prog.total = (int) f.tokens.size(); }
+    prog.report(0);
+    const int drc = decode_tokens(o, f.tokens.data() + common, (int) (f.tokens.size() - common), (int) common, &prog);
     const auto t1 = std::chrono::steady_clock::now();
     o->st_prompt = (int) f.tokens.size();
     o->st_reused = (int) common;
