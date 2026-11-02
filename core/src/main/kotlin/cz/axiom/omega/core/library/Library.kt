@@ -44,7 +44,7 @@ object Libraries {
         ),
         LibrarySpec(
             "wikisource-cs", "Wikizdroje – české texty", "43 tisíc volných textů: zákony a ústava, historické listiny, básně a próza klasiků (Erben, Němcová, Neruda, Mácha…).",
-            "wikimedia/wikisource", "20231201.cs", "train", 42_735, 0.6, "cs", "CC BY-SA 4.0", 0.15, source = "Wikizdroje",
+            "wikimedia/wikisource", "20231201.cs", "train", 42_735, 0.4, "cs", "CC BY-SA 4.0", 0.19, source = "Wikizdroje",
         ),
     )
 
