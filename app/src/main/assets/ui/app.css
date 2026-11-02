@@ -581,6 +581,17 @@ mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 
 .seg button:disabled { opacity: .35; }
 .ragrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .ragrow small { display: block; color: var(--muted); font-size: .76rem; margin-top: 2px; }
-.speedtip { text-align: left; margin-top: 14px; padding: 12px 14px; }
-.speedtip small { color: var(--muted); font-size: .76rem; flex: 1; }
+.speedtip { display: flex; gap: 12px; align-items: flex-start; text-align: left; margin: 14px 0 0; padding: 12px 14px; border-radius: 16px;
+  background: linear-gradient(var(--ink), var(--ink)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
+.speedtip .st-ic { font-size: 1.1rem; line-height: 1; margin-top: 8px; filter: grayscale(1) brightness(1.6); }
+.speedtip .st-row { display: flex; gap: 10px; align-items: center; }
+.speedtip .st-row + .st-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.speedtip small { color: var(--muted); font-size: .74rem; line-height: 1.35; flex: 1; }
 .speedtip .btn { flex: none; }
+/* výkon s popisky (Nastavení, list voleb) – 2×2, ať se popisky nelámou do tří řádků */
+.power.big { grid-template-columns: repeat(2, 1fr); }
+.power.big button { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-content: flex-start; text-align: left; gap: 2px 8px; padding: 10px 12px; min-height: 64px; }
+.power.big button small { flex-basis: 100%; text-align: left; }
+/* Platinum: aktivní záložka spodní lišty musí být čitelná (dřív bílá na bílé) */
+body.platinum nav.tabs button.on { color: var(--text); font-weight: 600; }
+body.platinum nav.tabs button.on svg { filter: none; }

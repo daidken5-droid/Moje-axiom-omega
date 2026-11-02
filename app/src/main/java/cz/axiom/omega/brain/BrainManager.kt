@@ -23,10 +23,15 @@ class BrainManager(private val context: Context) {
 
     private val customCatalog = File(dir, "custom-catalog.json")
 
+    @Volatile private var cached: Pair<Long, List<BrainSpec>>? = null
+
+    /** Katalog mozků – volá se u každého dotazu mnohokrát, proto v paměti (znovu jen po změně souborů). */
     fun catalog(): List<BrainSpec> {
+        val stamp = catalogCache.lastModified() * 31 + customCatalog.lastModified()
+        cached?.let { (k, v) -> if (k == stamp) return v }
         val remote = runCatching { if (catalogCache.exists()) BrainCatalog.parse(catalogCache.readText()) else null }.getOrNull()
         val base = remote ?: BrainCatalog.parse(context.assets.open("brains/catalog.json").bufferedReader().use { it.readText() })
-        return base + custom().filter { c -> base.none { it.id == c.id } }
+        return (base + custom().filter { c -> base.none { it.id == c.id } }).also { cached = stamp to it }
     }
 
     private fun custom(): List<BrainSpec> = runCatching { if (customCatalog.exists()) BrainCatalog.parse(customCatalog.readText()) else emptyList() }.getOrDefault(emptyList())
@@ -50,6 +55,7 @@ class BrainManager(private val context: Context) {
         )
         BrainCatalog.parse(BrainCatalog.toJson(listOf(spec))) // validace
         customCatalog.writeText(BrainCatalog.toJson(custom().filter { it.id != spec.id } + spec))
+        cached = null
         return spec
     }
 
@@ -61,6 +67,7 @@ class BrainManager(private val context: Context) {
             val text = Http.readAll(conn.inputStream, 500_000)
             val parsed = BrainCatalog.parse(text) // validace před uložením
             catalogCache.writeText(text)
+            cached = null
             return parsed.size
         } finally {
             conn.disconnect()
@@ -99,6 +106,7 @@ class BrainManager(private val context: Context) {
         f?.let { File(it.parentFile, it.name + ".part").delete() }
         if (settings.activeBrain == id) settings.activeBrain = null
         if (spec != null && custom().any { it.id == id }) customCatalog.writeText(BrainCatalog.toJson(custom().filter { it.id != id }))
+        cached = null
         if (spec?.kind == "embedding") cz.axiom.omega.engine.Embedder.close()
     }
 

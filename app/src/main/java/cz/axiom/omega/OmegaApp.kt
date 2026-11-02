@@ -37,7 +37,10 @@ class OmegaApp : Application() {
         if (level >= brainLevel) LocalEngine.releaseIfIdle()
         // Sémantický embedder (~0,6 GB) jde pryč dřív – je levné ho načíst znovu
         @Suppress("DEPRECATION")
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) cz.axiom.omega.engine.Embedder.close()
+        // UI_HIDDEN chodí při každém přepnutí aplikace → při držení mozku v paměti embedder neuvolňovat hned
+        // (jinak by se 600 MB načítalo znovu u dalšího dotazu); uvolní se až když systém opravdu tlačí
+        val embedderLevel = if (o.settings.keepBrain) ComponentCallbacks2.TRIM_MEMORY_BACKGROUND else ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
+        if (level >= embedderLevel) cz.axiom.omega.engine.Embedder.close()
     }
 
     /** Zapíše pád v Javě/Kotlinu do souboru – při dalším spuštění ho AVIOR ukáže a přizpůsobí se. */

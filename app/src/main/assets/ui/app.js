@@ -331,7 +331,7 @@ function speedTip() {
     tips.push(lite.installed ? `<button class="btn sm" data-brain-activate="${lite.id}">Přepnout na OMEGA Lite</button><small>V telefonu zhruba 2× rychlejší (Gemma 4 E2B).</small>`
       : `<button class="btn sm" data-brain-download="${lite.id}">Stáhnout OMEGA Lite · ${esc(lite.size)}</button><small>V telefonu zhruba 2× rychlejší než ${esc(act.name.split('·').pop().trim())}.</small>`);
   if (!tips.length) return '';
-  return `<div class="card speedtip"><b>Chceš rychlejší odpovědi?</b>${tips.map(t => `<div class="row" style="gap:10px;margin-top:8px;align-items:center">${t}</div>`).join('')}</div>`;
+  return `<div class="speedtip"><div class="grow">${tips.map(t => `<div class="st-row">${t}</div>`).join('')}</div></div>`;
 }
 
 function crashSheet(d) {
@@ -737,12 +737,11 @@ function renderMemory() {
     <input type="search" id="kbq" placeholder="Hledat v databázi" style="margin-top:12px"><div id="kbres"></div>
 
     <div class="eyebrow">OFFLINE KNIHOVNA · ${cz(((lib.bytes || 0) / 1e9).toFixed(2))} GB</div>
-    ${lib.libraries.map(l => { const dl = busy('library') && (S.bg.phase || '').includes(l.name); return card(`<b>${esc(l.name)}</b> ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}
+    ${lib.libraries.map(l => { const dl = busy('library') && (S.bg.phase || '').includes(l.name); return card(`<div class="row" style="gap:8px;align-items:center"><b class="grow">${esc(l.name)} ${l.done ? '<span class="badge good">OFFLINE</span>' : ''}</b>${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>
       <p class="small">${esc(l.description)}</p>
       <div class="meta">${l.done ? cz(((l.bytes || 0) / 1e9).toFixed(2)) + ' GB v telefonu' : (l.downloadGb ? '~' + cz(l.downloadGb) + ' GB stažení · ' : '') + '~' + cz(l.approxGb) + ' GB v telefonu'} · ${esc(l.license)}</div>
       ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.bg.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.bg.detail) : l.percent + ' % – naváže'}</div>` : ''}
-      <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel-bg>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
-      ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>
+      ${dl || !l.done ? `<div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel-bg>Pozastavit</button>' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}</div>` : ''}
       ${l.prebuilt ? `<div class="ragrow"><span class="grow"><b>RAG index · hledání podle významu</b><small>${l.rag ? 'Aktivní · ' + cz(((l.ragBytes || 0) / 1e6).toFixed(0)) + ' MB · najde článek, i když použiješ jiná slova' + (S.sense ? '' : ' (chybí OMEGA Sense v Modulech)') : 'Předpočítané vektory všech článků (~140 MB) – AVIOR najde odpověď podle smyslu, ne jen podle slov.'}</small></span>
         ${l.rag ? `<button class="icon-btn" data-rag-remove="${l.id}" aria-label="Smazat RAG index">${ICONS.trash}</button>` : (busy('library') ? '' : `<button class="btn sm primary" data-rag-start="${l.id}">Stáhnout</button>`)}</div>` : ''}`); }).join('')}
 

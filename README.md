@@ -8,6 +8,23 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.1 – finální polish (2 kola optimalizace)
+
+**1. kolo – správnost a rychlost dotazu**
+- Předehřátí mozku teď počítá přesně ten prefix, který pošle první dotaz (neměnný systémový prompt
+  telefonu) → první odpověď opravdu využije připravenou KV cache.
+- Turbo s Claude Haiku 5.5 neposílá serverové fallbacky, které Haiku nepodporuje (hrozila chyba 400) + test.
+- Okamžité odpovědi Ω Flash hledají jen fulltextem – nespouští načítání 600MB modelu OMEGA Sense.
+- Vektor dotazu (OMEGA Sense) se počítá nejvýš jednou a sdílí ho dokumenty i RAG knihovny.
+- Při držení mozku v paměti se embedder neuvolňuje při každém přepnutí aplikace (jen při skutečném tlaku).
+
+**2. kolo – rychlost celé aplikace**
+- Katalog mozků se drží v paměti (dřív se při každém dotazu několikrát četl a parsoval ze souboru).
+
+**Vzhled**
+- Volba výkonu s popisky v mřížce 2×2 (popisky se nelámou), kompaktnější nabídka zrychlení na úvodní
+  obrazovce, koš knihovny v záhlaví karty, čitelná aktivní záložka v motivu Platinum.
+
 ## Novinky 6.0 – Regulátor výkonu
 
 - **Nový nadřazený modul s pravomocí nad výkonem** (`core/device/Governor.kt`). Rozhoduje před RANDY

@@ -88,17 +88,18 @@ class Omega private constructor(val app: Context) {
         return object : KnowledgeSource {
             override fun search(query: String, limit: Int): List<Snippet> {
                 val L = cz.axiom.omega.data.LibraryDb.get(app)
-                // RAG nad knihovnou: vektor dotazu jen když je index a embedder (OMEGA Sense) – jinak čistý fulltext
-                val qvec = if (L.anyRag() && settings.semantic && !settings.memSafe && ensureEmbedder()) runCatching { Embedder.embedQuery(query) }.getOrNull() else null
-                val lib = runCatching { L.search(query, (limit / 2).coerceAtLeast(2), minScore = 3, qvec = qvec) }.getOrDefault(emptyList())
-                return (docs(query, limit) + lib).distinctBy { it.title }.take(limit + lib.size.coerceAtMost(2))
+                // vektor dotazu (OMEGA Sense) se spočítá NEJVÝŠ JEDNOU a sdílí ho dokumenty i RAG knihovny
+                val needDocs = d.vectorCount() > 0
+                val needLib = L.anyRag()
+                val qvec = if ((needDocs || needLib) && settings.semantic && !settings.memSafe && ensureEmbedder())
+                    runCatching { Embedder.embedQuery(query) }.getOrNull() else null
+                val lib = runCatching { L.search(query, (limit / 2).coerceAtLeast(2), minScore = 3, qvec = qvec?.takeIf { needLib }) }.getOrDefault(emptyList())
+                return (docs(query, limit, qvec?.takeIf { needDocs }) + lib).distinctBy { it.title }.take(limit + lib.size.coerceAtMost(2))
             }
 
-            private fun docs(query: String, limit: Int): List<Snippet> {
+            private fun docs(query: String, limit: Int, qvec: FloatArray?): List<Snippet> {
                 val words = d.search(query, limit)
-                // sémantika jen když má co hledat (indexované úseky) – jinak by zbytečně načítala 600MB model
-                if (!settings.semantic || settings.memSafe || d.vectorCount() == 0 || !ensureEmbedder()) return words
-                val q = Embedder.embedQuery(query) ?: return words
+                val q = qvec ?: return words
                 val sem = d.semantic(q, limit).filter { it.second > 0.35f }.map { it.first }
                 // proložit: nejlepší sémantické + nejlepší slovní, bez duplicit
                 val out = LinkedHashMap<String, Snippet>()
@@ -110,6 +111,13 @@ class Omega private constructor(val app: Context) {
                 return out.values.toList()
             }
         }
+    }
+
+    /** Jen fulltext (bez načítání modelu OMEGA Sense) – pro okamžité odpovědi Ω Flash. */
+    fun quickKnowledge(): KnowledgeSource = object : KnowledgeSource {
+        override fun search(query: String, limit: Int): List<Snippet> =
+            (runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, limit, minScore = 3) }.getOrDefault(emptyList()) +
+                runCatching { db.search(query, limit) }.getOrDefault(emptyList())).distinctBy { it.title }.take(limit)
     }
 
     fun embedderFile(): java.io.File? = brains.catalog().firstOrNull { it.kind == "embedding" && brains.isInstalled(it) }?.let { brains.fileFor(it) }
@@ -250,7 +258,8 @@ class Omega private constructor(val app: Context) {
                 try {
                     // předehřát i neměnný začátek systémového promptu (identita, zásady) → zůstane v KV cache
                     // a první dotaz ho už nemusí číst
-                    val sys = cz.axiom.omega.core.self.SystemPrompt.build(cz.axiom.omega.core.randy.RandyLevel.L1_EXPERT, selfState(), emptyList(), compact = true)
+                    // přesně ten prefix, který pošle první dotaz (neměnný systémový prompt telefonu)
+                    val sys = cz.axiom.omega.core.self.SystemPrompt.staticLocal(settings.userName.ifBlank { null })
                     e.generate(listOf(cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.SYSTEM, sys),
                         cz.axiom.omega.core.llm.ChatMessage(cz.axiom.omega.core.llm.Role.USER, "ok")),
                         cz.axiom.omega.core.llm.GenOptions(maxTokens = 1), cz.axiom.omega.core.llm.CancelToken()) {}

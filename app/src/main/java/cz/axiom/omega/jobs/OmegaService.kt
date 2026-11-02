@@ -441,7 +441,7 @@ class OmegaService : Service() {
                 userName = s.userName.takeIf { it.isNotBlank() }, battery = battery, charging = charging,
                 brain = omega.brains.active()?.second?.name, rates = s.rates,
                 // definice z offline Wikipedie jen ve Flash (v Auto je hlubší odpověď mozku žádoucí)
-                knowledge = if (flash) omega.knowledge() else null,
+                knowledge = if (flash) omega.quickKnowledge() else null,
             ))
         }.getOrNull() ?: return false
         val ms = System.currentTimeMillis() - started

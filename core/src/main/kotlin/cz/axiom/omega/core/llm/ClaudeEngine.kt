@@ -123,8 +123,8 @@ class ClaudeEngine(
             .maxTokens(options.maxTokens.toLong().coerceIn(1024, 64_000))
             .thinking(BetaThinkingConfigAdaptive.builder().display(BetaThinkingConfigAdaptive.Display.SUMMARIZED).build())
             .outputConfig(BetaOutputConfig.builder().effort(mapEffort(effortOverride ?: options.effort)).build())
-            .addBeta(FALLBACK_BETA)
-            .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
+        // serverové záložní modely (při odmítnutí) – Haiku je nepodporuje
+        if (!model.contains("haiku")) b.addBeta(FALLBACK_BETA).putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
         val system = messages.filter { it.role == Role.SYSTEM }.joinToString("\n\n") { it.content }
         if (system.isNotBlank()) b.system(system)
         for (m in messages) when (m.role) {

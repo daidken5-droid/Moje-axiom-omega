@@ -166,6 +166,16 @@ class EnginesTest {
         assertEquals("S", p.system().get().string().get())
     }
 
+    /** Turbo: Haiku 5.5 s pevnou nízkou hloubkou a bez serverových fallbacků (Haiku je nepodporuje). */
+    @Test fun claudeTurboUsesHaikuLowEffortWithoutFallbacks() {
+        val p = ClaudeEngine("sk-ant-test", ClaudeEngine.TURBO_MODEL, effortOverride = "low").buildParams(
+            listOf(ChatMessage(Role.USER, "Ahoj")), GenOptions(effort = "high"),
+        )
+        assertEquals("claude-haiku-5-5", p.model().asString())
+        assertEquals("low", p.outputConfig().get().effort().get().asString())
+        assertTrue(!p._additionalBodyProperties().containsKey("fallbacks"))
+    }
+
     // ---------------------------------------------------------------- Downloader
 
     private fun spec(data: ByteArray, urls: List<String>) = BrainSpec(
