@@ -8,6 +8,31 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.2 – offline modul bez mozku rozumí otázkám jako člověk
+
+- **Normalizátor otázek (`QuestionNorm`)** převede otázku tak, jak ji člověk napíše, na tvar, kterému rozumí
+  reflexy. Původní znění se zkouší vždy první, takže nic, co fungovalo, se nerozbije. Pozná:
+  - zdvořilé obaly: „prosím tě“, „řekni mi“, „můžeš mi říct“, „víš“, „zajímalo by mě“, „AVIOR,“…
+  - hovorovou češtinu a překlepy: dneska, jakej, kolikátýho, hoďin, vteřin, kila, metropole, hl. město
+  - čísla slovy: „sedm krát osm“, „dvacet procent z tisíce“, „pět set“
+  - zlomky: „třetina z 90“, „polovina z 250“
+  - mocniny: „2 na desátou“
+  - převody v obráceném slovosledu: „kolik metrů je 5 km“, „kolik gramů má kilo“, „20 °C na fahrenheity“
+  - kurzy: „za kolik je euro“, „kolik stojí dolar“
+  - kalendář: „za jak dlouho jsou Vánoce“, „kdy slaví svátek Jana“, „jaký den bude 24. 12.“
+  - politiku a stát: „kdo je prezidentem USA“, „kolik má NATO členů“, „kdy jsme vstoupili do EU“
+- **Nová znalostní tabulka** (`facts/obecne.tsv`, 89 vzorů):
+  - autoři knih a hudby, obrazy, vynálezy a objevy (včetně českých: Wichterle, Diviš, Ressel, Heyrovský)
+  - vesmír (vzdálenost Měsíce a Slunce, π, e), chemické vzorce, lidské tělo
+  - obyvatelstvo a rozloha Česka, zakladatelé firem
+- **Dějiny:** přibyly obě světové války, pád Berlínské zdi, přistání na Měsíci, 11. září a další milníky.
+- **Pojistka proti polovičním odpovědím:** složená otázka („kolik obyvatel má Praha *a jak se to změnilo*…“)
+  jde vždy mozku.
+- **Měření:**
+  - Sada 150 otázek v přirozených formulacích: rozpoznáno **150/150** (předtím 87/150).
+  - Nová sada 28 otázek, které musí jít mozku: 0 falešných odpovědí.
+  - Rozhodnutí trvá 0,37 ms na otázku.
+
 ## Novinky 8.1 – tvrdý audit kódu
 
 **Chyby (opraveno):**

@@ -29,7 +29,7 @@ object Reflex {
     private fun fmt(d: LocalDate) = "${d.dayOfMonth}. ${months[d.monthValue - 1]} ${d.year}"
     private fun dayWord(n: Long) = when { n == 1L -> "den"; n in 2..4 -> "dny"; else -> "dní" }
 
-    private val dateRx = Regex("""(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})?""")
+    private val dateRx = Regex("""(\d{1,2})\.\s*(\d{1,2})\.?\s*(\d{4})?""")
     private val namedDays: Map<String, (Int) -> LocalDate> = mapOf(
         "vanoc" to { y -> LocalDate.of(y, 12, 24) }, "stedreho dne" to { y -> LocalDate.of(y, 12, 24) },
         "silvestra" to { y -> LocalDate.of(y, 12, 31) }, "noveho roku" to { y -> LocalDate.of(y + 1, 1, 1) },
@@ -147,8 +147,19 @@ object Reflex {
         val definitions: Boolean = true,
     )
 
+    private val compound = Regex("[\\s,](a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
+
     fun answer(prompt: String, c: Ctx): Instant.Answer? {
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
+        // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
+        if (compound.containsMatchIn(TextUtil.fold(prompt))) return null
+        answerExact(prompt, c)?.let { return it }
+        // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
+        for (v in QuestionNorm.variants(prompt).take(6)) answerExact(v, c)?.let { return it }
+        return null
+    }
+
+    private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
         val candidates = sequence {
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
             Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it) }

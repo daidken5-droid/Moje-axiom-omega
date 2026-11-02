@@ -28,6 +28,8 @@ object Facts {
     private val records by lazy { res("rekordy.tsv").map { Regex(it[0]) to it[1] } }
     private val history by lazy { res("dejiny.tsv").map { Triple(Regex(it[0]), it[1], it[2]) } }
     private val abbrevs by lazy { res("zkratky.tsv").associate { it[0] to it[1] } }
+    /** Obecné znalosti: vzor otázky → odpověď (autoři, vynálezy, vesmír, tělo, obyvatelstvo…). */
+    private val general by lazy { res("obecne.tsv").map { Regex(it[0]) to it[1] } }
 
     private val months = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")
     private val days = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
@@ -143,6 +145,9 @@ object Facts {
         if (raw.isEmpty() || raw.length > 160) return null
         val f = TextUtil.fold(raw).replace(Regex("\\s+"), " ").trim().trimEnd('?', '.', '!', ' ')
         val q = words(raw)
+
+        // ---- obecné znalosti (krátké otázky; vzory jsou úzké, aby nechytaly cizí dotazy)
+        if (f.split(' ').size <= 14) general.firstOrNull { it.first.containsMatchIn(f) }?.let { return ans(it.second, "znalosti") }
 
         // ---- jmeniny
         if (Regex("\\b(svatek|jmeniny|slavi)\\b").containsMatchIn(f)) {

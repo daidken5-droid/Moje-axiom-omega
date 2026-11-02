@@ -116,6 +116,10 @@ object Everyday {
         when {
             Regex("^kolik (dni|dnu) (ma )?rok|^kolik ma rok dni").containsMatchIn(f) -> return ans("Rok má **365 dní**, přestupný **366** (${today.year} ${if (java.time.Year.isLeap(today.year.toLong())) "je" else "není"} přestupný).", "čas")
             Regex("^kolik (dni|dnu) (ma )?tyden|^kolik ma tyden dni").containsMatchIn(f) -> return ans("Týden má **7 dní**.", "čas")
+            Regex("^kolik (dni|dnu) (ma )?prestupn\\w* rok").containsMatchIn(f) -> return ans("Přestupný rok má **366 dní** (29. února navíc).", "čas")
+            Regex("^kolik (sekund|vterin) (ma )?(minuta|minutu)").containsMatchIn(f) -> return ans("Minuta má **60 sekund**.", "čas")
+            Regex("^kolik minut (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **60 minut**.", "čas")
+            Regex("^kolik hodin (ma )?(den|dni)$").containsMatchIn(f) -> return ans("Den má **24 hodin**.", "čas")
             Regex("^kolik (sekund|vterin) (ma )?(hodina|hodinu)").containsMatchIn(f) -> return ans("Hodina má **3 600 sekund**.", "čas")
             Regex("^kolik (minut) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **1 440 minut**.", "čas")
             Regex("^kolik (sekund|vterin) (ma )?(den|dni)").containsMatchIn(f) -> return ans("Den má **86 400 sekund**.", "čas")
