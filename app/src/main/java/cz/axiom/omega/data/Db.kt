@@ -20,7 +20,7 @@ import org.json.JSONObject
  * commit při KAŽDÉM stisku klávesy v poznámkách) → zamrzání UI a ztráta dat při překročení.
  */
 class Db private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 2), KnowledgeSource, MemoryStore {
+    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 3), KnowledgeSource, MemoryStore {
 
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
@@ -42,12 +42,44 @@ class Db private constructor(context: Context) :
         db.execSQL("CREATE VIRTUAL TABLE chunks USING fts4(document_id, title, body, notindexed=document_id, tokenize=unicode61)")
         db.execSQL("CREATE TABLE packs(id TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL, docs INTEGER NOT NULL, installed INTEGER NOT NULL)")
         createV2(db)
+        createV3(db)
         // Znalosti se plní z offline balíčků (PackManager.ensureAutoInstalled) – vestavěné v APK, bez internetu.
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createV2(db)
+        if (oldVersion < 3) createV3(db)
     }
+
+    /** v3: paměť ověřených odpovědí (reflex – odpověď bez mozku, když je jistá). */
+    private fun createV3(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS answers(id INTEGER PRIMARY KEY, question TEXT NOT NULL UNIQUE, answer TEXT NOT NULL, conf INTEGER NOT NULL, good INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)")
+    }
+
+    /** Uloží/aktualizuje odpověď do paměti odpovědí (✓ od uživatele = ověřená). */
+    fun putAnswer(question: String, answer: String, conf: Int, good: Boolean) {
+        val q = question.trim().take(500)
+        if (q.isBlank() || answer.isBlank()) return
+        // bez UPSERT (SQLite < 3.24 na Androidu 8–10): zachovat vyšší jistotu a příznak ověření
+        val db = writableDatabase
+        val prev = db.rawQuery("SELECT conf, good FROM answers WHERE question=?", arrayOf(q)).use { if (it.moveToFirst()) it.getInt(0) to it.getInt(1) else null }
+        db.insertWithOnConflict("answers", null, android.content.ContentValues().apply {
+            put("question", q); put("answer", answer.take(4000))
+            put("conf", maxOf(conf, prev?.first ?: 0)); put("good", if (good || prev?.second == 1) 1 else 0)
+            put("at", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        // držet malé: nejvýš 2000 nejnovějších
+        writableDatabase.execSQL("DELETE FROM answers WHERE id NOT IN (SELECT id FROM answers ORDER BY good DESC, at DESC LIMIT 2000)")
+    }
+
+    fun forgetAnswer(question: String) { writableDatabase.delete("answers", "question=?", arrayOf(question.trim().take(500))) }
+
+    fun answers(limit: Int = 2000): List<cz.axiom.omega.core.agent.Reflex.Entry> =
+        readableDatabase.rawQuery("SELECT question, answer, conf, good, at FROM answers ORDER BY at DESC LIMIT ?", arrayOf(limit.toString())).use { c ->
+            buildList { while (c.moveToNext()) add(cz.axiom.omega.core.agent.Reflex.Entry(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3) == 1, c.getLong(4))) }
+        }
+
+    fun answerCount(): Int = readableDatabase.rawQuery("SELECT count(*) FROM answers", null).use { it.moveToFirst(); it.getInt(0) }
 
     /** v2: vektory pro sémantické hledání + úkoly aktivních agentů. */
     private fun createV2(db: SQLiteDatabase) {
@@ -286,7 +318,7 @@ class Db private constructor(context: Context) :
         val db = writableDatabase
         db.beginTransaction()
         try {
-            for (t in listOf("messages", "threads", "memory", "tasks", "vectors", "docs", "packs")) runCatching { db.delete(t, null, null) }
+            for (t in listOf("messages", "threads", "memory", "tasks", "vectors", "docs", "packs", "answers")) runCatching { db.delete(t, null, null) }
             runCatching { db.execSQL("DELETE FROM chunks") }
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }

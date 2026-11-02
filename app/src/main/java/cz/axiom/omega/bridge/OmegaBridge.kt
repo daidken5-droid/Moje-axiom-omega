@@ -713,6 +713,11 @@ class OmegaBridge(private val activity: MainActivity) {
     fun learnRate(question: String, answer: String, good: Boolean, confidence: Int) {
         omega.cognition.rate(question, good, confidence.takeIf { it >= 0 })
         omega.cognition.exemplarRated(question, answer, good)
+        // ✓ = ověřená odpověď (příště reflexem bez mozku), ✗ = z paměti odpovědí pryč
+        runCatching {
+            if (good && !cz.axiom.omega.core.agent.Reflex.timeSensitive(question)) omega.db.putAnswer(question, answer, maxOf(confidence, 80), good = true)
+            else if (!good) omega.db.forgetAnswer(question)
+        }
     }
 
     // ------------------------------------------------------------------ Doladění (LoRA + trénovací data)
@@ -779,6 +784,27 @@ class OmegaBridge(private val activity: MainActivity) {
     }
 
     @JavascriptInterface fun cognitionReset() { omega.cognition.reset(); Events.note("Paměť učení vymazána – začínám znovu.") }
+
+    /** Je AVIOR výchozí digitální asistent (místo Gemini)? */
+    @JavascriptInterface fun assistantStatus(): String {
+        val held = if (Build.VERSION.SDK_INT >= 29) runCatching {
+            activity.getSystemService(android.app.role.RoleManager::class.java).isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT)
+        }.getOrDefault(false) else false
+        return JSONObject().put("default", held).toString()
+    }
+
+    /** Otevře systémovou volbu výchozího asistenta (Android nedovolí roli převzít bez uživatele). */
+    @JavascriptInterface fun openAssistantSettings() = activity.runOnUiThread {
+        val tries = listOf(
+            Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS),
+            Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS"),
+            Intent(android.provider.Settings.ACTION_SETTINGS),
+        )
+        for (i in tries) if (runCatching { activity.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) {
+            Events.note("Vyber „Digitální asistent“ → AVIOR. Pak dlouhý stisk vypínače otevře AVIOR s hlasem.")
+            break
+        }
+    }
 
     /** Stav mozku v paměti (loaded / loading / none). */
     @JavascriptInterface fun brainState(): String = omega.brainState().toString()

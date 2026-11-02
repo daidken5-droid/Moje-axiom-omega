@@ -141,7 +141,8 @@ function evidenceChip(m) {
   const meta = m.meta || {};
   const ev = meta.evidence;
   const parts = [];
-  if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ v telefonu</span>');
+  if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.instant || 'reflex')}">⚡ reflex · ${esc(meta.instant || '')} · jistota ${meta.reflex} %</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
+  else if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ v telefonu</span>');
   if (meta.learned) parts.push(`<span class="learned" title="Učím se z této otázky">✦ ${esc(meta.learned.domain)}</span>`);
   if (ev && ev.spans && ev.spans.length >= 2) {
     const c = ev.counts || {};
@@ -812,6 +813,11 @@ function renderSystem() {
     ${(dv.notes || []).length ? `<details class="x"><summary>JAK JE AVIOR NALADĚNÝ NA TENTO TELEFON</summary><div class="in" style="white-space:normal">${dv.notes.map(n => `<p class="small">› ${esc(n)}</p>`).join('')}</div></details>` : ''}`, 'randy');
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
     ${devicePanel}
+    ${(() => { const as = J('assistantStatus') || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">◉</span><span class="grow"><b>AVIOR místo Gemini</b>
+        <small class="muted" style="display:block">${as.default ? 'AVIOR je tvůj výchozí asistent ✓' : 'Nastav AVIOR jako výchozího digitálního asistenta.'}</small></span><span class="dot ${as.default ? 'on' : ''}"></span></div>
+      <p class="small">Dlouhý stisk vypínače (nebo gesto z rohu obrazovky) pak otevře AVIOR rovnou s hlasem – co řekneš, se samo odešle. Jednoduché otázky odpoví reflexem okamžitě a offline.</p>
+      ${as.default ? '' : '<button class="btn primary wide" data-assistant>Nastavit jako výchozího asistenta</button>'}
+      <p class="small muted" style="margin:8px 0 0">Tip: přidej si dlaždici <b>AVIOR</b> do rychlého nastavení (stáhni lištu → tužka) a widget na plochu.</p>`); })()}
     ${card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">⛨</span><span class="grow"><b>Soukromí a opsec</b>
         <small class="muted" style="display:block">AVIOR jako tvůj vlastní model: data patří jen tobě.</small></span></div>
       ${sw('airgap', 'Air-gap – úplně offline', 'Žádný síťový požadavek z celé aplikace (vynuceno v síťové vrstvě). Myslí jen telefon.')}
@@ -1018,7 +1024,8 @@ window.omegaReceive = function (type, d) {
       break;
     case 'kb': case 'mem': if (view === 'memory') renderMemory(); if (view === 'modules') renderModules(); break;
     case 'shared': draft = d.text; go('chat'); break;
-    case 'voice': draft = (draft ? draft.trimEnd() + ' ' : '') + d.text; if (view !== 'chat') go('chat'); else { const ta = $('#input'); ta.value = draft; ta.dispatchEvent(new Event('input')); ta.focus(); } break;
+    case 'voice': if (d.send) { draft = ''; if (view !== 'chat') go('chat'); send(d.text); break; }
+      draft = (draft ? draft.trimEnd() + ' ' : '') + d.text; if (view !== 'chat') go('chat'); else { const ta = $('#input'); ta.value = draft; ta.dispatchEvent(new Event('input')); ta.focus(); } break;
   }
 };
 function thinkingJob() { return busy('ask') || busy('agent'); }
@@ -1056,6 +1063,7 @@ document.addEventListener('click', e => {
   if (ds.self !== undefined) { selfSheet(); return; }
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
+  if (ds.assistant !== undefined) { call('openAssistantSettings'); return; }
   if (ds.panic !== undefined) {
     if (confirm('Smazat VŠECHNY konverzace, paměť, vlastní dokumenty, klíče a statistiky učení? Mozky a knihovna zůstanou.') &&
         confirm('Opravdu? Tohle nejde vrátit.')) { call('panicWipe'); haptic(); }
@@ -1093,6 +1101,7 @@ document.addEventListener('click', e => {
       { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, m.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
+  if (ds.brainRetry) { const i = msgs.findIndex(x => x.id === Number(ds.brainRetry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send('/chat ' + u.content.replace(/^\/\w+\s*/, '')); return; }
   if (ds.retry) { closeSheet(); const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
   if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); goalDraft = ''; threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }
   if (ds.role !== undefined && t.classList.contains('rcard')) { goalDraft = val('goal'); agentRole = ds.role; haptic(); renderAgents(); return; }

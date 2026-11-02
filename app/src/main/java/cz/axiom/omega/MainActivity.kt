@@ -43,10 +43,13 @@ class MainActivity : ComponentActivity() {
     /** Příloha k dotazu (textový soubor) – obsah se vloží do dotazu, ne do znalostí. */
     val pickAttach = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onAttach) }
     val pickLora = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(bridge::onLoraFile) }
+    /** Hlas spuštěný asistentem / dlaždicí → výsledek se rovnou odešle (jako u Gemini). */
+    @Volatile var voiceAutoSend = false
     /** Hlasové zadávání: systémové rozpoznávání řeči (offline, pokud má telefon stažený český balík). */
     val voice = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val text = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (!text.isNullOrBlank()) cz.axiom.omega.Events.emit("voice", org.json.JSONObject().put("text", text))
+        if (!text.isNullOrBlank()) cz.axiom.omega.Events.emit("voice", org.json.JSONObject().put("text", text).put("send", voiceAutoSend))
+        voiceAutoSend = false
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -163,6 +166,8 @@ class MainActivity : ComponentActivity() {
         val w = cz.axiom.omega.widget.AviorWidget
         val what = when (a) {
             w.ACTION_ASK -> "ask"; w.ACTION_VOICE -> "voice"; w.ACTION_SELF -> "self"; ACTION_SHERLOCK -> "sherlock"
+            // asistent (místo Gemini) a dlaždice: hlas → dotaz se po dořečení sám odešle
+            Intent.ACTION_ASSIST, cz.axiom.omega.assist.AviorSessionService.ACTION_ASSIST_VOICE -> { voiceAutoSend = true; "voice" }
             else -> return false
         }
         if (what == "sherlock") Omega.get(this).settings.power = "SHERLOCK"

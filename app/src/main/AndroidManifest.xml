@@ -38,6 +38,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- AVIOR jako asistent: dlouhý stisk vypínače / gesto (i u launcherů s ACTION_ASSIST) -->
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -67,6 +72,41 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Výchozí digitální asistent (místo Gemini) -->
+        <service
+            android:name=".assist.AviorAssistService"
+            android:exported="true"
+            android:label="AVIOR"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data android:name="android.voice_interaction" android:resource="@xml/assist_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".assist.AviorSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+        <service
+            android:name=".assist.AviorRecognitionService"
+            android:exported="true"
+            android:label="AVIOR">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+        <!-- Dlaždice v rychlém nastavení -->
+        <service
+            android:name=".assist.AviorTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_omega"
+            android:label="AVIOR"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <service
             android:name=".jobs.OmegaService"
             android:exported="false"

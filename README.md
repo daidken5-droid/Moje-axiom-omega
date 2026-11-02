@@ -8,6 +8,24 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.3 – AVIOR místo Gemini a reflexy bez mozku
+
+**AVIOR jako výchozí asistent**
+- AVIOR jde nastavit jako **výchozí digitální asistent** (Nastavení → Výchozí aplikace → Digitální asistent).
+  Dlouhý stisk vypínače nebo gesto z rohu pak otevře AVIOR rovnou s hlasem a dotaz se po dořečení sám odešle.
+- **Dlaždice AVIOR v rychlém nastavení** – jedno klepnutí = hlasový dotaz. Karta „AVIOR místo Gemini“ v Nastavení.
+
+**Reflexy – odpovědi bez mozku, když si je AVIOR jistý** (`core/agent/Reflex.kt`)
+- Každý reflex vrací odpověď s **mírou jistoty**; použije se jen nad prahem (Ω Flash 70 %, Auto 85 %),
+  jinak odpovídá mozek. Pořadí od nejjistějšího:
+  1. deterministické nástroje (čas, datum, výpočty, převody, hash, CIDR…) – 99 %,
+  2. **kalendář**: „kolik dní do Vánoc“, „jaký den bude 24. 12. 2026“, „jaké datum bude za 2 týdny“, týden v roce,
+  3. **vzpomínky o tobě**: „jak se jmenuje můj pes?“ → z paměti, jistota podle shody,
+  4. **paměť ověřených odpovědí**: co jsi označil ✓ (nebo co mozek zodpověděl s jistotou ≥ 85 %), příště
+     okamžitě – nikdy u otázek, které se mění v čase (kurzy, „dnes“, ceny, počasí…); ✗ odpověď z paměti smaže,
+  5. **definice z offline Wikipedie** i v režimu Auto při přesné shodě hesla.
+- U odpovědi je štítek „⚡ reflex · druh · jistota“ a tlačítko **↻ rozvést mozkem**.
+
 ## Novinky 6.2 – AVIOR očima etického hackera
 
 Vlastní AI v kapse má být hlavně **neprůstřelná**: data patří jen tobě, nic neuniká a nikdo ji nepřeprogramuje.

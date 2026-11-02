@@ -403,6 +403,12 @@ class OmegaService : Service() {
                 meta.put("learned", JSONObject().put("domain", domain.label).put("icon", domain.icon).put("milestones", JSONArray(milestones)))
                 milestones.firstOrNull()?.let { Events.note("✦ $it") }
             }
+            // PAMĚŤ ODPOVĚDÍ: jistou, nadčasovou odpověď si uložit → příště stejná otázka bez mozku
+            runCatching {
+                val c = meta.optInt("confidence", -1)
+                if (c >= 85 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
+                    omega.db.putAnswer(text, answer, c, good = false)
+            }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
             val id = omega.db.addMessage(threadId, "assistant", answer, meta)
@@ -436,17 +442,21 @@ class OmegaService : Service() {
         if (omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK && !flash) return false
         val started = System.currentTimeMillis()
         val (battery, charging) = Introspect.battery(this)
+        // REFLEXY: deterministika → kalendář → vzpomínky → ověřené odpovědi → definice z knihovny.
+        // Odpoví jen nad prahem jistoty (Flash 70, Auto 85); jinak dotaz převezme mozek.
+        val ictx = cz.axiom.omega.core.agent.Instant.Ctx(
+            userName = s.userName.takeIf { it.isNotBlank() }, battery = battery, charging = charging,
+            brain = omega.brains.active()?.second?.name, rates = s.rates, knowledge = omega.quickKnowledge(),
+        )
         val a = runCatching {
-            cz.axiom.omega.core.agent.Instant.answer(text, cz.axiom.omega.core.agent.Instant.Ctx(
-                userName = s.userName.takeIf { it.isNotBlank() }, battery = battery, charging = charging,
-                brain = omega.brains.active()?.second?.name, rates = s.rates,
-                // definice z offline Wikipedie jen ve Flash (v Auto je hlubší odpověď mozku žádoucí)
-                knowledge = if (flash) omega.quickKnowledge() else null,
+            cz.axiom.omega.core.agent.Reflex.answer(text, cz.axiom.omega.core.agent.Reflex.Ctx(
+                instant = ictx, memories = omega.db.all(), cache = omega.db.answers(),
+                threshold = if (flash) 70 else 85, definitions = true,
             ))
         }.getOrNull() ?: return false
         val ms = System.currentTimeMillis() - started
-        val meta = JSONObject().put("engine", "Ω Flash · okamžitě (bez mozku)").put("millis", ms).put("variant", "Ω Flash")
-            .put("instant", a.kind).put("private", true).put("level", "L0")
+        val meta = JSONObject().put("engine", "Reflex AVIOR · bez mozku").put("millis", ms).put("variant", if (flash) "Ω Flash" else "Ω Reflex")
+            .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0")
         if (a.sources.isNotEmpty()) meta.put("sources", JSONArray().apply { a.sources.forEach { put(JSONObject().put("title", it.title).put("url", "").put("source", it.source)) } })
         val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
         Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))

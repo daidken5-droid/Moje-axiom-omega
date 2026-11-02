@@ -30,7 +30,8 @@ object Instant {
         val knowledge: KnowledgeSource? = null,
     )
 
-    data class Answer(val text: String, val kind: String, val sources: List<Snippet> = emptyList())
+    /** @param confidence jistota 0–100 (deterministické nástroje 99, definice z knihovny 86) */
+    data class Answer(val text: String, val kind: String, val sources: List<Snippet> = emptyList(), val confidence: Int = 99)
 
     private val days = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
     private val months = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")
@@ -98,7 +99,7 @@ object Instant {
             val hits = runCatching { k.search(origSubject, 4) }.getOrDefault(emptyList())
             val hit = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
             val text = firstSentences(hit.text, 2, 420) ?: return null
-            return Answer("$text\n\n_Zdroj: ${hit.title} (${hit.source})_", "z offline znalostí", listOf(hit))
+            return Answer("$text\n\n_Zdroj: ${hit.title} (${hit.source})_", "z offline znalostí", listOf(hit), confidence = 86)
         }
         return null
     }
