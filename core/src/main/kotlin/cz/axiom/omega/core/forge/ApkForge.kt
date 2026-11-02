@@ -171,9 +171,4 @@ object BinaryXml {
 }
 
 /** Pomocník pro testy a CLI: obsah zipu jako mapa. */
-internal fun zipEntries(bytes: ByteArray): Map<String, ByteArray> {
-    val m = LinkedHashMap<String, ByteArray>()
-    ZipInputStream(bytes.inputStream()).use { z -> while (true) { val e = z.nextEntry ?: break; if (!e.isDirectory) m[e.name] = z.readBytes() } }
-    return m
-}
 

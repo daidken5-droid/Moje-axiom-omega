@@ -43,4 +43,6 @@
       <path d="M256 244 L260.5 325.5 L306 330 L260.5 334.5 L256 432 L251.5 334.5 L206 330 L251.5 325.5 Z" fill="#FFFFFF"/>
     </g>
   </g>
+  <!-- řada Delta: obrysový Δ -->
+  <path d="M402 96 L438 160 L366 160 Z" fill="none" stroke="url(#rim)" stroke-width="10" stroke-linejoin="round"/>
 </svg>

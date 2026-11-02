@@ -63,3 +63,27 @@ class DeltaVersionTest {
         assertTrue(u.newer(1001, 1000)); assertFalse(u.newer(1000, 1000))
     }
 }
+
+class SentinelTest {
+    private val lib = object : KnowledgeSource {
+        override fun search(query: String, limit: Int): List<Snippet> =
+            if ("gott" in cz.axiom.omega.core.util.TextUtil.fold(query).lowercase())
+                listOf(Snippet(2, "Wikipedie: Karel Gott", "Karel Gott (14. července 1939 Plzeň – 1. října 2019 Praha) byl český zpěvák populární hudby.", "wiki"))
+            else emptyList()
+    }
+
+    @Test fun flagsWrongBirthAndDeath() {
+        val f = Sentinel.check("**Karel Gott** se narodil v roce 1938 v Plzni a proslavil se jako Zlatý slavík.", lib)
+        assertTrue(f.size == 1 && f[0].wiki.contains("14. července 1939") && f[0].claimed.contains("1938"), f.toString())
+        val g = Sentinel.check("Zpěvák Karel Gott (1939–2018) byl legenda.", lib)
+        assertTrue(g.size == 1 && g[0].claimed.contains("2018") && g[0].wiki.contains("2019"), g.toString())
+    }
+
+    @Test fun silentWhenCorrectOrUnknown() {
+        assertTrue(Sentinel.check("Karel Gott se narodil 14. července 1939 v Plzni.", lib).isEmpty())
+        assertTrue(Sentinel.check("Karel Gott (1939–2019) byl legenda české pop music.", lib).isEmpty())
+        assertTrue(Sentinel.check("Jan Novák se narodil v roce 1950.", lib).isEmpty())          // heslo neexistuje → mlčí
+        assertTrue(Sentinel.check("Bitva na Bílé hoře proběhla v roce 1620.", lib).isEmpty())   // není životopisné tvrzení
+        assertTrue(Sentinel.check("Bez letopočtu.", lib).isEmpty())
+    }
+}

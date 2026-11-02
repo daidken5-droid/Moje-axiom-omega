@@ -429,3 +429,13 @@ details.srcs > summary { display: inline-flex; padding: 3px 10px; border: 1px so
 details.srcs > summary::before { display: none; }
 details.srcs[open] > summary { color: var(--muted); border-color: var(--line2); }
 details.srcs .cites { margin-top: 6px; }
+
+/* řada Delta: řecká značka Δ v logu (obrysový trojúhelník) a u názvu */
+.logo .delta { fill: none; stroke: currentColor; stroke-width: 12; stroke-linejoin: round; opacity: .85; }
+.delta-mark { font-style: normal; font-weight: 300; letter-spacing: 0; margin-left: .35em; color: var(--ti); font-family: var(--font); }
+.brand b .delta-mark { font-size: .95em; }
+
+/* Δ Strážce faktů – rozdíl proti offline Wikipedii */
+.delta-check { margin: 10px 0 0; padding: 8px 12px; border-left: 1px dashed var(--ti-lo); font-size: .85rem; color: var(--muted); }
+.delta-check p { margin: 0; }
+.delta-check .delta-mark { margin: 0 .5em 0 0; color: var(--ti-hi); }

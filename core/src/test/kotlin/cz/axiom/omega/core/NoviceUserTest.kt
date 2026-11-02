@@ -32,15 +32,12 @@ class NoviceUserTest {
         qs.forEach { q -> val a = Reflex.answer(q, c); if (a == null) { miss++; println("NOV ∅  $q") } else println("NOV ✓  %-60s → %s".format(q, a.text.replace("\n", " ").take(70))) }
         println("NOV HIT ${qs.size - miss}/${qs.size}")
         org.junit.Assert.assertTrue("rozpoznáno ${qs.size - miss}/${qs.size}", qs.size - miss >= 76) // zbývá počasí (internet)
-        // kdo vyká, dostane vykání
         fun a(q: String) = Reflex.answer(q, c)!!.text
-        org.junit.Assert.assertTrue(a("Jak se máte?"), a("Jak se máte?").contains("jak se máte vy"))
-        org.junit.Assert.assertTrue(a("Dobrou noc, děkuji vám."), a("Dobrou noc, děkuji vám.").contains("vám"))
         org.junit.Assert.assertTrue(a("Kolik mi bude let, když jsem se narodila 15. 6. 1955?"), a("Kolik mi bude let, když jsem se narodila 15. 6. 1955?").contains("71 let"))
         org.junit.Assert.assertTrue(a("Na jaké číslo mám volat, když hoří?").startsWith("Hasiči: **150**"))
         org.junit.Assert.assertTrue(a("Dobrý den, prosím Vás, kdy jsou letos Velikonoce? Děkuji.").startsWith("Letošní Velikonoce už byly"))
         org.junit.Assert.assertTrue(a("Kolik je 1000 Kč v eurech prosím").contains("41,15 EUR"))
-        // kdo tyká, dostane tykání
-        org.junit.Assert.assertTrue(a("jak se máš").contains("jak se máš ty"))
+        // AVIOR vždy tyká (i na vykání) – bez převodu odpovědí
+        org.junit.Assert.assertTrue(a("Jak se máte?").contains("jak se máš ty"))
     }
 }

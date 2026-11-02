@@ -13,7 +13,7 @@ const ARC = 'M58 398 Q256 262 454 398 Q256 278 58 398 Z';
 const STAR = 'M256 244 L260.5 325.5 L306 330 L260.5 334.5 L256 432 L251.5 334.5 L206 330 L251.5 325.5 Z';
 /* Značka AVIOR inline (barvy z CSS → tmavý i světlý motiv). Celá ikona s dlaždicí je logo.svg. */
 const logo = (cls = '') =>
-  `<svg class="logo ${cls}" viewBox="40 100 432 350" aria-hidden="true"><path class="legL" d="${LEG_L}"/><path class="legR" d="${LEG_R}"/><path class="arc" d="${ARC}"/><circle class="flare" cx="256" cy="330" r="46"/><path class="star" d="${STAR}"/></svg>`;
+  `<svg class="logo ${cls}" viewBox="40 100 432 350" aria-hidden="true"><path class="legL" d="${LEG_L}"/><path class="legR" d="${LEG_R}"/><path class="arc" d="${ARC}"/><circle class="flare" cx="256" cy="330" r="46"/><path class="delta" d="M430 112 L466 176 L394 176 Z"/><path class="star" d="${STAR}"/></svg>`;
 const appIcon = () => '<img class="app-icon" src="logo.svg" alt="AVIOR">';
 
 const ICONS = {
@@ -226,6 +226,7 @@ function chatReport(withText = true) {
     if (me.finish && me.finish !== 'stop' && me.finish !== 'end_turn') f.push('konec: ' + me.finish);
     if (me.error) f.push('CHYBA');
     out.push('', `### ${i + 1} · ODPOVĚĎ ${m.ts ? hm(m.ts) : ''}`, '- ' + f.join(' · '));
+    if ((me.delta || []).length) out.push('- Δ Strážce faktů: ' + me.delta.map(d => d.text.replace(/\*\*/g, '')).join(' | '));
     if (me.earl) out.push(`- E-ARL: ${me.earl.label} (${me.earl.category}, ${me.earl.conf} %) – ${(me.earl.reasons || []).join(', ')}`);
     if (me.route) out.push('- cesta: ' + me.route);
     if (me.governor) out.push(`- regulátor: ${me.governor.power} · náročnost ${me.governor.demand} · max ${me.governor.maxTokens} tok · ${me.governor.threads || '?'} vláken${me.governor.limited ? ' · OMEZENO' : ''}`);
@@ -354,7 +355,7 @@ function refresh() {
   const key = sub + '|' + pulse;
   if (refresh.brandKey !== key) {
     refresh.brandKey = key;
-    $('#brand').innerHTML = `${logo(pulse)}<div><b>AVIOR</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+    $('#brand').innerHTML = `${logo(pulse)}<div><b>AVIOR<i class="delta-mark">Δ</i></b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
     $('#brand svg').style.cssText = 'width:26px;height:26px;flex:none';
   }
   syncSend();
@@ -547,7 +548,8 @@ function msgHtml(m, last) {
   const thought = meta.reasoning && tech() ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
   return `<div class="msg ai${last ? ' last' : ''}" data-id="${m.id}">
     ${tech() ? `<div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>` : ''}
-    ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
+    ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}
+    ${(meta.delta || []).length ? `<div class="delta-check">${meta.delta.map(d => `<p><i class="delta-mark">Δ</i>${inline(esc(d.text))}</p>`).join('')}</div>` : ''}${cites}
     ${evidenceChip(m)}
 
     <div class="tools">
@@ -1088,7 +1090,7 @@ function renderSystem() {
     ${S.update ? `<button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout AVIOR ${esc(S.update.version)}</button>` : '<button class="btn wide" data-check-update>Zkontrolovat aktualizace</button>'}
     <button class="btn danger wide" data-cognition-reset>Vymazat paměť učení</button>
     <button class="btn danger wide" data-forget-keys>Odstranit všechny klíče</button>
-    <p class="small mono muted" style="text-align:center;margin-top:16px">${esc(S.name)} ${esc(S.version)} · kurzy ${esc(st.rates)}</p>
+    <p class="small mono muted" style="text-align:center;margin-top:16px">${esc(S.name)} <span class="delta-mark">Δ</span> ${esc(S.version)} · kurzy ${esc(st.rates)}</p>
     <button class="link" style="display:block;margin:0 auto" data-open="https://github.com/daidken5-droid/Moje-axiom-omega">Zdrojový kód ↗</button>
   </div>`;
 }

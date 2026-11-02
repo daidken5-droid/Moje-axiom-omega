@@ -8,6 +8,37 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## AVIOR Delta II
+
+**Δ Strážce faktů (jedinečná funkce):** každou odpověď mozku nebo cloudu AVIOR ověří **přímo v telefonu proti
+offline Wikipedii**, bez internetu a bez dalšího modelu, za pár milisekund. Když se odpověď liší od encyklopedie,
+pod odpovědí se objeví řádek:
+
+> Δ Wikipedie uvádí jinak: **Karel Gott** – narození **14. července 1939** (v odpovědi: narození 1938).
+
+- Ověřuje úzce, ale přesně:
+  - data narození a úmrtí osob („X se narodil … 1938“),
+  - roky v závorce za jménem („X (1939–2018)“).
+- Porovnává s úvodní závorkou hesla.
+- Při jakékoli nejistotě (heslo nenalezeno, závorka není životopisná, nejednoznačné jméno) **mlčí**.
+- Rozdíl je vidět i v reportu pro Clauda.
+
+**Řada Delta v UI:** obrysová řecká **Δ** v logu (hlavička, úvod, ikona) a u názvu AVIOR.
+
+**Jen tykání:** převod odpovědí na vykání je pryč (zbytečná práce). Formální obraty („Můžete mi říct…“) AVIOR dál
+rozpozná, aby otázce porozuměl. Odpovídá vždy tykáním.
+
+**Zátěžové testy (`StressTest`):**
+
+| Režim | Výsledek |
+|---|---|
+| Bez mozku | 24 000 otázek z 8 vláken za ~2 s (**~12 000/s**), medián 0,14 ms, **0 chyb** při souběhu, paměť neroste |
+| S mozkem offline (simulovaný mozek, skutečný llama.cpp v CI kontejneru neběží) | režie kolem mozku (znalosti, paměť, RANDY, zadání) **< 10 ms**, zrušení uprostřed odpovědi **81 ms** |
+| Cloud | 300 dotazů / 6 vláken proti serverům s náhodnými 429 a 503: **odpověď dostal každý**, 126× přepnutí na zálohu |
+
+**Úklid:** odstraněno 6 nepoužívaných funkcí (busyFor, forgetAnswer, answerCount, clearVectors, setMessageMeta,
+zipEntries) a kód vykání.
+
 ## AVIOR Delta I
 
 Od této verze se AVIOR značí **Delta** + římská číslice (Delta I, Delta II…). Uvnitř se verze porovnávají podle
@@ -21,8 +52,6 @@ internet). Co se doplnilo:
   se zahodí a zbude otázka.
 - **Formální obaly:** „Můžete mi prosím říct“, „Mohl byste“, „Řekněte mi“, „Nevíte náhodou“, „chtěla bych se zeptat“,
   „Potřebovala bych vědět“, „Promiňte“, „Prosím vás pěkně“, „Dobrý den Avioře“, „mohla bych poprosit o“.
-- **Vykání:** kdo vyká, dostane odpověď vykáním („A jak se máte vy?“, „ať se vám dobře spí“, „Je vám 71 let“).
-  Mozek i cloud dostanou stejný pokyn.
 - **Jiné formulace:** „Kdo je u nás / teď prezident“, „Jak se jmenuje náš prezident“, „Kdo vládne“, „Kdo jste“,
   „Co umíte“, „Děkuji za pomoc“, „Hezký den“, „jaké je datum“, „jak dlouho ještě do Silvestra“, „další státní svátek“,
   „kolik dní má tento měsíc“.

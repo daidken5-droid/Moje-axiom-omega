@@ -82,7 +82,6 @@ class Db private constructor(context: Context) :
         answersCache = null
     }
 
-    fun forgetAnswer(question: String) { writableDatabase.delete("answers", "question=?", arrayOf(question.trim().take(500))); answersCache = null }
 
     /** Paměť odpovědí v RAM – reflex ji čte u každého dotazu, mění se jen při ✓/✗ a nové jisté odpovědi. */
     @Volatile private var answersCache: List<cz.axiom.omega.core.agent.Reflex.Entry>? = null
@@ -91,8 +90,6 @@ class Db private constructor(context: Context) :
         readableDatabase.rawQuery("SELECT question, answer, conf, good, at FROM answers ORDER BY at DESC LIMIT 2000", null).use { c ->
             buildList { while (c.moveToNext()) add(cz.axiom.omega.core.agent.Reflex.Entry(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3) == 1, c.getLong(4))) }
         }.also { answersCache = it }
-
-    fun answerCount(): Int = readableDatabase.rawQuery("SELECT count(*) FROM answers", null).use { it.moveToFirst(); it.getInt(0) }
 
     /** v2: vektory pro sémantické hledání + úkoly aktivních agentů. */
     private fun createV2(db: SQLiteDatabase) {
@@ -179,8 +176,6 @@ class Db private constructor(context: Context) :
         writableDatabase.execSQL("DELETE FROM vectors WHERE chunk NOT IN (SELECT docid FROM chunks)")
         vectorIndex = null
     }
-
-    fun clearVectors() { writableDatabase.delete("vectors", null, null); vectorIndex = null }
 
     /** Kosinová podobnost (vektory jsou normalizované) přes všechny úseky – pro desítky tisíc úseků stačí. */
     fun semantic(query: FloatArray, limit: Int): List<Pair<Snippet, Float>> {
@@ -273,10 +268,6 @@ class Db private constructor(context: Context) :
         } finally {
             db.endTransaction()
         }
-    }
-
-    fun setMessageMeta(id: Long, meta: JSONObject) {
-        writableDatabase.update("messages", ContentValues().apply { put("meta", meta.toString()) }, "id=?", arrayOf(id.toString()))
     }
 
     // ------------------------------------------------------------------ paměť

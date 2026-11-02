@@ -374,8 +374,7 @@ class OmegaService : Service() {
                     val orch = omega.orchestrator()
                     fun req(e: cz.axiom.omega.core.llm.LlmEngine) = AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && e.kind == EngineKind.CLAUDE,
                         !light && (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
-                        s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle,
-                            cz.axiom.omega.core.agent.Conversation.FORMAL_STYLE.takeIf { cz.axiom.omega.core.agent.Conversation.formal(text) }).joinToString("\n").ifBlank { null }, variant.temperature, insight,
+                        s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
                         maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge)
                     var failover: String? = null
                     var r = try {
@@ -470,6 +469,11 @@ class OmegaService : Service() {
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
             // úklid artefaktů modelů (citační značky gpt-oss 【4】, zbytky značek sebereflexe)
             val clean = cz.axiom.omega.core.agent.Conversation.clean(answer)
+            // Δ STRÁŽCE FAKTŮ: ověření odpovědi proti offline Wikipedii (data narození/úmrtí) – bez internetu, ms
+            runCatching {
+                val flags = cz.axiom.omega.core.agent.Sentinel.check(clean, omega.quickKnowledge())
+                if (flags.isNotEmpty()) meta.put("delta", JSONArray().apply { flags.forEach { put(JSONObject().put("text", it.text()).put("title", it.title)) } })
+            }
             val id = omega.db.addMessage(threadId, "assistant", clean, meta)
             runCatching {
                 val cg = omega.cognition
@@ -1035,8 +1039,6 @@ class OmegaService : Service() {
         @Volatile private var bgToken: CancelToken? = null
 
         /** Je obsazená linka, do které patří [action]? */
-        fun busyFor(action: String) = if (action in BG_ACTIONS) RUNNING_BG.get() else RUNNING_ASK.get()
-
         /** Spustí / ukončí držení mozku v paměti (jen z popředí – Android jinak FGS nedovolí). */
         fun keep(context: Context, on: Boolean) {
             runCatching {

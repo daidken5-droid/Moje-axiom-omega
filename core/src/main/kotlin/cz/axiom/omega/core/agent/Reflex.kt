@@ -175,12 +175,9 @@ object Reflex {
         // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
         val sig = Pavucina.of(prompt) // PAVUČINA: varianty a signály se sdílí s E-ARL, RANDY i nápovědou
         if (sig.compound) return null
-        val hit = answerExact(prompt, c)
+        return answerExact(prompt, c)
             // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
             ?: sig.variants.take(9).firstNotNullOfOrNull { answerExact(it, c) }
-            ?: return null
-        // VYKÁNÍ: kdo vyká, dostane odpověď vykáním
-        return if (Conversation.formal(prompt)) hit.copy(text = Conversation.toFormal(hit.text)) else hit
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
