@@ -82,4 +82,29 @@ class FactsTest {
         assertNull(a("Kdo je premiér?"))   // mění se → mozek s balíčkem a ověřením
         assertNull(a("Co si myslí pravice o EU?"))
     }
+
+    private fun pol(q: String) = cz.axiom.omega.core.agent.Politics.answer(q)
+    private fun phas(q: String, vararg parts: String) { val t = pol(q)?.text; assertTrue("$q → $t", t != null && parts.all { it in t }) }
+
+    @Test fun politicsWithoutBrain() {
+        phas("Kdo byl premiér v roce 2015?", "Bohuslav Sobotka")
+        phas("Kdo byl premiér v roce 1998?", "Klaus", "Tošovský", "Zeman")
+        phas("Seznam premiérů ČR", "Nečas", "Fiala")
+        phas("Kdo je premiér?", "Babiš", "stav k 2026")
+        phas("Kdo vyhrál volby 2021?", "SPOLU")
+        phas("Kdo vyhrál poslední volby?", "ANO")
+        phas("Co je ODS?", "Občanská demokratická strana")
+        phas("Co je SPD?", "Okamura")
+        phas("Kdo je prezident USA?", "Trump", "stav k 2026")
+        phas("Kolik členů má NATO?", "32")
+        phas("Kolik států má EU?", "27")
+        phas("Kdy začala válka na Ukrajině?", "24. 2. 2022")
+        phas("Jaký je pravicový pohled na migraci?", "názorový směr", "protiargument", "kvót")
+        phas("Co si myslí pravice o EU?", "Proevropská", "Euroskeptická")
+        phas("Jaký je konzervativní názor na daně?", "Nižší a jednodušší daně")
+        assertTrue(pol("Kdo je premiér?")!!.confidence in 85..92)
+        assertTrue(pol("Kdo byl premiér v roce 2010?")!!.confidence == 97)
+        assertNull(pol("Proč je politika tak rozdělená?"))
+        assertNull(pol("Napiš mi projev o daních"))
+    }
 }

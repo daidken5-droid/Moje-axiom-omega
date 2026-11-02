@@ -8,6 +8,19 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.9 – politika bez mozku
+
+Nový reflex `core/agent/Politics.kt` (data `facts/strany.tsv`, `facts/pravice.tsv`):
+- **Historie a stálá fakta (jistota 97 %):** „Kdo byl premiér v roce 2015?“, seznam premiérů, první premiér,
+  vítězové sněmovních voleb 2013–2025, prezidentská volba 2023, NATO (vznik, článek 5, 32 členů),
+  EU (vznik, 27 států), stálí členové RB OSN, začátek války na Ukrajině, útok Hamásu, sametová revoluce, vznik ČR.
+- **Funkce s pevným mandátem (jistota 90 %, vždy „stav k 2026“):** premiér ČR, prezident USA,
+  předsedkyně Evropské komise, generální tajemník NATO.
+- **Strany (92 %):** „Co je ODS / TOP 09 / KDU / STAN / Piráti / ANO / SPD / Motoristé / SOCDEM / KSČM /
+  Stačilo! / SPOLU?“ – zařazení, frakce v EP, role ve volbách.
+- **Pravicový pohled bez mozku (90 %):** „Jaký je pravicový pohled na migraci / EU / daně / energetiku /
+  Ukrajinu / USA / Izrael / Čínu / společnost?“ – vždy označený jako názorový směr a s hlavním protiargumentem.
+
 ## Novinky 6.8 – politika v offline databázi
 
 Tři nové offline balíčky (instalují se samy po aktualizaci) a politická fakta v reflexech:
