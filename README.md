@@ -8,6 +8,20 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.8 – RAG index nad celou Wikipedií
+
+- **Hledání podle významu v celé offline knihovně:** k předpřipravené Wikipedii jde stáhnout **RAG index**
+  (Paměť → Offline knihovna → RAG index, ~140 MB). Obsahuje vektor významu každého článku (534 tis.),
+  takže AVIOR najde správný článek, i když se zeptáš jinými slovy, než jaká v něm jsou.
+- **Hybridní vyhledávání:** fulltext (slova) + vektory (význam) se spojují metodou Reciprocal Rank Fusion –
+  články dobré v obou vyhrávají. Bez indexu nebo bez OMEGA Sense funguje vše dál čistě fulltextem.
+- **Předpočítané v CI, ne v telefonu:** workflow *Build RAG index* spočítá vektory na GitHub Actions
+  (24 paralelních úloh) stejným modelem jako telefon (Qwen3-Embedding 0.6B, stejná tokenizace),
+  zkrátí je na 256 složek (Matryoshka) a kvantuje na int8. Index se v telefonu jen namapuje do paměti
+  (mmap) a prohledává v C++ – desítky milisekund, bez zátěže RAM.
+- Nástroje: `tools/rag/avior_embed.cpp` (dávkové vektory přes llama.cpp), `prepare.py`, `merge.py`
+  (formát AVRAG1). Spuštění: řádek s id knihovny v `rag-requests/build.txt`.
+
 ## Novinky 5.7 – výběr mozku a „Oba mozky“
 
 - **Výběr mozku přímo v chatu:** klepni na štítek vlevo v poli pro dotaz → **Ω Auto · Telefon · Claude · ⇄ Oba**.

@@ -719,7 +719,9 @@ function renderMemory() {
       <div class="meta">${l.done ? cz(((l.bytes || 0) / 1e9).toFixed(2)) + ' GB v telefonu' : (l.downloadGb ? '~' + cz(l.downloadGb) + ' GB stažení · ' : '') + '~' + cz(l.approxGb) + ' GB v telefonu'} · ${esc(l.license)}</div>
       ${l.started && !l.done || dl ? `<div class="progress"><i style="width:${dl ? S.bg.progress : l.percent}%"></i></div><div class="meta">${dl ? esc(S.bg.detail) : l.percent + ' % – naváže'}</div>` : ''}
       <div class="row" style="gap:8px;margin-top:8px">${dl ? '<button class="btn sm danger" data-cancel-bg>Pozastavit</button>' : l.done ? '' : `<button class="btn sm primary" data-lib-start="${l.id}">${l.started ? 'Pokračovat' : 'Stáhnout'}</button>`}
-      ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>`); }).join('')}
+      ${l.started && !dl ? `<button class="icon-btn" data-lib-remove="${l.id}" aria-label="Smazat">${ICONS.trash}</button>` : ''}</div>
+      ${l.prebuilt ? `<div class="ragrow"><span class="grow"><b>RAG index · hledání podle významu</b><small>${l.rag ? 'Aktivní · ' + cz(((l.ragBytes || 0) / 1e6).toFixed(0)) + ' MB · najde článek, i když použiješ jiná slova' + (S.sense ? '' : ' (chybí OMEGA Sense v Modulech)') : 'Předpočítané vektory všech článků (~140 MB) – AVIOR najde odpověď podle smyslu, ne jen podle slov.'}</small></span>
+        ${l.rag ? `<button class="icon-btn" data-rag-remove="${l.id}" aria-label="Smazat RAG index">${ICONS.trash}</button>` : (busy('library') ? '' : `<button class="btn sm primary" data-rag-start="${l.id}">Stáhnout</button>`)}</div>` : ''}`); }).join('')}
 
     <div class="eyebrow">PŘIDAT ZNALOSTI</div>
     ${card(`<div class="row"><input type="text" id="wikiTopic" placeholder="Téma z Wikipedie (např. tepelné čerpadlo)"><button class="btn sm" data-wiki>Stáhnout</button></div>
@@ -1052,6 +1054,8 @@ document.addEventListener('click', e => {
   if (ds.retry) { closeSheet(); const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
   if (ds.agentStart !== undefined) { const g = val('goal'); if (!g) return toast('Napiš cíl.'); goalDraft = ''; threadId = 0; msgs = []; send(g, 'agent', agentRole); return; }
   if (ds.role !== undefined && t.classList.contains('rcard')) { goalDraft = val('goal'); agentRole = ds.role; haptic(); renderAgents(); return; }
+  if (ds.ragStart) { call('libraryRag', ds.ragStart); setTimeout(() => { refresh(); renderMemory(); }, 500); return; }
+  if (ds.ragRemove) { if (confirm('Smazat RAG index? Knihovna zůstane, hledá jen podle slov.')) call('libraryRagRemove', ds.ragRemove); return; }
   if (ds.libStart) { call('libraryStart', ds.libStart); setTimeout(() => { refresh(); renderMemory(); }, 500); return; }
   if (ds.libRemove) { if (confirm('Smazat knihovnu z telefonu?')) call('libraryRemove', ds.libRemove); return; }
   if (ds.taskDel) { e.stopPropagation(); call('deleteTask', Number(ds.taskDel)); renderAgents(); return; }

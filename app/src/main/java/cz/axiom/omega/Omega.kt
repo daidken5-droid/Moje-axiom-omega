@@ -87,7 +87,10 @@ class Omega private constructor(val app: Context) {
         val d = db
         return object : KnowledgeSource {
             override fun search(query: String, limit: Int): List<Snippet> {
-                val lib = runCatching { cz.axiom.omega.data.LibraryDb.get(app).search(query, (limit / 2).coerceAtLeast(2), minScore = 3) }.getOrDefault(emptyList())
+                val L = cz.axiom.omega.data.LibraryDb.get(app)
+                // RAG nad knihovnou: vektor dotazu jen když je index a embedder (OMEGA Sense) – jinak čistý fulltext
+                val qvec = if (L.anyRag() && settings.semantic && !settings.memSafe && ensureEmbedder()) runCatching { Embedder.embedQuery(query) }.getOrNull() else null
+                val lib = runCatching { L.search(query, (limit / 2).coerceAtLeast(2), minScore = 3, qvec = qvec) }.getOrDefault(emptyList())
                 return (docs(query, limit) + lib).distinctBy { it.title }.take(limit + lib.size.coerceAtMost(2))
             }
 

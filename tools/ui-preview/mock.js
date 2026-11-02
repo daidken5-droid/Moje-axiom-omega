@@ -54,7 +54,7 @@
       { id: 1, threadId: 2, goal: 'Porovnej nejnovější open-source modely pro telefon', status: 'done', engine: 'AVIOR Node (axiom)', steps: 7, result: 'Gemma 4 E4B vede v poměru výkon/velikost…' }]),
     deleteTask() {},
     libraries: () => JSON.stringify({ bytes: 2.31e9, articles: 214000, libraries: [
-      { id: 'wiki-cs', name: 'Česká Wikipedie – celá', description: '534 tisíc článků: věda, technika, historie, zeměpis, osobnosti, právo, medicína…', rows: 534044, approxGb: 3.3, downloadGb: 1.5, license: 'CC BY-SA 4.0', offset: 0, done: false, percent: 0, started: false },
+      { id: 'wiki-cs', name: 'Česká Wikipedie – celá', description: '534 tisíc článků: věda, technika, historie, zeměpis, osobnosti, právo, medicína…', rows: 534044, approxGb: 3.3, downloadGb: 1.5, license: 'CC BY-SA 4.0', offset: 534044, done: true, percent: 100, started: true, prebuilt: true, bytes: 3.27e9, rag: true, ragBytes: 1.39e8 },
       { id: 'wiki-sk', name: 'Slovenská Wikipedie – celá', description: '242 tisíc článků ve slovenštině.', rows: 242235, approxGb: 1.3, downloadGb: 0.5, license: 'CC BY-SA 4.0', offset: 0, done: false, percent: 0, started: false },
       { id: 'wiki-simple', name: 'Simple English Wikipedia', description: '242 tisíc článků v jednoduché angličtině.', rows: 241787, approxGb: 0.9, downloadGb: 0.35, license: 'CC BY-SA 4.0', offset: 241787, done: true, percent: 100, started: true, prebuilt: true, bytes: 0.86e9 }] }),
     librarySearch: () => '[]', libraryStart() {}, libraryRemove() {}, hfSearch() { setTimeout(() => omegaReceive('hf_models', { models: [{ id: 'unsloth/gemma-4-E4B-it-GGUF', downloads: 812345 }, { id: 'unsloth/Qwen3.6-35B-A3B-GGUF', downloads: 402100 }] }), 50); },

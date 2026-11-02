@@ -36,6 +36,8 @@ object NativeLlama {
                 System.loadLibrary("omega")
                 nativeInit(context.applicationInfo.nativeLibraryDir)
             }.onFailure { loadError = it.message }.isSuccess
+            // RAG: prohledání indexu v C++ (NEON) místo Kotlinu
+            if (ok) cz.axiom.omega.core.rag.RagIndex.accel = { b, d, n, q, k -> nativeRagTopK(b, d, n, q, k) }
             loaded = ok
             return ok
         }
@@ -54,6 +56,7 @@ object NativeLlama {
     external fun nativeSetLora(handle: Long, path: String, scale: Float): String
     external fun nativeLoadEmbedder(path: String, nThreads: Int): Long
     external fun nativeEmbed(handle: Long, text: String): FloatArray?
+    external fun nativeRagTopK(buf: java.nio.ByteBuffer, dim: Int, count: Int, query: IntArray, k: Int): LongArray?
 }
 
 /** Sémantický embedder (rozšíření OMEGA Sense). Vrací L2-normalizované vektory. */

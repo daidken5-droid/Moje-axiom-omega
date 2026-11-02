@@ -299,6 +299,19 @@ class OmegaBridge(private val activity: MainActivity) {
         OmegaService.start(activity, Intent(OmegaService.ACTION_LIBRARY).putExtra("id", id))
     }
 
+    /** Stáhne předpočítaný RAG index (vektory významu) k předpřipravené knihovně. */
+    @JavascriptInterface
+    fun libraryRag(id: String) {
+        if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
+        OmegaService.start(activity, Intent(OmegaService.ACTION_RAG).putExtra("id", id))
+    }
+
+    @JavascriptInterface
+    fun libraryRagRemove(id: String) = async {
+        cz.axiom.omega.data.LibraryDb.get(activity).removeRag(id)
+        Events.emit("kb", JSONObject()); Events.note("RAG index odstraněn – knihovna hledá dál podle slov.")
+    }
+
     @JavascriptInterface
     fun libraryRemove(id: String) = async {
         cz.axiom.omega.data.LibraryDb.get(activity).remove(id)

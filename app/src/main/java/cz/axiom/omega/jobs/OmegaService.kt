@@ -127,6 +127,7 @@ class OmegaService : Service() {
                     ACTION_DATASET -> dataset(intent, cancel)
                     ACTION_WIKI -> wiki(intent, cancel)
                     ACTION_LIBRARY -> library(intent.getStringExtra("id")!!, cancel)
+                    ACTION_RAG -> rag(intent.getStringExtra("id")!!, cancel)
                     ACTION_IMPORT -> import(intent.getParcelableExtraCompat("uri")!!, cancel)
                 }
             } catch (e: Throwable) {
@@ -727,6 +728,40 @@ class OmegaService : Service() {
         Events.note("${spec.name} je stažená a funguje offline (%,d článků).".format(m.articles).replace(',', ' '))
     }
 
+    /** RAG INDEX knihovny: stáhne předpočítané vektory (~140 MB) → hledání podle významu v celé Wikipedii. */
+    private fun rag(id: String, cancel: CancelToken) {
+        val job = omega.bg
+        job.reset("library")
+        val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: error("Neznámá knihovna $id")
+        val lib = cz.axiom.omega.data.LibraryDb.get(this)
+        if (!lib.hasPrebuilt(id)) error("Nejdřív stáhni knihovnu ${spec.name} (předpřipravenou).")
+        if (lib.hasRag(id)) { Events.note("RAG index pro ${spec.name} už je v telefonu."); return }
+        job.phase = "RAG index · zjišťuji balíček"; Events.emit("progress", job.toJson())
+        val m = cz.axiom.omega.core.rag.RagManifest.fetch(spec)
+            ?: error("RAG index pro ${spec.name} zatím není sestavený (GitHub Actions → Build RAG index).")
+        val pm = m.asPrebuilt()
+        if (filesDir.usableSpace < cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm)) error("Na RAG index je potřeba ~%.1f GB volného místa.".format(cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm) / 1e9))
+        val work = java.io.File(filesDir, "rag-parts/$id")
+        try {
+            cz.axiom.omega.core.library.Prebuilt.install(spec, pm, work, lib.ragFile(id), cancel, urlOf = { cz.axiom.omega.core.rag.RagManifest.url(spec, it.name) }) { st ->
+                val pct = if (st.total > 0) (st.bytes * 100 / st.total).toInt() else -1
+                job.progress = pct
+                job.phase = "RAG index · ${spec.name} · ${st.phase.replace("databázi", "index")}"
+                job.detail = "%.0f / %.0f MB".format(st.bytes / 1e6, st.total / 1e6)
+                updateNotification("${spec.name} · RAG $pct %", pct)
+                Events.emit("progress", job.toJson())
+            }
+        } catch (e: CancelledException) {
+            Events.note("Stahování RAG indexu pozastaveno – příště naváže."); Events.emit("kb", JSONObject()); return
+        }
+        work.deleteRecursively()
+        lib.closeRag(id)
+        Events.emit("kb", JSONObject())
+        val sense = omega.embedderFile() != null
+        Events.note("RAG index ${spec.name}: %,d článků hledatelných podle významu.".format(m.count).replace(',', ' ') +
+            if (sense) "" else " Ještě stáhni rozšíření OMEGA Sense (Moduly) – počítá význam dotazu.")
+    }
+
     /**
      * SAMOSTUDIUM: AVIOR se vrátí k otázkám, na které neznal odpověď, dohledá je (online agentem,
      * offline z knihovny a poznatků), uloží si závěr jako poznatek a zapíše to do deníku.
@@ -872,12 +907,13 @@ class OmegaService : Service() {
         const val ACTION_WIKI = "cz.axiom.omega.WIKI"
         const val ACTION_LIBRARY = "cz.axiom.omega.LIBRARY"
         const val ACTION_STUDY = "cz.axiom.omega.STUDY"
+        const val ACTION_RAG = "cz.axiom.omega.RAG"
         const val ACTION_KEEP = "cz.axiom.omega.KEEP"
         const val ACTION_UNKEEP = "cz.axiom.omega.UNKEEP"
         /** Běží služba „AVIOR připraven“ (mozek držený v paměti)? */
         val KEEPING = AtomicBoolean(false)
         /** Akce linky „pozadí“ – běží souběžně s myšlením. */
-        val BG_ACTIONS = setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_INDEX)
+        val BG_ACTIONS = setOf(ACTION_DOWNLOAD, ACTION_IMPORT, ACTION_DATASET, ACTION_WIKI, ACTION_LIBRARY, ACTION_INDEX, ACTION_RAG)
         val RUNNING_ASK = AtomicBoolean(false)
         val RUNNING_BG = AtomicBoolean(false)
         @Volatile private var askToken: CancelToken? = null

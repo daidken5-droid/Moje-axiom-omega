@@ -601,4 +601,52 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeFree(JNIEnv *, jobject, jlong h) {
     delete o;
 }
 
+
+/**
+ * RAG: top-k nejpodobnějších článků v indexu AVRAG1 (namapovaný soubor, viz core/.../rag/Rag.kt).
+ * Dotaz je už kvantovaný na int8; skóre = dot * scale_článku (měřítko dotazu přidá Kotlin).
+ * Vrací long[]: (rowid << 32) | bity float skóre.
+ */
+JNIEXPORT jlongArray JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeRagTopK(JNIEnv *env, jobject, jobject jbuf, jint dim, jint count, jintArray jq, jint k) {
+    auto *base = static_cast<const uint8_t *>(env->GetDirectBufferAddress(jbuf));
+    if (!base || dim <= 0 || count <= 0 || k <= 0) return nullptr;
+    const jlong cap = env->GetDirectBufferCapacity(jbuf);
+    if (cap < 16 + (jlong) count * (8 + dim)) return nullptr;
+    std::vector<int8_t> q((size_t) dim);
+    {
+        jint *qi = env->GetIntArrayElements(jq, nullptr);
+        for (int d = 0; d < dim; ++d) q[(size_t) d] = (int8_t) qi[d];
+        env->ReleaseIntArrayElements(jq, qi, JNI_ABORT);
+    }
+    const auto *ids = reinterpret_cast<const int32_t *>(base + 16);
+    const auto *scales = reinterpret_cast<const float *>(base + 16 + 4 * (size_t) count);
+    const auto *vecs = reinterpret_cast<const int8_t *>(base + 16 + 8 * (size_t) count);
+    // min-halda velikosti k (skóre, index)
+    std::vector<std::pair<float, int>> heap;
+    heap.reserve((size_t) k + 1);
+    auto cmp = [](const std::pair<float, int> &a, const std::pair<float, int> &b) { return a.first > b.first; };
+    for (int i = 0; i < count; ++i) {
+        const int8_t *v = vecs + (size_t) i * dim;
+        int32_t dot = 0;
+        for (int d = 0; d < dim; ++d) dot += (int32_t) q[(size_t) d] * (int32_t) v[d]; // -O3 → NEON (sdot)
+        const float s = (float) dot * scales[i];
+        if ((int) heap.size() < k) { heap.emplace_back(s, i); std::push_heap(heap.begin(), heap.end(), cmp); }
+        else if (s > heap.front().first) {
+            std::pop_heap(heap.begin(), heap.end(), cmp);
+            heap.back() = {s, i};
+            std::push_heap(heap.begin(), heap.end(), cmp);
+        }
+    }
+    jlongArray out = env->NewLongArray((jsize) heap.size());
+    std::vector<jlong> tmp(heap.size());
+    for (size_t j = 0; j < heap.size(); ++j) {
+        uint32_t bits;
+        std::memcpy(&bits, &heap[j].first, 4);
+        tmp[j] = ((jlong) ids[heap[j].second] << 32) | (jlong) bits;
+    }
+    env->SetLongArrayRegion(out, 0, (jsize) tmp.size(), tmp.data());
+    return out;
+}
+
 }  // extern "C"

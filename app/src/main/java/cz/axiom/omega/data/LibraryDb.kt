@@ -23,6 +23,46 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
 
     fun hasPrebuilt(lib: String) = prebuiltFile(lib).length() > 0
 
+    // ---------------------------------------------------------------- RAG index (vektory významu)
+
+    /** Předpočítaný RAG index knihovny (AVRAG1, stažený z GitHub Release) – patří k předpřipravené databázi. */
+    fun ragFile(lib: String): java.io.File = app.getDatabasePath("lib-$lib.rag")
+    fun hasRag(lib: String) = ragFile(lib).length() > 16 && hasPrebuilt(lib)
+    fun anyRag() = Libraries.ALL.any { hasRag(it.id) }
+    private val ragOpen = HashMap<String, cz.axiom.omega.core.rag.RagIndex>()
+
+    @Synchronized
+    private fun rag(lib: String): cz.axiom.omega.core.rag.RagIndex? {
+        ragOpen[lib]?.let { return it }
+        if (!hasRag(lib)) return null
+        return runCatching { cz.axiom.omega.core.rag.RagIndex.open(ragFile(lib)) }.getOrNull()?.also { ragOpen[lib] = it }
+    }
+
+    @Synchronized
+    fun closeRag(lib: String) { ragOpen.remove(lib) }
+
+    fun removeRag(lib: String) { closeRag(lib); ragFile(lib).delete() }
+
+    /** Sémantické hledání: články nejbližší významem dotazu ([qvec] = vektor dotazu z OMEGA Sense). */
+    fun semantic(qvec: FloatArray, limit: Int, minScore: Float = 0.42f): List<Snippet> =
+        Libraries.ALL.withIndex().filter { hasRag(it.value.id) }.flatMap { (i, spec) ->
+            val idx = rag(spec.id) ?: return@flatMap emptyList()
+            val db = prebuilt(spec.id) ?: return@flatMap emptyList()
+            val hits = idx.search(qvec, limit, minScore)
+            if (hits.isEmpty()) return@flatMap emptyList()
+            val score = hits.toMap()
+            val rows = HashMap<Int, Snippet>()
+            runCatching {
+                db.rawQuery("SELECT rowid, title, url, substr(body, 1, 900) FROM articles WHERE rowid IN (${hits.joinToString(",") { it.first.toString() }})", null).use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getInt(0)
+                        rows[id] = Snippet(((i + 1).toLong() shl 40) or id.toLong(), "Wikipedie: ${c.getString(1)}", c.getString(3), c.getString(2))
+                    }
+                }
+            }
+            hits.mapNotNull { (id, _) -> rows[id]?.let { it to (score[id] ?: 0f) } }
+        }.sortedByDescending { it.second }.take(limit).map { it.first }
+
     @Synchronized
     private fun prebuilt(lib: String): SQLiteDatabase? {
         prebuiltOpen[lib]?.let { if (it.isOpen) return it }
@@ -91,6 +131,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
 
     fun remove(lib: String, keepPrebuilt: Boolean = false) {
         if (!keepPrebuilt) {
+            removeRag(lib)
             closePrebuilt(lib)
             prebuiltFile(lib).delete()
             java.io.File(prebuiltFile(lib).path + "-journal").delete()
@@ -107,7 +148,7 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
 
     fun sizeBytes(context: Context): Long {
         val f = context.getDatabasePath("library.db")
-        return f.length() + java.io.File(f.path + "-wal").length() + Libraries.ALL.sumOf { prebuiltFile(it.id).length() }
+        return f.length() + java.io.File(f.path + "-wal").length() + Libraries.ALL.sumOf { prebuiltFile(it.id).length() + ragFile(it.id).length() }
     }
 
     /** Hledání: nejdřív všechna slova (AND), při málo výsledcích kterékoli (OR); řazení podle shody v názvu. */
@@ -115,10 +156,15 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
      * @param minScore minimální relevance (shoda v názvu váží 4, v textu 1) – do odpovědi se nedostanou
      * články, které s otázkou souvisí jen jedním slovem v textu (šetří tokeny mozku v telefonu).
      */
-    fun search(query: String, limit: Int, minScore: Int = 0): List<Snippet> {
+    fun search(query: String, limit: Int, minScore: Int = 0, qvec: FloatArray? = null): List<Snippet> {
         val dbs = listOf(readableDatabase) + Libraries.ALL.filter { hasPrebuilt(it.id) }.mapNotNull { prebuilt(it.id) }
-        return dbs.flatMapIndexed { i, db -> search(db, i, query, limit) }.filter { it.second >= minScore }
+        val words = dbs.flatMapIndexed { i, db -> search(db, i, query, limit) }.filter { it.second >= minScore }
             .sortedByDescending { it.second }.take(limit).map { it.first }
+        if (qvec == null || !anyRag()) return words
+        // HYBRIDNÍ RAG: slova (FTS) + význam (vektory) → Reciprocal Rank Fusion
+        val meaning = runCatching { semantic(qvec, limit) }.getOrDefault(emptyList())
+        if (meaning.isEmpty()) return words
+        return cz.axiom.omega.core.rag.Fusion.rrf(listOf(words, meaning), limit)
     }
 
     private fun search(db: SQLiteDatabase, dbIndex: Int, query: String, limit: Int): List<Pair<Snippet, Int>> {
@@ -157,7 +203,8 @@ class LibraryDb private constructor(context: Context) : SQLiteOpenHelper(context
                 JSONObject().put("id", l.id).put("name", l.name).put("description", l.description).put("rows", l.rows)
                     .put("approxGb", l.approxGb).put("downloadGb", l.downloadGb).put("license", l.license).put("offset", offset).put("done", done)
                     .put("percent", if (done) 100 else if (l.rows > 0) (offset * 100L / l.rows).toInt() else 0).put("started", offset > 0)
-                    .put("prebuilt", pre).put("bytes", if (pre) prebuiltFile(l.id).length() else 0L),
+                    .put("prebuilt", pre).put("bytes", if (pre) prebuiltFile(l.id).length() else 0L)
+                    .put("rag", hasRag(l.id)).put("ragBytes", if (hasRag(l.id)) ragFile(l.id).length() else 0L),
             )
         }
         return JSONObject().put("libraries", arr).put("articles", count()).put("bytes", sizeBytes(context))
