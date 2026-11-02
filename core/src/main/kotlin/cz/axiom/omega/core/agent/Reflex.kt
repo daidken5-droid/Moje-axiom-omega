@@ -125,6 +125,13 @@ object Reflex {
     private val canonMemo = java.util.concurrent.ConcurrentHashMap<String, String>()
     private fun canon(q: String): String = canonMemo[q] ?: (QuestionNorm.variants(q).lastOrNull() ?: q).also { if (canonMemo.size < 4000) canonMemo[q] = it }
 
+    /** Pasuje uložená otázka na tuto natolik, že by ji paměť odpovědí vrátila? (stejná logika jako [cached]) */
+    fun sameQuestion(a: String, b: String): Boolean {
+        if (similarity(a, b) >= 0.8) return true
+        if ((key(a) intersect key(b)).isEmpty()) return false
+        return similarity(canon(a), canon(b)) >= 0.8
+    }
+
     fun cached(prompt: String, entries: List<Entry>, now: Long = System.currentTimeMillis()): Instant.Answer? {
         if (timeSensitive(prompt) || key(prompt).size < 2) return null
         val pk = key(prompt)
@@ -176,6 +183,8 @@ object Reflex {
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
         val candidates = sequence {
+            // Praktické první: má nejužší vzory (sleva, DPH, světový čas) – obecná procenta a hodiny by je přebila
+            Practical.answer(prompt, c.instant.now)?.let { yield(it) }
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
             Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it) }
             Facts.answer(prompt, c.today)?.let { yield(it) }

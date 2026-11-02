@@ -73,6 +73,15 @@ class Db private constructor(context: Context) :
         answersCache = null
     }
 
+    /** Smaže uloženou odpověď na otázku i všechny, které by na ni paměť odpovědí vrátila (podobné / přeformulované). */
+    fun forgetMatching(question: String) {
+        val doomed = answers().filter { cz.axiom.omega.core.agent.Reflex.sameQuestion(question, it.question) }.map { it.question }
+        val db = writableDatabase
+        db.delete("answers", "question=?", arrayOf(question.trim().take(500)))
+        doomed.forEach { db.delete("answers", "question=?", arrayOf(it)) }
+        answersCache = null
+    }
+
     fun forgetAnswer(question: String) { writableDatabase.delete("answers", "question=?", arrayOf(question.trim().take(500))); answersCache = null }
 
     /** Paměť odpovědí v RAM – reflex ji čte u každého dotazu, mění se jen při ✓/✗ a nové jisté odpovědi. */

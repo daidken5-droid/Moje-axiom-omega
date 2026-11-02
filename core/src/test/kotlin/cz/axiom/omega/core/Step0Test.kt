@@ -62,7 +62,7 @@ class Step0Test {
     @Test fun unitScan() {
         val s = Units.scan("Převeď 100 Nm na lbft a 2 bar na psi")
         assertEquals(2, s.size)
-        assertTrue(s[0], s[0].startsWith("100 NM = 73,75"))
+        assertTrue(s[0], s[0].startsWith("100 Nm = 73,75"))
     }
 
     @Test fun currencyWithRates() {

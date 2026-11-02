@@ -243,6 +243,10 @@ object QuestionNorm {
             return "kolik dni do $t"
         }
         f = f.replace(rx("^kolik (dnu|dni) (zbyva |je |ostava |chyby )?do "), "kolik dni do ")
+        // „kolik je to korun 50 eur“, „kolik korun je 50 eur“ → „50 eur na korun“
+        rx("^kolik (?:je to |je )?(korun|kc|eur|dolaru) (?:je |dela |za |to je )?(\\d+(?:[.,]\\d+)?) (eur\\w*|dolar\\w*|korun\\w*|kc|liber|frank\\w*)$").find(f)?.let { m ->
+            return "${m.groupValues[2]} ${m.groupValues[3]} na ${m.groupValues[1]}"
+        }
         rx("^kolik (?:je to |stoji )?(?:korun|kc) (?:za|na) (euro|eura|dolar|dolaru|libru)$").find(f)?.let { m -> return "kurz " + if (m.groupValues[1].startsWith("eur")) "eura" else if (m.groupValues[1].startsWith("dol")) "dolaru" else "libry" }
         f = f.replace(rx("^jak se (mas|mate|vede)( ty)?$"), "jak se mas").replace(rx("^jake je dnes datum$|^jaky je dnes datum$"), "jaky je dnes den")
         f = f.replace(rx("^(jaky|jake) je dnesni (datum|den)$"), "jaky je dnes den")

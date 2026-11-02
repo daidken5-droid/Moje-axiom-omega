@@ -213,6 +213,7 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface
     fun rate(messageId: Long, good: Boolean, lesson: String?) {
         if (!lesson.isNullOrBlank()) omega.db.boostMemory(lesson, if (good) 0.4 else -0.5)
+
         Events.note(if (good) "Díky – posiluji, co fungovalo." else "Rozumím – oslabuji toto poučení a příště budu opatrnější.")
     }
 
@@ -797,7 +798,8 @@ class OmegaBridge(private val activity: MainActivity) {
         // ✓ = ověřená odpověď (příště reflexem bez mozku), ✗ = z paměti odpovědí pryč
         runCatching {
             if (good && !cz.axiom.omega.core.agent.Reflex.timeSensitive(question)) omega.db.putAnswer(question, answer, maxOf(confidence, 80), good = true)
-            else if (!good) omega.db.forgetAnswer(question)
+            // ✗ smaže i záznamy, které na otázku pasovaly jen podobností (přeformulovaná otázka) – jinak by špatná odpověď přežila
+            else if (!good) omega.db.forgetMatching(question)
         }
     }
 

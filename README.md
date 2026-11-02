@@ -8,6 +8,38 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 8.7 – chyby z běžného používání
+
+Hledání chyb očima běžného uživatele: správnost odpovědí (ne jen „něco odpověděl“) a typické toky v aplikaci.
+
+**Nové odpovědi bez mozku (modul `Practical`):**
+- **Světový čas:** „kolik je hodin v New Yorku / Tokiu / Londýně…“ – 50 měst a zemí, letní čas přes java.time.
+  Odpověď uvádí i rozdíl proti Česku a jiný den, pokud tam už je.
+- **DPH:** „21 % DPH z 1000“, „1000 s DPH“, „1000 bez DPH“ (výchozí 21 %, lze zadat 12 %).
+- **Procenta:** „100 + 20 %“, „2500 − 15 %“, „sleva 30 % z 1200“, „o kolik % je 120 víc než 100“,
+  „kolik procent je 30 z 120“.
+- **Kalendář:** „kolikátý je dnes den v roce“, „kdy je příští pondělí“, „kolik dní je mezi 1. 1. a 1. 3.“,
+  věk z celého data narození (s počtem dní do narozenin).
+- **Dělení nulou:** věcná odpověď místo předání mozku.
+
+**Opravy:**
+- **Dvojité klepnutí na odeslat** dotaz hned zrušilo, protože druhé klepnutí trefilo „Zastavit“. Teď je na
+  0,8 s ochrana.
+- **Zpět ve vlákně** zavřelo aplikaci. Teď vrátí na úvod a aplikace se zavře až z úvodu.
+- **✗ u odpovědi z paměti odpovědí** smazal jen přesné znění otázky. Špatná odpověď uložená pod jinou formulací
+  přežila a vracela se. Teď se smažou všechny záznamy, které by na otázku pasovaly.
+- **Čísla s mezerami v tisících** („333 333,33“, „1 215 Kč“) a rozumný počet desetinných míst.
+- **Jednotky v převodech** se píšou jak je uživatel napsal („1,5 l = 1500 ml“, „100 Nm“), dřív „L“, „ML“, „NM“.
+  Velikost písmen nese význam (Nm × nm), proto se nemění. Měny jsou dál velkými.
+- **Pozdrav stejným pozdravem:** „Dobré ráno“ → „Dobré ráno!“, „Dobrý večer“ → „Dobrý večer!“.
+- „kolik je to korun 50 eur“ (obrácený slovosled) → převod.
+- Modul Praktické běží před obecnými procenty (dřív „sleva 30 % z 1200“ vrátilo 360 místo 840).
+
+**Testy:**
+- `CorrectnessTest`: 94 běžných otázek s očekávanou odpovědí při pevném datu, **94/94**.
+- V náhledu: skript klikl na 121 tlačítek na všech obrazovkách a v jejich listech a nenašel žádnou chybu JS.
+- V náhledu: dlouhý obsah (URL, tabulka, kód) nepřetéká šířku obrazovky.
+
 ## Novinky 8.6 – nezávislý průchod celou aplikací
 
 Průchod částmi, které dřív neprošly podrobnou revizí (mozek v telefonu, databáze, agent, streamování v UI):

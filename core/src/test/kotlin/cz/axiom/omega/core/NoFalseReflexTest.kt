@@ -6,7 +6,7 @@ class NoFalseReflexTest {
     @Test fun brainQuestionsStayWithBrain() {
         val qs = listOf(
             "prosím tě, napiš mi esej o válce", "řekni mi něco o praze", "kolik stojí nové auto", "jak dlouho trvá cesta do brna",
-            "kolik je hodin v new yorku", "jaké bude zítra počasí", "spočítej mi hypotéku na 3 miliony na 30 let", "kdo vyhraje mistrovství světa",
+            "jaké bude zítra počasí", "spočítej mi hypotéku na 3 miliony na 30 let", "kdo vyhraje mistrovství světa",
             "jaký je kurz bitcoinu", "kolik stál dolar v roce 1990", "víš co je to láska?", "napiš básničku o kočce",
             "kolik obyvatel má praha a jak se to změnilo za 50 let", "kdo napsal tenhle kód", "kdo je nejlepší fotbalista", "proč je nebe modré",
             "vysvětli mi teorii relativity", "kdo byl lepší, havel nebo klaus", "co si myslíš o babišovi", "porovnej babičku a máj",

@@ -55,5 +55,8 @@ class ParaphraseCacheTest {
         val a = Reflex.cached("hele, jaký je hlavák austrálie", listOf(e))
         kotlin.test.assertNotNull(a); kotlin.test.assertTrue(a.text.contains("Canberra"))
         kotlin.test.assertNull(Reflex.cached("jaké je počasí v austrálii", listOf(e)))
+        // ✗ u přeformulované otázky musí najít a smazat i původní záznam
+        kotlin.test.assertTrue(Reflex.sameQuestion("hele, jaký je hlavák austrálie", e.question))
+        kotlin.test.assertTrue(!Reflex.sameQuestion("jaké je počasí v austrálii", e.question))
     }
 }

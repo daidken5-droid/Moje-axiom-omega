@@ -63,7 +63,10 @@ object Units {
             val to = m.groupValues[3]
             convert(v, from, to, rates).getOrNull()?.let { r ->
                 val note = if (canon(from) in currencies || canon(to) in currencies) " (kurz ${rates.label()})" else ""
-                "${TextUtil.num(v)} ${from.uppercase()} = ${TextUtil.num(r, 4)} ${to.uppercase()}$note"
+                // měny velkými (EUR, USD); ostatní jednotky přesně jak je uživatel napsal – velikost písmen nese
+                // význam (Nm = newtonmetr, nm = nanometr; MB × mb), proto se nemění
+                fun show(u: String) = if (canon(u) in currencies) canon(u).uppercase() else u
+                "${TextUtil.num(v)} ${show(from)} = ${TextUtil.num(r, 4)} ${show(to)}$note"
             }
         }.toList()
 }

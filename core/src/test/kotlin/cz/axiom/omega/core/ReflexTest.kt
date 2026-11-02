@@ -54,9 +54,9 @@ class ReflexTest {
     @Test fun everydayWithoutBrain() {
         fun e(q: String) = cz.axiom.omega.core.agent.Everyday.answer(q, today, battery = 64, random = kotlin.random.Random(1))?.text
         fun has(q: String, vararg p: String) { val t = e(q); assertTrue("$q → $t", t != null && p.all { it in t }) }
-        has("kolik je 7 krát 8", "**56**"); has("kolik je 100 děleno 4", "**25**"); has("2 na 10", "**1024**")
+        has("kolik je 7 krát 8", "**56**"); has("kolik je 100 děleno 4", "**25**"); has("2 na 10", "**1 024**")
         has("odmocnina z 144", "**12**"); has("kolik je 15 procent z 200", "**30**"); has("sin 30", "**0,5**")
-        has("kolik je 5 km v metrech", "**5000 m**"); has("1 míle na km", "**1,609"); has("kolik je palec v cm", "**2,54")
+        has("kolik je 5 km v metrech", "**5 000 m**"); has("1 míle na km", "**1,609"); has("kolik je palec v cm", "**2,54")
         has("převeď 100 eur na koruny", "Kč", "100"); has("kolik je 30 stupňů celsia ve fahrenheitech", "**86")
         has("jaký bude zítra den", "úterý"); has("kolik dní má únor 2028", "**29 dní**"); has("kolik je mi let když jsem se narodil 1990", "**36 let**")
         has("kolik let je od roku 1989", "**37 let**"); has("kurz eura", "Kč"); has("kolik baterie", "64 %")

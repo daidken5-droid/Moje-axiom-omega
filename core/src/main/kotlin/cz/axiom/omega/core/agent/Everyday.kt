@@ -156,21 +156,21 @@ object Everyday {
             val to = unit(m.groupValues[3]) ?: return@let
             Units.convert(v, from, to, rates).getOrNull()?.let { r ->
                 fun show(u: String) = mapOf("c" to "°C", "f" to "°F", "k" to "K", "czk" to "Kč", "eur" to "EUR", "usd" to "USD", "gbp" to "GBP", "chf" to "CHF", "pln" to "PLN", "jpy" to "JPY", "ps" to "k", "in" to "palců", "mi" to "mil", "ft" to "stop")[u] ?: u
-                return ans("${num(v, 4)} ${show(from)} = **${num(r, 4)} ${show(to)}**" + if (from in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")) " (${rates.label()})" else "", "převod")
+                return ans("${Practical.pretty(v, 4)} ${show(from)} = **${Practical.pretty(r, 4)} ${show(to)}**" + if (from in setOf("eur", "usd", "gbp", "chf", "pln", "jpy", "czk")) " (${rates.label()})" else "", "převod")
             }
         }
         rx("^(?:kolik je |kolik dela )?(\\d+(?:[.,]\\d+)?) (eur\\w*|dolar\\w*|usd|liber|libr\\w*|frank\\w*|zlot\\w*)$").find(f)?.let { m ->
             val v = m.groupValues[1].replace(',', '.').toDouble()
             val from = unit(m.groupValues[2]) ?: return@let
-            Units.convert(v, from, "czk", rates).getOrNull()?.let { return ans("${num(v)} ${m.groupValues[2]} = **${num(it)} Kč** (${rates.label()}).", "převod", 92) }
+            Units.convert(v, from, "czk", rates).getOrNull()?.let { return ans("${Practical.pretty(v)} ${m.groupValues[2]} = **${Practical.pretty(it)} Kč** (${rates.label()}).", "převod", 92) }
         }
 
         // ---------------- procenta slovy, počty slovy
         rx("(\\d+(?:[.,]\\d+)?) ?(procent\\w*|%) (z|ze) (\\d[\\d ]*(?:[.,]\\d+)?)").find(f)?.let { m ->
             val p = m.groupValues[1].replace(',', '.').toDouble(); val base = m.groupValues[4].replace(" ", "").replace(',', '.').toDouble()
-            return ans("${num(p)} % z ${num(base)} = **${num(base * p / 100)}**", "procenta")
+            return ans("${Practical.pretty(p)} % z ${Practical.pretty(base)} = **${Practical.pretty(base * p / 100)}**", "procenta")
         }
-        toExpr(f)?.let { e -> Calc.eval(e).getOrNull()?.takeIf { it.isFinite() }?.let { return ans("${e.replace("*pi/180", "°")} = **${num(it, 6)}**", "výpočet") } }
+        toExpr(f)?.let { e -> Calc.eval(e).getOrNull()?.takeIf { it.isFinite() }?.let { return ans("${e.replace("*pi/180", "°")} = **${Practical.pretty(it, 6)}**", "výpočet") } }
         return null
     }
 }

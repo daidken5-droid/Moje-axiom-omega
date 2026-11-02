@@ -57,7 +57,14 @@ object Instant {
         val f = TextUtil.fold(raw).replace(rx("\\s+"), " ").trim()
         val name = ctx.userName?.takeIf { it.isNotBlank() }
 
-        if (greet.matches(f)) return Answer("Ahoj${name?.let { ", $it" } ?: ""}! Na co se chceš zeptat?", "pozdrav")
+        if (greet.matches(f)) {
+            // odpovědět stejným pozdravem, jakým uživatel pozdravil („Dobré ráno“ → „Dobré ráno“)
+            val hello = when {
+                f.startsWith("dobre rano") -> "Dobré ráno"; f.startsWith("dobry vecer") -> "Dobrý večer"; f.startsWith("dobre odpoledne") -> "Dobré odpoledne"
+                f.startsWith("dobry den") -> "Dobrý den"; f.startsWith("cau") -> "Čau"; f.startsWith("nazdar") -> "Nazdar"; else -> "Ahoj"
+            }
+            return Answer("$hello${name?.let { ", $it" } ?: ""}! Na co se chceš zeptat?", "pozdrav")
+        }
         if (thanks.matches(f)) return Answer("Rádo se stalo. Kdyby ještě něco, jsem tady.", "poděkování")
         if (time.matches(f)) return Answer("Je %d:%02d.".format(ctx.now.hour, ctx.now.minute), "čas")
         if (date.matches(f)) {

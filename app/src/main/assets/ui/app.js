@@ -682,7 +682,8 @@ function bindComposer() {
   });
   randyHint();
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(ta.value); } });
-  $('#sendBtn').onclick = () => thinking() ? call('cancel') : send(ta.value);
+  // dvojité klepnutí (běžné na dotyku) nesmí hned zrušit právě odeslaný dotaz → 0,8 s ochrana
+  $('#sendBtn').onclick = () => { if (thinking()) { if (Date.now() - (send.at || 0) > 800) call('cancel'); } else send(ta.value); };
   $('#micBtn').onclick = () => { haptic(); call('voice'); };
 }
 
@@ -697,6 +698,7 @@ function send(text, kind, role, variantOverride) {
   }
   refresh();
   if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
+  send.at = Date.now();
   const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: variantOverride || (kind === 'agent' && role ? '' : variant) }));
   if (!id || id < 0) return;
   stayHome = false;
@@ -1290,6 +1292,8 @@ window.omegaBack = function () {
   if ($('#sheet').innerHTML) { closeSheet(); return true; }
   if ($('#drawer').classList.contains('open')) { closeDrawer(); return true; }
   if (view !== 'chat') { go('chat'); return true; }
+  // ve vláknu Zpět vrátí na úvod (dřív aplikaci rovnou zavřelo); z úvodu se aplikace zavře jako obvykle
+  if (threadId || msgs.length) { goHome(); return true; }
   return false;
 };
 
