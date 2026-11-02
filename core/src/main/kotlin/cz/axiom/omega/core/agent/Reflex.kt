@@ -123,11 +123,12 @@ object Reflex {
 
     fun cached(prompt: String, entries: List<Entry>, now: Long = System.currentTimeMillis()): Instant.Answer? {
         if (timeSensitive(prompt) || key(prompt).size < 2) return null
-        val best = entries.asSequence()
-            .filter { now - it.at < 60L * 86_400_000 && (it.good || it.confidence >= 90) }
-            .map { it to similarity(prompt, it.question) }
-            .filter { it.second >= 0.8 }
-            .maxByOrNull { it.second } ?: return null
+        val scored = entries.asSequence().filter { now - it.at < 60L * 86_400_000 }.map { it to similarity(prompt, it.question) }
+        // téměř stejná otázka jako dřív → vrátit dřívější odpověď mozku (i bez ✓), ušetří celé generování
+        scored.filter { (e, sim) -> sim >= 0.95 && e.confidence >= 75 }.maxByOrNull { it.second }?.let { (e, _) ->
+            if (!e.good && e.confidence < 90) return Instant.Answer(e.answer, "dřívější odpověď (stejná otázka)", confidence = 88)
+        }
+        val best = scored.filter { (e, sim) -> (e.good || e.confidence >= 90) && sim >= 0.8 }.maxByOrNull { it.second } ?: return null
         val (e, sim) = best
         val conf = ((if (e.good) 96 else e.confidence) * sim).toInt().coerceAtMost(98)
         return Instant.Answer(e.answer, if (e.good) "ověřená odpověď (✓)" else "dřívější jistá odpověď", confidence = conf)
@@ -150,6 +151,7 @@ object Reflex {
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
         val candidates = sequence {
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
+            Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it) }
             Facts.answer(prompt, c.today)?.let { yield(it) }
             Politics.answer(prompt)?.let { yield(it) }
             calendar(prompt, c.today)?.let { yield(it) }

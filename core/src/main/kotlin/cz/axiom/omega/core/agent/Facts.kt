@@ -260,7 +260,9 @@ object Facts {
         }
 
         // ---- česká politika (jen stálá fakta; aktuální vláda a výsledky voleb jdou mozku s balíčkem a ověřením)
-        if (Regex("\\bprezident").containsMatchIn(f) && Regex("\\b(cr|cesk\\w*|ceske republiky)\\b").containsMatchIn(f)) {
+        // „kdo je prezident“ bez uvedení státu = český prezident
+        val foreign = Regex("usa|americ|spojen|rusk|franc|nemec|slovens|polsk|ukrajin|cin|izrael|rakous|madar|turec|brazil|indie").containsMatchIn(f)
+        if (Regex("\\bprezident").containsMatchIn(f) && (Regex("\\b(cr|cesk\\w*|ceske republiky)\\b").containsMatchIn(f) || !foreign)) {
             val list = "1. Václav Havel (1993–2003)\n2. Václav Klaus (2003–2013)\n3. Miloš Zeman (2013–2023, první přímo zvolený)\n4. Petr Pavel (od 9. 3. 2023)"
             if (Regex("^(seznam|vsichni|vyjmenuj|jaci|kteri|prehled)").containsMatchIn(f)) return ans("**Prezidenti České republiky:**\n$list", "politika")
             if (Regex("prvni prezident").containsMatchIn(f)) return ans("Prvním prezidentem České republiky byl **Václav Havel** (1993–2003); předtím byl posledním prezidentem ČSFR.", "politika")

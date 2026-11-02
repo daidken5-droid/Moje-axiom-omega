@@ -8,6 +8,22 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 7.1 – domů, méně mozku, rychlost měřená jako na Pixelu 9a
+
+- **Návrat na domovskou obrazovku:** klepnutí na logo AVIOR, druhé klepnutí na záložku Chat, nebo „⌂ Domů“
+  v seznamu vláken. Když odejdeš domů během odpovědi, AVIOR tě do vlákna nevytrhne – jen dá vědět, že je hotovo.
+- **Mozek se zapíná méně:** nový reflex `Everyday` – drobná konverzace (jak se máš, ok, co umíš, dobrou noc),
+  počty slovy („7 krát 8“, „odmocnina z 144“, „2 na 10“, „15 procent z 200“, „sin 30“), převody v přirozené
+  řeči („5 km v metrech“, „1 míle na km“, „100 eur na koruny“, „30 stupňů celsia ve fahrenheitech“), kurzy ČNB,
+  zítra/včera, rok, měsíc, délky měsíců, věk a roky od události, vtip, mince, kostka, náhodné číslo.
+  Pokrytí běžných jednoduchých otázek bez mozku stouplo z **30/79 na 75/79** (hlídá test `CoverageTest`).
+- **Stejná otázka podruhé = okamžitě:** odpověď mozku v telefonu se uloží a u téměř shodné otázky se vrátí
+  bez generování (ne u otázek, které se mění v čase).
+- **Plynulost na výkonu Pixelu 9a** (`tools/ui-preview/perf.js`: viewport 1080×2424 @ 2,625, CPU zpomalené 4×):
+  vlákno 200 zpráv 244 → **47 ms**, Nastavení 182 → **31 ms**, Moduly 86 → **32 ms**, načtení 527 → **367 ms**,
+  nejhorší snímek streamu 3 ms. Převedený markdown se pamatuje, úvodní dávka 24 zpráv, karty mimo obrazovku
+  se nevykreslují. Snímky náhledu jsou v rozměrech Pixelu 9a.
+
 ## Novinky 7.0 – nový design „simply clever“, další databáze, plynulost
 
 **Nový design celého UI** – klidný, střídmý, nic okázalého na první pohled; chytré až v používání:

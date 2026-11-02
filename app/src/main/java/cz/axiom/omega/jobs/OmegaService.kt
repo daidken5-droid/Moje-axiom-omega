@@ -408,8 +408,9 @@ class OmegaService : Service() {
             }
             // PAMĚŤ ODPOVĚDÍ: jistou, nadčasovou odpověď si uložit → příště stejná otázka bez mozku
             runCatching {
-                val c = meta.optInt("confidence", -1)
-                if (c >= 85 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
+                // mozek v telefonu nevrací číselnou jistotu → uložit s 80 (použije se jen u téměř stejné otázky)
+                val c = meta.optInt("confidence", -1).takeIf { it >= 0 } ?: if (meta.optBoolean("private")) 80 else -1
+                if (c >= 80 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && text.length <= 200 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
                     omega.db.putAnswer(text, answer, c, good = false)
             }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }

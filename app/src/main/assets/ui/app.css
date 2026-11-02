@@ -106,6 +106,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: 14px 2px 
 
 /* ---------- karty ---------- */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin: 0 0 10px; contain: content; }
+/* karty mimo obrazovku se nevykreslují (Nastavení, Moduly, Paměť mají desítky karet) */
+main .wrap > .card, main .wrap > details.conn { content-visibility: auto; contain-intrinsic-size: auto 180px; }
 .card.glow, .card.randy { border-color: var(--line2); }
 .card > b, .card h3 { font-weight: 600; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }

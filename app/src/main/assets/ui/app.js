@@ -297,6 +297,9 @@ function nav() {
 }
 
 function go(v) { view = v; nav(); render(); $('#main').scrollTop = 0; }
+/** Úvodní obrazovka – čisté nové vlákno (rozepsaný dotaz zůstane). */
+let stayHome = false;
+function goHome() { closeSheet(); stayHome = thinking(); threadId = 0; msgs = []; live = null; showLimit = 24; go('chat'); haptic(); }
 
 function render() {
   refresh();
@@ -315,7 +318,7 @@ const head = (eyebrow, title) => `<div class="eyebrow">${eyebrow}</div><h1>${tit
 /* ------------------------------------------------------------------ chat */
 
 function loadThread(id) {
-  if ((id || 0) !== threadId) showLimit = 60;
+  if ((id || 0) !== threadId) showLimit = 24;
   const changed = (id || 0) !== threadId;
   threadId = id || 0;
   msgs = threadId ? (J('messages', threadId) || []) : [];
@@ -359,7 +362,7 @@ function crashSheet(d) {
     <button class="btn wide" data-close-sheet style="margin-top:8px">Rozumím</button>`);
 }
 
-let showLimit = 60, keepScroll = false;
+let showLimit = 24, keepScroll = false;
 function renderChat() {
   const main = $('#main');
   if (!msgs.length && !live) {
@@ -399,6 +402,15 @@ function stepsHtml(steps) {
     ${st.observation ? `<div class="obs">${esc(String(st.observation).slice(0, 600))}</div>` : ''}</div>`).join('');
 }
 
+/** PLYNULOST: převedený markdown si pamatujeme podle id zprávy – překreslení vlákna ho nepočítá znovu. */
+const mdMemo = new Map();
+function mdCached(m) {
+  const key = m.id + ':' + m.content.length;
+  let h = mdMemo.get(key);
+  if (h === undefined) { h = md(m.content); mdMemo.set(key, h); if (mdMemo.size > 400) mdMemo.delete(mdMemo.keys().next().value); }
+  return h;
+}
+
 function msgHtml(m, last) {
   if (m.role === 'user') return `<div class="msg user" data-id="${m.id}"><div class="bubble">${esc(m.content)}</div></div>`;
   const meta = m.meta || {};
@@ -430,7 +442,7 @@ function msgHtml(m, last) {
   const thought = meta.reasoning ? `<details class="thought"><summary>Přemýšlel${meta.millis ? ' ' + secs(meta.millis) : ''}</summary><div class="in">${esc(meta.reasoning.slice(0, 4000))}</div></details>` : '';
   return `<div class="msg ai" data-id="${m.id}">
     <div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>
-    ${thought}<div class="body answer">${md(m.content)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
+    ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}${cites}
     ${evidenceChip(m)}
 
     <div class="tools">
@@ -538,6 +550,7 @@ function send(text, kind, role, variantOverride) {
   if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
   const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: variantOverride || (kind === 'agent' && role ? '' : variant) }));
   if (!id || id < 0) return;
+  stayHome = false;
   draft = '';
   forcedLevel = null;
   haptic();
@@ -979,6 +992,7 @@ function openDrawer() {
   const threads = J('threads') || [];
   $('#drawer').innerHTML = `<div class="row" style="padding:14px 14px 6px">${logo()}<b style="letter-spacing:3px" class="grow">VLÁKNA</b>
       <button class="btn sm" data-new-thread>${ICONS.plus} Nové</button></div>
+    <button class="thread" data-home style="margin:0 8px;width:calc(100% - 16px)">⌂ Domů<small>Úvodní obrazovka</small></button>
     <div class="dsearch">${ICONS.search}<input type="search" id="threadQ" placeholder="Hledat v konverzacích"></div>
     <div class="list" id="threadList">${threadItems(threads)}</div>`;
   $('#threadQ').addEventListener('input', e => {
@@ -999,12 +1013,15 @@ function configure(obj) { call('configure', JSON.stringify(obj)); }
 window.omegaReceive = function (type, d) {
   switch (type) {
     case 'phase':
+      if (stayHome) { refresh(); break; }
       if (!live) live = { text: '', reasoning: '', steps: [] };
       live.phase = d.text; live.last = Date.now(); updateLive(); refresh(); break;
     case 'stream':
+      if (stayHome) break;
       if (!live) live = { phase: '', steps: [] };
       Object.assign(live, { text: d.text, reasoning: d.reasoning, last: Date.now() }); updateLive(); break;
     case 'step':
+      if (stayHome) break;
       if (!live) live = { phase: '', text: '', steps: [] };
       live.steps = [...(live.steps || []), d]; live.text = ''; updateLive(); break;
     case 'done':
@@ -1022,7 +1039,9 @@ window.omegaReceive = function (type, d) {
       if (live) haptic();
       live = null;
       if (d.message) toast(d.message);
-      if (d.threadId && (d.threadId === threadId || !threadId)) loadThread(d.threadId);
+      // uživatel během odpovědi odešel domů → nevytrhávat ho, jen dát vědět
+      if (stayHome && !threadId) { stayHome = false; toast('Odpověď je hotová – najdeš ji v seznamu vláken.'); }
+      else if (d.threadId && (d.threadId === threadId || !threadId)) loadThread(d.threadId);
       if (view === 'chat' || view === 'agents') render(); else refresh();
       break;
     case 'progress':
@@ -1064,7 +1083,7 @@ window.omegaReceive = function (type, d) {
     case 'resume':
       if (type === 'resume' || !thinkingJob()) brainMem = null; // po dotazu / návratu znovu zjistit stav mozku
       refresh();
-      if (thinkingJob()) {
+      if (thinkingJob() && !stayHome) {
         live = live || { phase: S.job.phase, text: S.job.partial, reasoning: S.job.reasoning, steps: [] };
         if (S.job.threadId && S.job.threadId !== threadId) loadThread(S.job.threadId);
       } else if (live) { live = null; loadThread(threadId); }
@@ -1093,7 +1112,13 @@ document.addEventListener('click', e => {
   const ds = t.dataset;
   const val = id => ($('#' + id) || {}).value?.trim() || '';
   if (ds.open) { e.preventDefault(); call('open', ds.open); return; }
-  if (ds.go) { closeSheet(); go(ds.go); return; }
+  if (ds.go) {
+    closeSheet();
+    // druhé klepnutí na záložku Chat v rozhovoru = domů
+    if (ds.go === 'chat' && view === 'chat' && msgs.length && !t.closest('.sheet')) { goHome(); return; }
+    go(ds.go); return;
+  }
+  if (ds.home !== undefined) { closeDrawer(); goHome(); return; }
   if (ds.suggest) { send(ds.suggest); return; }
   if (ds.mode) {
     const inPick = !!t.closest('.brainseg');
@@ -1111,7 +1136,7 @@ document.addEventListener('click', e => {
   if (ds.self !== undefined) { selfSheet(); return; }
   if (ds.preload !== undefined) { call('preload'); brainMem = { state: 'loading' }; renderChat(); return; }
   if (ds.closeSheet !== undefined) { closeSheet(); return; }
-  if (ds.older !== undefined) { const m = $('#main'); const h = m.scrollHeight, top = m.scrollTop; showLimit += 60; keepScroll = true; renderChat(); m.scrollTop = m.scrollHeight - h + top; return; }
+  if (ds.older !== undefined) { const m = $('#main'); const h = m.scrollHeight, top = m.scrollTop; showLimit += 40; keepScroll = true; renderChat(); m.scrollTop = m.scrollHeight - h + top; return; }
   if (ds.phoneOk !== undefined && pendingPhone) { const p = pendingPhone; pendingPhone = null; closeSheet(); call('phoneRun', p.threadId, JSON.stringify(p.cmd), true); haptic(); return; }
   if (ds.phoneNo !== undefined) { closeSheet(); return; }
   if (ds.phoneGrant) { call('phoneGrant', ds.phoneGrant); return; }
@@ -1249,7 +1274,8 @@ $('#main').addEventListener('scroll', () => { if (view === 'chat') fab(); }, { p
 $('#toBottom').onclick = () => { const m = $('#main'); m.scrollTo({ top: m.scrollHeight, behavior: 'smooth' }); };
 $('#drawerBg').onclick = closeDrawer;
 $('#engineChip').onclick = () => busy('library') ? (memTab = 'kb', go('memory')) : (busy('download') || busy('index')) ? go('modules') : modeSheet();
-$('#brand').onclick = selfSheet;
+// DOMŮ: klepnutí na logo AVIOR vrátí na úvodní obrazovku (nové vlákno); Vědomí je v úvodu a v Nastavení
+$('#brand').onclick = goHome;
 
 (function start() {
   refresh();

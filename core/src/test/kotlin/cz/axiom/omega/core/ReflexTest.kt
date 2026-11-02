@@ -50,4 +50,28 @@ class ReflexTest {
         assertNull(Reflex.answer("Proč je obloha modrá?", ctx()))
         assertTrue(Reflex.answer("Kolik je 12*7?", ctx())!!.confidence == 99)
     }
+
+    @Test fun everydayWithoutBrain() {
+        fun e(q: String) = cz.axiom.omega.core.agent.Everyday.answer(q, today, battery = 64, random = kotlin.random.Random(1))?.text
+        fun has(q: String, vararg p: String) { val t = e(q); assertTrue("$q → $t", t != null && p.all { it in t }) }
+        has("kolik je 7 krát 8", "**56**"); has("kolik je 100 děleno 4", "**25**"); has("2 na 10", "**1024**")
+        has("odmocnina z 144", "**12**"); has("kolik je 15 procent z 200", "**30**"); has("sin 30", "**0,5**")
+        has("kolik je 5 km v metrech", "**5000 m**"); has("1 míle na km", "**1,609"); has("kolik je palec v cm", "**2,54")
+        has("převeď 100 eur na koruny", "Kč", "100"); has("kolik je 30 stupňů celsia ve fahrenheitech", "**86")
+        has("jaký bude zítra den", "úterý"); has("kolik dní má únor 2028", "**29 dní**"); has("kolik je mi let když jsem se narodil 1990", "**36 let**")
+        has("kolik let je od roku 1989", "**37 let**"); has("kurz eura", "Kč"); has("kolik baterie", "64 %")
+        has("jak se máš", "mám se dobře"); has("co umíš", "offline"); has("hoď kostkou", "🎲"); has("náhodné číslo od 1 do 100", "🎲")
+        // ne-povely a skutečné otázky jdou mozku
+        assertNull(e("Jak se má tvoje rodina a co si myslíš o životě?"))
+        assertNull(e("Proč je 7 krát 8 tak těžké si zapamatovat?"))
+        assertNull(e("Napiš mi esej o procentech"))
+        assertNull(e("Co je láska?"))
+    }
+
+    @Test fun repeatedQuestionReusesBrainAnswer() {
+        val t = System.currentTimeMillis()
+        val cache = listOf(Reflex.Entry("Jak funguje tepelné čerpadlo?", "Odebírá teplo…", 80, good = false, at = t))
+        assertEquals("Odebírá teplo…", Reflex.answer("jak funguje tepelné čerpadlo", ctx(cache = cache))!!.text)
+        assertNull(Reflex.answer("Jak funguje tepelné čerpadlo v zimě při mrazu?", ctx(cache = cache)))
+    }
 }

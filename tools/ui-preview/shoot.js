@@ -5,7 +5,8 @@ const path = require('path');
   const outDir = process.argv[2] || '/tmp/preview';
   const base = 'file://' + path.join(__dirname, 'out', 'index.html');
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 2 });
+  // Pixel 9a: 1080×2424 px @ 2,625 → 411×923 CSS px
+  const ctx = await b.newContext({ viewport: { width: 411, height: 923 }, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true });
   const p = await ctx.newPage();
   const errors = [];
   p.on('pageerror', e => errors.push(e.message));
