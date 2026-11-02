@@ -8,6 +8,40 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 9.0 – E-ARL opraven, offline Wikipedie bez mozku, start na úvodu, mazání cache
+
+**Kritická chyba (od 8.4): offline Wikipedie bez mozku na telefonu nefungovala vůbec.**
+- Knihovna vrací názvy s předponou („Wikipedie: Fotosyntéza“). E-ARL i reflex definic porovnávaly holý název
+  s celým řetězcem, takže přesná shoda nenastala nikdy a cesta „výňatek z knihovny“ se na reálných datech
+  nespouštěla. Testy to nechytily, protože používaly názvy bez předpony.
+- Teď je jedna sdílená funkce `WikiReflex.titleMatches` (bez předpony, s rozlišovacím názvem „Brno (město)“).
+  Nový test pracuje se skutečným tvarem dat.
+
+**WikiReflex – model bez mozku čte a chápe offline Wikipedii** (přes Pavučinu sdílený zdroj znalostí):
+- „Kdy se narodil / zemřel X“: datum (a místo) z úvodní závorky hesla.
+- „Kde leží X“, „kdo založil / kdy vznikl X“: věta s polohou nebo vznikem.
+- „Co je / kdo byl X“: první věty hesla.
+- Odpovídá jen při přesné shodě hesla. Jinak mlčí a rozhodne mozek. Uvádí zdroj.
+- Opraven výběr vět: tečka za číslem v datu („1. října 2019“) končila větu, takže se definice osob usekly
+  uprostřed data narození.
+
+**E-ARL:**
+- Úvodní obaly („Dobře, jiná otázka – kdo…“) už nerozbijí rozpoznání typu otázky.
+- **Nová kategorie „aktuální“:** ceny („kolik stojí nový iPhone“), počasí, výsledky a zprávy jdou vždy plnou
+  cestou s webem. Dřív šly lehkou cestou a lehký mozek by jen hádal.
+- **Kategorie „kód“** i pro žádost o kód („napiš funkci v Pythonu“), ne jen pro vložený kód.
+- Nový test `EarlDecisionTableTest` hlídá rozhodnutí na skutečných otázkách z reportů.
+
+**Start na úvodní obrazovce:** aplikace se otevře na úvodu, ne v posledním vlákně. Jen když AVIOR zrovna
+odpovídá, ukáže rozpracované vlákno.
+
+**Mazání cache** (Nastavení → Cache):
+- **Vymazat cache AVIORu:** dočasné soubory, code cache, cache WebView a paměť Pavučiny. Mozky, Wikipedie,
+  konverzace a paměť zůstanou. Ukáže uvolněné MB.
+- **Vymazat cache telefonu:**
+  - S rootem (po potvrzení s ukázkou příkazu) `pm trim-caches` vymaže cache všech aplikací, data zůstanou.
+  - Bez rootu Android mazání cizích cache nedovolí, proto se otevře systémové „Uvolnit místo“.
+
 ## Novinky 8.9 – méně mozku, čistší odpověď, celé články
 
 **Bez mozku zvládne víc** (sada 130 běžných otázek: **58 → 118**; zbytek je počasí a kurz kryptoměn, které potřebují

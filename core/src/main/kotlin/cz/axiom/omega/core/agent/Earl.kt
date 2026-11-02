@@ -2,6 +2,7 @@ package cz.axiom.omega.core.agent
 
 import cz.axiom.omega.core.randy.RandyLevel
 import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.omega.core.util.rx
 
 /**
  * E-ARL – Early Answer Routing Layer („Efektivní Adaptivní Rozhodování: Lze bez mozku?“).
@@ -41,22 +42,29 @@ object Earl {
     private val define = Regex("^(?:co (?:je|jsou|byl|byla|bylo)(?: to)?|kdo (?:je|byl|byla|jsou|byli)|co znamena|definuj|vysvetli pojem|co je pojem) (.{2,60})$")
     private val create = Regex("^(napis|vytvor|navrhni|sestav|vymysli|naprogramuj|udelej|priprav|zformuluj|preloz|prepis|uprav|oprav|shrn)\\b")
     private val analyze = Regex("\\b(proc|porovnej|srovnej|zhodnot|analyzuj|vysvetli|rozeber|jaky je rozdil|vyplati se|mam|doporuc|poradit?|co si myslis|strategi|plan|rizik)\\b")
-    private val fact = Regex("^(kdy|kde|kolik|ktery|ktera|ktere|jak velk|jak daleko|jak dlouh|v jakem roce|kdo)\\b")
+    // otázkové slovo smí být až 3. slovem („dobře, jiná otázka – kdo hraje…“ dřív spadlo do „obecné“)
+    private val fact = Regex("^(?:\\S+ ){0,2}(kdy|kde|kolik|ktery|ktera|ktere|jak velk|jak daleko|jak dlouh|v jakem roce|kdo|jaky je|jaka je|jake je)\\b")
+    /** Úvodní konverzační obaly, které nenesou obsah otázky. */
+    private val opener = Regex("^(dobre|dobra|ok|okej|jasne|super|diky|dik|tak|a|no|hele|jo)?[ ,]*(jina otazka|dalsi otazka|mam otazku|mam dotaz|otazka zni|a jeste|jeste neco|jeste jedna vec|zmena tematu|nove tema)?[ ,:-]*")
     private val chat = Regex("^(ahoj|cau|dik|diky|dekuji|ok|super|jasne|dobre|jak se mas|dobrou)\\b")
-    private val live = Regex("\\b(aktualni|dnesni|nejnovejsi|zpravy|pocasi|cena|kurz|vysledek|zapas|letos|ted)\\b")
+    /** Potřebuje AKTUÁLNÍ data (ceny, počasí, výsledky, zprávy) → nikdy lehká cesta, vždy plná s webem. */
+    private val live = Regex("\\b(aktualni\\w*|dnesni|nejnovejsi|zpravy|zpravach|pocasi|cena|ceny|stoji|kolik stoji|kurz\\w*|vysledek|vysledky|zapas\\w*|letos|ted|nov[yaeiou]\\w* (iphone|telefon|model|verze|film|album)|pristi tyden|zitra bude|bude prset|bude snezit|teplota|predpoved\\w*|dneska v|tento tyden)\\b")
+    /** Žádost o kód (ne jen vložený kód). */
+    private val codeAsk = Regex("\\b(python\\w*|javascript|typescript|kotlin|java|sql|regex\\w*|html|css|bash|skript\\w*|funkc\\w* (v|ve|pro)|program\\w*|kod\\w*|algoritm\\w*|api|json)\\b")
 
     /** Kategorie otázky – podle ní se učí prahy. */
     fun category(s: Pavucina.Signal): String {
-        val c = s.canonical
+        val c = s.canonical.replace(opener, "").ifBlank { s.canonical }
         // tvorbu a analýzu poznat z PŮVODNÍHO znění – normalizátor „napiš mi“ odstraní jako zdvořilostní obal
-        val raw = s.folded.trimEnd('?', '.', '!').replace(Regex("^(prosim( te)?|ahoj|hele|avior)[ ,]+"), "")
+        val raw = s.folded.trimEnd('?', '.', '!').replace(Regex("^(prosim( te)?|ahoj|hele|avior)[ ,]+"), "").replace(opener, "").ifBlank { s.folded }
         return when {
-            s.hasCode -> "kód"
+            s.hasCode || (codeAsk.containsMatchIn(raw) && (create.containsMatchIn(raw) || rx("\\b(oprav|vysvetli|proc nefunguje|chyba)\\b").containsMatchIn(raw))) -> "kód"
+            live.containsMatchIn(raw) && !define.matches(c) -> "aktuální"
             create.containsMatchIn(raw) || create.containsMatchIn(c) -> "tvorba"
-            define.matches(c) && s.wordCount <= 8 -> "definice"
+            define.matches(c) && c.split(' ').size <= 8 -> "definice"
             chat.containsMatchIn(c) && s.wordCount <= 6 -> "konverzace"
             analyze.containsMatchIn(raw) || analyze.containsMatchIn(c) -> "analýza"
-            fact.containsMatchIn(c) && s.wordCount <= 10 -> "fakt"
+            fact.containsMatchIn(c) && c.split(' ').size <= 12 -> "fakt"
             else -> "obecné"
         }
     }
@@ -65,6 +73,8 @@ object Earl {
         val cat = category(s)
         val why = mutableListOf<String>()
         if (c.reflexHit) return Decision(Path.REFLEX, 95, cat, listOf("odpověď zná reflex"))
+        // aktuální data (cena, počasí, výsledky, zprávy) – lehký mozek by jen hádal → plná cesta s webem
+        if (cat == "aktuální") return Decision(Path.BRAIN, 85, cat, listOf("potřebuje aktuální data (web / cloud)"))
         // těžké věci rovnou do hloubky
         val deep = s.compound || s.hasCode && s.wordCount > 12 || s.level.ordinal >= RandyLevel.L3_STRATEGIC_EV.ordinal ||
             (cat == "analýza" && s.wordCount > 14) || (cat == "tvorba" && s.wordCount > 18)
@@ -78,8 +88,8 @@ object Earl {
         if (cat == "definice" && !s.timeSensitive && c.knowledge != null) {
             val entity = define.find(s.canonical)?.groupValues?.get(1)?.trim()?.trimEnd('?', '.') ?: ""
             val hits = runCatching { c.knowledge.invoke(entity) }.getOrDefault(emptyList())
-            val e = TextUtil.fold(entity).lowercase()
-            val exact = hits.firstOrNull { val t = TextUtil.fold(it.title).lowercase(); t == e || t.startsWith("$e (") || t.startsWith("$e,") }
+            // názvy z offline knihovny mají předponu („Wikipedie: Fotosyntéza“) – dřív se proto přesná shoda nenašla NIKDY
+            val exact = hits.firstOrNull { WikiReflex.titleMatches(it.title, entity) }
             if (exact != null && exact.text.length >= 120) {
                 var conf = 88
                 if (c.brainLoaded) conf -= 6          // mozek je v RAM → lehká odpověď mozkem je levná a bohatší
@@ -91,7 +101,8 @@ object Earl {
             }
         }
         // krátké, jasné otázky → lehký mozek (1 průchod, bez přemýšlení)
-        val light = (cat in setOf("fakt", "definice", "konverzace") && s.wordCount <= 12 && s.level.ordinal <= RandyLevel.L1_EXPERT.ordinal) ||
+        val words = s.canonical.replace(opener, "").split(' ').count { it.isNotBlank() }
+        val light = (cat in setOf("fakt", "definice", "konverzace") && words <= 14 && s.level.ordinal <= RandyLevel.L1_EXPERT.ordinal) ||
             (cat == "obecné" && s.wordCount <= 6 && s.level.ordinal == 0)
         // naučeno: lehká cesta v této kategorii dostávala ✗ → raději plný mozek
         val lightOk = (c.thresholds["light:$cat"] ?: 85) <= 92

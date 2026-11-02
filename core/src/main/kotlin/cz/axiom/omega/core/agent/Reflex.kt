@@ -192,6 +192,8 @@ object Reflex {
             calendar(prompt, c.today)?.let { yield(it) }
             recall(prompt, c.memories)?.let { yield(it) }
             cached(prompt, c.cache)?.let { yield(it) }
+            // OFFLINE WIKIPEDIE (přes Pavučinu sdílený zdroj): narození/úmrtí, poloha, vznik, definice – jen přesná shoda hesla
+            if (c.definitions && c.instant.knowledge != null) WikiReflex.answer(prompt, c.instant.knowledge)?.let { yield(it) }
             if (c.definitions && c.instant.knowledge != null) Instant.answer(prompt, c.instant)?.let { yield(it) }
         }
         return candidates.firstOrNull { it.confidence >= c.threshold }

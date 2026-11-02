@@ -1043,6 +1043,10 @@ function renderSystem() {
       <button class="btn primary wide" data-reclaim>Uvolnit paměť (zavřít aplikace na pozadí)</button>
       <div class="toggle" style="margin-top:6px"><span>Uvolnit automaticky před načtením mozku<small>Když je volné RAM méně než 3 GB.</small></span><label class="switch"><input type="checkbox" data-set="autoReclaim" ${st2.autoReclaim ? 'checked' : ''}><i></i></label></div>
       <button class="link" data-devopts>Trvale: omezit procesy na pozadí (vývojářské možnosti) ›</button>`); })()}
+    ${card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">⌫</span><span class="grow"><b>Cache</b>
+        <small class="muted" style="display:block">Dočasné soubory – smazáním se nic důležitého neztratí</small></span></div>
+      <div class="grid2" style="margin-top:8px"><button class="btn sm" data-clear-cache>Vymazat cache AVIORu</button><button class="btn sm" data-clear-phone-cache>Vymazat cache telefonu</button></div>
+      <p class="small muted" style="margin-top:8px">AVIOR: dočasné soubory a cache prohlížeče (mozky, Wikipedie i konverzace zůstanou). Telefon: s rootem vymaže cache všech aplikací, bez rootu otevře systémové „Uvolnit místo“.</p>`)}
     ${(() => { const ps = J('phoneStatus') || {}; const st3 = S.settings || {}; return card(`<div class="row" style="gap:12px;margin-bottom:4px"><span class="v-ic">⚙︎</span><span class="grow"><b>Ovládání telefonu</b>
         <small class="muted" style="display:block">Root: ${ps.root ? '<b>ano</b> (každý root příkaz potvrzuješ)' : 'ne – ovládám vše, co Android dovolí'}</small></span><span class="dot ${ps.root ? 'on' : ''}"></span></div>
       <p class="small">Napiš nebo řekni povel – provede se hned, bez mozku: <i>zapni svítilnu · hlasitost 40 % · ztlum zvuk · budík na 6:30 · minutka 10 minut · pauza / další · jas 30 % · zapni nerušit · vypni wifi · otevři nastavení baterie · spusť Spotify · zavolej 777 123 456 · stav telefonu</i>.</p>
@@ -1387,6 +1391,16 @@ document.addEventListener('click', e => {
       { const i = msgs.indexOf(m); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); if (u) call('learnRate', u.content, m.content, ds.good === '1', m.meta && m.meta.confidence != null ? m.meta.confidence : -1); } m.meta = Object.assign({}, m.meta, { rated: ds.good === '1' ? 'good' : 'bad' }); renderChat(); }
     return;
   }
+  if (ds.clearCache !== undefined) { call('clearAppCache'); toast('Mažu cache AVIORu…'); return; }
+  if (ds.clearPhoneCache !== undefined) {
+    const root = (J('phoneCacheStatus') || {}).root;
+    if (root) sheet(`<div class="eyebrow" style="margin-top:4px">ROOT · POTVRZENÍ</div><p style="font-size:1.05rem"><b>Vymazat cache všech aplikací</b></p>
+      <pre class="report" style="max-height:80px">pm trim-caches 999G</pre><p class="small muted">Systém smaže dočasné soubory všech aplikací. Data, přihlášení ani fotky se nemažou; aplikace si cache postupně vytvoří znovu.</p>
+      <div class="grid2" style="margin-top:12px"><button class="btn" data-close-sheet>Zrušit</button><button class="btn danger" data-phone-cache-go>Provést</button></div>`);
+    else call('clearPhoneCaches', false);
+    return;
+  }
+  if (ds.phoneCacheGo !== undefined) { closeSheet(); call('clearPhoneCaches', true); toast('Mažu cache aplikací…'); return; }
   if (ds.continue !== undefined) { send('Pokračuj přesně tam, kde jsi skončil – nic neopakuj.'); return; }
   if (ds.brainRetry) { const i = msgs.findIndex(x => x.id === Number(ds.brainRetry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send('/chat ' + u.content.replace(/^\/\w+\s*/, '')); return; }
   if (ds.retry) { closeSheet(); const i = msgs.findIndex(x => x.id === Number(ds.retry)); const u = msgs.slice(0, i).reverse().find(x => x.role === 'user'); u && send(u.content); return; }
@@ -1493,9 +1507,8 @@ $('#brand').onclick = goHome;
 (function start() {
   refresh();
   nav();
-  const threads = J('threads') || [];
+  // start na ÚVODU (dřív se otevřelo poslední vlákno); jen když AVIOR zrovna odpovídá, ukáže rozpracované vlákno
   if (thinkingJob() && S.job.threadId) loadThread(S.job.threadId);
-  else if (threads.length) loadThread(threads[0].id);
   render();
   if (!(S.settings || {}).onboarded) welcomeSheet();
   let tick = 0;

@@ -218,6 +218,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Cache WebView (obrázky, skripty uložené prohlížečem) – smazat musí UI vlákno. */
+    fun clearWebCache() = runOnUiThread { runCatching { web.clearCache(true) } }
+
     fun openExternal(url: String) {
         val u = Uri.parse(url)
         if (u.scheme != "https") return

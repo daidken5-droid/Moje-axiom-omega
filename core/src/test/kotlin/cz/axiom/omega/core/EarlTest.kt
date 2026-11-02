@@ -60,3 +60,60 @@ class ParaphraseCacheTest {
         kotlin.test.assertTrue(!Reflex.sameQuestion("jaké je počasí v austrálii", e.question))
     }
 }
+
+class EarlRealDataTest {
+    // skutečný tvar dat z offline knihovny: název s předponou „Wikipedie: “
+    private val lib = object : KnowledgeSource {
+        override fun search(query: String, limit: Int): List<Snippet> {
+            val q = cz.axiom.omega.core.util.TextUtil.fold(query).lowercase()
+            return listOfNotNull(
+                Snippet(1, "Wikipedie: Fotosyntéza", "Fotosyntéza je biochemický proces, při kterém rostliny přeměňují světelnou energii na chemickou. Vzniká při ní kyslík a glukóza z oxidu uhličitého a vody. Probíhá v chloroplastech.", "wiki").takeIf { "fotosynt" in q },
+                Snippet(2, "Wikipedie: Karel Gott", "Karel Gott (14. července 1939 Plzeň – 1. října 2019 Praha) byl český zpěvák populární hudby, jeden z nejúspěšnějších interpretů. Proslul jako „Zlatý slavík“.", "wiki").takeIf { "gott" in q },
+                Snippet(3, "Wikipedie: Telč", "Telč je město v okrese Jihlava v Kraji Vysočina. Leží na jihozápadě Moravy asi 25 km jihozápadně od Jihlavy. Historické centrum je zapsáno na seznamu UNESCO.", "wiki").takeIf { "telc" in q },
+                Snippet(4, "Wikipedie: Brno (město)", "Brno je statutární město, druhé největší v Česku. Je přirozeným centrem Moravy.", "wiki").takeIf { "brn" in q },
+            )
+        }
+    }
+
+    @Test fun earlFindsRealWikiTitles() {
+        // dřív: předpona „Wikipedie: “ → přesná shoda nikdy → výňatek se na telefonu nespustil
+        kotlin.test.assertEquals(Earl.Path.RETRIEVE, Earl.decide(Pavucina.of("co je fotosyntéza"), Earl.Ctx(knowledge = { lib.search(it, 3) })).path)
+    }
+
+    @Test fun earlClassifiesConversationalOpeners() {
+        val d = Earl.decide(Pavucina.of("Dobře jiná otázka kdo hraje Čestmíra Mázla v seriálu ordinace v růžové zahradě 2?"), Earl.Ctx())
+        kotlin.test.assertEquals("fakt", d.category)
+        kotlin.test.assertEquals(Earl.Path.LIGHT, d.path)
+    }
+
+    @Test fun wikiReflexAnswersFromOfflineWikipedia() {
+        val c = Reflex.Ctx(Instant.Ctx(battery = 70, charging = false, knowledge = lib))
+        fun a(q: String) = Reflex.answer(q, c)?.text ?: "∅"
+        kotlin.test.assertTrue(a("kdy se narodil Karel Gott").contains("14. července 1939"), a("kdy se narodil Karel Gott"))
+        kotlin.test.assertTrue(a("kdy zemřel karel gott?").contains("1. října 2019"), a("kdy zemřel karel gott?"))
+        kotlin.test.assertTrue(a("kde leží Telč").contains("okrese Jihlava") || a("kde leží Telč").contains("Leží"), a("kde leží Telč"))
+        kotlin.test.assertTrue(a("kdo byl Karel Gott").contains("zpěvák"), a("kdo byl Karel Gott"))
+        kotlin.test.assertTrue(a("co je Brno").contains("statutární město"), a("co je Brno"))
+        // neznámé heslo → mlčí (rozhodne mozek)
+        kotlin.test.assertEquals("∅", a("kdy se narodil Jan Novák z Horní Dolní"))
+    }
+}
+
+/** Rozhodovací tabulka E-ARL na skutečných otázkách z reportů a běžném používání. */
+class EarlDecisionTableTest {
+    @Test fun table() {
+        val expect = listOf(
+            "Dobře jiná otázka kdo hraje Čestmíra Mázla v seriálu ordinace v růžové zahradě 2?" to ("fakt" to Earl.Path.LIGHT),
+            "Kdy se narodil Mozart" to ("fakt" to Earl.Path.LIGHT),
+            "Co si myslíš o aktuálním dění ve světě ?" to ("aktuální" to Earl.Path.BRAIN),
+            "Kolik stojí nový iPhone?" to ("aktuální" to Earl.Path.BRAIN),
+            "Jaké bude zítra počasí v Brně?" to ("aktuální" to Earl.Path.BRAIN),
+            "Napiš funkci v pythonu která seřadí seznam" to ("kód" to Earl.Path.BRAIN),
+            "Napiš mi email šéfovi, že zítra nepřijdu" to ("tvorba" to Earl.Path.BRAIN),
+            "Vysvětli mi rozdíl mezi ETF a akciemi" to ("analýza" to Earl.Path.BRAIN),
+            "Co je to kvantová provázanost" to ("definice" to Earl.Path.LIGHT),
+        )
+        val wrong = expect.mapNotNull { (q, e) -> Earl.decide(Pavucina.of(q), Earl.Ctx(cloud = true)).let { d -> if (d.category != e.first || d.path != e.second) "$q → ${d.category}/${d.path}, čekáno ${e.first}/${e.second}" else null } }
+        kotlin.test.assertTrue(wrong.isEmpty(), wrong.joinToString("\n"))
+    }
+}

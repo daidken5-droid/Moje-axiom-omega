@@ -874,6 +874,44 @@ class OmegaBridge(private val activity: MainActivity) {
     @JavascriptInterface fun cognitionReset() { omega.cognition.reset(); Events.note("Paměť učení vymazána – začínám znovu.") }
 
     /** Uvolní RAM pro AVIOR: Android zavře aplikace na pozadí (viz MemoryReclaimer). */
+    /**
+     * VYMAZAT CACHE AVIORU: dočasné soubory (cache, code cache), cache WebView a paměť Pavučiny.
+     * NEMAŽE: mozky, Wikipedii, konverzace, paměť ani nastavení.
+     */
+    @JavascriptInterface fun clearAppCache() = async {
+        fun size(f: java.io.File): Long = if (f.isDirectory) (f.listFiles()?.sumOf { size(it) } ?: 0L) else f.length()
+        val dirs = listOfNotNull(activity.cacheDir, activity.codeCacheDir, activity.externalCacheDir)
+        val before = dirs.sumOf { size(it) }
+        dirs.forEach { d -> d.listFiles()?.forEach { runCatching { it.deleteRecursively() } } }
+        activity.clearWebCache()
+        cz.axiom.omega.core.agent.Pavucina.clear()
+        val freed = (before - dirs.sumOf { size(it) }).coerceAtLeast(0)
+        Events.note("Cache AVIORu vymazána – uvolněno ${"%.1f".format(freed / 1_048_576.0).replace('.', ',')} MB. Mozky, Wikipedie i konverzace zůstaly.")
+    }
+
+    /**
+     * VYMAZAT CACHE VŠECH APLIKACÍ: s rootem `pm trim-caches` (systém smaže cache všech aplikací, data nechá);
+     * bez rootu Android cizí cache mazat nedovolí → otevře se systémové „Uvolnit místo“ (na Pixelu Files by Google).
+     */
+    @JavascriptInterface fun phoneCacheStatus(): String = JSONObject().put("root", cz.axiom.omega.phone.RootShell.present()).toString()
+
+    @JavascriptInterface fun clearPhoneCaches(useRoot: Boolean) = async {
+        if (useRoot && cz.axiom.omega.phone.RootShell.present()) {
+            val freeBefore = activity.filesDir.usableSpace
+            val r = cz.axiom.omega.phone.RootShell.run("pm trim-caches 999G", 60)
+            val gained = (activity.filesDir.usableSpace - freeBefore).coerceAtLeast(0)
+            Events.note(if (r.code == 0) "Cache všech aplikací vymazána (root) – uvolněno ${"%.0f".format(gained / 1_048_576.0)} MB. Data aplikací zůstala."
+                else "Nepodařilo se (kód ${r.code}): ${r.text.take(120)}")
+            return@async
+        }
+        activity.runOnUiThread {
+            val intents = listOf(Intent("android.os.storage.action.MANAGE_STORAGE"), Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
+            val ok = intents.any { i -> runCatching { activity.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess }
+            Events.note(if (ok) "Android bez rootu nedovolí mazat cache cizích aplikací – otevřel jsem systémové „Uvolnit místo“."
+                else "Otevři Nastavení → Úložiště a zvol uvolnění místa.")
+        }
+    }
+
     @JavascriptInterface fun reclaimMemory() {
         if (OmegaService.RUNNING_ASK.get() || omega.warming) { Events.note("Počkej, až dopíšu odpověď – pak paměť uvolním."); return }
         async {

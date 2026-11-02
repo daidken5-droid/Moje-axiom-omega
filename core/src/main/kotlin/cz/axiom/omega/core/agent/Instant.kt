@@ -144,11 +144,8 @@ object Instant {
         null
     }.getOrNull()
 
-    private fun titleMatches(title: String, subject: String): Boolean {
-        val t = TextUtil.fold(title).replace(rx("\\s*\\(.*\\)\\s*"), "").trim()
-        val s = subject.trim()
-        return t == s || (s.length >= 4 && t.startsWith(s) && t.length <= s.length + 3)
-    }
+    /** Sdílené s E-ARL a WikiReflexem – dřív nepočítalo s předponou „Wikipedie: “ z offline knihovny a nikdy neprošlo. */
+    private fun titleMatches(title: String, subject: String): Boolean = WikiReflex.titleMatches(title, subject)
 
     private val abbrev = setOf("tzv", "napr", "r", "st", "mj", "aj", "atd", "resp", "cca", "tj", "popr", "n", "l", "pr", "kr", "sv", "tzn", "min", "max", "vc", "zv", "ing", "mudr", "judr", "phdr", "doc", "prof")
 
@@ -162,10 +159,14 @@ object Instant {
         val out = StringBuilder()
         var count = 0
         var i = 0
+        var depth = 0
         while (i < body.length && count < n) {
             out.append(body[i])
-            if (body[i] in ".!?" && (i + 1 >= body.length || body[i + 1] == ' ') &&
-                !(i > 0 && body[i - 1].isDigit() && i + 2 < body.length && body[i + 2].isDigit())) {
+            if (body[i] == '(') depth++ else if (body[i] == ')' && depth > 0) depth--
+            // konec věty: tečka mimo závorku, za ní mezera a VELKÉ písmeno (ne „1. října“, „14. 7. 1939“, „tzv. pojem“)
+            val next = if (i + 2 < body.length) body[i + 2] else ' '
+            if (body[i] in ".!?" && depth == 0 && (i + 1 >= body.length || body[i + 1] == ' ') &&
+                !(i > 0 && body[i - 1].isDigit() && (next.isDigit() || next.isLowerCase())) && !next.isLowerCase()) {
                 // zkratky typu „tzv.“, „např.“, „r.“ nekončí větu
                 val lastWord = TextUtil.fold(out.toString().substringAfterLast(' ').trimEnd('.', '!', '?'))
                 if (lastWord !in abbrev) count++
