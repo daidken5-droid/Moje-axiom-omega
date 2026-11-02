@@ -230,12 +230,13 @@ a výsledky hledání. Každý signál se teď spočítá **nejvýš jednou a l�
 - **Levné placené cloudy** ve stejném modulu (Moduly → Cloud), pořád bez zátěže RAM:
   - **DeepSeek** – platíš jen spotřebu, kredit od 2 $. Při běžném chatování obvykle stojí jednotky dolarů
     měsíčně. Servery jsou v Číně; tajemství maskuje DLP štít.
-  - **Chutes** – paušál od 3 $ měsíčně (za 10 $ vlajkové modely Kimi K2.5, GLM-5, DeepSeek).
+  - **Chutes** – kredit (platí se spotřeba), případně paušál podle aktuální nabídky na chutes.ai/pricing
+    (paušály se během roku 2026 měnily a ne každý účet je vidí).
   - Volba **Priorita: Rychlost / Kvalita**. Rychlost = nejdřív Cerebras/Groq zdarma, Kvalita = nejdřív placené
     silné modely a zdarma jako záloha.
 - **Doporučení, jak cloud nastavit:**
   - Zdarma: Cerebras + Groq (stačí jeden, oba = záloha).
-  - Nejlepší poměr cena/výkon: přidej DeepSeek (dobij 5 $), nebo Chutes 10 $/měs., pokud chceš pevnou cenu.
+  - Nejlepší poměr cena/výkon: přidej DeepSeek (dobij 5 $). Pro výběr z mnoha modelů OpenRouter s kreditem 5 $.
   - Groq lze přepnout na tarif Developer: platí se spotřeba (gpt-oss-120b zhruba 0,15 $ / 0,60 $ za milion
     tokenů) a limity jsou vyšší.
 

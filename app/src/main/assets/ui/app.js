@@ -819,7 +819,7 @@ const FREE = [
 /** LEVNÉ PLACENÉ: jednotky dolarů měsíčně, silnější modely a vyšší limity. */
 const PAID = [
   ['deepseek', 'DeepSeek', 'Platíš jen spotřebu (kredit od 2 $). DeepSeek V3/V4 – špičková čeština, logika i kód za zlomek ceny. Servery v Číně: citlivá data jen s DLP štítem.', 'https://platform.deepseek.com/api_keys'],
-  ['chutes', 'Chutes', 'Paušál od 3 $/měs. (10 $ = vlajkové modely Kimi K2.5, GLM-5, DeepSeek). Pevná cena, žádné překvapení.', 'https://chutes.ai/app/api'],
+  ['chutes', 'Chutes', 'Kredit (platíš spotřebu), případně paušál – podle aktuální nabídky na chutes.ai/pricing. Modely Kimi, GLM, DeepSeek.', 'https://chutes.ai/app/api'],
 ];
 function freeCloudHtml() {
   const st = S.settings || {}; const k = S.keys || {}; const fm = S.freeModels || {};
@@ -835,7 +835,7 @@ function freeCloudHtml() {
     <p class="small">Velký model na cizím serveru: rychlejší a přesnější než mozek v telefonu a telefon nenačítá nic do RAM. Víc klíčů = automatická záloha, když jeden server narazí na limit.</p>
     <div class="sub">ZDARMA</div>
     ${FREE.map((f, i) => prov(f, !on.length && i === 0)).join('')}
-    <div class="sub">LEVNÉ · OD 3 $ MĚSÍČNĚ</div>
+    <div class="sub">LEVNÉ · KREDIT OD PÁR DOLARŮ</div>
     ${PAID.map(f => prov(f, false)).join('')}
     <label>Priorita</label>
     <div class="seg"><button data-setv="cloudPriority" data-val="speed" class="${st.cloudPriority !== 'quality' ? 'on' : ''}">Rychlost</button><button data-setv="cloudPriority" data-val="quality" class="${st.cloudPriority === 'quality' ? 'on' : ''}">Kvalita</button></div>
