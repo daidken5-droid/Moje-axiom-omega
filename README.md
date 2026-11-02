@@ -8,6 +8,19 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 5.9 – rychlost od základu
+
+- **⚡ Turbo:** nový režim v rychlé volbě mozku. S internetem odpovídá nejrychlejší cloud (Claude Haiku 5.5
+  s nízkou hloubkou, jinak Hugging Face nebo Kimi) – odpověď začne téct do 1–2 s. Bez internetu telefon.
+- **Mozek v telefonu nečte pořád totéž:** systémový prompt je teď bajtově stejný u každého dotazu a vše
+  proměnlivé (úroveň RANDY, paměť, stav baterie, styl) jde až do posledního dotazu → llama.cpp drží
+  systémový prompt i historii v KV cache a čte jen nový text. Historie se posouvá po 4 zprávách, ne po jedné.
+- **Méně psaní v telefonu:** bez skrytého bloku sebereflexe, bez hlavičky průchodu; RANDY v telefonu
+  nespouští řetězce podmodelů ani vícekrokového agenta, pokud o to výslovně nepožádáš (soubory a odkazy ano).
+- **Nabídka zrychlení na úvodní obrazovce:** jedním klepnutím zapnout Turbo, nebo přepnout/stáhnout
+  OMEGA Lite (Gemma 4 E2B), když je aktivní pomalejší E4B.
+- Přepnutí mozku už neblokuje rozhraní (uvolnění paměti běží na pozadí).
+
 ## Novinky 5.8 – RAG index nad celou Wikipedií
 
 - **Hledání podle významu v celé offline knihovně:** k předpřipravené Wikipedii jde stáhnout **RAG index**

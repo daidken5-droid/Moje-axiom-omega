@@ -28,6 +28,8 @@ import java.time.Duration
 class ClaudeEngine(
     private val apiKey: String,
     private val model: String = DEFAULT_MODEL,
+    /** Pevná hloubka (Turbo: "low" = nejrychlejší odpověď), jinak podle úrovně RANDY. */
+    private val effortOverride: String? = null,
 ) : LlmEngine {
 
     override val id = "claude:$model"
@@ -120,7 +122,7 @@ class ClaudeEngine(
             .model(model)
             .maxTokens(options.maxTokens.toLong().coerceIn(1024, 64_000))
             .thinking(BetaThinkingConfigAdaptive.builder().display(BetaThinkingConfigAdaptive.Display.SUMMARIZED).build())
-            .outputConfig(BetaOutputConfig.builder().effort(mapEffort(options.effort)).build())
+            .outputConfig(BetaOutputConfig.builder().effort(mapEffort(effortOverride ?: options.effort)).build())
             .addBeta(FALLBACK_BETA)
             .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
         val system = messages.filter { it.role == Role.SYSTEM }.joinToString("\n\n") { it.content }
@@ -136,6 +138,8 @@ class ClaudeEngine(
 
     companion object {
         const val DEFAULT_MODEL = "claude-opus-5-5"
+        /** Turbo: nejrychlejší model Claude. */
+        const val TURBO_MODEL = "claude-haiku-5-5"
         const val FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
         fun mapEffort(effort: String): BetaOutputConfig.Effort = when (effort.lowercase()) {

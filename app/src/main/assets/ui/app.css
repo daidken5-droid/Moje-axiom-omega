@@ -581,3 +581,6 @@ mark { background: rgba(255, 255, 255, .18); color: var(--text); border-radius: 
 .seg button:disabled { opacity: .35; }
 .ragrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .ragrow small { display: block; color: var(--muted); font-size: .76rem; margin-top: 2px; }
+.speedtip { text-align: left; margin-top: 14px; padding: 12px 14px; }
+.speedtip small { color: var(--muted); font-size: .76rem; flex: 1; }
+.speedtip .btn { flex: none; }

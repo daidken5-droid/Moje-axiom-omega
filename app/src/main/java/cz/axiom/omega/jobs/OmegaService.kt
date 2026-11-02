@@ -208,14 +208,16 @@ class OmegaService : Service() {
         val (battery, charging) = Introspect.battery(this)
         val engines = omega.availableEngines()
         val device = Sup.Device(battery, charging, Introspect.thermalLevel(this), Introspect.freeRamMb(this), Introspect.online(this),
-            local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local"))
+            local = mode == "local" || ((mode == "auto" || mode == "duo") && engines.firstOrNull() == "local") ||
+                (mode == "turbo" && !omega.turboReady() && "local" in engines))
         // SEBEPOZNÁNÍ: co o sobě vím v oblasti této otázky (z každé předchozí otázky a úvahy)
         val learning = omega.settings.learning
         val (domain, selfInsight) = omega.cognition.brief(text)
         val competence = omega.cognition.competence(domain)
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
             weakDomain = if (learning && competence?.weak == true) domain.label else null,
-            power = omega.power(), thermalCaution = omega.device.thermalCaution, localBrain = device.local), device, omega.randy.stats(), authority)
+            // Turbo = rychlá cesta i v cloudu (1 průchod, bez přemýšlení, stručně)
+            power = omega.power(), thermalCaution = omega.device.thermalCaution, localBrain = device.local || mode == "turbo"), device, omega.randy.stats(), authority)
         // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
         // v telefonu stojí každý token čas – ukázku přidáme jen cloudu nebo v režimu Sherlock
         val exemplar = if (learning && (!device.local || omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK)) omega.cognition.exemplar(domain) else null
@@ -267,7 +269,8 @@ class OmegaService : Service() {
                 boost = if (s.claudeBoost && "claude" in engines) "claude" else null,
                 sherlock = omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK,
                 duo = if (mode == "duo" || (mode == "auto" && s.autoDuo)) omega.duoPartner(engines) else null,
-                forceDuo = mode == "duo"))
+                forceDuo = mode == "duo",
+                phoneFast = device.local && mode != "turbo" && omega.power() != cz.axiom.omega.core.device.Power.SHERLOCK))
             val agentRole = role ?: if (route.mode == Router.Mode.AGENT) Router.autoRole(route.prompt) else null
             listener.onPhase(plan.summary + " · ${route.mode.label}" + (plan.decisions.firstOrNull()?.let { " · $it" } ?: ""))
             val watchdog = Sup.Watchdog(plan.budgetMillis, authority)
@@ -374,7 +377,8 @@ class OmegaService : Service() {
                 val steps = meta.optJSONArray("steps")
                 val usedWeb = steps != null && (0 until steps.length()).any { steps.getJSONObject(it).optString("tool") in webTools }
                 val localBrain = route.engine == "local" || (route.engine != "node" && route.engine != "server" && route.engine != "kimi" &&
-                    route.engine != "claude" && route.engine != "hf" && "local" in engines)
+                    route.engine != "claude" && route.engine != "hf" && "local" in engines) &&
+                    !(route.engine == "turbo" && omega.turboReady())
                 meta.put("private", localBrain && !usedWeb && (meta.optJSONArray("sources")?.length() ?: 0) == 0 && route.mode != Router.Mode.COUNCIL)
             }
             // UČEBNÍ SMYČKA: kalibrace jistoty, kompetence, vlastní poznatek, otevřené otázky, milníky

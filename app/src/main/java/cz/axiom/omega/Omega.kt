@@ -315,6 +315,23 @@ class Omega private constructor(val app: Context) {
 
     fun localAvailable() = NativeLlama.available(app) && brains.active() != null
 
+    /**
+     * TURBO: s internetem odpovídá nejrychlejší cloud (Claude Haiku 5.5 s nízkou hloubkou, jinak Hugging Face),
+     * bez internetu mozek v telefonu. Odpověď začne téct do 1–2 s místo desítek sekund.
+     */
+    fun turbo(): LlmEngine {
+        val online = Introspect.online(app)
+        return when {
+            online && vault.has(Vault.CLAUDE) -> ClaudeEngine(vault.read(Vault.CLAUDE)!!, ClaudeEngine.TURBO_MODEL, effortOverride = "low")
+            online && vault.has(Vault.HF) -> hf()
+            online && vault.has(Vault.KIMI) -> kimi()
+            localAvailable() -> local()
+            else -> throw EngineException("Turbo potřebuje internet a klíč Claude nebo token Hugging Face (Moduly), nebo mozek v telefonu.")
+        }
+    }
+
+    fun turboReady() = Introspect.online(app) && (vault.has(Vault.CLAUDE) || vault.has(Vault.HF) || vault.has(Vault.KIMI))
+
     /** AUTO: online → Kimi K3, jinak Claude; offline → lokální mozek, jinak vlastní K3 server. */
     fun resolve(mode: String = settings.mode): LlmEngine {
         val e: LlmEngine = when (mode) {
@@ -324,6 +341,7 @@ class Omega private constructor(val app: Context) {
             "server" -> server()
             "claude" -> claude()
             "hf" -> hf()
+            "turbo" -> turbo()
             else -> {
                 val online = Introspect.online(app)
                 when {

@@ -247,7 +247,9 @@ object Supervisor {
                 extraStyle = listOfNotNull(extraStyle, if (v == Variant.VERITAS) VERIFY_STYLE else null).joinToString("\n").ifBlank { null }
                 why += "v telefonu ověřím přímo z offline znalostí (rychleji než agent)"
             }
-            pipeline = pipeline.filter { it.variant != Variant.THINK || pipeline.size <= 2 }.let { if (it.size >= 2) it else emptyList() }
+            // řetězec podmodelů = několik generování za sebou → v telefonu jen na výslovné přání uživatele
+            pipeline = if (!explicitAny) emptyList() else pipeline.filter { it.variant != Variant.THINK || pipeline.size <= 2 }.let { if (it.size >= 2) it else emptyList() }
+            if (pipeline.isEmpty() && v != req.variant && !explicitAny && v.mode == Router.Mode.CHAT) why += "jeden rychlý průchod místo řetězce"
             extraStyle = listOfNotNull(extraStyle, FAST_STYLE).joinToString("\n")
             why += "mozek v telefonu → stručně a v jednom průchodu"
         }

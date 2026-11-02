@@ -250,8 +250,8 @@ class EnginesTest {
 
     // ---------------------------------------------------------------- Orchestrator
 
-    private class FakeEngine(val replies: MutableList<String>, val failFirst: Boolean = false) : LlmEngine {
-        override val id = "fake"; override val label = "Fake"; override val kind = EngineKind.LOCAL
+    private class FakeEngine(val replies: MutableList<String>, val failFirst: Boolean = false, override val kind: EngineKind = EngineKind.LOCAL) : LlmEngine {
+        override val id = "fake"; override val label = "Fake"
         override val contextBudgetChars = 20_000
         val seen = mutableListOf<List<ChatMessage>>()
         var calls = 0
@@ -277,7 +277,7 @@ class EnginesTest {
     }
 
     @Test fun orchestratorRunsRandyPassesAndLearns() {
-        val eng = FakeEngine(mutableListOf("Návrh A", "Kritika B", "Finále C\n⟨SEBEREFLEXE⟩\njistota: 77 %\npoučení: Kontroluj prořez materiálu."))
+        val eng = FakeEngine(mutableListOf("Návrh A", "Kritika B", "Finále C\n⟨SEBEREFLEXE⟩\njistota: 77 %\npoučení: Kontroluj prořez materiálu."), kind = EngineKind.KIMI_SERVER)
         val mem = Mem()
         val o = Orchestrator(noKb, mem, { SelfState("Fake", "test", false) }, sleeper = {})
         val r = o.run(AskRequest("L4: Najdi rizika: 20 m2 mikrocement, 12*3, pamatuj si, že preferuji Topciment"), eng, CancelToken())
@@ -298,6 +298,21 @@ class EnginesTest {
         assertTrue(third.any { it.role == Role.ASSISTANT && it.content == "Kritika B" })
         assertTrue(third.last().content.contains("SEBEREFLEXE"))
         assertTrue(eng.seen[0].first().content.contains("SEBEMODEL"))
+    }
+
+    /** Telefon: systémový prompt je bajtově stejný mezi dotazy (KV cache), proměnlivé věci jdou do dotazu. */
+    @Test fun phonePromptKeepsStablePrefix() {
+        val eng = FakeEngine(mutableListOf("Odpověď 1", "Odpověď 2"))
+        val mem = Mem()
+        val o = Orchestrator(noKb, mem, { SelfState("Fake", "test", false, batteryPct = (10..90).random()) }, sleeper = {})
+        o.run(AskRequest("Kolik stojí mikrocement?", maxPasses = 1), eng, CancelToken())
+        mem.remember(MemoryItem(kind = MemoryKind.FACT, text = "Uživatel bydlí v Brně a má rád mikrocement"))
+        val hist = listOf(ChatMessage(Role.USER, "Kolik stojí mikrocement?"), ChatMessage(Role.ASSISTANT, "Odpověď 1"))
+        o.run(AskRequest("L3: Vyplatí se mikrocement v Brně?", history = hist, maxPasses = 1), eng, CancelToken())
+        assertEquals(eng.seen[0].first().content, eng.seen[1].first().content)
+        assertTrue(eng.seen[1][1].content == "Kolik stojí mikrocement?" && eng.seen[1][2].content == "Odpověď 1")
+        val last = eng.seen[1].last().content
+        assertTrue(last, last.contains("RANDY L3") && last.contains("Brně") && !last.contains("SEBEREFLEXE") && !last.contains("ÚKOL PRŮCHODU"))
     }
 
     @Test fun orchestratorRetriesTransientError() {

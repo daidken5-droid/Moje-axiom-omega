@@ -31,6 +31,8 @@ object Router {
         val duo: String? = null,
         /** Uživatel zvolil „Oba mozky“ → u každé odpovědi (ne jen u velmi složitých). */
         val forceDuo: Boolean = false,
+        /** Myslí jen telefon v rychlém režimu → agent (mnoho generování) jen pro soubory a odkazy. */
+        val phoneFast: Boolean = false,
     )
 
     data class Route(val mode: Mode, val engine: String, val level: RandyLevel, val reason: String, val prompt: String, val duo: Boolean = false)
@@ -85,6 +87,7 @@ object Router {
             mode = when {
                 fileRx.containsMatchIn(prompt) -> { why += "vytvoření souboru"; Mode.AGENT }
                 hasUrl && ctx.online -> { why += "obsahuje odkaz"; Mode.AGENT }
+                ctx.phoneFast && ctx.boost == null && (wantsAction || wantsFresh) -> { why += "telefon: rychlá odpověď místo vícekrokového agenta"; Mode.CHAT }
                 wantsAction && (ctx.online || level.ordinal >= RandyLevel.L2_DEEP.ordinal) -> { why += "úkol vyžaduje kroky a nástroje"; Mode.AGENT }
                 wantsFresh && ctx.online -> { why += "potřebuje aktuální informace"; Mode.AGENT }
                 else -> Mode.CHAT

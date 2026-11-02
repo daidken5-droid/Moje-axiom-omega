@@ -123,10 +123,21 @@ class Orchestrator(
         val memories = MemoryRanker.rank(prompt, memory.all(), if (local) 4 else 10)
         memory.touch(memories.map { it.id })
 
-        val system = SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
+        // RYCHLÁ CESTA V TELEFONU: neměnný systémový prompt + historie = prefix z KV cache;
+        // úroveň, paměť, styl a stav jdou až do posledního dotazu → telefon čte jen nový text.
+        val phone = engine.kind == EngineKind.LOCAL
+        val system = if (phone) SystemPrompt.staticLocal(req.userName)
+        else SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
             (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "") + (req.selfInsight?.let { "\n\n$it" } ?: "")
-        val grounded = groundedPrompt(prompt, facts, snippets, local)
-        val history = trimHistory(req.history, engine.contextBudgetChars - system.length - grounded.length - 4_000)
+        val grounded = if (phone) buildString {
+            append(groundedPrompt(prompt, facts, snippets, true))
+            append("\n\n---\n").append(SystemPrompt.dynamicLocal(level, selfState(), memories))
+            req.style?.let { append("\nSTYL: ").append(it) }
+            req.selfInsight?.let { append("\n").append(TextUtil.clip(it, 400)) }
+        } else groundedPrompt(prompt, facts, snippets, local)
+        val history = if (phone) phoneHistory(req.history) else trimHistory(req.history, engine.contextBudgetChars - system.length - grounded.length - 4_000)
+        // sebereflexe (skrytý blok jistoty a poučení) stojí v telefonu desítky tokenů psaní → jen v cloudu
+        val reflect = req.reflect && !phone
 
         // 5) Průchody
         val passes = planPasses(level, req.maxPasses)
@@ -143,11 +154,13 @@ class Orchestrator(
             val msgs = buildList {
                 add(ChatMessage(Role.SYSTEM, system))
                 addAll(history)
-                add(ChatMessage(Role.USER, grounded + "\n\n" + passHeader(passes[0], 1, passes.size, i == 0 && final && req.reflect)))
+                // jeden průchod v telefonu = bez hlavičky průchodu (méně tokenů ke čtení)
+                val head = if (phone && passes.size == 1) "" else "\n\n" + passHeader(passes[0], 1, passes.size, i == 0 && final && reflect)
+                add(ChatMessage(Role.USER, grounded + head))
                 for (k in 0 until i) {
                     val prev = trace[k].text
                     add(ChatMessage(Role.ASSISTANT, TextUtil.clip(prev, if (local) 1_200 else 24_000)))
-                    add(ChatMessage(Role.USER, passHeader(passes[k + 1], k + 2, passes.size, k + 1 == i && final && req.reflect)))
+                    add(ChatMessage(Role.USER, passHeader(passes[k + 1], k + 2, passes.size, k + 1 == i && final && reflect)))
                 }
             }
             val opts = GenOptions(
@@ -308,6 +321,18 @@ class Orchestrator(
         fun passHeader(pass: RandyPass, n: Int, total: Int, reflect: Boolean): String = buildString {
             append("ÚKOL PRŮCHODU $n/$total – ${pass.label}: ${pass.instruction}")
             if (reflect) append("\n\n").append(Reflection.instruction)
+        }
+
+        /**
+         * Historie pro mozek v telefonu: posledních 4–8 zpráv, každá zkrácená. Okno se posouvá po 4 zprávách
+         * (ne po jedné), takže začátek historie zůstává mezi dotazy stejný a KV cache ho znovu použije.
+         */
+        fun phoneHistory(history: List<ChatMessage>): List<ChatMessage> {
+            val h = history.filter { it.role != Role.SYSTEM }
+            if (h.isEmpty()) return emptyList()
+            val start = if (h.size <= 8) 0 else ((h.size - 5) / 4) * 4
+            val window = h.drop(start.coerceIn(0, h.size)).map { ChatMessage(it.role, TextUtil.clip(it.content, 700)) }
+            return window.dropWhile { it.role != Role.USER }
         }
 
         /** Nejnovější zprávy mají přednost; začátek historie musí být uživatel. */

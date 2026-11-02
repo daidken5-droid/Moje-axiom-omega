@@ -227,6 +227,6 @@ class Settings(context: Context) {
     }
 
     companion object {
-        val MODES = setOf("auto", "local", "kimi", "node", "server", "claude", "hf", "council", "duo")
+        val MODES = setOf("auto", "turbo", "local", "kimi", "node", "server", "claude", "hf", "council", "duo")
     }
 }

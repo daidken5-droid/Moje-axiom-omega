@@ -358,7 +358,10 @@ class OmegaBridge(private val activity: MainActivity) {
         OmegaService.start(activity, Intent(OmegaService.ACTION_DOWNLOAD).putExtra("id", id))
     }
 
-    @JavascriptInterface fun brainActivate(id: String) { omega.brains.activate(id); LocalEngine.release(); Events.emit("brains", omega.brains.toJson()); omega.warmup() }
+    // uvolnění mozku čeká na doběhnutí výpočtu → mimo UI vlákno (jinak by aplikace zamrzla)
+    @JavascriptInterface fun brainActivate(id: String) = async {
+        omega.brains.activate(id); LocalEngine.release(); Events.emit("brains", omega.brains.toJson()); omega.warmup()
+    }
 
     @JavascriptInterface fun brainDelete(id: String) { omega.brains.delete(id); Events.emit("brains", omega.brains.toJson()) }
 

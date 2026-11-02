@@ -89,6 +89,7 @@ function md(src) {
 
 const MODES = [
   { id: 'auto', ic: 'Ω', name: 'Auto', desc: 'Myslí mozek v telefonu; AVIOR sám volí hloubku, nástroje a agenty.' },
+  { id: 'turbo', ic: '⚡', name: 'Turbo', desc: 'Nejrychlejší: s internetem odpovídá cloud (Claude Haiku / Hugging Face) do 1–2 s, bez internetu telefon.' },
   { id: 'local', ic: 'Φ', name: 'V telefonu', desc: 'Jen lokální mozek – úplně offline a soukromé.' },
   { id: 'node', ic: 'N', name: 'AVIOR Node', desc: 'Tvůj zdarma cloud server (HF Space / Oracle).' },
   { id: 'server', ic: 'LAN', name: 'Vlastní server', desc: 'K3 nebo jiný model v domácí síti.' },
@@ -102,11 +103,13 @@ function brainPick() {
   const cur = (S.settings || {}).mode || 'auto';
   const avail = S.engines || [];
   const cloud = ['claude', 'kimi', 'node', 'hf', 'server'].find(x => avail.includes(x));
-  const opts = [['auto', 'Ω Auto', true], ['local', 'Telefon', avail.includes('local')]];
+  const turboOk = ['claude', 'hf', 'kimi'].some(x => avail.includes(x)) || avail.includes('local');
+  const opts = [['auto', 'Ω Auto', true], ['turbo', '⚡ Turbo', turboOk], ['local', 'Telefon', avail.includes('local')]];
   if (cloud) opts.push([cloud, (MODES.find(m => m.id === cloud) || {}).name || cloud, true]);
   opts.push(['duo', '⇄ Oba', !!cloud && avail.includes('local')]);
   if (!opts.some(o => o[0] === cur)) opts.push([cur, (MODES.find(m => m.id === cur) || {}).name || cur, true]);
-  const hint = cur === 'duo' ? 'Telefon i ' + ((MODES.find(m => m.id === cloud) || {}).name || 'cloud') + ' současně – pomalejší, ale nejdůkladnější.'
+  const hint = cur === 'turbo' ? (['claude', 'hf', 'kimi'].some(x => avail.includes(x)) ? 'Odpověď začne téct do 1–2 s (cloud). Bez internetu přepnu na telefon.' : 'Pro Turbo vlož klíč Claude nebo token Hugging Face (Moduly) – teď odpovídá telefon.')
+    : cur === 'duo' ? 'Telefon i ' + ((MODES.find(m => m.id === cloud) || {}).name || 'cloud') + ' současně – pomalejší, ale nejdůkladnější.'
     : cur === 'auto' ? 'RANDY volí sám: běžné otázky telefon' + (cloud ? ', těžké ' + ((MODES.find(m => m.id === cloud) || {}).name) + ', hodně složité oba.' : '.')
     : (MODES.find(m => m.id === cur) || {}).desc || '';
   return `<div class="seg brainseg">${opts.map(([id, label, ok]) => `<button data-mode="${id}" class="${cur === id ? 'on' : ''}" ${ok ? '' : 'disabled'}>${esc(label)}</button>`).join('')}</div>
@@ -313,6 +316,23 @@ function brainChip() {
   return `<button class="brainchip" data-preload><i></i>Mozek není v paměti – klepni a načtu ho předem</button>`;
 }
 
+/** Rychlost: nabídne Turbo (cloud) nebo rychlejší mozek v telefonu, když je aktivní pomalý. */
+function speedTip() {
+  const st = S.settings || {}; const avail = S.engines || [];
+  const tips = [];
+  if ((st.mode === 'auto' || st.mode === 'local') && ['claude', 'hf', 'kimi'].some(x => avail.includes(x)))
+    tips.push(`<button class="btn sm primary" data-mode="turbo">⚡ Zapnout Turbo</button><small>Odpověď do 1–2 s přes cloud, offline dál telefon.</small>`);
+  const b = J('brains') || {};
+  const list = b.brains || [];
+  const act = list.find(x => x.active);
+  const lite = list.find(x => x.id === 'omega-lite-gemma4-e2b-q4km');
+  if (act && lite && !lite.active && /e4b|ultra|max/i.test(act.id))
+    tips.push(lite.installed ? `<button class="btn sm" data-brain-activate="${lite.id}">Přepnout na OMEGA Lite</button><small>V telefonu zhruba 2× rychlejší (Gemma 4 E2B).</small>`
+      : `<button class="btn sm" data-brain-download="${lite.id}">Stáhnout OMEGA Lite · ${esc(lite.size)}</button><small>V telefonu zhruba 2× rychlejší než ${esc(act.name.split('·').pop().trim())}.</small>`);
+  if (!tips.length) return '';
+  return `<div class="card speedtip"><b>Chceš rychlejší odpovědi?</b>${tips.map(t => `<div class="row" style="gap:10px;margin-top:8px;align-items:center">${t}</div>`).join('')}</div>`;
+}
+
 function crashSheet(d) {
   sheet(`<div class="eyebrow" style="margin-top:4px">MINULE SE AVIOR UKONČIL</div>
     <p><b>${esc(d.reason)}</b></p>
@@ -332,6 +352,7 @@ function renderChat() {
         <button class="btn primary wide" data-open="${esc(S.update.apk)}">Stáhnout aktualizaci</button></div>` : ''}
       <h1 class="greet">${greeting()}.</h1><p class="lead">Na co dnes myslíš?</p>
       ${brainChip()}
+      ${speedTip()}
       <div style="margin-top:18px">${powerSeg(false)}</div>
       ${(() => { const cg = J('cognition'); const j = cg && cg.journal && cg.journal[0]; return j ? `<button class="learnline" data-self>✦ ${esc(j.text)}</button>` : (cg && cg.total ? `<button class="learnline" data-self>✦ ${cg.total} otázek · ${cg.insights} vlastních poznatků – podívej se, co umím</button>` : ''); })()}
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
@@ -457,7 +478,7 @@ function composer() {
   const v = variants().find(x => x.id === variant) || variants()[0];
   const pw = curPower() === 'SHERLOCK' ? ' · ⌕' : curPower() === 'BASIC' ? ' · ◇' : '';
   const md = (S.settings || {}).mode || 'auto';
-  const bl = md === 'auto' ? '' : (md === 'duo' ? '⇄ Oba' : md === 'local' ? 'Telefon' : ((MODES.find(m => m.id === md) || {}).name || md)) + ' · ';
+  const bl = md === 'auto' ? '' : md === 'turbo' ? '⚡ Turbo · ' : (md === 'duo' ? '⇄ Oba' : md === 'local' ? 'Telefon' : ((MODES.find(m => m.id === md) || {}).name || md)) + ' · ';
   const chip = bl + (forcedKind ? k.name : v.title) + (forcedLevel ? ' · ' + forcedLevel : '') + pw;
   return `<div class="composer"><div class="wrap">
     <div class="randy-hint" id="randyHint"></div>
@@ -1061,8 +1082,8 @@ document.addEventListener('click', e => {
   if (ds.taskDel) { e.stopPropagation(); call('deleteTask', Number(ds.taskDel)); renderAgents(); return; }
   if (ds.cancelBg !== undefined) { call('cancelBg'); return; }
   if (ds.cancel !== undefined) { call('cancel'); return; }
-  if (ds.brainDownload) { call('brainDownload', ds.brainDownload); setTimeout(() => { refresh(); renderModules(); }, 500); return; }
-  if (ds.brainActivate) { call('brainActivate', ds.brainActivate); return; }
+  if (ds.brainDownload) { call('brainDownload', ds.brainDownload); toast('Stahuji na pozadí – po stažení se mozek sám zapne.'); setTimeout(() => { refresh(); if (view === 'modules') renderModules(); else render(); }, 500); return; }
+  if (ds.brainActivate) { call('brainActivate', ds.brainActivate); toast('Přepínám mozek – načítám ho do paměti.'); setTimeout(() => { refresh(); render(); }, 400); return; }
   if (ds.brainDelete) { if (confirm('Smazat z telefonu?')) call('brainDelete', ds.brainDelete); return; }
   if (ds.brainImport !== undefined) { call('brainImport'); return; }
   if (ds.index !== undefined) { call('indexStart'); return; }
