@@ -255,6 +255,24 @@ object Facts {
             return ans("Předpona **${p.first}** = **${p.second}**.", "jednotky")
         }
 
+        // ---- česká politika (jen stálá fakta; aktuální vláda a výsledky voleb jdou mozku s balíčkem a ověřením)
+        if (Regex("\\bprezident").containsMatchIn(f) && Regex("\\b(cr|cesk\\w*|ceske republiky)\\b").containsMatchIn(f)) {
+            val list = "1. Václav Havel (1993–2003)\n2. Václav Klaus (2003–2013)\n3. Miloš Zeman (2013–2023, první přímo zvolený)\n4. Petr Pavel (od 9. 3. 2023)"
+            if (Regex("^(seznam|vsichni|vyjmenuj|jaci|kteri|prehled)").containsMatchIn(f)) return ans("**Prezidenti České republiky:**\n$list", "politika")
+            if (Regex("prvni prezident").containsMatchIn(f)) return ans("Prvním prezidentem České republiky byl **Václav Havel** (1993–2003); předtím byl posledním prezidentem ČSFR.", "politika")
+            if (Regex("^kdo je (soucasny |aktualni |nynejsi )?prezident").containsMatchIn(f)) return ans("Prezidentem ČR je **Petr Pavel** – v úřadu od 9. 3. 2023, funkční období 5 let.", "politika")
+        }
+        if (Regex("^kolik (ma |je )?(poslanc|clenu snemovn|snemovna)").containsMatchIn(f)) return ans("Poslanecká sněmovna má **200 poslanců**, volených na 4 roky poměrným systémem.", "politika")
+        if (Regex("^kolik (ma |je )?(senator|senat)").containsMatchIn(f)) return ans("Senát má **81 senátorů**, volených na 6 let; každé 2 roky se volí třetina.", "politika")
+        Regex("^kdy (vstoupila |vstoupilo |je |se stala )?(cr|cesko|ceska republika)? ?(do |clenem )?(nato|eu|evropske unie|schengen\\w*)").find(f)?.let { m ->
+            val what = m.groupValues[4]
+            return ans(when {
+                what.startsWith("nato") -> "Česko je členem **NATO od 12. 3. 1999** (spolu s Polskem a Maďarskem)."
+                what.startsWith("schengen") -> "Česko je v **Schengenu od 21. 12. 2007** (letiště od 30. 3. 2008)."
+                else -> "Česko je členem **EU od 1. 5. 2004** (referendum 2003, 77 % pro)."
+            }, "politika")
+        }
+
         // ---- tísňová čísla
         if (Regex("(tisnov\\w*|nouzov\\w*) (cisl|link)|cislo (na )?(zachrank|hasic|polici|zachrannou)|^(zachranka|hasici|policie) cislo").containsMatchIn(f))
             return ans("**Tísňová čísla v ČR:** 112 (jednotné evropské), 155 záchranná služba, 150 hasiči, 158 policie, 156 městská policie, 1210 horská služba.", "bezpečnost")

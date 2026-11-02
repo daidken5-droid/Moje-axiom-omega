@@ -71,4 +71,15 @@ class FactsTest {
         assertNull(a("Jak funguje zlato jako investice?"))
         assertNull(a("Kolik stojí byt v Praze?"))
     }
+
+    @Test fun politicsStableFacts() {
+        has("Kdo byl první prezident ČR?", "Václav Havel")
+        has("Seznam prezidentů České republiky", "Klaus", "Zeman", "Pavel")
+        has("Kolik má Sněmovna poslanců?", "200")
+        has("Kolik je senátorů?", "81")
+        has("Kdy vstoupila ČR do NATO?", "12. 3. 1999")
+        has("Kdy vstoupilo Česko do EU?", "1. 5. 2004")
+        assertNull(a("Kdo je premiér?"))   // mění se → mozek s balíčkem a ověřením
+        assertNull(a("Co si myslí pravice o EU?"))
+    }
 }

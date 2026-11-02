@@ -243,6 +243,39 @@
       "sha256": "6d56ed19d7baca9683e4da5a57b5b9b2621baac12a90d30b5b681713b28f020f",
       "sections": 5,
       "autoInstall": true
+    },
+    {
+      "id": "politika-cr",
+      "name": "Česká politika · fakta",
+      "description": "Ústava, instituce, prezidenti, premiéři, volby 2025, strany, NATO a EU.",
+      "file": "politika-cr.md",
+      "version": 2,
+      "bytes": 4941,
+      "sha256": "87c85561d6e68507a4a3a33d1078a81fc4aafe9650988cac294ace5802ee365d",
+      "sections": 8,
+      "autoInstall": true
+    },
+    {
+      "id": "politika-svet",
+      "name": "Zahraniční politika · fakta",
+      "description": "EU, NATO, USA, Rusko a Ukrajina, Blízký východ, Čína, OSN.",
+      "file": "politika-svet.md",
+      "version": 3,
+      "bytes": 3868,
+      "sha256": "09438f27218c5b3b9103d6535adf8a21c62e06457d63fcb5064e45aae4edffa2",
+      "sections": 7,
+      "autoInstall": true
+    },
+    {
+      "id": "politika-pravicovy-pohled",
+      "name": "Politika · pravicový pohled",
+      "description": "Konzervativní a liberálně-pravicové postoje k hlavním tématům (označeno jako pohled, s protiargumenty).",
+      "file": "politika-pravicovy-pohled.md",
+      "version": 2,
+      "bytes": 5874,
+      "sha256": "6c9c4da67e7bec1b2eefa0ad0330451a708be8cc970a1b1b8c63a865a1b029fc",
+      "sections": 9,
+      "autoInstall": true
     }
   ]
 }

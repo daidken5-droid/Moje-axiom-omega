@@ -8,6 +8,20 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.8 – politika v offline databázi
+
+Tři nové offline balíčky (instalují se samy po aktualizaci) a politická fakta v reflexech:
+- **Česká politika · fakta** – ústavní systém, Parlament (200 poslanců, 81 senátorů, volební klauzule),
+  prezidenti a všichni premiéři ČR, sněmovní volby 2025, přehled stran, NATO/EU/Schengen, klíčové události.
+- **Zahraniční politika · fakta** – EU a její instituce, NATO (článek 5, cíl 5 % HDP), USA, Rusko a válka na
+  Ukrajině, Blízký východ, Čína a Tchaj-wan, OSN.
+- **Politika · pravicový pohled** – konzervativní a liberálně-pravicové postoje k daním a rozpočtu, EU, migraci,
+  energetice a klimatu, bezpečnosti a Ukrajině, USA/Izraeli/Číně a společenským tématům; **výslovně označené
+  jako pohled**, s rozlišením proevropské a euroskeptické pravice a s hlavním protiargumentem u každého tématu.
+- **Reflexy bez mozku** (stálá fakta): prezidenti ČR, první prezident, počet poslanců a senátorů, data vstupu
+  do NATO, EU a Schengenu. Aktuální funkce (premiér, vláda) a výsledky voleb jsou označené „stav k 2026 –
+  ověř“ a odpovídá na ně mozek, aby AVIOR neodpovídal zastarale s falešnou jistotou.
+
 ## Novinky 6.7 – offline databáze faktů (odpovědi bez mozku)
 
 Nový reflex `core/agent/Facts.kt` s kurátorovanými daty v `core/src/main/resources/facts/` – odpovídá
