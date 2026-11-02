@@ -214,10 +214,17 @@ class OmegaService : Service() {
         val learning = omega.settings.learning
         val (domain, selfInsight) = omega.cognition.brief(text)
         val competence = omega.cognition.competence(domain)
+        // REGULÁTOR VÝKONU: závazně určí, kolik výkonu tento dotaz dostane (stupeň, délka, vlákna, řetězce)
+        val budget = cz.axiom.omega.core.device.Governor.decide(cz.axiom.omega.core.device.Governor.Input(
+            prompt = text, level = userLevel ?: cz.axiom.omega.core.randy.Randy.detect(text).level,
+            userPower = if (omega.powerAuto()) null else omega.power(),
+            batteryPct = battery, charging = charging, thermal = Introspect.thermalLevel(this), thermalCaution = omega.device.thermalCaution,
+            freeRamMb = Introspect.freeRamMb(this), local = device.local, writeTps = omega.writeTps, threads = omega.device.threads,
+        ))
         val plan = Sup.plan(Sup.Request(text, userVariant, userKind, userRole, userLevel, Introspect.online(this),
             weakDomain = if (learning && competence?.weak == true) domain.label else null,
             // Turbo = rychlá cesta i v cloudu (1 průchod, bez přemýšlení, stručně)
-            power = omega.power(), thermalCaution = omega.device.thermalCaution, localBrain = device.local || mode == "turbo"), device, omega.randy.stats(), authority)
+            power = budget.power, thermalCaution = omega.device.thermalCaution, localBrain = device.local || mode == "turbo"), device, omega.randy.stats(), authority)
         // DOLADĚNÍ DOVEDNOSTÍ v telefonu: ukázka odpovědi z této oblasti, kterou uživatel ocenil (few-shot)
         // v telefonu stojí každý token čas – ukázku přidáme jen cloudu nebo v režimu Sherlock
         val exemplar = if (learning && (!device.local || omega.power() == cz.axiom.omega.core.device.Power.SHERLOCK)) omega.cognition.exemplar(domain) else null
@@ -277,7 +284,7 @@ class OmegaService : Service() {
             var escalatedTo: cz.axiom.omega.core.agent.Variant? = null
             val meta: JSONObject
             val answer: String
-            if (plan.pipeline.size >= 2 && route.mode != Router.Mode.COUNCIL) {
+            if (plan.pipeline.size >= 2 && route.mode != Router.Mode.COUNCIL && budget.allowPipeline) {
                 // RANDY ŘETĚZEC: víc podmodelů za sebou, každý navazuje na výstup předchozího
                 val (a, m) = runPipeline(plan, route.prompt, route.engine, route.reason, history, insight, watchdog, threadId, listener, cancel)
                 meta = m; answer = a
@@ -321,6 +328,7 @@ class OmegaService : Service() {
                     val tLoad = System.currentTimeMillis()
                     val engine = omega.resolve(route.engine)
                     val loadMs = System.currentTimeMillis() - tLoad
+                    (engine as? cz.axiom.omega.engine.LocalEngine)?.setThreads(budget.threads)
                     listener.onPhase("Probouzím ${engine.label}…")
                     // RYCHLOST v telefonu: každý průchod = celé čtení + psaní znovu. Běžný dotaz 1 průchod,
                     // strategické/kritické (L3+) 2, Sherlock nejvýš 2 + oponentura v řetězci.
@@ -330,8 +338,9 @@ class OmegaService : Service() {
                     } else plan.passes ?: s.maxPasses
                     val orch = omega.orchestrator()
                     var r = orch.run(
-                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, plan.thinking ?: s.thinking, true, s.rates,
-                            s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight),
+                        AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
+                            s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
+                            maxTokens = budget.maxTokens.takeIf { engine.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge),
                         engine, cancel, listener,
                     )
                     // RANDY eskalace: nejistá odpověď → silnější varianta (jen s plnou pravomocí)
@@ -347,12 +356,15 @@ class OmegaService : Service() {
                     }
                     omega.rememberConfidence(r.confidence)
                     meta = metaOf(r).put("route", route.reason); answer = r.answer
-                    (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it.put("loadMs", loadMs).put("knowledgeMs", orch.knowledgeMillis)) }
+                    (engine as? cz.axiom.omega.engine.LocalEngine)?.perf()?.let { meta.put("perf", it.put("loadMs", loadMs).put("knowledgeMs", orch.knowledgeMillis)); omega.rememberSpeed(it.optDouble("writeTps")) }
                 }
             }
             val finalVariant = escalatedTo ?: variant
             if (finalVariant != cz.axiom.omega.core.agent.Variant.AUTO) meta.put("variant", finalVariant.title)
             meta.put("power", plan.power.label)
+            meta.put("governor", JSONObject().put("power", budget.power.label).put("demand", budget.demand).put("maxTokens", budget.maxTokens)
+                .put("threads", budget.threads).put("limited", budget.limited).put("auto", omega.powerAuto())
+                .put("reasons", JSONArray().apply { budget.reasons.forEach { put(it) } }))
             val randyMeta = JSONObject().put("summary", plan.summary).put("authority", authority.label).put("chosen", plan.chosenByRandy)
                 .put("variantId", finalVariant.name)
                 .put("decisions", JSONArray().apply { plan.decisions.forEach { put(it) } })

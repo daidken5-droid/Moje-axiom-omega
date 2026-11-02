@@ -53,6 +53,9 @@ data class AskRequest(
     val temperature: Float? = null,
     /** Metakognice z vlastní historie (Cognition) – co o sobě AVIOR v této oblasti ví. */
     val selfInsight: String? = null,
+    /** Rozpočet Regulátoru výkonu: max. tokenů odpovědi a počet podkladů (null = výchozí). */
+    val maxTokens: Int? = null,
+    val knowledgeLimit: Int? = null,
 )
 
 data class PassTrace(val index: Int, val pass: RandyPass, val text: String, val millis: Long, val model: String)
@@ -118,7 +121,7 @@ class Orchestrator(
 
         // 4) Vybavení: znalosti + paměť
         val tk = System.currentTimeMillis()
-        val snippets = if (req.useKnowledge) runCatching { knowledge.search(prompt, if (local) 2 else 5) }.getOrDefault(emptyList()) else emptyList()
+        val snippets = if (req.useKnowledge) runCatching { knowledge.search(prompt, req.knowledgeLimit ?: if (local) 2 else 5) }.getOrDefault(emptyList()) else emptyList()
         knowledgeMillis = System.currentTimeMillis() - tk
         val memories = MemoryRanker.rank(prompt, memory.all(), if (local) 4 else 10)
         memory.touch(memories.map { it.id })
@@ -164,7 +167,7 @@ class Orchestrator(
                 }
             }
             val opts = GenOptions(
-                maxTokens = if (engine.kind == EngineKind.LOCAL) Randy.localMaxTokens(level) else 32_000,
+                maxTokens = req.maxTokens ?: if (engine.kind == EngineKind.LOCAL) Randy.localMaxTokens(level) else 32_000,
                 effort = level.effort,
                 webSearch = req.webSearch && i == 0,
                 thinking = req.thinking,

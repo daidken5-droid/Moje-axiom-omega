@@ -189,6 +189,16 @@ class Omega private constructor(val app: Context) {
     @Volatile private var currentLabel = "neurčen"
     @Volatile private var currentKind = EngineKind.LOCAL
 
+    /** Klouzavý průměr rychlosti psaní mozku v telefonu (pro Regulátor výkonu). */
+    @Volatile var writeTps: Double? = null
+        private set
+    fun rememberSpeed(tps: Double?) {
+        if (tps == null || tps <= 0) return
+        writeTps = writeTps?.let { it * 0.6 + tps * 0.4 } ?: tps
+    }
+
+    fun powerAuto() = settings.power.equals("AUTO", true)
+
     fun rememberConfidence(c: Int?) {
         if (c == null) return
         synchronized(confidences) { confidences.addLast(c); while (confidences.size > 20) confidences.removeFirst() }

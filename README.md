@@ -8,6 +8,21 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## Novinky 6.0 – Regulátor výkonu
+
+- **Nový nadřazený modul s pravomocí nad výkonem** (`core/device/Governor.kt`). Rozhoduje před RANDY
+  a jeho rozhodnutí jsou závazná:
+  1. odhadne **náročnost dotazu 0–100** (hloubka RANDY, délka, typ úlohy),
+  2. v režimu **⚙ Auto** (nový výchozí) přidělí Základ / Pokročilé / Sherlock; ruční volba je **strop**
+     (na jednoduchou otázku nespotřebuje víc, zvolený Sherlock u náročné otázky platí celý),
+  3. **pojistky zařízení mají přednost vždy:** baterie ≤ 10 % → Základ, ≤ 25 % → bez Sherlocka,
+     teplý telefon → bez Sherlocka a méně vláken CPU, přehřátý → Základ, málo RAM → méně podkladů,
+     pomalý mozek (< 4,5 tok/s) → kratší odpovědi,
+  4. přidělí **rozpočet**: délku odpovědi, počet vláken CPU (mění se za běhu bez znovunačtení mozku),
+     přemýšlení, řetězce podmodelů, počet podkladů.
+- U každé odpovědi v detailu (⋯) je vidět, co regulátor rozhodl a proč; pravidla jsou v Nastavení.
+- Widget přepíná Auto → Základ → Pokročilé → Sherlock.
+
 ## Novinky 5.9 – rychlost od základu
 
 - **⚡ Turbo:** nový režim v rychlé volbě mozku. S internetem odpovídá nejrychlejší cloud (Claude Haiku 5.5

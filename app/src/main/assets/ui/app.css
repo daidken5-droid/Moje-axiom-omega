@@ -520,7 +520,7 @@ nav.tabs button.on svg { filter: drop-shadow(0 0 5px rgba(255, 255, 255, .35)); 
 input[type=range] { accent-color: #c3c8cf; }
 
 /* ---------- v4.2: výkon a moduly ---------- */
-.power { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 16px; background: linear-gradient(var(--ink), var(--ink)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
+.power { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px; border-radius: 16px; background: linear-gradient(var(--ink), var(--ink)) padding-box, var(--ti-edge) border-box; border: 1px solid transparent; }
 .power button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; color: var(--muted); font-size: .8rem; transition: background .15s, color .15s; }
 .power button b { font-weight: 600; }
 .power button small { font-size: .64rem; color: var(--dim); text-align: center; line-height: 1.25; }

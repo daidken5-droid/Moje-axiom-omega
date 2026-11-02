@@ -26,8 +26,9 @@ class AviorWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         if (intent.action == ACTION_POWER) {
             val s = Settings(context)
-            val next = Power.entries[(Power.of(s.power).ordinal + 1) % Power.entries.size]
-            s.power = next.name
+            // cyklus: Auto (Regulátor) → Základ → Pokročilé → Sherlock → Auto
+            val order = listOf("AUTO") + Power.entries.map { it.name }
+            s.power = order[(order.indexOfFirst { it.equals(s.power, true) }.coerceAtLeast(0) + 1) % order.size]
             refresh(context)
         }
     }
@@ -58,8 +59,9 @@ class AviorWidget : AppWidgetProvider() {
         private fun views(context: Context): RemoteViews {
             val v = RemoteViews(context.packageName, R.layout.widget_avior)
             val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val power = Power.of(Settings(context).power)
-            v.setTextViewText(R.id.w_power, when (power) { Power.BASIC -> "◇ ZÁKLAD"; Power.ADVANCED -> "◈ POKROČILÉ"; Power.SHERLOCK -> "⌕ SHERLOCK" })
+            val raw = Settings(context).power
+            val power = Power.of(raw)
+            v.setTextViewText(R.id.w_power, if (raw.equals("AUTO", true)) "⚙ AUTO" else when (power) { Power.BASIC -> "◇ ZÁKLAD"; Power.ADVANCED -> "◈ POKROČILÉ"; Power.SHERLOCK -> "⌕ SHERLOCK" })
             p.getString("status", null)?.takeIf { it.isNotBlank() }?.let { v.setTextViewText(R.id.w_status, it.uppercase()) }
             val a = p.getString("a", null)
             if (!a.isNullOrBlank()) v.setTextViewText(R.id.w_last, "„${p.getString("q", "")}“ — $a")

@@ -101,8 +101,9 @@ class Settings(context: Context) {
         set(v) = p.edit().putLong("exitSeen", v).apply()
     /** Režim výkonu: BASIC | ADVANCED | SHERLOCK */
     var power: String
-        get() = p.getString("power", "ADVANCED")!!
-        set(v) = p.edit().putString("power", cz.axiom.omega.core.device.Power.of(v).name).apply()
+        get() = p.getString("power", "AUTO")!!
+        // AUTO = Regulátor výkonu volí stupeň podle náročnosti dotazu a stavu telefonu
+        set(v) = p.edit().putString("power", if (v.equals("AUTO", true)) "AUTO" else cz.axiom.omega.core.device.Power.of(v).name).apply()
     var theme: String
         get() = p.getString("theme", "obsidian")!!
         set(v) = p.edit().putString("theme", if (v in setOf("obsidian", "platinum", "auto")) v else "obsidian").apply()

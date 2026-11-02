@@ -649,4 +649,13 @@ Java_cz_axiom_omega_engine_NativeLlama_nativeRagTopK(JNIEnv *env, jobject, jobje
     return out;
 }
 
+/** Regulátor výkonu: změna počtu vláken za běhu (žádné znovunačtení mozku). */
+JNIEXPORT void JNICALL
+Java_cz_axiom_omega_engine_NativeLlama_nativeSetThreads(JNIEnv *, jobject, jlong h, jint n, jint nb) {
+    auto *o = reinterpret_cast<Omega *>(h);
+    if (!o || !o->ctx || n <= 0) return;
+    std::lock_guard<std::mutex> lk(o->mu);
+    llama_set_n_threads(o->ctx, n, nb > 0 ? nb : n);
+}
+
 }  // extern "C"

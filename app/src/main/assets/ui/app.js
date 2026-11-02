@@ -192,11 +192,12 @@ const SUGGEST = [
 ];
 
 const POWERS = [
+  { id: 'AUTO', ic: '⚙', label: 'Auto', desc: 'Regulátor volí podle otázky' },
   { id: 'BASIC', ic: '◇', label: 'Základ', desc: 'Rychle a úsporně' },
   { id: 'ADVANCED', ic: '◈', label: 'Pokročilé', desc: 'Vyvážené – RANDY volí' },
   { id: 'SHERLOCK', ic: '⌕', label: 'Sherlock', desc: 'Maximum: dedukce a oponentura' },
 ];
-const curPower = () => (S.settings || {}).power || 'ADVANCED';
+const curPower = () => (S.settings || {}).power || 'AUTO';
 function powerSeg(big) {
   return `<div class="power ${big ? 'big' : ''}">${POWERS.map(p => `<button data-power="${p.id}" class="${curPower() === p.id ? 'on' : ''}"><span class="p-ic">${p.ic}</span><b>${p.label}</b>${big ? `<small>${p.desc}</small>` : ''}</button>`).join('')}</div>`;
 }
@@ -396,6 +397,7 @@ function msgHtml(m, last) {
     [...(rd.decisions || []).map(x => `<span>› ${esc(x)}</span>`), ...(rd.interventions || []).map(x => `<span class="int">⚑ ${esc(x)}</span>`)].join('') + '</div>');
   if (chain) det.push(`<div class="sub">ŘETĚZEC PODMODELŮ</div>` + chain.map((c, i) => `<div class="step"><b>${i + 1}. ${esc(c.variant)}</b> · ${esc(c.purpose)} · ${secs(c.millis)}<div class="obs">${esc(c.preview || '')}</div></div>`).join(''));
   if (meta.route) det.push(`<p class="small"><b>Proč takto:</b> ${esc(meta.route)}</p>`);
+  if (meta.governor) { const g = meta.governor; det.push(`<p class="small"><b>Regulátor výkonu:</b> ${esc(g.power)}${g.auto ? ' (Auto)' : ''} · náročnost ${g.demand}/100 · max. ${g.maxTokens} tokenů · ${g.threads} vlákna${g.limited ? ' · <b>omezeno pojistkou</b>' : ''}${(g.reasons || []).length ? '<br><span class="muted">' + g.reasons.map(esc).join(' · ') + '</span>' : ''}</p>`); }
   if (meta.perf) det.push(`<p class="small"><b>Výkon v telefonu:</b> čtení ${Math.round(meta.perf.readTps)} tok/s · psaní ${cz(meta.perf.writeTps.toFixed(1))} tok/s · ${meta.perf.gen} tokenů odpovědi${meta.perf.reused ? ' · ' + meta.perf.reused + ' z ' + meta.perf.prompt + ' tokenů zadání z cache' : ''}${meta.perf.loadMs > 300 ? ' · načtení mozku ' + secs(meta.perf.loadMs) : ''}${meta.perf.knowledgeMs > 300 ? ' · hledání podkladů ' + secs(meta.perf.knowledgeMs) : ''}</p>`);
   if (agent) det.push(stepsHtml(meta.steps));
   if (meta.facts && meta.facts.length) det.push(`<div class="sub">STEP-0</div>` + meta.facts.map(f => `<div class="fact">${esc(f)}</div>`).join(''));
@@ -801,6 +803,12 @@ function renderSystem() {
   const devicePanel = card(`<div class="row" style="gap:12px"><span class="v-ic">▯</span><span class="grow"><b>${dv.known ? 'Ušito na míru: ' : 'Profil: '}${esc(dv.name || 'telefon')}</b>
       <small class="muted" style="display:block">${esc(dv.soc || '')}${dv.soc ? ' · ' : ''}${dv.ramGb || '?'} GB RAM · ${dv.threads || '?'} výkonná vlákna · kontext ${dv.ctx || '?'}</small></span></div>
     <label>Výkon</label>${powerSeg(true)}
+    <details class="x"><summary>REGULÁTOR VÝKONU · JAK ROZHODUJE</summary><div class="in" style="white-space:normal">
+      <p class="small">› <b>Auto:</b> u každé otázky odhadne náročnost 0–100 (hloubka RANDY, délka, typ úlohy) a přidělí Základ (do 37), Pokročilé (38–71) nebo Sherlock (72+).</p>
+      <p class="small">› <b>Ruční volba</b> je strop: na jednoduchou otázku nespotřebuje víc, než je potřeba. Zvolený Sherlock u náročné otázky platí celý.</p>
+      <p class="small">› <b>Pojistky mají přednost vždy:</b> baterie ≤ 10 % → Základ, ≤ 25 % → bez Sherlocka; teplý telefon → bez Sherlocka a méně vláken, přehřátý → Základ; málo RAM → méně podkladů.</p>
+      <p class="small">› <b>Rozpočet:</b> délka odpovědi (320 / 560 / 900 tokenů v telefonu), vlákna CPU, přemýšlení a řetězce podmodelů jen v Sherlocku. Když mozek píše pomalu (&lt; 4,5 tok/s), odpovědi zkrátí.</p>
+      <p class="small">› U každé odpovědi v detailu (⋯) vidíš, co regulátor rozhodl a proč.</p></div></details>
     ${(dv.notes || []).length ? `<details class="x"><summary>JAK JE AVIOR NALADĚNÝ NA TENTO TELEFON</summary><div class="in" style="white-space:normal">${dv.notes.map(n => `<p class="small">› ${esc(n)}</p>`).join('')}</div></details>` : ''}`, 'randy');
   $('#main').innerHTML = `<div class="wrap">${head('NASTAVENÍ', 'Jak mám myslet.')}
     ${devicePanel}
