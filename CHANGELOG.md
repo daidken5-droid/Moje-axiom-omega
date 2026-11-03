@@ -1,5 +1,20 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1009 (emulace uživatelů – modul bez mozku)
+- **Nový test `NoBrainEmulationTest`:**
+  - 1 500 generovaných dotazů v 17 rodinách s nezávisle spočítaným správným výsledkem (orákulum),
+  - hovorové obměny: bez diakritiky, „prosím tě“, „hele“, „Ahoj,“, otazník,
+  - plus 300 mozkových otázek s čísly, kde reflex nesmí odpovědět.
+- **Nalezeno a opraveno:**
+  - **P1 – obal mění odpověď:** „prosím tě, sleva 20 % z 8100“ → jen „= 1620“ (výše slevy, bez ceny po slevě). Příčina: zdvořilý obal rozbil přesný vzor a obecný vzor procent vyhrál. Oprava: holá otázka bez obalu má přednost (`Reflex.unwrapped`). Platí pro všechny reflexy, ne jen slevu.
+  - **Dělení dvojtečkou** „629 : 3“ (český zápis) → počítá se. „10:30“ bez mezer zůstává čas.
+  - **Záporné teploty** „-13 °C na °F“ → převádí se. Záporné délky a hmotnosti dál jdou mozku.
+- **Výsledek:**
+  - před: 1 409/1 500 správně, 20 chybných (sleva), 71 mlčel (dělení, záporné teploty),
+  - po: 1 500/1 500 správně,
+  - 0 falešných reflexů z 300.
+  - (Dalších 60 „chybných“ v prvním běhu byla chyba orákula testu, které nečetlo znaménko minus – opraveno v testu.)
+
 ## Delta IV · sestavení 1008 (mrtvý kód + optimalizace)
 - **Mrtvý kód:**
   - odstraněno 6 metod mostu JS↔Kotlin, které UI od verze 3.1 nevolá (`renameThread`, `brainRefresh`, `kbAdd`, `memImportPrompt`, `stopSpeaking`, `hfStatus`) – menší útočná plocha mostu,

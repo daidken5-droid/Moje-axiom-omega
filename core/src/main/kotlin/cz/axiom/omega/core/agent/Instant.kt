@@ -80,7 +80,8 @@ object Instant {
         )
 
         // výpočet: „kolik je 12*7+3“, „(5+3)/2“
-        val expr = mathPrefix.replace(f, "").trim().trimEnd('?', '=', '!', '.', ' ')
+        // české „629 : 3“ (dvojtečka s mezerami = dělení; „10:30“ bez mezer je čas a zůstane)
+        val expr = mathPrefix.replace(f, "").trim().trimEnd('?', '=', '!', '.', ' ').replace(rx("(\\d)\\s+:\\s+(\\d)"), "$1 / $2")
         if (expr.isNotEmpty() && exprOnly.matches(expr) && expr.any { it.isDigit() } && (expr.any { it in "+*/^×÷" } || rx("\\s[-−]\\s").containsMatchIn(expr))) {
             Calc.eval(expr).getOrNull()?.takeIf { it.isFinite() }?.let { v ->
                 return Answer("${expr.trim()} = **${num(v, 6)}**", "výpočet")

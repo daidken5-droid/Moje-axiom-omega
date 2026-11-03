@@ -207,9 +207,21 @@ object Reflex {
         // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
         val sig = Pavucina.of(prompt) // PAVUČINA: varianty a signály se sdílí s E-ARL, RANDY i nápovědou
         if (sig.compound) return null
+        // EMULACE (P1): „prosím tě, sleva 20 % z 8100“ – úvodní zdvořilost rozbila přesný vzor (sleva) a obecný
+        // (procenta) odpověděl jen výši slevy. Když obal otázku mění, má přednost HOLÁ otázka – obal nesmí určovat,
+        // který reflex odpoví (metamorfní invariance).
+        val bare = sig.variants.firstOrNull()
+        if (bare != null && unwrapped(prompt, bare)) answerExact(bare, c)?.let { return it }
         return answerExact(prompt, c)
             // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
             ?: sig.variants.take(9).firstNotNullOfOrNull { answerExact(it, c) }
+    }
+
+    /** Je [bare] původní otázka jen bez zdvořilostního obalu (pozdrav, „prosím tě“, „hele“)? */
+    private fun unwrapped(prompt: String, bare: String): Boolean {
+        val base = TextUtil.fold(prompt).lowercase().replace(Regex("[?!.…,]+"), " ").replace(Regex("\\s+"), " ").trim()
+        val b = bare.replace(",", " ").replace(Regex("\\s+"), " ").trim()
+        return b.length in 3 until base.length && base.contains(b)
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {

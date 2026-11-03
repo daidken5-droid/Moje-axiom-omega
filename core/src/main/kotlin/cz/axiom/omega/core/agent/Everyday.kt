@@ -174,10 +174,12 @@ object Everyday {
         }
 
         // ---------------- převody v přirozené řeči: „5 km v metrech“, „100 eur na koruny“, „palec v cm“, „10 eur“
-        rx("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?(\\d+(?:[.,]\\d+)?)?\\s*([a-z°][a-z0-9°/ ]{0,27}?)\\s+(?:v|ve|na|do|=)\\s+([a-z°][a-z0-9°/ ]{0,27})$").find(f)?.let { m ->
-            val v = m.groupValues[1].ifBlank { "1" }.replace(',', '.').toDoubleOrNull() ?: return@let
+        rx("^(?:kolik je |kolik dela |preved |prevod |prepocitej )?([-−]?\\d+(?:[.,]\\d+)?)?\\s*([a-z°][a-z0-9°/ ]{0,27}?)\\s+(?:v|ve|na|do|=)\\s+([a-z°][a-z0-9°/ ]{0,27})$").find(f)?.let { m ->
+            val v = m.groupValues[1].ifBlank { "1" }.replace('−', '-').replace(',', '.').toDoubleOrNull() ?: return@let
             val from = unit(m.groupValues[2]) ?: return@let
             val to = unit(m.groupValues[3]) ?: return@let
+            // záporná hodnota dává smysl jen u teploty („-13 °C na °F“); „-5 km“ je spíš překlep → mozek
+            if (v < 0 && from !in setOf("c", "f", "k")) return@let
             Units.convert(v, from, to, rates).getOrNull()?.let { r ->
                 // jednotné číslo u 1 („1 míle“, ne „1 mil“); peníze na 2 desetinná místa
                 fun show(u: String, n: Double) = (if (n == 1.0) mapOf("mi" to "míle", "in" to "palec", "ft" to "stopa", "lb" to "libra", "oz" to "unce") else emptyMap())[u]

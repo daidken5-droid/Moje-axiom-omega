@@ -29,6 +29,18 @@ PROBE HIT 118/130 (EverydayCoverageTest)
 - Obě aktuální varianty mají 0 chybných odpovědí.
 - Varianty s mozkem (RANDY, RANDY + PROOFCORE) **nebyly měřeny**: v prostředí není model ani zařízení.
 
+## Sestavení 1009: emulace uživatelů, modul bez mozku (`NoBrainEmulationTest`)
+- 1 500 dotazů, 17 rodin (násobení, sčítání, procenta, převody jednotek, dny do data, DPH, desetinná čísla, dělení, záporné výsledky, čísla slovy, měny, °C→°F, den v týdnu, sleva, věk).
+- Správný výsledek počítá test nezávisle (orákulum).
+
+| Stav | správně | chybně | mlčel |
+|---|---|---|---|
+| před opravami | 1 409 | 20 | 71 |
+| po opravách | **1 500** | **0** | **0** |
+
+- 300 mozkových otázek s čísly: **0 falešných reflexů**.
+- `:core:test`: **213 testů, 0 selhání**; Δ Lab beze změny.
+
 ## Sestavení 1008: kontrola mrtvého kódu a výkonu
 - **Analýza mrtvého kódu** (skript `tools/audit/dead_code.py`):
   - každá deklarace v `src/main` × výskyty v kódu (komentáře se nepočítají), včetně volání z `app.js`,
