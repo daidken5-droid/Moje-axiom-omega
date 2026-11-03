@@ -39,3 +39,6 @@ prázdný logcat bez zařízení) – chyba skriptu opravena v 23c2038, viz CRUC
 - Další krok (commit s diagnostikou): `dmesg`/`coredumpctl` hostitele ukáže signál a knihovnu, kde qemu padá.
 - Aplikace v hostu nemůže legálně ukončit hostitelský proces; jde o chybu/limit emulátoru v CI spouštěnou
   zátěží, kterou AVIOR vytváří. Na telefonu tento mechanismus neexistuje – ale to je úvaha, ne měření.
+
+## Běh #10 (cb7f944) – diagnostika jádra hostitele
+`coredumpctl`: `qemu-system-x86_64-headless` signál 11 (SEGV), core 1,4 GB; `dmesg`: `kvm: vcpu0 … Unhandled WRMSR(0xc0010007)` (AMD, vnořená KVM). Padá binárka emulátoru na hostiteli; spouštěčem je start aplikace (WebView). Další krok: starší binárka emulátoru (`emulator-build 12414864`, commit 1d364ea). Podrobně `docs/hyperforge/RUNTIME_C08.md`.
