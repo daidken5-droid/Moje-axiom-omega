@@ -1,5 +1,20 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1014 (HYPERFORGE: integrita + STEP-0)
+Podrobně: `docs/hyperforge/` (AUDIT_FIXES, STEP0_HYPERFORGE_ARCHITECTURE, STEP0_EVALUATION, BENCHMARK_BEFORE_AFTER,
+SECURITY_REVIEW, RUNTIME_C08, BUILD_AND_TEST).
+- **M1 integrita:** ✓ patří konkrétnímu textu odpovědi (B nezdědí ověření A); mapa důkazů jen s existujícím souvisejícím
+  zdrojem a jako „heuristická klasifikace“; oprava od uživatele = nepotvrzená (CORRECTION), ne fakt; „podle …“ nic nedokazuje.
+- **M2 bezpečnost:** cloudová záloha šifrovaná koncově (AES-256-GCM + heslo); root povely a nevratné akce jen přes nativní dialog.
+- **M3 STEP-0:** typovaný Answer Contract; EV jen s výslovnou pravděpodobností; vestavěné kurzy datované a „NENÍ aktuální“;
+  paměť odpovědí hlídá rok, číslo, negaci, jednotku a jméno; názor nikdy jako fakt.
+- **M4 vertikály:** Verified Fact Store + datový kompilátor (ISO 3166-1 / 4217 z Unicode CLDR 49, 249 území, kontrolní součet);
+  Exact Engine (statistika, teorie čísel, geometrie, soustavy, datové jednotky, BMI); finance jen s výslovnými vstupy.
+- **M5 eval:** 5 061 případů s nezávislým orákulem (31 % záludných): precision accepted 100 % na dev/validation/holdout,
+  0 falešných jistot (dřívější STEP-0: 106). Opraveny 4 staré chyby nalezené evalem (předvolba místo ISO kódu, jiný stát,
+  procenta přebíjela finanční dotaz, normalizace měnila čísla).
+- **C-08:** emulátor padá SIGSEGV v hostitelské binárce qemu 37.2.13 (core dump); experiment se starší binárkou.
+
 ## Delta IV · sestavení 1009 (emulace uživatelů – modul bez mozku)
 - **Nový test `NoBrainEmulationTest`:**
   - 1 500 generovaných dotazů v 17 rodinách s nezávisle spočítaným správným výsledkem (orákulum),

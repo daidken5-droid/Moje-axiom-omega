@@ -51,6 +51,9 @@ jobs:
           # (aplikace v hostu ho sama zabít nemůže) → podezření na hostitelský renderer; -gpu guest nepomohl (#5)
           # → experiment: bez Vulkanu (WebView na Androidu 14 jinak kreslí přes hostitelský Vulkan/gfxstream)
           emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -noaudio -no-boot-anim -no-snapshot
+          # běh #10 (coredumpctl): SIGSEGV v qemu-system-x86_64-headless 37.2.13 při startu AVIORu na AMD runneru
+          # s vnořenou KVM (před tím „Unhandled WRMSR(0xc0010007)“). Experiment: starší binárka emulátoru.
+          emulator-build: 12414864
           emulator-boot-timeout: 900
           script: tools/crucible/run_emulator_ci.sh
       # běh #9: data AVIORu 1 MB, AVD neroste, ale −7,4 GB na hostiteli přesně při zániku emulátoru a pak zpět
