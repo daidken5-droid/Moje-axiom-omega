@@ -68,13 +68,18 @@ object Step0 {
         """(?:pravd[eě]podobnost(?:í)?|odhad(?:em)?|šance|sance|p)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*%""",
         RegexOption.IGNORE_CASE,
     )
-    private val anyPctRx = Regex("""(\d+(?:[.,]\d+)?)\s*%""")
+    // HYPERFORGE M3: procento za ním výslovně spojené s pravděpodobností („55 % šance“, „55% pravděpodobnost výhry“)
+    private val probAfterRx = Regex("""(\d+(?:[.,]\d+)?)\s*%\s*(?:šanc\w*|sanc\w*|pravd[eě]podobnost\w*|na výhru|na vyhru|výhr\w*|vyhr\w*)""", RegexOption.IGNORE_CASE)
     private val bankrollRx = Regex("""bank(?:roll)?\w*\s*:?\s*(\d[\d\s]*(?:[.,]\d+)?)""", RegexOption.IGNORE_CASE)
 
-    /** +EV engine s Half-Kelly (ASTRAEA DNA). */
+    /**
+     * +EV engine s Half-Kelly (ASTRAEA DNA).
+     * HYPERFORGE M3: pravděpodobnost se bere JEN z výslovně označeného vstupu („pravděpodobnost 55 %“, „šance 55 %“,
+     * „55 % šance“). Dřív stačilo jakékoli procento vedle kurzu – „sleva 20 % a kurz 2,0“ spočítalo EV s 20% šancí.
+     */
     fun ev(text: String): Fact? {
         val odds = oddsRx.find(text)?.groupValues?.get(1)?.let(TextUtil::parseNumber) ?: return null
-        val pctMatch = probKeyRx.find(text) ?: anyPctRx.find(text) ?: return null
+        val pctMatch = probKeyRx.find(text) ?: probAfterRx.find(text) ?: return null
         val p = (TextUtil.parseNumber(pctMatch.groupValues[1]) ?: return null) / 100.0
         if (odds <= 1.0 || p !in 0.001..0.999) return null
         val b = odds - 1.0
@@ -109,7 +114,7 @@ object Step0 {
         val bags = kotlin.math.ceil((m2 * 1.5 * 3.0) / 25.0).toInt()
         return Fact(
             Kind.BUILD,
-            "${num(m2)} m² (s 10% prořezem ${num(waste)} m²): penetrace ${num(waste * 0.15)} kg, " +
+            "ORIENTAČNÍ ODHAD (typické spotřeby, ne technický list): ${num(m2)} m² (s 10% prořezem ${num(waste)} m²): penetrace ${num(waste * 0.15)} kg, " +
                 "base ${num(waste * 1.60)} kg, fine ${num(waste * 0.80)} kg, 2K PU lak ${num(waste * 0.22)} kg; " +
                 "samonivelace 3 mm ≈ $bags pytlů à 25 kg (1,5 kg/m²/mm). Spotřeby jsou typické – ověř technický list výrobce.",
         )
@@ -127,8 +132,8 @@ object Step0 {
         val vat = base * 0.21
         return Fact(
             Kind.IMPORT,
-            "${num(jpy)} JPY ≈ ${num(goods)} Kč (kurz ${num(rate, 4)} Kč/JPY, ${rates.label()}) | " +
-                "doprava (předpoklad) ${num(shippingCzk)} Kč | DPH 21 % ze ${num(base)} Kč = ${num(vat)} Kč | " +
+            "ORIENTAČNÍ ODHAD: ${num(jpy)} JPY ≈ ${num(goods)} Kč (kurz ${num(rate, 4)} Kč/JPY, ${rates.label()}) | " +
+                "doprava (PŘEDPOKLAD, zadej skutečnou) ${num(shippingCzk)} Kč | DPH 21 % (sazba ČR, stav 2026) ze ${num(base)} Kč = ${num(vat)} Kč | " +
                 "celkem ≈ ${num(base + vat)} Kč + případný poplatek dopravce. Clo dle zařazení zboží (např. hrací karty TARIC 9504 40 00 00 = 0 %) – ověř aktuální pravidla.",
         )
     }

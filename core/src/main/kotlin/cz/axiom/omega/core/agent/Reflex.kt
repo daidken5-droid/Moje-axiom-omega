@@ -146,6 +146,27 @@ object Reflex {
         return similarity(canon(a), canon(b)) >= 0.8
     }
 
+    // ------------------------------------------------------------------ HYPERFORGE M3: identita otázky
+    private val digitsRx = Regex("\\d+(?:[.,]\\d+)?")
+    private val negRx = Regex("\\b(ne|neni|nebyl\\w*|nebude\\w*|nema\\w*|nejsou|nemuze|nesmi\\w*|nikdy|zadn\\w*|bez|not|never|no|isn't|don't)\\b")
+    private val unitRx = Regex("\\b(km|m|cm|mm|kg|g|mg|l|ml|mil\\w*|stop\\w*|palc\\w*|libr\\w*|kc|eur\\w*|usd|dolar\\w*|liber|°?c|°?f|kelvin\\w*|kwh|kw|w|v|a|h|min|s|procent\\w*|%)\\b")
+    private val properRx = Regex("(?<=[\\p{L}\\d,;] )\\p{Lu}\\p{L}+")
+
+    /**
+     * Smí se odpověď uložená k otázce [b] použít pro otázku [a]? Podobnost slov nestačí: jiný rok / číslo, negace,
+     * jednotka nebo vlastní jméno = JINÁ otázka („kdy se narodil Karel Gott“ ≠ „kdy zemřel …“ řeší slova,
+     * „kolik je 5 km v mílích“ ≠ „kolik je 50 km v mílích“, „je Pluto planeta“ ≠ „není Pluto planeta“ řeší tohle).
+     */
+    fun compatible(a: String, b: String): Boolean {
+        val fa = TextUtil.fold(a).lowercase(); val fb = TextUtil.fold(b).lowercase()
+        if (digitsRx.findAll(fa).map { it.value.replace(',', '.') }.toList().sorted() != digitsRx.findAll(fb).map { it.value.replace(',', '.') }.toList().sorted()) return false
+        if (negRx.containsMatchIn(fa) != negRx.containsMatchIn(fb)) return false
+        if (unitRx.findAll(fa).map { it.value.take(3) }.toSet() != unitRx.findAll(fb).map { it.value.take(3) }.toSet()) return false
+        val pa = properRx.findAll(a).map { TextUtil.fold(it.value).lowercase().take(5) }.toSet()
+        val pb = properRx.findAll(b).map { TextUtil.fold(it.value).lowercase().take(5) }.toSet()
+        return pa.isEmpty() || pb.isEmpty() || pa == pb
+    }
+
     fun cached(prompt: String, entries: List<Entry>, now: Long = System.currentTimeMillis()): Instant.Answer? {
         val pk = key(prompt)
         if (pk.size < 2 || timeSensitive(prompt)) return null
@@ -161,6 +182,8 @@ object Reflex {
         }
         // REVIZNÍ SMLOUVA: prošlé odpovědi se nepoužijí – otázku znovu vyhodnotí mozek nebo zdroj
         val scored = entries.filter { Proof.alive(it.at, it.reviseAt, now) }.map { it to sim(it) }
+            // identita (čísla, negace, jednotky, jména) jen u kandidátů nad prahem – levné
+            .filter { (e, s) -> s >= 0.8 && compatible(prompt, e.question) }
         // PROOFCORE: jistota z DŮKAZU. Ověřené (✓ uživatele, Wikipedie) platí i pro přeformulovanou otázku;
         // neověřená odpověď mozku jen pro tutéž otázku a POD prahem Auto (85) – v Auto ji mozek zodpoví znovu,
         // Flash (práh 70, uživatel chce rychlost) ji vrátí s viditelným štítkem „neověřeno“.
@@ -210,11 +233,13 @@ object Reflex {
         // EMULACE (P1): „prosím tě, sleva 20 % z 8100“ – úvodní zdvořilost rozbila přesný vzor (sleva) a obecný
         // (procenta) odpověděl jen výši slevy. Když obal otázku mění, má přednost HOLÁ otázka – obal nesmí určovat,
         // který reflex odpoví (metamorfní invariance).
+        val t0 = System.nanoTime()
         val bare = sig.variants.firstOrNull()
-        if (bare != null && unwrapped(prompt, bare)) answerExact(bare, c)?.let { return it }
-        return answerExact(prompt, c)
+        val hit = (if (bare != null && unwrapped(prompt, bare)) answerExact(bare, c) else null)
+            ?: answerExact(prompt, c)
             // ROZPOZNÁNÍ: stejná otázka jinými slovy („prosím tě, víš kolik je dneska hodin?“) → kanonické varianty
             ?: sig.variants.take(9).firstNotNullOfOrNull { answerExact(it, c) }
+        return hit?.let { a -> a.contract?.let { a.copy(contract = it.copy(elapsedNs = System.nanoTime() - t0)) } ?: a }
     }
 
     /** Je [bare] původní otázka jen bez zdvořilostního obalu (pozdrav, „prosím tě“, „hele“)? */
@@ -225,21 +250,23 @@ object Reflex {
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
+        val ratesAsOf = c.instant.rates.takeIf { it.fresh }?.date ?: "vestavěné kurzy, stav 10/2026"
+        fun Instant.Answer.tag(m: String, asOf: String? = null) = copy(contract = AnswerContract.of(m, this, asOf))
         val candidates = sequence {
             // Praktické první: má nejužší vzory (sleva, DPH, světový čas) – obecná procenta a hodiny by je přebila
-            Practical.answer(prompt, c.instant.now)?.let { yield(it) }
-            Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
-            Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it) }
-            Facts.answer(prompt, c.today)?.let { yield(it) }
-            Politics.answer(prompt, c.today)?.let { yield(it) }
-            calendar(prompt, c.today)?.let { yield(it) }
-            recall(prompt, c.memories)?.let { yield(it) }
-            cached(prompt, c.cache)?.let { yield(it) }
+            Practical.answer(prompt, c.instant.now)?.let { yield(it.tag("practical")) }
+            Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it.tag("instant")) }
+            Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it.tag("everyday", if (it.kind.startsWith("kurz") || it.kind == "převod") ratesAsOf else null)) }
+            Facts.answer(prompt, c.today)?.let { yield(it.tag("facts", "stav ${Politics.STATE_YEAR}")) }
+            Politics.answer(prompt, c.today)?.let { yield(it.tag("politics", "stav ${Politics.STATE_YEAR}")) }
+            calendar(prompt, c.today)?.let { yield(it.tag("calendar")) }
+            recall(prompt, c.memories)?.let { yield(it.tag("recall")) }
+            cached(prompt, c.cache)?.let { yield(it.tag("cache")) }
             // OFFLINE WIKIPEDIE (přes Pavučinu sdílený zdroj): narození/úmrtí, poloha, vznik, definice – jen přesná shoda hesla
             if (c.definitions && c.instant.knowledge != null) {
                 // Δ SROVNÁVAČ: „co je větší, Praha nebo Brno?“ → dvě hesla, tabulka čísel a spočítaný verdikt
-                Compare.answer(prompt, c.instant.knowledge)?.let { yield(it) }
-                WikiReflex.answer(prompt, c.instant.knowledge)?.let { yield(it) }
+                Compare.answer(prompt, c.instant.knowledge)?.let { yield(it.tag("compare", "offline Wikipedie 11/2023")) }
+                WikiReflex.answer(prompt, c.instant.knowledge)?.let { yield(it.tag("wiki", "offline Wikipedie 11/2023")) }
             }
         }
         return candidates.firstOrNull { it.confidence >= c.threshold && verified(it, c) }

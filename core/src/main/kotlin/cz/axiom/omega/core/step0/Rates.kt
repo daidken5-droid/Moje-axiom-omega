@@ -15,15 +15,28 @@ data class Rates(
 ) {
     fun of(code: String): Double? = if (code.uppercase() == "CZK") 1.0 else czkPerUnit[code.uppercase()]
 
-    fun label(): String = "$source $date"
+    /** Kurz z lístku ČNB (ne vestavěný orientační). */
+    val fresh: Boolean get() = source != FALLBACK_SOURCE
+
+    /** HYPERFORGE M3: vestavěný kurz se nesmí tvářit jako aktuální – v textu vždy datum a výhrada. */
+    fun label(): String = if (fresh) "$source $date" else "orientační vestavěný kurz ($date) – NENÍ aktuální, ověř na cnb.cz"
+
+    /** Lístek ČNB starší než [maxDays] dní (víkend/svátky se tolerují) – nebo vestavěný kurz. */
+    fun stale(today: java.time.LocalDate, maxDays: Long = 5): Boolean {
+        if (!fresh) return true
+        val d = runCatching { java.time.LocalDate.parse(date.trim(), java.time.format.DateTimeFormatter.ofPattern("d.M.yyyy")) }.getOrNull() ?: return true
+        return java.time.temporal.ChronoUnit.DAYS.between(d, today) > maxDays
+    }
 
     companion object {
         /** Záložní orientační kurzy (použijí se, dokud se nepodaří stáhnout ČNB). */
         val FALLBACK = Rates(
             mapOf("EUR" to 24.30, "USD" to 21.60, "JPY" to 0.142, "GBP" to 28.40, "CHF" to 26.20, "PLN" to 5.70),
-            date = "orientační",
-            source = "vestavěné",
+            date = "stav 10/2026",
+            source = FALLBACK_SOURCE,
         )
+
+        const val FALLBACK_SOURCE = "vestavěné"
 
         const val CNB_URL =
             "https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt"

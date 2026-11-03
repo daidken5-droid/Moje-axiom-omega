@@ -570,6 +570,9 @@ class OmegaService : Service() {
         val meta = JSONObject().put("engine", "Reflex AVIOR · bez mozku").put("millis", ms).put("variant", if (flash) "Ω Flash" else "Ω Reflex")
             .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0")
         if (a.sources.isNotEmpty()) meta.put("sources", JSONArray().apply { a.sources.forEach { put(JSONObject().put("title", it.title).put("url", "").put("source", it.source)) } })
+        // ANSWER CONTRACT (M3): typ, důvod, zdroj, stav k datu, předpoklady, čas výpočtu – UI ho jen zobrazí, nikdy nezvýší
+        a.contract?.let { k -> meta.put("contract", JSONObject().put("type", k.type.code).put("label", k.type.label).put("reason", k.reason)
+            .put("refs", JSONArray(k.evidenceRefs)).put("asOf", k.asOf ?: JSONObject.NULL).put("assumptions", JSONArray(k.assumptions)).put("us", k.elapsedNs / 1000)) }
         val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
         Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))
         return true

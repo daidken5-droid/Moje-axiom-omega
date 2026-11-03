@@ -88,7 +88,7 @@ class Step0Test {
     @Test fun importIncludesShippingInVatBase() {
         val f = Step0.importJp("Karty za 10000 jenů", Rates(mapOf("JPY" to 0.15), "x", "test"))!!
         // zboží 1500 + doprava 450 = 1950; DPH 409,5; celkem 2359,5
-        assertTrue(f.text, f.text.contains("DPH 21 % ze 1950 Kč = 409,5 Kč"))
+        assertTrue(f.text, f.text.contains("ze 1950 Kč = 409,5 Kč") && f.text.contains("PŘEDPOKLAD") && f.text.startsWith("ORIENTAČNÍ ODHAD"))
         assertTrue(f.text, f.text.contains("celkem ≈ 2359,5 Kč"))
     }
 

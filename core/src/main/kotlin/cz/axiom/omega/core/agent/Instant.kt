@@ -32,7 +32,7 @@ object Instant {
     )
 
     /** @param confidence jistota 0–100 (deterministické nástroje 99, definice z knihovny 86) */
-    data class Answer(val text: String, val kind: String, val sources: List<Snippet> = emptyList(), val confidence: Int = 99)
+    data class Answer(val text: String, val kind: String, val sources: List<Snippet> = emptyList(), val confidence: Int = 99, val contract: AnswerContract? = null)
 
     private val days = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
     private val months = listOf("ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince")

@@ -170,7 +170,8 @@ object Everyday {
             val code = when { m.groupValues[1].startsWith("eur") -> "EUR"; m.groupValues[1].startsWith("dol") || m.groupValues[1] == "usd" -> "USD"; m.groupValues[1].startsWith("lib") || m.groupValues[1] == "gbp" -> "GBP"
                 m.groupValues[1].startsWith("fra") || m.groupValues[1] == "chf" -> "CHF"; m.groupValues[1].startsWith("zl") || m.groupValues[1] == "pln" -> "PLN"; else -> "JPY" }
             val r = rates.of(code) ?: return null
-            return ans("1 $code = **${num(r, 3)} Kč** (${rates.label()}).", "kurz", 92)
+            // vestavěný kurz: výpočet je přesný, ale VSTUP je orientační → výhrada s datem přímo v odpovědi (rates.label)
+            return ans("1 $code = **${num(r, 3)} Kč** (${rates.label()}).", if (rates.fresh) "kurz" else "kurz · orientační", 92)
         }
 
         // ---------------- převody v přirozené řeči: „5 km v metrech“, „100 eur na koruny“, „palec v cm“, „10 eur“

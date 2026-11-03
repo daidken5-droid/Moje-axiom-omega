@@ -158,7 +158,7 @@ function evidenceChip(m) {
     return parts.length ? `<div class="evrow">${parts.join('')}</div>` : '';
   }
   if (meta.phone) parts.push(`<span class="reflex" title="Ovládání telefonu – bez mozku">${meta.root ? '⚠︎ root' : '⚙︎ telefon'} · povel</span>`);
-  else if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.instant || 'reflex')}">ϟ reflex · ${esc(meta.instant || '')} · jistota ${meta.reflex} %</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
+  else if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.contract ? meta.contract.reason + (meta.contract.asOf ? ' · stav: ' + meta.contract.asOf : '') : (meta.instant || 'reflex'))}">ϟ ${esc(meta.contract ? meta.contract.label : 'reflex')} · ${esc(meta.instant || '')}${meta.contract && meta.contract.asOf ? ' · ' + esc(meta.contract.asOf) : ''}</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
   else if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ v telefonu</span>');
   if (meta.learned) parts.push(`<span class="learned" title="Učím se z této otázky">✦ ${esc(meta.learned.domain)}</span>`);
   if (ev && ev.spans && ev.spans.length >= 2) {
