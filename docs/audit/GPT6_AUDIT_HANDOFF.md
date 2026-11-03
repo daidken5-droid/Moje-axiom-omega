@@ -35,6 +35,7 @@ Výsledkem musí být kritické technické hodnocení a konkrétní plán dalš�
 5. **Testy:** `core/src/test/...` (DeltaLabTest, FaultlineTest, InvariantsTest, StressTest), `app/src/test/.../DbMigrationTest.kt`.
 
 ## Na co si dát pozor
+- **Emulátor v CI je nestabilní:** qemu mizí 45–120 s po prvním spuštění AVIORu (bez aplikace přežije 180 s). Příčina neověřena – viz `docs/crucible/CRUCIBLE_RUNTIME_REPORT.md`. Posuď, zda nejde o chybu aplikace.
 - **Žádné měření na skutečném telefonu.** Výkon llama.cpp, RAM, teplo a životní cyklus Androidu nikdo neověřil.
 - **Δ Lab měří jen odpovědi bez mozku a sady napsal stejný AI vývojář.** Hrozí, že testy odrážejí jeho předpoklady. 3 položky závěrečné sady jsou „kontaminované“ opravou.
 - Rozhodování o hloubce dělají tři vrstvy (E-ARL, Router, RANDY). Redundance je podezřelá, ale neměřená.

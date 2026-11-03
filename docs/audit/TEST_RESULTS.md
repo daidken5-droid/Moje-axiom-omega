@@ -1,5 +1,13 @@
 # Výsledky testů
 
+## Sestavení 1013 (276230c) – aktuální stav
+- `:core:test` **213/213** (57 tříd), `:app:testDebugUnitTest` (Robolectric DbMigrationTest) **3/3**, lokálně i v CI.
+- `:app:lintDebug` **0 chyb**, 39 varování (posouzena). CI „Build AVIOR APK“ úspěch.
+- APK `AVIOR-276230c.apk`: versionCode 1013, podpis SHA-256 `66a2e14c…`, SHA-256 souboru `05efca9f…6a72` (ověřeno apksigner/aapt2).
+- **Emulátor (CI, API 34 x86_64):** 1 instrumentační test bez mozku prošel (575 ms); studený start 1,6–6,8 s, teplý 716 ms
+  bez pádu aplikace. Emulátor (qemu) však ve 4/4 bězích mizí 45–120 s po prvním spuštění AVIORu (bez aplikace přežije)
+  → ostatní běhové testy **neověřeny**. Podrobně: `docs/crucible/`.
+
 ## Lokální běh (vývojový kontejner, JDK 21, Linux; ne Android)
 `./gradlew :core:test` – **210 testů v 55 třídách, 0 selhání**. Vybrané výstupy:
 

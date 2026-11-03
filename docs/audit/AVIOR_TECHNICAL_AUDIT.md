@@ -4,7 +4,7 @@
 > Každé tvrzení odkazuje na soubor, test nebo měření; co odkaz nemá, je označeno jako neověřené.
 
 ## 1. Identifikace verze
-- **Aplikace:** `cz.axiom.omega`, versionName **Delta IV**, versionCode **1009** (`app/build.gradle.kts`).
+- **Aplikace:** `cz.axiom.omega`, versionName **Delta IV**, versionCode **1013** (`app/build.gradle.kts`).
 - **Zdroj:** větev `claude/reverse-engineer-ai-app-o5jhyd`; přesný commit je uvedený v `TEST_RESULTS.md`.
 - **Předchozí stabilní vydání:** 1004 a 1006 (GitHub Releases `avior-delta-iv-c100x`, podpis SHA-256 `66a2e14c…`). Návrat k nim = instalace staršího APK.
   - Pozor: databáze v4 je zpětně kompatibilní jen směrem nahoru; starší APK přidané sloupce ignoruje.
