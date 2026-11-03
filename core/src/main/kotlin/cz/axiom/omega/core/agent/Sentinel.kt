@@ -158,6 +158,9 @@ object Sentinel {
         return null
     }
 
+    /** Nejisté datum („asi 1045“, „kolem 1500“, „př. n. l.“) – sdílí Strážce i WikiReflex (žádná falešná přesnost). */
+    val UNCERTAIN = Regex("\\b(asi|kolem|cca|okolo|snad|patrně|př\\.|n\\. l\\.)", RegexOption.IGNORE_CASE)
+
     private val dateRx = Regex("(\\d{1,2})\\.\\s*($MONTHS|\\d{1,2}\\.)\\s*(\\d{3,4})|\\b(\\d{3,4})\\b")
 
     /** Z úvodní závorky hesla („(14. července 1939 Plzeň – 1. října 2019 Praha)“) → (text data, datum) narození a úmrtí. */
@@ -166,7 +169,7 @@ object Sentinel {
         // musí to vypadat jako životopisná závorka (datum, ne „(z latiny …)“ ani „(1. díl)“)
         if (!Regex("\\b1[0-9]{3}\\b|\\b20[0-2][0-9]\\b").containsMatchIn(paren)) return null
         // „asi 1340“, „kolem 1500“, „př. n. l.“ → nejisté datum, raději mlčet
-        if (Regex("\\b(asi|kolem|cca|okolo|snad|patrně|př\\.|n\\. l\\.)", RegexOption.IGNORE_CASE).containsMatchIn(paren)) return null
+        if (UNCERTAIN.containsMatchIn(paren)) return null
         val sides = paren.split(Regex("\\s[–—-]\\s|\\s†\\s?")).map { it.trim() }
         fun parse(s: String?): Pair<String, When>? = s?.let { dateRx.find(it.removePrefix("*").trim()) }?.let { m ->
             val w = if (m.groupValues[3].isNotEmpty()) mkWhen(m.groupValues[1], m.groupValues[2], m.groupValues[3]) else When(m.groupValues[4])

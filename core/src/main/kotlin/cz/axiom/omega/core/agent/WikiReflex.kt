@@ -66,8 +66,11 @@ object WikiReflex {
         val d = if (born) dateRx.find(sides.first().removePrefix("*").trim())?.value
             else sides.getOrNull(1)?.let { dateRx.find(it)?.value } ?: Regex("†\\s*([^,;)]+)").find(paren)?.groupValues?.get(1)?.let { dateRx.find(it)?.value }
         if (d == null) return if (!born && sides.size == 1) Instant.Answer("Podle offline Wikipedie **${cleanName(a)} žije** (heslo neuvádí datum úmrtí)." + source(a), "Wikipedie", confidence = 86) else null
-        val place = (if (born) sides.first() else sides.getOrNull(1)).orEmpty().substringAfter(d, "").trim().trim(',', ' ').takeIf { it.length in 2..40 }
-        return Instant.Answer("**${cleanName(a)}** se ${if (born) "narodil(a)" else "zemřel(a)"} **$d**" + (place?.let { " ($it)" } ?: "") + "." + source(a), "Wikipedie", confidence = 90)
+        val side = (if (born) sides.first() else sides.getOrNull(1)).orEmpty()
+        val place = side.substringAfter(d, "").trim().trim(',', ' ').takeIf { it.length in 2..40 }
+        // CONVERGENCE G: „(asi 1045 – …)“ → „asi 1045“, ne falešně přesné „1045“; nejistota sníží i jistotu odpovědi
+        val hedge = Sentinel.UNCERTAIN.find(side.substringBefore(d))?.value?.let { "$it " } ?: ""
+        return Instant.Answer("**${cleanName(a)}** se ${if (born) "narodil(a)" else "zemřel(a)"} **$hedge$d**" + (place?.let { " ($it)" } ?: "") + "." + source(a), "Wikipedie", confidence = if (hedge.isEmpty()) 90 else 86)
     }
 
     private fun cleanName(a: Snippet) = a.title.replace(Regex("^Wikipedie:\\s*"), "").replace(Regex("\\s*\\(.*\\)"), "")

@@ -18,6 +18,19 @@ Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERIN
 
 Celá zpráva: [docs/FAULTLINE_AUDIT.md](docs/FAULTLINE_AUDIT.md).
 
+**CONVERGENCE (sestavení 1005):** testy systémových invariantů:
+- provenience,
+- omezené pokusy cloudu,
+- paměť,
+- soukromí,
+- žádná falešná přesnost.
+
+Opraveno:
+- poznámky agenta se už neukládají jako fakta o uživateli,
+- nejisté datum („asi 1045“) se nevypisuje jako přesné.
+
+Zpráva: [docs/CONVERGENCE_REPORT.md](docs/CONVERGENCE_REPORT.md).
+
 **Δ Lab (měřicí prostředí generací):** `core/src/test/.../DeltaLabTest.kt` a `core/src/test/resources/deltalab/`.
 - **Sady otázek:**
   - vývojová sada `dev.tsv` (30 otázek, smí se na ní ladit),

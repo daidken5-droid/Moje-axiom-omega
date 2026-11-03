@@ -48,8 +48,11 @@ object Tools {
         },
         tool("memory_save", """{"text": "fakt k zapamatování"}""", "uloží důležitý fakt do dlouhodobé paměti") { a, _ ->
             val t = a.arg("text", "fact")
-            memory.remember(MemoryItem(kind = MemoryKind.FACT, text = TextUtil.clip(t, 400), weight = 1.0))
-            "Uloženo do paměti."
+            // INVARIANT D (CONVERGENCE): co si zapíše MODEL, není fakt. Ukládá se jako epizoda s nižší váhou –
+            // mozek ji v paměti uvidí, ale reflex bez mozku z ní neodpoví jako z jistoty. Fakta od uživatele
+            // („zapamatuj si, že…“) ukládá deterministicky SelfModel z jeho vlastních slov.
+            memory.remember(MemoryItem(kind = MemoryKind.EPISODE, text = TextUtil.clip(t, 400), weight = 0.7))
+            "Uloženo do paměti (jako poznámka – fakt potvrdí uživatel)."
         },
         tool("note", """{"title": "název", "text": "obsah"}""", "uloží výsledek práce jako dokument do offline databáze") { a, _ ->
             notes(a.arg("title", "name").take(120), a.arg("text", "content"))
