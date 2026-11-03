@@ -12,6 +12,14 @@ adb shell pm grant cz.axiom.omega.debug android.permission.POST_NOTIFICATIONS 2>
 echo "[$(date +%T)] emulátor: $(adb shell getprop sys.boot_completed | tr -d '\r') (boot_completed)"
 # EXPERIMENT (běhy #1, #4: emulátor zmizel během instrumentace): smoke NEJDŘÍV – spadne-li i při obyčejném
 # spuštění aplikace, spouštěčem je aplikace/WebView; jinak vazba na testovací platformu
+# KONTROLA (běh #5: emulátor zmizel ~100 s po bootu už při smoke, bez crash dumpu, RAM hostitele OK):
+# 180 s emulátor BEZ aplikace. Zmizí-li i tak → příčina je emulátor/runner, ne AVIOR.
+echo "[$(date +%T)] kontrola: 180 s nečinný emulátor bez AVIORu…"
+idle_ok=1
+for i in $(seq 18); do sleep 10; [ "$(timeout 10 "$ADB_BIN" get-state 2>/dev/null)" = "device" ] || { idle_ok=0; break; }; done
+if [ $idle_ok -eq 1 ]; then echo "[$(date +%T)] kontrola: emulátor bez aplikace přežil 180 s"
+else echo "[$(date +%T)] kontrola: emulátor ZMIZEL BEZ AVIORu (po ~$((i*10)) s) → příčina mimo aplikaci"; fi
+{ echo "## Kontrola bez aplikace"; [ $idle_ok -eq 1 ] && echo "- emulátor bez AVIORu přežil 180 s" || echo "- ❌ emulátor zmizel BEZ AVIORu po ~$((i*10)) s → příčina: emulátor/runner, ne aplikace"; echo; } > control.md
 APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
 echo "[$(date +%T)] smoke…"
 timeout 900 tools/crucible/emulator_smoke.sh "$APK" smoke.md
@@ -33,7 +41,7 @@ adb logcat -d > logcat-instrumentation.txt 2>/dev/null
   grep -h -o "CRUCIBLE.*" app/build/outputs/androidTest-results/connected/debug/*/logcat-*.txt 2>/dev/null | sort -u | sed 's/^/- /'
   echo
 } > "$OUT"
-cat smoke.md >> "$OUT"
+cat control.md smoke.md >> "$OUT" 2>/dev/null
 kill $MON 2>/dev/null; { echo; echo "### Hostitel (paměť, počet zařízení)"; echo '```'; tail -120 host-monitor.log; echo '```'; } >> "$OUT"
 cat "$OUT"
 [ $inst -eq 0 ] && [ $smoke -eq 0 ]

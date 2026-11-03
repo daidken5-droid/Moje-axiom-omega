@@ -46,9 +46,9 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          # běhy #1 a #4: emulátor (qemu) potichu skončil ~2 min po startu instrumentace během vykreslování WebView
-          # se swiftshader_indirect → experiment: vykreslování uvnitř hosta (-gpu guest) + crash data níže
-          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot
+          # běhy #1, #4, #5: emulátor (qemu 37.2.13) potichu skončil ~100–120 s po startu; -gpu guest (běh #5) nepomohl
+          # → zpět swiftshader_indirect; run_emulator_ci.sh nejdřív ověří emulátor 180 s bez aplikace (kontrola)
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           emulator-boot-timeout: 900
           script: tools/crucible/run_emulator_ci.sh
       - name: Souhrn
@@ -66,6 +66,7 @@ jobs:
             host-monitor.log
             /tmp/android-runner
             smoke.md
+            control.md
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
           retention-days: 14

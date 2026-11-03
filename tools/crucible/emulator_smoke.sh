@@ -9,7 +9,10 @@ APK="$1"; OUT="${2:-crucible-runtime.md}"
 PKG="cz.axiom.omega.debug"; ACT="$PKG/cz.axiom.omega.MainActivity"
 fail=0
 log() { echo "$*" | tee -a "$OUT"; }
+alive_dev() { [ "$(timeout 10 "$ADB_BIN" get-state 2>/dev/null)" = "device" ]; }
 check_crash() {
+  # běh #5: emulátor zmizel a krok přesto hlásil „bez pádu“ (logcat bez zařízení = prázdný) → falešné ✅
+  if ! alive_dev; then log "- ❌ $1: ZAŘÍZENÍ ZMIZELO (emulátor neběží – výsledek nelze ověřit)"; log ""; log "**VÝSLEDEK: smoke NEOVĚŘEN (emulátor zmizel v kroku: $1)**"; exit 2; fi
   if adb logcat -d -b crash 2>/dev/null | grep -q "$PKG"; then log "- ❌ $1: PÁD (logcat crash buffer)"; adb logcat -d -b crash | tail -40 >> "$OUT"; fail=1; adb logcat -b crash -c; return 1; fi
   if adb logcat -d | grep -q "ANR in $PKG"; then log "- ❌ $1: ANR"; fail=1; return 1; fi
   log "- ✅ $1: bez pádu"
@@ -61,6 +64,7 @@ pss2=$(adb shell dumpsys meminfo "$PKG" | awk '/TOTAL PSS:/{print $3; exit} /TOT
 log "- paměť po trim-memory a návratu: ${pss2:-?} kB"
 
 # 7) chyby JS/WebView v logu
+alive_dev || { log "- ❌ kontrola JS: ZAŘÍZENÍ ZMIZELO"; log "**VÝSLEDEK: smoke NEOVĚŘEN**"; exit 2; }
 js=$(adb logcat -d | grep -E "chromium.*(Uncaught|SyntaxError|TypeError)" | grep -v "^$" | head -5)
 if [ -n "$js" ]; then log "- ❌ chyby JavaScriptu:"; echo '```' >> "$OUT"; echo "$js" >> "$OUT"; echo '```' >> "$OUT"; fail=1; else log "- ✅ bez chyb JavaScriptu v logcatu"; fi
 
