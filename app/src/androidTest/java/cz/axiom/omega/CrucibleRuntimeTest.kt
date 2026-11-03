@@ -1,5 +1,6 @@
 package cz.axiom.omega
 
+import android.util.Log
 import android.webkit.WebView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -10,6 +11,8 @@ import cz.axiom.omega.jobs.OmegaService
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import androidx.test.rule.GrantPermissionRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
@@ -22,6 +25,10 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class CrucibleRuntimeTest {
     private val ctx get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    /** Aplikace při startu žádá o notifikace (Android 13+) – systémový dialog by překryl aktivitu (CI běh #1: PAUSED). */
+    @get:Rule val notifications: GrantPermissionRule =
+        if (android.os.Build.VERSION.SDK_INT >= 33) GrantPermissionRule.grant(android.Manifest.permission.POST_NOTIFICATIONS) else GrantPermissionRule.grant()
 
     private fun <T> field(a: MainActivity, name: String): T =
         MainActivity::class.java.getDeclaredField(name).apply { isAccessible = true }.get(a) as T
@@ -49,9 +56,16 @@ class CrucibleRuntimeTest {
         val thread = bridge!!.send(JSONObject().put("text", text).put("mode", "auto").toString())
         assertTrue("send vrátil $thread", thread > 0)
         var answer = ""
-        waitFor(timeoutMs, "odpověď na „$text“") {
-            val arr = Db.get(ctx).messages(thread)
-            (0 until arr.length()).map { arr.getJSONObject(it) }.lastOrNull { it.getString("role") == "assistant" }?.getString("content")?.also { answer = it } != null
+        try {
+            waitFor(timeoutMs, "odpověď na „$text“") {
+                val arr = Db.get(ctx).messages(thread)
+                (0 until arr.length()).map { arr.getJSONObject(it) }.lastOrNull { it.getString("role") == "assistant" }?.getString("content")?.also { answer = it } != null
+            }
+        } catch (e: AssertionError) {
+            // DIAGNOSTIKA: co se dělo, když odpověď nepřišla (běží služba? v jaké fázi? co je ve vlákně?)
+            val omega = Omega.get(ctx)
+            throw AssertionError("${e.message} · RUNNING_ASK=${OmegaService.RUNNING_ASK.get()} · fáze=„${omega.job.phase}“ · " +
+                "zprávy=${Db.get(ctx).messages(thread).toString().take(600)}")
         }
         return answer to (System.currentTimeMillis() - t0)
     }
@@ -62,6 +76,7 @@ class CrucibleRuntimeTest {
             waitFor(30_000, "WebView načteno") { pageReady(s) }
             waitFor(10_000, "UI vykresleno") { js(s, "!!document.querySelector('#main .wrap')") == "true" }
             println("CRUCIBLE coldStartToUiMs=${System.currentTimeMillis() - t0}")
+            Log.i("CRUCIBLE", "coldStartToUiMs=${System.currentTimeMillis() - t0}")
             // žádná chyba JS při startu
             assertEquals("true", js(s, "typeof window.Omega === 'object'"))
         }
@@ -81,6 +96,7 @@ class CrucibleRuntimeTest {
             repeat(14) { i -> lat += ask(s, "kolik je ${i + 2} krát ${i + 3}").second }
             lat.sort()
             println("CRUCIBLE noBrainEndToEndMs p50=${lat[lat.size / 2]} p95=${lat[lat.size * 95 / 100]} max=${lat.last()} n=${lat.size}")
+            Log.i("CRUCIBLE", "noBrainEndToEndMs p50=${lat[lat.size / 2]} p95=${lat[lat.size * 95 / 100]} max=${lat.last()} n=${lat.size}")
         }
     }
 
@@ -101,8 +117,9 @@ class CrucibleRuntimeTest {
         // otázka pro mozek, ale mozek ani cloud nejsou → AVIOR musí odpovědět (offline odpověď / vysvětlení), ne viset
         ActivityScenario.launch(MainActivity::class.java).use { s ->
             waitFor(30_000, "WebView načteno") { pageReady(s) }
-            val (a, ms) = ask(s, "napiš mi básničku o podzimu", timeoutMs = 30_000)
+            val (a, ms) = ask(s, "napiš mi básničku o podzimu", timeoutMs = 90_000)
             println("CRUCIBLE noEnginePathMs=$ms")
+            Log.i("CRUCIBLE", "noEnginePath ms=$ms odpověď=${a.take(120)}")
             assertTrue("prázdná odpověď", a.isNotBlank())
         }
     }

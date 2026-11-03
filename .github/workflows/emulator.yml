@@ -61,6 +61,7 @@ jobs:
             crucible-runtime.md
             instrumentation.log
             logcat-instrumentation.txt
+            host-monitor.log
             smoke.md
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
