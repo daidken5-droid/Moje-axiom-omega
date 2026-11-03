@@ -4,6 +4,8 @@ on:
   push:
     branches: ["**"]
     tags: ["v*"]
+    # změny jen v dokumentaci a běhových skriptech emulátoru nemění APK → nepřestavovat (a nepřepisovat vydání)
+    paths-ignore: ["docs/**", "tools/crucible/**", ".github/workflows/emulator.yml", "*.md"]
   pull_request:
   workflow_dispatch:
 

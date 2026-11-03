@@ -11,11 +11,14 @@ check_crash() {
   if adb logcat -d | grep -q "ANR in $PKG"; then log "- ❌ $1: ANR"; fail=1; return 1; fi
   log "- ✅ $1: bez pádu"
 }
-start_ms() { adb shell am start -W -n "$ACT" 2>/dev/null | awk -F': ' '/TotalTime/{print $2}' | tr -d '\r'; }
+# každý krok má časový limit – zaseknutí = jasná chyba, ne tiché čekání do limitu CI
+start_ms() { timeout 60 adb shell am start -W -n "$ACT" 2>/dev/null | awk -F': ' '/TotalTime/{print $2}' | tr -d '\r'; }
+A() { timeout 60 adb "$@"; }
 
 : > "$OUT"
 log "## CRUCIBLE smoke ($(adb shell getprop ro.product.model | tr -d '\r'), Android $(adb shell getprop ro.build.version.release | tr -d '\r'), ABI $(adb shell getprop ro.product.cpu.abi | tr -d '\r'))"
-adb install -r -g "$APK" >/dev/null || { log "- ❌ instalace selhala"; exit 1; }
+log "- krok: instalace ($(date +%T))"
+timeout 180 adb install -r -g "$APK" >/dev/null || { log "- ❌ instalace selhala nebo vypršela"; exit 1; }
 adb logcat -c; adb logcat -b crash -c
 
 # 1) studený start ×3

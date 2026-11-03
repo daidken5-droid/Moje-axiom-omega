@@ -14,7 +14,8 @@ permissions:
 
 concurrency:
   group: emulator-${{ github.ref }}
-  cancel-in-progress: true
+  # nerušit běžící běh: jeho log je důkaz (zrušený běh log nevydá); nový běh počká ve frontě
+  cancel-in-progress: false
 
 jobs:
   emulator:
@@ -46,6 +47,7 @@ jobs:
           ram-size: 4096M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          emulator-boot-timeout: 900
           script: tools/crucible/run_emulator_ci.sh
       - name: Souhrn
         if: always()
@@ -58,6 +60,8 @@ jobs:
           path: |
             crucible-runtime.md
             instrumentation.log
+            logcat-instrumentation.txt
+            smoke.md
             app/build/reports/androidTests
             app/build/outputs/androidTest-results
           retention-days: 14
