@@ -82,6 +82,15 @@ jobs:
               -storetype PKCS12 -keystore ~/.avior-signing/key.p12 -storepass "$(cat ~/.avior-signing/pass)" -keypass "$(cat ~/.avior-signing/pass)"
           fi
           echo "OMEGA_KEYSTORE_PATH=$HOME/.avior-signing/key.p12" >> "$GITHUB_ENV"
+      - name: Testy datové vrstvy (Robolectric – migrace SQLite, paměť odpovědí)
+        run: ./gradlew :app:testDebugUnitTest --no-daemon -Pomega.abis=arm64-v8a
+      - name: Výsledky testů aplikace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-test-results
+          path: app/build/reports/tests/testDebugUnitTest
+          retention-days: 7
       - name: Sestavení APK
         env:
           SECRET_STORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}

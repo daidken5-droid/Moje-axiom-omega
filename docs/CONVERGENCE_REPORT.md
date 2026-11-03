@@ -50,9 +50,18 @@ Sdílená definice nejistého data místo dvou. Další řádky se neodstraňova
 
 ## G. Zbývající rizika
 - Nic neměřeno na zařízení (paměť, teplo, rušení během načítání modelu, návrat po ukončení procesu).
-- R-01: migrace DB v4 skrývá chyby ALTER přes `runCatching` (otevřené).
+- **R-01 (sestavení 1006) – implementováno, ověření běží v CI:**
+  - migrace bez `runCatching`, sloupce přes PRAGMA, samooprava při otevření,
+  - test `app/src/test/.../DbMigrationTest.kt` (upgrade v3, napůl migrovaná DB, čistá instalace) se zkompiloval;
+  - lokálně ho nešlo spustit, protože Maven Central vrací z kontejneru 429 – spouští ho CI (`build-apk.yml`).
 - E-ARL × Router × RANDY: možná redundance bez měření.
 - Δ Lab měří jen režim bez mozku; kvalitu odpovědí s mozkem neměří nic.
 
-## H. Další krok s největším užitkem
+## I. Výstupy
+- **Kód a testy:** větev `claude/reverse-engineer-ai-app-o5jhyd`.
+- **Konfigurace sestavení:** `app/build.gradle.kts`, `.github/workflows/build-apk.yml`.
+- **APK:** release `avior-delta-iv-c1006`.
+- **Dokumentace:** `CHANGELOG.md`, tato zpráva, `docs/FAULTLINE_AUDIT.md`, postup reprodukce `docs/REPRODUCE.md`.
+
+## J / H. Další krok s největším užitkem
 Instrumentační test na emulátoru (migrace DB, zrušení generování, návrat z pozadí) v CI. Je to jediná cesta, jak ověřit invarianty A a F a riziko R-01.

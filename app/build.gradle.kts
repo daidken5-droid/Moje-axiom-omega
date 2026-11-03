@@ -31,7 +31,7 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1005
+        versionCode = 1006
         versionName = "Delta IV"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
@@ -138,4 +138,6 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Testy datové vrstvy (SQLite migrace, paměť odpovědí) na JVM se skutečným Android SQLite – bez emulátoru
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

@@ -58,12 +58,29 @@ class Db private constructor(context: Context) :
         db.execSQL("CREATE TABLE IF NOT EXISTS answers(id INTEGER PRIMARY KEY, question TEXT NOT NULL UNIQUE, answer TEXT NOT NULL, conf INTEGER NOT NULL, good INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)")
     }
 
-    /** v4 (PROOFCORE): původ odpovědi (user/wiki/model) a revizní smlouva (kdy znovu ověřit). */
+    /**
+     * v4 (PROOFCORE): původ odpovědi (user/wiki/model) a revizní smlouva (kdy znovu ověřit).
+     * CONVERGENCE R-01: dřív `runCatching` kolem ALTER → neočekávaná chyba se ztratila a čtení paměti odpovědí
+     * by pak padalo na chybějícím sloupci. Teď se sloupce zjistí přes PRAGMA a doplní jen chybějící; skutečná
+     * chyba migrace NEZMIZÍ (SQLiteOpenHelper vrátí transakci a databáze zůstane v předchozí, funkční verzi).
+     */
     private fun createV4(db: SQLiteDatabase) {
-        runCatching { db.execSQL("ALTER TABLE answers ADD COLUMN origin TEXT NOT NULL DEFAULT 'model'") }
-        runCatching { db.execSQL("ALTER TABLE answers ADD COLUMN revise INTEGER NOT NULL DEFAULT 0") }
-        // dřívější ✓ odpovědi jsou potvrzené uživatelem
-        runCatching { db.execSQL("UPDATE answers SET origin='user' WHERE good=1") }
+        val cols = columns(db, "answers")
+        if ("origin" !in cols) {
+            db.execSQL("ALTER TABLE answers ADD COLUMN origin TEXT NOT NULL DEFAULT 'model'")
+            // dřívější ✓ odpovědi jsou potvrzené uživatelem
+            db.execSQL("UPDATE answers SET origin='user' WHERE good=1")
+        }
+        if ("revise" !in cols) db.execSQL("ALTER TABLE answers ADD COLUMN revise INTEGER NOT NULL DEFAULT 0")
+    }
+
+    private fun columns(db: SQLiteDatabase, table: String): Set<String> =
+        db.rawQuery("PRAGMA table_info($table)", null).use { c -> buildSet { while (c.moveToNext()) add(c.getString(1)) } }
+
+    /** Samooprava při každém otevření: databáze z poškozené / přerušené dřívější aktualizace dostane chybějící sloupce. */
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        if (!db.isReadOnly) createV4(db)
     }
 
     /** Uloží/aktualizuje odpověď do paměti odpovědí (✓ od uživatele = ověřená, jinak podle důkazu). */
