@@ -16,6 +16,29 @@ import java.util.Locale
 /** Introspekce zařízení – to, co AVIOR "cítí" o svém těle. */
 object Introspect {
 
+    /**
+     * Místo, které lze pro AVIOR uvolnit: volné + mazatelná cache ostatních aplikací (StorageManager, API 26+).
+     * `File.usableSpace` cache nepočítá → AVIOR dřív odmítl stáhnout mozek / knihovnu, i když by se po smazání
+     * cache vešly (Android Lint: UsableSpace).
+     */
+    fun allocatableBytes(context: Context, dir: java.io.File): Long = runCatching {
+        val sm = context.getSystemService(android.os.storage.StorageManager::class.java)
+        sm.getAllocatableBytes(sm.getUuidForPath(dir))
+    }.getOrElse { dir.usableSpace }
+
+    /**
+     * Před velkým zápisem (mozek, knihovna, RAG) požádá systém o [bytes] – Android přitom smaže cache jiných
+     * aplikací. Vrací true, když je místo k dispozici; selhání (málo místa, stará verze) = false, nic se nemaže.
+     */
+    fun reserveBytes(context: Context, dir: java.io.File, bytes: Long): Boolean {
+        if (bytes <= 0 || dir.usableSpace >= bytes) return true
+        return runCatching {
+            val sm = context.getSystemService(android.os.storage.StorageManager::class.java)
+            sm.allocateBytes(sm.getUuidForPath(dir), bytes)
+            true
+        }.getOrDefault(false)
+    }
+
     fun totalRamGb(context: Context): Double {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }

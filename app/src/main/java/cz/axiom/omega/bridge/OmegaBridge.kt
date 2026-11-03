@@ -417,7 +417,7 @@ class OmegaBridge(private val activity: MainActivity) {
     fun libraryStart(id: String) {
         if (OmegaService.RUNNING_BG.get()) { Events.note("Počkej – na pozadí už běží jiné stahování."); return }
         val spec = cz.axiom.omega.core.library.Libraries.of(id) ?: return
-        if (activity.filesDir.usableSpace < (spec.approxGb * 1e9).toLong()) Events.note("Pozor: knihovna zabere ~${spec.approxGb} GB a místa je méně – stahování se zastaví při nedostatku.")
+        if (cz.axiom.omega.sys.Introspect.allocatableBytes(activity, activity.filesDir) < (spec.approxGb * 1e9).toLong()) Events.note("Pozor: knihovna zabere ~${spec.approxGb} GB a místa je méně – stahování se zastaví při nedostatku.")
         if (!Introspect.unmetered(activity)) Events.note("Doporučuji Wi-Fi – knihovna má několik GB.")
         OmegaService.start(activity, Intent(OmegaService.ACTION_LIBRARY).putExtra("id", id))
     }
@@ -984,6 +984,8 @@ class OmegaBridge(private val activity: MainActivity) {
                     android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> { reason = "Pád v nativním jádru mozku (llama.cpp)."; memory = true }
                     android.app.ApplicationExitInfo.REASON_CRASH -> reason = "Pád aplikace."
                     android.app.ApplicationExitInfo.REASON_ANR -> reason = "Aplikace přestala reagovat (ANR)."
+                    // LLM v telefonu: systém zabije proces za přílišné vytížení CPU na pozadí
+                    android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> reason = "Systém AVIOR ukončil kvůli přílišnému vytížení procesoru na pozadí."
                     android.app.ApplicationExitInfo.REASON_SIGNALED -> if (e.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE) { reason = "Systém AVIOR ukončil (signál ${e.status}) – nejspíš kvůli paměti."; memory = true }
                 }
                 detail = e.description.orEmpty()

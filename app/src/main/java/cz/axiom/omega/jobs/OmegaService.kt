@@ -776,7 +776,7 @@ class OmegaService : Service() {
         try {
             while (offset < spec.rows) {
                 cancel.check()
-                if (filesDir.usableSpace < 800_000_000L) error("Dochází místo v telefonu (méně než 0,8 GB). Stahování pozastaveno na $offset článcích.")
+                if (!cz.axiom.omega.sys.Introspect.reserveBytes(this, filesDir, 800_000_000L)) error("Dochází místo v telefonu (méně než 0,8 GB). Stahování pozastaveno na $offset článcích.")
                 val rows = try {
                     hub.rows(spec.dataset, spec.config, spec.split, offset, 100)
                 } catch (e: Exception) {
@@ -830,8 +830,8 @@ class OmegaService : Service() {
         val P = cz.axiom.omega.core.library.Prebuilt
         val work = java.io.File(filesDir, "library-parts/${spec.id}")
         val have = work.listFiles()?.sumOf { it.length() } ?: 0L
-        val free = filesDir.usableSpace
-        if (free + have < P.requiredBytes(m)) {
+        val free = cz.axiom.omega.sys.Introspect.allocatableBytes(this, filesDir)
+        if (free + have < P.requiredBytes(m) || !cz.axiom.omega.sys.Introspect.reserveBytes(this, filesDir, P.requiredBytes(m) - have)) {
             error("Na ${spec.name} je potřeba ~%.1f GB volného místa (volno %.1f GB).".format(P.requiredBytes(m) / 1e9, free / 1e9))
         }
         val target = lib.prebuiltFile(spec.id)
@@ -869,7 +869,7 @@ class OmegaService : Service() {
         val m = cz.axiom.omega.core.rag.RagManifest.fetch(spec)
             ?: error("RAG index pro ${spec.name} zatím není sestavený (GitHub Actions → Build RAG index).")
         val pm = m.asPrebuilt()
-        if (filesDir.usableSpace < cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm)) error("Na RAG index je potřeba ~%.1f GB volného místa.".format(cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm) / 1e9))
+        if (!cz.axiom.omega.sys.Introspect.reserveBytes(this, filesDir, cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm))) error("Na RAG index je potřeba ~%.1f GB volného místa.".format(cz.axiom.omega.core.library.Prebuilt.requiredBytes(pm) / 1e9))
         val work = java.io.File(filesDir, "rag-parts/$id")
         try {
             cz.axiom.omega.core.library.Prebuilt.install(spec, pm, work, lib.ragFile(id), cancel, urlOf = { cz.axiom.omega.core.rag.RagManifest.url(spec, it.name) }) { st ->

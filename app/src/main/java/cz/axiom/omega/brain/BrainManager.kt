@@ -100,6 +100,10 @@ class BrainManager(private val context: Context) {
 
     fun download(id: String, cancel: CancelToken, onProgress: (Downloader.Progress) -> Unit): File {
         val spec = catalog().firstOrNull { it.id == id } ?: throw IOException("Neznámý mozek $id")
+        // místo vyžádat předem (systém smaže cache jiných aplikací) – kontrola v Downloaderu pak neodmítne
+        // stažení, které se po uvolnění cache vejde; rozpracovaný .part se započítá
+        val part = File(dir, fileFor(spec).name + ".part")
+        cz.axiom.omega.sys.Introspect.reserveBytes(context, dir, spec.sizeBytes - (if (part.exists()) part.length() else 0L) + 200_000_000L)
         val f = Downloader().download(spec, fileFor(spec), cancel, onProgress)
         if (spec.kind == "chat") settings.activeBrain = spec.id
         return f
@@ -135,7 +139,7 @@ class BrainManager(private val context: Context) {
 
     fun toJson(): JSONObject {
         val ram = Introspect.totalRamGb(context)
-        val free = dir.usableSpace
+        val free = cz.axiom.omega.sys.Introspect.allocatableBytes(context, dir)
         val cat = catalog()
         // profil telefonu (např. Pixel 9a) zná nejrychlejší vhodný mozek → ten má přednost před obecným výběrem
         val devRec = runCatching { cz.axiom.omega.Omega.get(context).device }.getOrNull()?.takeIf { it.known }?.recommendedBrain

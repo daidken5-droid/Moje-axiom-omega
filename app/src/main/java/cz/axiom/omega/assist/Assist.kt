@@ -43,6 +43,8 @@ class AviorRecognitionService : RecognitionService() {
 
 /** Dlaždice v rychlém nastavení: jedno klepnutí → hlasový dotaz AVIORu (i bez odemknutí aplikace). */
 class AviorTileService : TileService() {
+    // API < 34: jen větev s Intentem (na 34+ by vyhodila UnsupportedOperationException) – lint hlásí falešně
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
         val i = Intent(this, MainActivity::class.java).setAction(AviorSessionService.ACTION_ASSIST_VOICE)
