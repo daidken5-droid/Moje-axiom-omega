@@ -30,10 +30,12 @@ prázdný logcat bez zařízení) – chyba skriptu opravena v 23c2038, viz CRUC
 - Vyloučeno: testovací platforma (padá i při smoke), dialog oprávnění (opraveno v #4), nedostatek RAM hostitele,
   `-gpu guest` (#5 nepomohl).
 - Vulkan vyloučen: běh #8 s `-feature -Vulkan` dopadl stejně.
-- **Nový nález (běh #8):** volné místo na disku hostitele bylo v klidu stabilní (76,5 GB), po instalaci a startu AVIORu
-  kleslo za ~100 s na 68,5 GB; po zániku emulátoru se ~6,5 GB vrátilo. Něco tedy po startu masivně zapisuje.
-  AVIOR nic nepředalokuje (žádné `setLength`/`fallocate`), vestavěné balíčky jsou malé, APK nemá velké assety.
-  Kdo zapisuje (aplikace / systém v emulátoru / emulátor na hostiteli), měří běh 4ceb080 (monitor `/data`,
-  data AVIORu přes `run-as`, velikost AVD) – **výsledek zatím není**.
+- **Běh #8:** volné místo hostitele kleslo po startu AVIORu o ~8 GB a po zániku emulátoru se vrátilo.
+- **Běh #9 (měření, kdo zapisuje):** data AVIORu v emulátoru **1 MB**, složka AVD beze změny (1358 → 1359 MB),
+  ale −7,4 GB na hostiteli během ~30 s **přesně při zániku** emulátoru a po něm zpět. Výklad (vysoce pravděpodobný,
+  přímo neověřený): **core dump padajícího qemu** – zápis paměti procesu (4 GB RAM emulátoru + další) po pádu;
+  dokud se zapisuje, adb vidí zařízení jako živé. Zápis na disk je tedy **následek**, ne příčina; AVIOR nezapisuje.
+  qemu ve skutečnosti padá prakticky hned při prvním startu AVIORu (studený start 1825 ms, pak konec).
+- Další krok (commit s diagnostikou): `dmesg`/`coredumpctl` hostitele ukáže signál a knihovnu, kde qemu padá.
 - Aplikace v hostu nemůže legálně ukončit hostitelský proces; jde o chybu/limit emulátoru v CI spouštěnou
   zátěží, kterou AVIOR vytváří. Na telefonu tento mechanismus neexistuje – ale to je úvaha, ne měření.

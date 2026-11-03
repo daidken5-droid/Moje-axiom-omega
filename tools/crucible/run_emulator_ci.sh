@@ -7,7 +7,7 @@ adb() { timeout 60 "$ADB_BIN" "$@"; }
 OUT=crucible-runtime.md
 # paměť a disk hostitele + obsazení /data v emulátoru a data AVIORu každých 10 s
 # (běh #8: disk hostitele −8 GB za ~100 s po startu AVIORu, pak emulátor zmizel → kdo zapisuje?)
-( while true; do echo "$(date +%T) $(free -m | awk '/Mem:/{print "host used="$3"MB free="$4"MB avail="$7"MB"}') disk=$(df -m --output=avail "$HOME" | tail -1 | tr -d ' ')MB avd=$(du -sm "$HOME/.android/avd" 2>/dev/null | cut -f1)MB guest/data=$(timeout 8 "$ADB_BIN" shell df -m /data 2>/dev/null | awk 'NR==2{print $3"/"$2}')MB app=$(timeout 8 "$ADB_BIN" shell run-as cz.axiom.omega.debug du -sm . 2>/dev/null | cut -f1)MB $(adb devices | grep -c 'emulator.*device$') zařízení"; sleep 10; done ) > host-monitor.log 2>&1 &
+( while true; do echo "$(date +%T) $(free -m | awk '/Mem:/{print "host used="$3"MB free="$4"MB avail="$7"MB"}') disk=$(df -m --output=avail "$HOME" | tail -1 | tr -d ' ')MB avd=$(du -sm "$HOME/.android/avd" 2>/dev/null | cut -f1)MB guest/data=$(timeout 8 "$ADB_BIN" shell df -k /data 2>/dev/null | awk 'NR==2{printf "%d/%d", $3/1024, $2/1024}')MB app=$(timeout 8 "$ADB_BIN" shell run-as cz.axiom.omega.debug du -sm . 2>/dev/null | cut -f1)MB $(adb devices | grep -c 'emulator.*device$') zařízení"; sleep 10; done ) > host-monitor.log 2>&1 &
 MON=$!
 adb shell pm grant cz.axiom.omega.debug android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 echo "[$(date +%T)] emulátor: $(adb shell getprop sys.boot_completed | tr -d '\r') (boot_completed)"

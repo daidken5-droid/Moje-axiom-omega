@@ -53,9 +53,23 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -noaudio -no-boot-anim -no-snapshot
           emulator-boot-timeout: 900
           script: tools/crucible/run_emulator_ci.sh
+      # běh #9: data AVIORu 1 MB, AVD neroste, ale −7,4 GB na hostiteli přesně při zániku emulátoru a pak zpět
+      # → core dump padajícího qemu. Kde qemu padá (knihovna, signál), ukáže jádro hostitele:
+      - name: Pád qemu – diagnostika hostitele
+        if: always()
+        run: |
+          {
+            echo "## Pád qemu (hostitel)"; echo '```'
+            sudo dmesg -T 2>/dev/null | grep -iE "qemu|emulator|segfault|traps:|general protection|invalid opcode|oom|kvm" | tail -40
+            echo "--- coredumpctl"; coredumpctl list 2>/dev/null | tail -5
+            coredumpctl info 2>/dev/null | grep -E "Signal|Executable|#[0-9]+ " | head -40
+            echo "--- /var/crash"; sudo ls -la /var/crash 2>/dev/null
+            echo "--- core_pattern: $(cat /proc/sys/kernel/core_pattern)"
+            echo '```'
+          } > qemu-crash.md 2>&1; cat qemu-crash.md
       - name: Souhrn
         if: always()
-        run: cat crucible-runtime.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(bez výsledku)" >> "$GITHUB_STEP_SUMMARY"
+        run: cat crucible-runtime.md qemu-crash.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(bez výsledku)" >> "$GITHUB_STEP_SUMMARY"
       - name: Výsledky
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,6 +77,7 @@ jobs:
           name: crucible-emulator
           path: |
             crucible-runtime.md
+            qemu-crash.md
             instrumentation.log
             logcat-instrumentation.txt
             host-monitor.log
