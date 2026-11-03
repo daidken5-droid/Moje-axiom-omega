@@ -13,6 +13,7 @@ skutečného modelu; cesta „bez mozku“ je skutečný kód aplikace (žádný
 | #5 | cb5f2fd | smoke: teplý start | 716 ms (1 měření) |
 | #7 | 23c2038 | kontrola: emulátor 180 s **bez** AVIORu | přežil |
 | #7 | 23c2038 | smoke: studený start | 1637 / 1785 ms, pak emulátor zmizel |
+| #8 | 0145df6 | kontrola bez aplikace 180 s, pak smoke bez Vulkanu | kontrola přežila; po startu AVIORu emulátor opět zmizel (~100 s) |
 
 Pád **aplikace** (crash buffer, ANR, chyba JS) nebyl zachycen v žádném běhu, ve kterém zařízení žilo.
 
@@ -22,13 +23,17 @@ Otočení displeje, návrat po ukončení procesu, trim-memory, paměť (PSS), v
 prázdný logcat bez zařízení) – chyba skriptu opravena v 23c2038, viz CRUCIBLE_BUG_REPORT.md (C-01).
 
 ## Otevřený problém: emulátor (qemu) mizí 45–120 s po prvním spuštění AVIORu
-- Opakovatelné: běhy #1, #4, #5, #7 (4/4 s aplikací).
+- Opakovatelné: běhy #1, #4, #5, #7, #8 (všechny vyhodnocené běhy s aplikací).
 - Bez aplikace přežil 180 s (běh #7) → spouštěčem je start aplikace.
 - Umírá **hostitelský** proces qemu, ne aplikace; bez crash dumpu (`/tmp/android-runner/emu-crash-*.db` prázdný);
   RAM hostitele OK (avail ~9,6 GB), aplikace nemá velké assety (188 KB) ani trvalé animace v klidu.
 - Vyloučeno: testovací platforma (padá i při smoke), dialog oprávnění (opraveno v #4), nedostatek RAM hostitele,
   `-gpu guest` (#5 nepomohl).
-- Hypotéza (neověřená): hostitelský renderer emulátoru (WebView → Vulkan/gfxstream). Experiment 0145df6:
-  `-feature -Vulkan` + volný disk hostitele v monitoru – **výsledek zatím není**.
+- Vulkan vyloučen: běh #8 s `-feature -Vulkan` dopadl stejně.
+- **Nový nález (běh #8):** volné místo na disku hostitele bylo v klidu stabilní (76,5 GB), po instalaci a startu AVIORu
+  kleslo za ~100 s na 68,5 GB; po zániku emulátoru se ~6,5 GB vrátilo. Něco tedy po startu masivně zapisuje.
+  AVIOR nic nepředalokuje (žádné `setLength`/`fallocate`), vestavěné balíčky jsou malé, APK nemá velké assety.
+  Kdo zapisuje (aplikace / systém v emulátoru / emulátor na hostiteli), měří běh 4ceb080 (monitor `/data`,
+  data AVIORu přes `run-as`, velikost AVD) – **výsledek zatím není**.
 - Aplikace v hostu nemůže legálně ukončit hostitelský proces; jde o chybu/limit emulátoru v CI spouštěnou
   zátěží, kterou AVIOR vytváří. Na telefonu tento mechanismus neexistuje – ale to je úvaha, ne měření.

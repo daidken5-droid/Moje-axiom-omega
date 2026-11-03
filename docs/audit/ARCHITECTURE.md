@@ -1,4 +1,7 @@
-# AVIOR – skutečná architektura (stav: Delta IV, sestavení 1006)
+# AVIOR – skutečná architektura (stav: Delta IV, sestavení 1013)
+
+> Změny od 1006 bez vlivu na strukturu: 1008 odstranění 6 nevolaných metod mostu (teď 102), katalog mozků vždy z APK;
+> 1013 `sys/Introspect.allocatableBytes/reserveBytes` (místo přes StorageManager). Nové: `app/src/androidTest/` a `tools/crucible/`.
 
 Popisuje **implementovaný** kód, ne záměry. Cesty jsou relativní ke kořeni repozitáře.
 

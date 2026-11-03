@@ -8,3 +8,5 @@
 - 276230c – **1013**: místo přes StorageManager (C-02), REASON_EXCESSIVE_RESOURCE_USAGE (C-03), lint 0 chyb (C-04)
 - 23c2038 – smoke bez falešných ✅ (C-01), kontrola emulátoru bez aplikace
 - 0145df6 – experiment: emulátor bez Vulkanu, disk hostitele v monitoru
+- 2cdcd3b – dokumentace CRUCIBLE, audit dokumenty na 1013
+- 4ceb080 – diagnostika: disk hostitele, AVD, /data v emulátoru a data AVIORu v monitoru (běh #8 vyloučil Vulkan)

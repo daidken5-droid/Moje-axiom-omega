@@ -5,7 +5,9 @@
 
 ## 1. Identifikace verze
 - **Aplikace:** `cz.axiom.omega`, versionName **Delta IV**, versionCode **1013** (`app/build.gradle.kts`).
-- **Zdroj:** větev `claude/reverse-engineer-ai-app-o5jhyd`; přesný commit je uvedený v `TEST_RESULTS.md`.
+- **Zdroj:** větev `claude/reverse-engineer-ai-app-o5jhyd`. Kód aplikace = commit `276230c`; pozdější commity mění jen CI skripty a dokumentaci.
+- **APK k auditu:** `AVIOR_LATEST_AUDIT.apk` = release sestavený v CI z `276230c`, SHA-256 souboru `05efca9f3d6faf04edf72f1dd949b7f92248a7a46b60f8f1b8651af46e8f6a72`,
+  podpis v2 `CN=AVIOR CI`, certifikát SHA-256 `66a2e14cb9b3e779ed596bcdeeb4d94d20a42b56197ff970494ac219f55b6230` (ověřeno `apksigner verify`, `aapt2 dump badging`).
 - **Předchozí stabilní vydání:** 1004 a 1006 (GitHub Releases `avior-delta-iv-c100x`, podpis SHA-256 `66a2e14c…`). Návrat k nim = instalace staršího APK.
   - Pozor: databáze v4 je zpětně kompatibilní jen směrem nahoru; starší APK přidané sloupce ignoruje.
 
@@ -29,7 +31,8 @@ Odpověď vzniká v pořadí:
 | RANDY Supervisor | `randy/*.kt` | existující testy RANDY v `core/src/test` | JVM testy; **přínos pro kvalitu odpovědí neměřen** |
 | Cloudový řetěz | `llm/FreeCloud.kt` | `FreeCloudTest`, `StressTest.cloud`, `InvariantsTest.c` | proti lokálním HTTP serverům, ne proti skutečným poskytovatelům |
 | Lokální inference | `engine/LocalEngine.kt`, `cpp/omega_jni.cpp` | sestavení v CI (CMake + NDK) | **jen kompilace**; inference v testech je simulovaná (`StressTest.SimBrain`) |
-| UI | `assets/ui/*` | `tools/ui-preview/perf.js`, `shoot.js` (Chromium, 4× zpomalené CPU) | prohlížeč, **ne Android WebView** |
+| UI | `assets/ui/*` | `tools/ui-preview/perf.js`, `shoot.js` (Chromium, 4× zpomalené CPU); smoke na emulátoru | prohlížeč; v Android WebView jen start a 1 dotaz (emulátor) |
+| Běhové testy na zařízení | `app/src/androidTest/*` (CrucibleRuntimeTest, DbOnDeviceTest), `tools/crucible/*` | emulátor CI API 34: 1 test (dotaz bez mozku přes UI a službu) prošel | **ostatní neověřeny – emulátor mizí (C-08)** |
 
 ## 4. Navržené nebo neúplné
 - **Value of Information** (u srovnání říct, který chybějící údaj rozhodne): pouze navrženo, neimplementováno.
@@ -53,6 +56,13 @@ Viz `CHANGELOG.md`, zprávy `docs/FAULTLINE_AUDIT.md`, `docs/CONVERGENCE_REPORT.
 | CV-1 | Poznámka modelu uložena jako fakt o uživateli | `InvariantsTest.d_*` |
 | CV-2 | „asi 1045“ → „1045“ (falešná přesnost) | `NoFalsePrecisionTest` |
 | R-01 | Migrace DB v4 skrývala chyby | `DbMigrationTest` (Robolectric, CI) |
+| E-1 (1009) | Obal otázky („řekni mi…“) měnil odpověď; „ : “ jako dělení; záporné teploty | `NoBrainEmulationTest` (1 500 dotazů s orákulem) |
+| P-1 (1008) | Paměť odpovědí p95 139 ms; 6 nevolaných metod mostu | `AnswerMemoryPerfTest` (3–7 ms p95) |
+| C-02 (1013) | Kontrola místa ignorovala mazatelnou cache (7 míst) → mohla odmítnout stažení, které by se vešlo | Lint `UsableSpace`; **chování na zařízení neověřeno** |
+| C-03 (1013) | Chyběl důvod ukončení REASON_EXCESSIVE_RESOURCE_USAGE | Lint `SwitchIntDef` |
+| C-01 | Smoke skript hlásil „✅“ po zmizení emulátoru (falešné výsledky) | falešné adb: zmizelé zařízení → exit 2 |
+
+Seznam chyb z běhů na emulátoru: `crucible/CRUCIBLE_BUG_REPORT.md`.
 
 ## 7. Výsledky testů
 Viz `TEST_RESULTS.md`.
@@ -63,10 +73,13 @@ Viz `TEST_RESULTS.md`.
   - zátěž: 24 000 otázek z 8 vláken, 8–13 tis./s, 0 chyb.
 - **Režie orchestrace kolem simulovaného mozku:** ~9–12 ms na dotaz; zrušení uprostřed odpovědi 81–87 ms.
 - **UI (Chromium, CPU 4× zpomaleno, viewport Pixel 9a):** přepnutí obrazovek 5–32 ms, vlákno s 200 zprávami ~25 ms.
-- **Neměřeno:** rychlost inference (tokeny/s), RAM, energie, teplo, studený start na zařízení.
+- **Emulátor CI (API 34 x86_64, softwarové vykreslování – NE telefon):** studený start 1,6–6,8 s, teplý 716 ms, dotaz bez mozku přes UI a službu 575 ms.
+- **Neměřeno:** rychlost inference (tokeny/s), RAM/PSS, energie, teplo, cokoli na fyzickém telefonu.
 
 ## 9. Známá omezení
-- Žádný test na fyzickém zařízení ani emulátoru.
+- Žádný test na fyzickém telefonu. Na emulátoru jen start a 1 dotaz – emulátor v CI ve všech vyhodnocených bězích (#1, #4, #5, #7, #8) zmizí 45–120 s po prvním
+  spuštění AVIORu (bez aplikace přežije 180 s; Vulkan i `-gpu guest` vyloučeny; disk hostitele při tom klesne o ~8 GB).
+  Příčina neověřena (C-08) – **posuď, zda nejde o chybu aplikace** (`crucible/CRUCIBLE_RUNTIME_REPORT.md`).
 - Strážce ověřuje jen data narození, úmrtí a vzniku.
 - Δ Lab a jeho sady napsal tentýž vývojář. Závěrečná sada má 3 kontaminované položky.
 - Offline Wikipedie je z 11/2023; faktové tabulky mají ruční „stav k 2026“.
@@ -82,7 +95,7 @@ Viz `TEST_RESULTS.md`.
 - **Otevřené:**
   - široká oprávnění (`REQUEST_INSTALL_PACKAGES`, `WRITE_SETTINGS`, `SET_ALARM`) kvůli funkcím „vyrob APK“ a ovládání telefonu – zvětšují dopad případné chyby v mostu,
   - JNI (`omega_jni.cpp`) a validace GGUF nebyly fuzzovány,
-  - most `OmegaBridge` má přes 100 metod dostupných JavaScriptu UI. Bezpečnost stojí na tom, že se nespustí cizí JS (CSP + escapování).
+  - most `OmegaBridge` má 102 metod dostupných JavaScriptu UI. Bezpečnost stojí na tom, že se nespustí cizí JS (CSP + escapování).
 
 ## 11. Potenciálně nadbytečné komponenty (hypotézy, neověřeno)
 - E-ARL × `Router` × RANDY Supervisor: tři vrstvy volby hloubky.
@@ -90,7 +103,7 @@ Viz `TEST_RESULTS.md`.
 - Několik cloudových enginů (Kimi, HF, Node, Server, FreeCloud) s podobným OpenAI-kompatibilním klientem.
 
 ## 12. Zbývající architektonické problémy
-- `OmegaService.kt` (1 080 řádků) a `OmegaBridge.kt` (1 118 řádků) jsou příliš velké a netestované.
+- `OmegaService.kt` (1 080 řádků) a `OmegaBridge.kt` (1 101 řádků) jsou příliš velké a netestované.
 - Logika toku dotazu žije v Android vrstvě, ne v testovatelném jádru.
 
 ## 13. Neověřené předpoklady
@@ -100,7 +113,8 @@ Viz `TEST_RESULTS.md`.
 - Že prompt/kontext pro malé modely v telefonu (Gemma 4 E2B/E4B) dává kvalitní odpovědi.
 
 ## 14. Pět nejhodnotnějších dalších kroků
-1. **Instrumentační smoke test na emulátoru v CI** (start, dotaz bez mozku, migrace, zrušení). Ověří invarianty A/F a zapojení v `OmegaService`.
+1. **Běhové testy na skutečném telefonu** (smoke + instrumentace jsou hotové v `tools/crucible`, `app/src/androidTest`) a uzavření C-08 –
+   na emulátoru v CI zatím doběhl jen 1 test. Ověří invarianty A/F a zapojení v `OmegaService`.
 2. **Přesun toku dotazu z `OmegaService` do jádra** (čistá funkce s rozhraními). Celá rozhodovací cesta bude testovatelná na JVM.
 3. **Měření E-ARL × Router × RANDY na stejných dotazech** → sloučení nebo odstranění nadbytečné vrstvy.
 4. **Benchmark s mozkem na telefonu:** tokeny/s, RAM, správnost na sadě s nezávislými referenčními odpověďmi.
