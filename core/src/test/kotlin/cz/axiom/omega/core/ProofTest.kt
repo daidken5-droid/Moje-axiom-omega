@@ -54,10 +54,10 @@ class ProofTest {
         Sentinel.reset()
         val ok = Sentinel.audit("Karel Gott (14. 7. 1939 – 1. 10. 2019) byl zpěvák.", k)
         assertTrue(ok.proven); assertEquals(2, ok.confirmed.size)
-        assertEquals(Proof.Origin.WIKI, Proof.originOf(ok))
+        assertEquals(Proof.Origin.WIKI, Proof.originOf("kdy žil karel gott", "Karel Gott (14. 7. 1939 – 1. 10. 2019) byl zpěvák.", ok))
         val bad = Sentinel.audit("Karel Gott se narodil v roce 1938.", k)
-        assertTrue(!bad.proven && bad.flags.size == 1); assertEquals(Proof.Origin.MODEL, Proof.originOf(bad))
-        assertEquals(Proof.Origin.MODEL, Proof.originOf(Sentinel.audit("Vajíčko se vaří 10 minut.", k)))
+        assertTrue(!bad.proven && bad.flags.size == 1); assertEquals(Proof.Origin.MODEL, Proof.originOf("kdy se narodil karel gott", "Karel Gott se narodil v roce 1938.", bad))
+        assertEquals(Proof.Origin.MODEL, Proof.originOf("jak dlouho vařit vajíčko", "Vajíčko se vaří 10 minut.", Sentinel.audit("Vajíčko se vaří 10 minut.", k)))
     }
 
     @Test fun agentNotesNeverPoseAsEncyclopedia() {

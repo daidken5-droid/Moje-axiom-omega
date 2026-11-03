@@ -263,6 +263,16 @@ class OmegaService : Service() {
         val prevQ = fullHistory.lastOrNull { it.role == Role.USER }?.content
         val prevA = fullHistory.lastOrNull { it.role == Role.ASSISTANT }?.content
         // OPRAVA OD UŽIVATELE („Špatně, hraje to Petr Rychlý“) → špatnou odpověď zapomenout a opravu si zapamatovat
+        // PROOFCORE: doložený závěr se nemění kvůli nepodloženému nesouhlasu (ušetří i celý průchod mozku)
+        if (prevQ != null && prevA != null && cz.axiom.omega.core.agent.Conversation.isCorrection(text)) {
+            val rev = runCatching { cz.axiom.omega.core.agent.Proof.onCorrection(prevA, text, omega.quickKnowledge()) }.getOrNull()
+            if (rev?.stance == cz.axiom.omega.core.agent.Proof.Stance.KEEP) {
+                val meta = JSONObject().put("engine", "PROOFCORE · bez mozku").put("variant", "Δ revize").put("reflex", 95).put("private", true).put("level", "L0")
+                val id = omega.db.addMessage(threadId, "assistant", rev.reply, meta)
+                Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", rev.reply).put("meta", meta))
+                return
+            }
+        }
         if (prevQ != null && cz.axiom.omega.core.agent.Conversation.isCorrection(text)) runCatching {
             omega.db.forgetMatching(prevQ)
             omega.db.remember(cz.axiom.omega.core.self.MemoryItem(kind = cz.axiom.omega.core.self.MemoryKind.FACT,
@@ -469,7 +479,7 @@ class OmegaService : Service() {
                 // mozek v telefonu nevrací číselnou jistotu → uložit s 80 (použije se jen u téměř stejné otázky)
                 val c = meta.optInt("confidence", -1).takeIf { it >= 0 } ?: if (meta.optBoolean("private")) 80 else -1
                 if (c >= 80 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && text.length <= 200 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
-                    omega.db.putAnswer(text, answer, c, good = false, origin = cz.axiom.omega.core.agent.Proof.originOf(audit))
+                    omega.db.putAnswer(text, answer, c, good = false, origin = cz.axiom.omega.core.agent.Proof.originOf(text, clean, audit))
             }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })

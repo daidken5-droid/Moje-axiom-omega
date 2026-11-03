@@ -49,8 +49,45 @@ object Proof {
     /** Je odpověď ještě platná? (staré záznamy bez smlouvy: dosavadních 60 dní) */
     fun alive(at: Long, reviseAt: Long, now: Long): Boolean = if (reviseAt > 0) now < reviseAt else now - at < 60 * DAY
 
-    /** Původ podle auditu Strážce (bez ✓ uživatele). */
-    fun originOf(audit: Sentinel.Audit) = if (audit.proven) Origin.WIKI else Origin.MODEL
+    private val asksVerifiable = Regex("\\b(kdy|v jakem roce|narodil|narodila|narozen|zemrel|zemrela|umrel|umrela|zalozen|zalozil|vznikl|vznikla|vzniklo|zrizen|zil|zila)\\w*")
+
+    /**
+     * Původ podle auditu Strážce (bez ✓ uživatele).
+     * FAULTLINE F-01: ověřený rok narození NEDOKAZUJE zbytek odpovědi („Karel Gott (1939–2019) byl slovenský astronaut“).
+     * Za ověřenou se odpověď považuje jen když (1) otázka se ptá právě na ověřitelný údaj (kdy / narození / úmrtí / vznik),
+     * (2) odpověď je krátká (nejvýš 2 věty, 280 znaků) – nenese další neověřená tvrzení, a (3) Wikipedie nic nevyvrátila.
+     */
+    fun originOf(question: String, answer: String, audit: Sentinel.Audit): Origin {
+        if (!audit.proven) return Origin.MODEL
+        // věta končí tečkou a velkým písmenem – „14. 7. 1939“ není konec věty
+        val sentences = answer.trim().split(Regex("(?<=[.!?])\\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])")).count { it.isNotBlank() }
+        val short = answer.length <= 280 && sentences <= 2
+        return if (short && asksVerifiable.containsMatchIn(TextUtil.fold(question).lowercase())) Origin.WIKI else Origin.MODEL
+    }
+
+    // ------------------------------------------------------------------ revize závěru po nesouhlasu uživatele
+
+    enum class Stance { ACCEPT, KEEP }
+    data class Revision(val stance: Stance, val reply: String = "")
+
+    private val citesSource = Regex("https?://|\\b(podle|zdroj|uvadi|pise se|clanek|wikipedie|encyklopedie|oficialne|na webu)\\b")
+
+    /**
+     * Uživatel napsal „Špatně, …“. Dřív AVIOR VŽDY odpověď zapomněl a opravu uložil jako fakt – i když byla původní
+     * odpověď doložená a oprava ne (FAULTLINE F-04). Teď:
+     *  • původní odpověď Wikipedie POTVRDILA a uživatel neuvádí žádný zdroj → KEEP: drží se závěru, ukáže důkaz
+     *    a nabídne přehodnocení, když pošle zdroj (nic se nemaže ani neukládá),
+     *  • jinak → ACCEPT: oprava platí (důkaz proti ní nemáme, uživatel může vědět víc).
+     */
+    fun onCorrection(previousAnswer: String, correction: String, k: KnowledgeSource?): Revision {
+        if (k == null || citesSource.containsMatchIn(TextUtil.fold(correction).lowercase())) return Revision(Stance.ACCEPT)
+        val audit = Sentinel.audit(previousAnswer, k)
+        if (!audit.proven) return Revision(Stance.ACCEPT)
+        val proof = audit.confirmed.joinToString("; ") { "**${it.subject}** – ${it.what}" }
+        return Revision(Stance.KEEP,
+            "Δ Tady se držím původní odpovědi: offline Wikipedie ji potvrzuje ($proof). " +
+                "Jestli máš novější nebo jiný zdroj, pošli ho (odkaz nebo „podle …“) a odpověď přehodnotím.")
+    }
 
     /** Krátký popis smlouvy pro UI („znovu ověřit po 3. 2. 2027“). */
     fun describe(c: Contract): String {

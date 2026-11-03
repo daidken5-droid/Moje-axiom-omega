@@ -181,11 +181,17 @@ object Reflex {
         val onRejected: (Instant.Answer, List<Sentinel.Flag>) -> Unit = { _, _ -> },
     )
 
-    private val compound = Regex("\\S+\\s+\\S+[\\s,]+(a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
+    // FAULTLINE F-02: dřív „\\S+\\s+\\S+“ bez ukotvení → kvadratický backtracking (20 000 znaků bez mezer = 3,4 s).
+    // Slova jsou omezená na 40 znaků → lineární čas.
+    private val compound = Regex("\\S{1,40}\\s+\\S{1,40}[\\s,]+(a|ale|i|plus|a taky|a jeste) (jak|proc|co|kdy|kolik|kde|kdo|ktery|ktera|jaky|jaka|jake|cim|porovnej|vysvetli|napis)\\b")
 
     fun isCompound(prompt: String): Boolean = compound.containsMatchIn(TextUtil.fold(prompt))
 
+    /** Reflex je pro krátké otázky; vložený článek či dlouhý text patří mozku (a nesmí zdržet frontu). */
+    const val MAX_PROMPT = 2_000
+
     fun answer(prompt: String, c: Ctx): Instant.Answer? {
+        if (prompt.length > MAX_PROMPT || prompt.isBlank()) return null
         if (prompt.trimStart().startsWith("/")) return null // výslovný příkaz (/chat, /agent…) = mozek
         // SLOŽENÁ OTÁZKA („kolik obyvatel má Praha a jak se to změnilo…“) → reflex by odpověděl jen napůl → mozek
         val sig = Pavucina.of(prompt) // PAVUČINA: varianty a signály se sdílí s E-ARL, RANDY i nápovědou
@@ -202,7 +208,7 @@ object Reflex {
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it) }
             Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it) }
             Facts.answer(prompt, c.today)?.let { yield(it) }
-            Politics.answer(prompt)?.let { yield(it) }
+            Politics.answer(prompt, c.today)?.let { yield(it) }
             calendar(prompt, c.today)?.let { yield(it) }
             recall(prompt, c.memories)?.let { yield(it) }
             cached(prompt, c.cache)?.let { yield(it) }

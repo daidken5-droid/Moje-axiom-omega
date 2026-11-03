@@ -10,6 +10,14 @@ Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERIN
 
 ## AVIOR Delta IV – PROOFCORE + Δ Lab
 
+**FAULTLINE Ω (adversariální audit, sestavení 1004):** 4 potvrzené a opravené chyby, každá s regresním testem.
+- **F-01:** částečné ověření se bralo jako důkaz celé odpovědi.
+- **F-02:** kvadratický regex blokoval dotazy 3,9 s; teď 44 ms.
+- **F-04:** uživatelské „Špatně“ bez zdroje přepisovalo doložený fakt.
+- **F-05:** tabulka funkcí bez data revize.
+
+Celá zpráva: [docs/FAULTLINE_AUDIT.md](docs/FAULTLINE_AUDIT.md).
+
 **Δ Lab (měřicí prostředí generací):** `core/src/test/.../DeltaLabTest.kt` a `core/src/test/resources/deltalab/`.
 - **Sady otázek:**
   - vývojová sada `dev.tsv` (30 otázek, smí se na ní ladit),

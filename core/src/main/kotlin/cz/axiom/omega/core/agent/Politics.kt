@@ -39,7 +39,18 @@ object Politics {
 
     private fun ans(t: String, kind: String, conf: Int) = Instant.Answer(t, kind, confidence = conf)
 
-    fun answer(prompt: String): Instant.Answer? = runCatching { match(prompt) }.getOrNull()
+    /** Rok, ke kterému platí funkce s mandátem (premiér, prezident USA…). */
+    const val STATE_YEAR = 2026
+
+    /**
+     * REVIZNÍ SMLOUVA tabulky (FAULTLINE F-05): „stav k 2026“ dřív platil navždy s jistotou 90. Po skončení roku
+     * STATE_YEAR + 1 klesne jistota proměnlivých odpovědí (90) na 80 – pod práh Auto, takže je převezme mozek / web.
+     * Historie (97) platí dál.
+     */
+    fun answer(prompt: String, today: java.time.LocalDate = java.time.LocalDate.now()): Instant.Answer? =
+        runCatching { match(prompt) }.getOrNull()?.let { a ->
+            if (a.confidence <= 90 && today.year > STATE_YEAR + 1) a.copy(confidence = 80, text = a.text + "\n\n*Údaj může být zastaralý – ověřím.*") else a
+        }
 
     private fun match(prompt: String): Instant.Answer? {
         val raw = prompt.trim()
