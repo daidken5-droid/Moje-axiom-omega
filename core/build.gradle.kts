@@ -27,5 +27,7 @@ dependencies {
 
 tasks.test {
     useJUnit()
+    // HYPERFORGE M5: holdout STEP-0 evalu jen na výslovné přání (./gradlew :core:test -Pstep0.holdout=true)
+    systemProperty("step0.holdout", (project.findProperty("step0.holdout") ?: "false").toString())
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

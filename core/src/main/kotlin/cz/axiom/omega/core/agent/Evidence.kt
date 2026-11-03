@@ -84,9 +84,10 @@ object Evidence {
         return Map(spans)
     }
 
+    private val nonLetter = Regex("[^\\p{L}]+")
     /** Obsahová slova (≥ 5 znaků, bez diakritiky, prvních 5 písmen – ohýbání) pro porovnání věty s podkladem. */
     private fun content(t: String): List<String> =
-        TextUtil.fold(t).lowercase().split(Regex("[^\\p{L}]+")).filter { it.length >= 5 }.map { it.take(5) }
+        TextUtil.fold(t).lowercase().split(nonLetter).filter { it.length >= 5 }.map { it.take(5) }
 
     private fun norm(n: String): String {
         val x = n.replace(" ", "").replace("\u00a0", "").replace(',', '.')

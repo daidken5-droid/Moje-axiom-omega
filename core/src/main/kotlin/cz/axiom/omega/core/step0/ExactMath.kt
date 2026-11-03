@@ -17,6 +17,8 @@ import kotlin.math.sqrt
  */
 object ExactMath {
     private const val CONF = 97
+    private const val lenUnit = "(mm|cm|dm|m|km)?"
+    private const val money = "(\\d[\\d ]*(?:[.,]\\d+)?)\\s*(?:kc|korun|czk|,-)?"
 
     private fun exact(text: String, kind: String, steps: String, assumptions: List<String> = emptyList()) = Instant.Answer(
         "$text\n\n_Postup: ${steps}${if (assumptions.isNotEmpty()) " · Předpoklady: " + assumptions.joinToString("; ") else ""}_", kind, confidence = CONF,
@@ -84,6 +86,34 @@ object ExactMath {
         }
     }
 
+    // předkompilované regexy (dřív se tvořily při každém dotazu – výkon)
+    private val RX0 = Regex("[\\s\\u00a0]")
+    private val RX1 = Regex("^(?:je|jestli je|zda je)\\s+(\\d[\\d ]{0,15})\\s+prvocisl\\w*$")
+    private val RX2 = Regex("^(?:rozloz|rozklad|prvocinitele|rozloz na prvocinitele)\\s+(?:cisla\\s+)?(\\d[\\d ]{0,15})(?:\\s+na prvocisla| na prvocinitele)?$")
+    private val RX3 = Regex("^(?:nsd|nejvetsi spolecny delitel)\\s+(?:cisel\\s+)?(\\d{1,12})\\s*(?:a|,)\\s*(\\d{1,12})$")
+    private val RX4 = Regex("^(?:nsn|nejmensi spolecny nasobek)\\s+(?:cisel\\s+)?(\\d{1,9})\\s*(?:a|,)\\s*(\\d{1,9})$")
+    private val RX5 = Regex("^(?:faktorial(?: cisla)?\\s+(\\d{1,3})|(\\d{1,3})\\s*!)$")
+    private val RX6 = Regex("^(?:kombinacni cislo\\s+)?(\\d{1,4})\\s+nad\\s+(\\d{1,4})$|^(?:kolik je )?kombinac\\w*\\s+(\\d{1,4})\\s+z\\s+(\\d{1,4})$")
+    private val RX7 = Regex("^(?:jaky je |kolik je )?(obsah|obvod|plocha) kruh\\w* (?:o |s )?(?:polomer\\w*|r ?=?) ?(\\d+(?:[.,]\\d+)?) ?$lenUnit$")
+    private val RX8 = Regex("^(?:jaky je |kolik je )?objem koul\\w* (?:o |s )?(?:polomer\\w*|r ?=?) ?(\\d+(?:[.,]\\d+)?) ?$lenUnit$")
+    private val RX9 = Regex("^(?:jaka je |kolik je |spocitej )?prepon\\w*(?: pravouhleho)?(?: trojuhelnik\\w*)?(?: s odvesnami| o odvesnach)? (\\d+(?:[.,]\\d+)?) a (\\d+(?:[.,]\\d+)?) ?$lenUnit$")
+    private val RX10 = Regex("(?i)\\b(0x[0-9a-f]{1,15}|0b[01]{1,62})\\b")
+    private val RX11 = Regex("\\b(na|do|v)\\b.*\\b(desitkov\\w*|dekadick\\w*|decimal\\w*)|\\bkolik je\\b|\\bprevod\\w*|\\bpreved\\w*")
+    private val RX12 = Regex("^(?:preved |prevod |kolik je )?(\\d{1,15}) (?:do|v|na) (dvojkov\\w*|binarn\\w*|sestnactkov\\w*|hexadecimaln\\w*|hex|osmickov\\w*|oktalov\\w*)(?: soustav\\w*)?$")
+    private val RX13 = Regex("^kolik (bitu|bajtu|b) (?:je|ma|maji) (\\d+(?:[.,]\\d+)?) ?(kb|mb|gb|tb|kib|mib|gib|tib)$")
+    private val RX14 = Regex("^(?:jake je |spocitej |vypocitej |moje )?bmi(?: pro)?(?: vysku)? (\\d{2,3}(?:[.,]\\d)?) ?cm(?:,| a| vaha)? (\\d{2,3}(?:[.,]\\d)?) ?kg$")
+    private val RX15 = Regex("\\b(splatk\\w*|uver\\w*|hypotek\\w*|pujck\\w*|anuit\\w*)\\b")
+    private val RX16 = Regex("\\b(slozen\\w* uroc\\w*|zhodnot\\w*|kolik budu mit|kolik bude\\w*|budouci hodnot\\w*)\\b")
+    private val RX17 = Regex("(?:uver\\w*|hypotek\\w*|pujck\\w*|vklad\\w*|castk\\w*|uroc\\w*|zhodnot\\w*|investic\\w*|mam|na)\\s+(?:ve vysi\\s+|za\\s+)?$money(?=\\s|$)")
+    private val RX18 = Regex("(\\d[\\d ]{3,}(?:[.,]\\d+)?)\\s*(?:kc|korun|czk)\\b")
+    private val RX19 = Regex("(\\d+(?:[.,]\\d+)?)\\s*%")
+    private val RX20 = Regex("(?:(?:na|za|po)\\s+)?(\\d{1,2})\\s+(?:let|roku|roky|rok)\\b")
+    private val RX21 = Regex("(?:na|za|po)\\s+(\\d{1,3})\\s+(?:mesic\\w*)\\b")
+    private val RX22 = Regex("\\bmesicn\\w*")
+    private val RX23 = Regex("^(?:(?:prosim te|prosim|hele|avior|ahoj|cau|rekni mi|spocitej mi|vypocitej mi|potrebuju vedet|chci vedet)[,:]?\\s+)+")
+    private val RX24 = Regex("(?:[,\\s]+(?:prosim te|prosim|diky|dekuji))+$")
+    private val RX25 = Regex("\\s+")
+
     // ------------------------------------------------------------------ teorie čísel
     private fun isPrime(n: Long): Boolean {
         if (n < 2) return false
@@ -103,34 +133,34 @@ object ExactMath {
 
     private fun gcd(a: Long, b: Long): Long = if (b == 0L) abs(a) else gcd(b, a % b)
     private val LIMIT = 1_000_000_000_000L
-    private fun int(s: String) = s.replace(Regex("[\\s\\u00a0]"), "").toLongOrNull()
+    private fun int(s: String) = s.replace(RX0, "").toLongOrNull()
 
     private fun numberTheory(f: String): Instant.Answer? {
-        Regex("^(?:je|jestli je|zda je)\\s+(\\d[\\d ]{0,15})\\s+prvocisl\\w*$").find(f)?.let { m ->
+        RX1.find(f)?.let { m ->
             val n = int(m.groupValues[1]) ?: return null; if (n > LIMIT) return null
             val fs = factor(n)
             return if (isPrime(n)) exact("Ano, **${fmt(n.toDouble())} je prvočíslo**.", "prvočísla", "zkusmé dělení do √n = ${fmt(sqrt(n.toDouble()), 1)}")
             else exact("Ne, ${fmt(n.toDouble())} **není prvočíslo**${if (n >= 2) " – ${fs.joinToString(" × ")}" else ""}.", "prvočísla", if (n < 2) "prvočíslo je ≥ 2" else "nejmenší dělitel ${fs.first()}")
         }
-        Regex("^(?:rozloz|rozklad|prvocinitele|rozloz na prvocinitele)\\s+(?:cisla\\s+)?(\\d[\\d ]{0,15})(?:\\s+na prvocisla| na prvocinitele)?$").find(f)?.let { m ->
+        RX2.find(f)?.let { m ->
             val n = int(m.groupValues[1]) ?: return null; if (n !in 2..LIMIT) return null
             val fs = factor(n).groupingBy { it }.eachCount().entries.joinToString(" · ") { (p, k) -> if (k > 1) "$p^$k" else "$p" }
             return exact("${fmt(n.toDouble())} = **$fs**" + if (isPrime(n)) " – je to prvočíslo." else "", "prvočísla", "zkusmé dělení prvočísly")
         }
-        Regex("^(?:nsd|nejvetsi spolecny delitel)\\s+(?:cisel\\s+)?(\\d{1,12})\\s*(?:a|,)\\s*(\\d{1,12})$").find(f)?.let { m ->
+        RX3.find(f)?.let { m ->
             val a = m.groupValues[1].toLong(); val b = m.groupValues[2].toLong(); if (a == 0L && b == 0L) return null
             return exact("NSD($a, $b) = **${gcd(a, b)}**", "dělitelnost", "Eukleidův algoritmus")
         }
-        Regex("^(?:nsn|nejmensi spolecny nasobek)\\s+(?:cisel\\s+)?(\\d{1,9})\\s*(?:a|,)\\s*(\\d{1,9})$").find(f)?.let { m ->
+        RX4.find(f)?.let { m ->
             val a = m.groupValues[1].toLong(); val b = m.groupValues[2].toLong(); if (a == 0L || b == 0L) return null
             return exact("NSN($a, $b) = **${a / gcd(a, b) * b}**", "dělitelnost", "a·b ÷ NSD = $a·$b ÷ ${gcd(a, b)}")
         }
-        Regex("^(?:faktorial(?: cisla)?\\s+(\\d{1,3})|(\\d{1,3})\\s*!)$").find(f)?.let { m ->
+        RX5.find(f)?.let { m ->
             val n = (m.groupValues[1].ifEmpty { m.groupValues[2] }).toInt(); if (n > 200) return null
             val v = (1..n).fold(BigInteger.ONE) { acc, i -> acc * BigInteger.valueOf(i.toLong()) }.toString()
             return exact("$n! = **${if (v.length > 60) v.take(30) + "…" + v.takeLast(10) + " (${v.length} číslic)" else v}**", "kombinatorika", "1·2·…·$n")
         }
-        Regex("^(?:kombinacni cislo\\s+)?(\\d{1,4})\\s+nad\\s+(\\d{1,4})$|^(?:kolik je )?kombinac\\w*\\s+(\\d{1,4})\\s+z\\s+(\\d{1,4})$").find(f)?.let { m ->
+        RX6.find(f)?.let { m ->
             val (n, k) = if (m.groupValues[1].isNotEmpty()) m.groupValues[1].toInt() to m.groupValues[2].toInt() else m.groupValues[4].toInt() to m.groupValues[3].toInt()
             if (n > 1000 || k > n) return null
             var c = BigInteger.ONE; for (i in 0 until minOf(k, n - k)) c = c * BigInteger.valueOf((n - i).toLong()) / BigInteger.valueOf((i + 1).toLong())
@@ -140,20 +170,19 @@ object ExactMath {
     }
 
     // ------------------------------------------------------------------ geometrie
-    private val lenUnit = "(mm|cm|dm|m|km)?"
     private fun num(s: String) = s.replace(',', '.').toDoubleOrNull()
 
     private fun geometry(f: String): Instant.Answer? {
-        Regex("^(?:jaky je |kolik je )?(obsah|obvod|plocha) kruh\\w* (?:o |s )?(?:polomer\\w*|r ?=?) ?(\\d+(?:[.,]\\d+)?) ?$lenUnit$").find(f)?.let { m ->
+        RX7.find(f)?.let { m ->
             val r = num(m.groupValues[2]) ?: return null; val u = m.groupValues[3]
             return if (m.groupValues[1] == "obvod") exact("Obvod kruhu = **${fmt(2 * PI * r)}${if (u.isNotEmpty()) " $u" else ""}**", "geometrie", "o = 2πr, r = ${fmt(r)} $u".trim())
             else exact("Obsah kruhu = **${fmt(PI * r * r)}${if (u.isNotEmpty()) " $u²" else ""}**", "geometrie", "S = πr², r = ${fmt(r)} $u".trim())
         }
-        Regex("^(?:jaky je |kolik je )?objem koul\\w* (?:o |s )?(?:polomer\\w*|r ?=?) ?(\\d+(?:[.,]\\d+)?) ?$lenUnit$").find(f)?.let { m ->
+        RX8.find(f)?.let { m ->
             val r = num(m.groupValues[1]) ?: return null; val u = m.groupValues[2]
             return exact("Objem koule = **${fmt(4.0 / 3 * PI * r * r * r)}${if (u.isNotEmpty()) " $u³" else ""}**", "geometrie", "V = 4/3·πr³, r = ${fmt(r)} $u".trim())
         }
-        Regex("^(?:jaka je |kolik je |spocitej )?prepon\\w*(?: pravouhleho)?(?: trojuhelnik\\w*)?(?: s odvesnami| o odvesnach)? (\\d+(?:[.,]\\d+)?) a (\\d+(?:[.,]\\d+)?) ?$lenUnit$").find(f)?.let { m ->
+        RX9.find(f)?.let { m ->
             val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null; val u = m.groupValues[3]
             return exact("Přepona = **${fmt(sqrt(a * a + b * b))}${if (u.isNotEmpty()) " $u" else ""}**", "geometrie", "c = √(a² + b²) = √(${fmt(a * a)} + ${fmt(b * b)})", listOf("pravoúhlý trojúhelník, a a b jsou odvěsny"))
         }
@@ -162,18 +191,18 @@ object ExactMath {
 
     // ------------------------------------------------------------------ soustavy a datové jednotky
     private fun bases(raw: String, f: String): Instant.Answer? {
-        Regex("(?i)\\b(0x[0-9a-f]{1,15}|0b[01]{1,62})\\b").find(raw)?.let { m ->
-            if (!Regex("\\b(na|do|v)\\b.*\\b(desitkov\\w*|dekadick\\w*|decimal\\w*)|\\bkolik je\\b|\\bprevod\\w*|\\bpreved\\w*").containsMatchIn(f)) return@let
+        RX10.find(raw)?.let { m ->
+            if (!RX11.containsMatchIn(f)) return@let
             val s = m.value.lowercase(); val v = if (s.startsWith("0x")) s.drop(2).toLong(16) else s.drop(2).toLong(2)
             return exact("${m.value} = **$v** (desítkově)", "soustavy", if (s.startsWith("0x")) "šestnáctková → desítková" else "dvojková → desítková")
         }
-        Regex("^(?:preved |prevod |kolik je )?(\\d{1,15}) (?:do|v|na) (dvojkov\\w*|binarn\\w*|sestnactkov\\w*|hexadecimaln\\w*|hex|osmickov\\w*|oktalov\\w*)(?: soustav\\w*)?$").find(f)?.let { m ->
+        RX12.find(f)?.let { m ->
             val v = m.groupValues[1].toLong(); val w = m.groupValues[2]
             val (r, name) = when { w.startsWith("dvoj") || w.startsWith("bin") -> 2 to "dvojkově"; w.startsWith("osm") || w.startsWith("okt") -> 8 to "osmičkově"; else -> 16 to "šestnáctkově" }
             val out = java.lang.Long.toString(v, r).uppercase()
             return exact("$v = **${if (r == 16) "0x" else if (r == 2) "0b" else "0o"}$out** ($name)", "soustavy", "opakované dělení základem $r")
         }
-        Regex("^kolik (bitu|bajtu|b) (?:je|ma|maji) (\\d+(?:[.,]\\d+)?) ?(kb|mb|gb|tb|kib|mib|gib|tib)$").find(f)?.let { m ->
+        RX13.find(f)?.let { m ->
             val v = num(m.groupValues[2]) ?: return null; val u = m.groupValues[3]
             val si = mapOf("kb" to 1e3, "mb" to 1e6, "gb" to 1e9, "tb" to 1e12); val bin = mapOf("kib" to 1024.0, "mib" to 1048576.0, "gib" to 1073741824.0, "tib" to 1099511627776.0)
             val bitsWanted = m.groupValues[1].startsWith("bit")
@@ -187,7 +216,7 @@ object ExactMath {
 
     // ------------------------------------------------------------------ BMI (orientačně, ne diagnóza)
     private fun bmi(f: String): Instant.Answer? {
-        val m = Regex("^(?:jake je |spocitej |vypocitej |moje )?bmi(?: pro)?(?: vysku)? (\\d{2,3}(?:[.,]\\d)?) ?cm(?:,| a| vaha)? (\\d{2,3}(?:[.,]\\d)?) ?kg$").find(f) ?: return null
+        val m = RX14.find(f) ?: return null
         val h = (num(m.groupValues[1]) ?: return null) / 100; val w = num(m.groupValues[2]) ?: return null
         if (h !in 1.0..2.5 || w !in 20.0..350.0) return null
         val b = w / (h * h)
@@ -197,18 +226,17 @@ object ExactMath {
     }
 
     // ------------------------------------------------------------------ osobní finance (VÝSLOVNÉ vstupy)
-    private val money = "(\\d[\\d ]*(?:[.,]\\d+)?)\\s*(?:kc|korun|czk|,-)?"
 
     private fun finance(f: String): Instant.Answer? {
-        val loanAsk = Regex("\\b(splatk\\w*|uver\\w*|hypotek\\w*|pujck\\w*|anuit\\w*)\\b").containsMatchIn(f)
-        val compAsk = Regex("\\b(slozen\\w* uroc\\w*|zhodnot\\w*|kolik budu mit|kolik bude\\w*|budouci hodnot\\w*)\\b").containsMatchIn(f)
+        val loanAsk = RX15.containsMatchIn(f)
+        val compAsk = RX16.containsMatchIn(f)
         if (!loanAsk && !compAsk) return null
-        val principal = Regex("(?:uver\\w*|hypotek\\w*|pujck\\w*|vklad\\w*|castk\\w*|uroc\\w*|zhodnot\\w*|investic\\w*|mam|na)\\s+(?:ve vysi\\s+|za\\s+)?$money(?=\\s|$)").find(f)
+        val principal = RX17.find(f)
             ?.groupValues?.get(1)?.let { TextUtil.parseNumber(it.trim()) }
-            ?: Regex("(\\d[\\d ]{3,}(?:[.,]\\d+)?)\\s*(?:kc|korun|czk)\\b").find(f)?.groupValues?.get(1)?.let { TextUtil.parseNumber(it.trim()) }
-        val rate = Regex("(\\d+(?:[.,]\\d+)?)\\s*%").find(f)?.groupValues?.get(1)?.let { TextUtil.parseNumber(it) }
-        val years = Regex("(?:(?:na|za|po)\\s+)?(\\d{1,2})\\s+(?:let|roku|roky|rok)\\b").find(f)?.groupValues?.get(1)?.toIntOrNull()
-        val months = Regex("(?:na|za|po)\\s+(\\d{1,3})\\s+(?:mesic\\w*)\\b").find(f)?.groupValues?.get(1)?.toIntOrNull()
+            ?: RX18.find(f)?.groupValues?.get(1)?.let { TextUtil.parseNumber(it.trim()) }
+        val rate = RX19.find(f)?.groupValues?.get(1)?.let { TextUtil.parseNumber(it) }
+        val years = RX20.find(f)?.groupValues?.get(1)?.toIntOrNull()
+        val months = RX21.find(f)?.groupValues?.get(1)?.toIntOrNull()
         val n = months ?: years?.times(12)
         val missing = buildList {
             if (principal == null || principal <= 0) add("výši ${if (loanAsk) "úvěru" else "vkladu"} (Kč)")
@@ -230,7 +258,7 @@ object ExactMath {
                 "anuita M = P·r ÷ (1 − (1+r)^−n); P = ${fmt(p, 0)} Kč, r = ${fmt(rate)} % ÷ 12, n = $months0 měsíců",
                 listOf("pevná sazba po celou dobu", "měsíční splácení a měsíční úročení", "bez poplatků a pojištění – RPSN bude vyšší"))
         }
-        val monthly = Regex("\\bmesicn\\w*").containsMatchIn(f)
+        val monthly = RX22.containsMatchIn(f)
         val k = if (monthly) 12 else 1
         val periods = if (monthly) months0 else months0 / 12.0
         val fv = p * (1 + annual / k).pow(periods.toDouble())
@@ -239,9 +267,21 @@ object ExactMath {
             listOf(if (monthly) "úročení měsíčně" else "úročení jednou ročně (napiš „měsíčně“, pokud jinak)", "bez daní, poplatků a inflace", "sazba po celou dobu stejná"))
     }
 
+    private val TRIGGERS = listOf("prumer", "median", "modus", "rozptyl", "smerodat", "soucet", "minimum", "maximum", "rozpeti", "prvocis", "prvocin",
+        "rozloz", "rozklad", "nsd", "nsn", "spolecn", "faktorial", "!", " nad ", "kombinac", "kruh", "koul", "prepon", "0x", "0b", "dvojkov", "binarn",
+        "sestnactkov", "hex", "osmickov", "oktal", "bitu", "bajtu", "bmi", "splatk", "uver", "hypotek", "pujck", "anuit", "uroc", "zhodnot", "kolik budu", "kolik bude", "budouci")
+
+    // zdvořilostní obal – odstraní se BEZ zásahu do čísel (normalizace otázek jinde mění oddělovače → výpočet ji nepoužívá)
+    private val lead = RX23
+    private val trail = RX24
+
     fun answer(prompt: String): Instant.Answer? {
-        if (prompt.length > 400) return null
-        val f = TextUtil.fold(prompt).lowercase().trim().trimEnd('?', '!', '.').replace(Regex("\\s+"), " ")
+        // všechny výpočty potřebují číslo – dotaz bez číslice odejde hned (Exact Engine běží jako první u každého dotazu)
+        if (prompt.length > 400 || prompt.none { it.isDigit() }) return null
+        val f = TextUtil.fold(prompt).lowercase().trim().trimEnd('?', '!', '.').replace(RX25, " ")
+            .replace(lead, "").replace(trail, "").trim().trimEnd('?', '!', '.', ',')
+        // předfiltr: bez klíčového slova některé rodiny výpočtů žádný regex nepouštět
+        if (TRIGGERS.none { it in f }) return null
         return runCatching { stats(f) ?: numberTheory(f) ?: geometry(f) ?: bases(prompt, f) ?: bmi(f) ?: finance(f) }.getOrNull()
     }
 }

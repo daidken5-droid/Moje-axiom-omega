@@ -254,7 +254,14 @@ object Reflex {
         val base = TextUtil.fold(prompt).lowercase().replace(Regex("[?!.…,]+"), " ").replace(Regex("\\s+"), " ").trim()
         val b = bare.replace(",", " ").replace(Regex("\\s+"), " ").trim()
         // celá slova: „… kc mesic“ NENÍ obal „… kc mesicne“ (normalizace slovo zkrátila → ztratil se význam „měsíčně“)
-        return b.length in 3 until base.length && Regex("(^| )" + Regex.escape(b) + "( |$)").containsMatchIn(base)
+        if (b.length !in 3 until base.length) return false
+        // hranice slov bez stavby regexu: výskyt b ohraničený začátkem/koncem nebo mezerou
+        var i = base.indexOf(b)
+        while (i >= 0) {
+            if ((i == 0 || base[i - 1] == ' ') && (i + b.length == base.length || base[i + b.length] == ' ')) return true
+            i = base.indexOf(b, i + 1)
+        }
+        return false
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {

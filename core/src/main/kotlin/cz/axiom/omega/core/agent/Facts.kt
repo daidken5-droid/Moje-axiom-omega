@@ -291,7 +291,9 @@ object Facts {
         }
 
         // ---- měna a telefonní předvolba státu
-        if (rx("\\b(men\\w*|plati\\w*|predvolb\\w*|volaci kod|kod zeme)\\b").containsMatchIn(f)) {
+        // HYPERFORGE M5: „kód země“ = ISO kód (IsoReflex), NE telefonní předvolba – eval našel „třípísmenný kód země
+        // Rakousko“ → „+43“. Předvolba jen na výslovné „předvolba / volací / telefonní“.
+        if (rx("\\b(men\\w*|plati\\w*|predvolb\\w*|volaci kod|telefonni kod)\\b").containsMatchIn(f) && !rx("\\b(iso|alpha|alfa|tripismen\\w*|dvoupismen\\w*|ciseln\\w* kod)\\b").containsMatchIn(f)) {
             rx("(\\+\\d{1,3})\\b").find(raw)?.let { m ->
                 val hits = countries.filter { it[3] == m.groupValues[1] }
                 if (hits.isNotEmpty()) return ans("Předvolba **${m.groupValues[1]}** patří: **${hits.joinToString(", ") { it[0] }}**.", "zeměpis")
@@ -299,7 +301,16 @@ object Facts {
             val aliases = mapOf("usa" to "Spojené státy americké", "ameri" to "Spojené státy americké", "britani" to "Spojené království", "angli" to "Spojené království", "holandsk" to "Nizozemsko", "cesk" to "Česko")
             val c = aliases.entries.firstOrNull { (k, _) -> rx("\\b$k").containsMatchIn(f) }?.value?.let { a -> countries.firstOrNull { it[0] == a } }
                 ?: countries.sortedByDescending { it[0].length }.firstOrNull { mentions(q, it[0]) }
-            if (c != null) return ans(if (rx("predvolb|volaci|kod zeme").containsMatchIn(f)) "Telefonní předvolba státu **${c[0]}** je **${c[3]}**."
+            // KŘÍŽOVÁ KONTROLA s přesným rozlišením názvu (Verified Fact Store): „Malawi“ ≠ „Malta“, „Americká Samoa“ ≠ USA.
+            // Jiný jednoznačně rozpoznaný stát = konflikt → zdržet se (odpoví IsoReflex nebo mozek).
+            if (c != null) {
+                val iso = cz.axiom.omega.core.facts.IsoReflex.resolve(raw)
+                if (iso != null) {
+                    val cand = TextUtil.fold(c[0]).lowercase()
+                    if (cz.axiom.omega.core.facts.IsoReflex.namesOf(iso).none { cand == it || cand.startsWith("$it ") || it.startsWith("$cand ") }) return null
+                }
+            }
+            if (c != null) return ans(if (rx("predvolb|volaci|telefonni").containsMatchIn(f)) "Telefonní předvolba státu **${c[0]}** je **${c[3]}**."
                 else "Ve státě **${c[0]}** se platí: **${c[1]}** (${c[2]}).", "zeměpis")
         }
 
