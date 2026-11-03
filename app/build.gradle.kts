@@ -31,7 +31,7 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1011
+        versionCode = 1012
         versionName = "Delta IV"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // každý běhový test ve vlastním procesu a s čistými daty (žádné sdílené singletony mezi testy)
@@ -110,6 +110,9 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric si za běhu stahuje obraz Androidu (android-all). Maven Central občas vrací 429 / IOException
+        // (CI běh fbcb69b: 3/3 testy DbMigrationTest selhaly na stahování, ne na kódu) → spolehlivé zrcadlo Googlu.
+        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2") }
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
     lint { abortOnError = false; checkReleaseBuilds = false }

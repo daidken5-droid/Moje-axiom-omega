@@ -2,6 +2,9 @@
 # CRUCIBLE – smoke test AVIORu na běžícím emulátoru/zařízení přes ADB. Pravdivý návratový kód: selže při pádu/ANR.
 # Použití: tools/crucible/emulator_smoke.sh <debug.apk> [report.md]
 set -uo pipefail
+# KAŽDÉ volání adb má limit 60 s: když emulátor zmizí (CI běh #1), čekalo „- waiting for device -“ až do limitu jobu
+ADB_BIN="$(command -v adb)"   # timeout spouští program, ne funkci → absolutní cesta
+adb() { timeout 60 "$ADB_BIN" "$@"; }
 APK="$1"; OUT="${2:-crucible-runtime.md}"
 PKG="cz.axiom.omega.debug"; ACT="$PKG/cz.axiom.omega.MainActivity"
 fail=0
@@ -12,13 +15,12 @@ check_crash() {
   log "- ✅ $1: bez pádu"
 }
 # každý krok má časový limit – zaseknutí = jasná chyba, ne tiché čekání do limitu CI
-start_ms() { timeout 60 adb shell am start -W -n "$ACT" 2>/dev/null | awk -F': ' '/TotalTime/{print $2}' | tr -d '\r'; }
-A() { timeout 60 adb "$@"; }
+start_ms() { timeout 60 "$ADB_BIN" shell am start -W -n "$ACT" 2>/dev/null | awk -F': ' '/TotalTime/{print $2}' | tr -d '\r'; }
 
 : > "$OUT"
 log "## CRUCIBLE smoke ($(adb shell getprop ro.product.model | tr -d '\r'), Android $(adb shell getprop ro.build.version.release | tr -d '\r'), ABI $(adb shell getprop ro.product.cpu.abi | tr -d '\r'))"
 log "- krok: instalace ($(date +%T))"
-timeout 180 adb install -r -g "$APK" >/dev/null || { log "- ❌ instalace selhala nebo vypršela"; exit 1; }
+timeout 180 "$ADB_BIN" install -r -g "$APK" >/dev/null || { log "- ❌ instalace selhala nebo vypršela"; exit 1; }
 adb logcat -c; adb logcat -b crash -c
 
 # 1) studený start ×3

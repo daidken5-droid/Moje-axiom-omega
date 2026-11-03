@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Běží UVNITŘ emulátoru v CI: instrumentační testy + smoke přes ADB. Pravdivý návratový kód.
 set -uo pipefail
+# KAŽDÉ volání adb má limit 60 s: když emulátor zmizí (CI běh #1), čekalo „- waiting for device -“ až do limitu jobu
+ADB_BIN="$(command -v adb)"   # timeout spouští program, ne funkci → absolutní cesta
+adb() { timeout 60 "$ADB_BIN" "$@"; }
 OUT=crucible-runtime.md
 # paměť hostitele každých 10 s (zda emulátor nezabil nedostatek RAM runneru)
 ( while true; do echo "$(date +%T) $(free -m | awk '/Mem:/{print "host used="$3"MB free="$4"MB avail="$7"MB"}') $(adb devices | grep -c 'emulator.*device$') zařízení"; sleep 10; done ) > host-monitor.log 2>&1 &
@@ -19,7 +22,7 @@ adb logcat -d > logcat-instrumentation.txt 2>/dev/null
   echo "## Instrumentační testy (emulátor) – $( [ $inst -eq 0 ] && echo 'PROŠLY' || echo 'SELHALY' )"
   grep -E "Tests? on|tests completed|FAILED|PASSED|> Task :app:connectedDebugAndroidTest" instrumentation.log | tail -20 | sed 's/^/    /'
   echo; echo "### Naměřeno v testech (logcat System.out)"
-  timeout 30 adb logcat -d -s System.out:I CRUCIBLE:I | grep -o "CRUCIBLE.*" | sed 's/^/- /'
+  timeout 30 "$ADB_BIN" logcat -d -s System.out:I CRUCIBLE:I | grep -o "CRUCIBLE.*" | sed 's/^/- /'
   grep -h -o "CRUCIBLE.*" app/build/outputs/androidTest-results/connected/debug/*/logcat-*.txt 2>/dev/null | sort -u | sed 's/^/- /'
   echo
 } > "$OUT"
