@@ -43,6 +43,18 @@ class OmegaBridge(private val activity: MainActivity) {
     private val omega = Omega.get(activity)
     private val io = Executors.newSingleThreadExecutor()
 
+    /**
+     * HYPERFORGE M2-E: NATIVNÍ potvrzení (Android dialog mimo WebView). JavaScript ho nemůže odkliknout – případný
+     * cizí skript ve WebView (XSS) tak nespustí root povel ani nevratnou akci, i kdyby zavolal most přímo.
+     * Akce se provede jen po klepnutí na „Provést“ v dialogu; zavření / zpět = nic se nestane.
+     */
+    private fun confirmNative(title: String, message: String, yes: String = "Provést", onYes: () -> Unit) = activity.runOnUiThread {
+        if (activity.isFinishing) return@runOnUiThread
+        android.app.AlertDialog.Builder(activity).setTitle(title).setMessage(message)
+            .setPositiveButton(yes) { _, _ -> io.execute { runCatching(onYes).onFailure { Events.note(it.message ?: "Akce selhala.") } } }
+            .setNegativeButton("Zrušit", null).setCancelable(true).show()
+    }
+
     private fun async(block: () -> Unit) = io.execute {
         try { block() } catch (e: Exception) { Events.note(e.message ?: e.javaClass.simpleName) }
     }
@@ -169,8 +181,13 @@ class OmegaBridge(private val activity: MainActivity) {
             ?: run { Events.note("Povel vypršel – napiš ho prosím znovu."); return@async }
         val cmd = p.cmd
         if (!approved) { phoneReply(threadId, cmd, "Zrušeno – nic jsem neprovedl."); return@async }
-        Events.emit("phase", JSONObject().put("text", cmd.label))
-        phoneReply(threadId, cmd, cz.axiom.omega.phone.PhoneControl(activity).execute(cmd).text)
+        val run = {
+            Events.emit("phase", JSONObject().put("text", cmd.label))
+            phoneReply(threadId, cmd, cz.axiom.omega.phone.PhoneControl(activity).execute(cmd).text)
+        }
+        // root povel: schválení z WebView nestačí – rozhoduje nativní dialog s plným zněním příkazu
+        if (cmd.root) confirmNative("Provést příkaz s rootem?", "${cmd.label}\n\n${cmd.args["cmd"] ?: ""}\n\nPříkaz poběží s plnými právy.", onYes = run)
+        else run()
     }
 
     /** Stav oprávnění ovládání telefonu pro kartu v Nastavení. */
@@ -272,7 +289,7 @@ class OmegaBridge(private val activity: MainActivity) {
      * Mozky a offline knihovna zůstanou (nejsou osobní data). Databáze se po smazání fyzicky přepíše (VACUUM).
      */
     @JavascriptInterface
-    fun panicWipe() = async {
+    fun panicWipe() = confirmNative("Smazat všechno?", "Smaže klíče, konverzace, paměť, vlastní dokumenty a statistiky učení. Mozky a knihovna zůstanou. Nejde vrátit.", "Smazat") {
         OmegaService.cancel(activity)
         Vault.ALL.forEach(omega.vault::remove)
         omega.db.wipeAll()
@@ -449,25 +466,29 @@ class OmegaBridge(private val activity: MainActivity) {
     // ------------------------------------------------------------------ cloud (Hugging Face dataset)
 
     @JavascriptInterface
-    fun cloudBackup() = async {
+    fun cloudBackup(passphrase: String) = async {
+        val pass = passphrase.toCharArray()
+        if (pass.size < cz.axiom.omega.core.security.BackupCrypto.MIN_PASSPHRASE) error("Zadej heslo zálohy (aspoň ${cz.axiom.omega.core.security.BackupCrypto.MIN_PASSPHRASE} znaků). Bez něj zálohu nikdo neobnoví – ani AVIOR.")
         val token = omega.vault.read(Vault.HF) ?: error("Nejdřív ulož Hugging Face token (právo write).")
         val cb = cz.axiom.omega.data.CloudBackup(activity, token)
         val repo = cb.ensureRepo(omega.settings.hfRepo)
         omega.settings.hfRepo = repo
-        val size = cb.upload(repo, omega.db)
+        val size = try { cb.upload(repo, omega.db, pass) } finally { pass.fill('\u0000') }
         Events.emit("config", JSONObject(state()))
-        Events.note("Záloha nahrána do soukromého datasetu $repo (${size / 1024} kB).")
+        Events.note("Šifrovaná záloha nahrána do soukromého datasetu $repo (${size / 1024} kB). Heslo si zapamatuj – neukládám ho.")
     }
 
     @JavascriptInterface
-    fun cloudRestore() = async {
+    fun cloudRestore(passphrase: String) = confirmNative("Obnovit z cloudu?", "Současná data se nahradí zálohou.", "Obnovit") {
         if ((OmegaService.RUNNING_ASK.get() || OmegaService.RUNNING_BG.get())) error("Počkej na dokončení běžící úlohy.")
         val token = omega.vault.read(Vault.HF) ?: error("Nejdřív ulož Hugging Face token.")
         val repo = omega.settings.hfRepo.ifBlank { error("Není nastavený dataset se zálohou.") }
-        val f = cz.axiom.omega.data.CloudBackup(activity, token).download(repo)
-        omega.packs.restoreFile(f)
+        val pass = passphrase.toCharArray()
+        val r = try { cz.axiom.omega.data.CloudBackup(activity, token).download(repo, pass) } finally { pass.fill('\u0000') }
+        omega.packs.restoreFile(r.file)
         Events.emit("kb", JSONObject()); Events.emit("mem", JSONObject()); Events.emit("config", JSONObject(state()))
-        Events.note("Databáze obnovena z cloudu ($repo).")
+        Events.note(if (r.legacyUnencrypted) "Databáze obnovena ze STARÉ NEŠIFROVANÉ zálohy ($repo). Vytvoř novou šifrovanou zálohu a starý soubor axiom-omega-backup.b64 v datasetu smaž."
+            else "Databáze obnovena ze šifrované zálohy ($repo).")
     }
 
     // ------------------------------------------------------------------ mozky
@@ -624,7 +645,7 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun memDelete(id: Long) { omega.db.deleteMemory(id); Events.emit("mem", JSONObject()) }
 
-    @JavascriptInterface fun memClear() { omega.db.clearMemory(); Events.emit("mem", JSONObject()); Events.note("Paměť vymazána.") }
+    @JavascriptInterface fun memClear() = confirmNative("Vymazat celou paměť?", "AVIOR zapomene vše, co si o tobě pamatuje. Nejde vrátit.", "Vymazat") { omega.db.clearMemory(); Events.emit("mem", JSONObject()); Events.note("Paměť vymazána.") }
 
     // ------------------------------------------------------------------ offline databáze
 
@@ -896,14 +917,16 @@ class OmegaBridge(private val activity: MainActivity) {
      */
     @JavascriptInterface fun phoneCacheStatus(): String = JSONObject().put("root", cz.axiom.omega.phone.RootShell.present()).toString()
 
-    @JavascriptInterface fun clearPhoneCaches(useRoot: Boolean) = async {
+    @JavascriptInterface fun clearPhoneCaches(useRoot: Boolean) = if (useRoot) confirmNative("Vymazat cache všech aplikací (root)?", "Spustí se „pm trim-caches“ s rootem. Data aplikací zůstanou.") { clearCachesNow(true) } else async { clearCachesNow(false) }
+
+    private fun clearCachesNow(useRoot: Boolean) {
         if (useRoot && cz.axiom.omega.phone.RootShell.present()) {
             val freeBefore = activity.filesDir.usableSpace
             val r = cz.axiom.omega.phone.RootShell.run("pm trim-caches 999G", 60)
             val gained = (activity.filesDir.usableSpace - freeBefore).coerceAtLeast(0)
             Events.note(if (r.code == 0) "Cache všech aplikací vymazána (root) – uvolněno ${"%.0f".format(gained / 1_048_576.0)} MB. Data aplikací zůstala."
                 else "Nepodařilo se (kód ${r.code}): ${r.text.take(120)}")
-            return@async
+            return
         }
         activity.runOnUiThread {
             val intents = listOf(Intent("android.os.storage.action.MANAGE_STORAGE"), Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS))

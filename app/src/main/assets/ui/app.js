@@ -1008,6 +1008,7 @@ function renderMemory() {
       <label>Cloud zdarma – soukromý dataset na Hugging Face</label>
       <input type="password" id="key-hf" autocomplete="off" placeholder="${(S.keys || {}).hf ? 'HF token uložen' : 'HF token (write)'}">
       <div class="grid2" style="margin-top:8px"><button class="btn sm" data-save-key="hf">Uložit token</button><button class="btn sm" data-open="https://huggingface.co/settings/tokens">Získat token ↗</button></div>
+      <label>Heslo zálohy (šifruje se v telefonu, neukládá se)</label><input id="bkPass" type="password" autocomplete="new-password" placeholder="aspoň 10 znaků">
       <div class="grid2" style="margin-top:8px"><button class="btn sm primary" data-cloud-backup>Zálohovat do cloudu</button><button class="btn sm" data-cloud-restore>Obnovit z cloudu</button></div>
       ${(S.settings || {}).hfRepo ? `<p class="small muted">Dataset: ${esc(S.settings.hfRepo)}</p>` : ''}`)}
 
@@ -1373,8 +1374,7 @@ document.addEventListener('click', e => {
   if (ds.reclaim !== undefined) { call('reclaimMemory'); toast('Uvolňuji paměť – aplikace na pozadí se zavřou…'); t.disabled = true; return; }
   if (ds.devopts !== undefined) { call('openDevOptions'); return; }
   if (ds.panic !== undefined) {
-    if (confirm('Smazat VŠECHNY konverzace, paměť, vlastní dokumenty, klíče a statistiky učení? Mozky a knihovna zůstanou.') &&
-        confirm('Opravdu? Tohle nejde vrátit.')) { call('panicWipe'); haptic(); }
+    call('panicWipe'); haptic(); // potvrzení: nativní dialog (M2-E) – JS ho nemůže odkliknout
     return;
   }
   if (ds.thread) { if (ds.taskDel) return; loadThread(Number(ds.thread)); live = null; closeDrawer(); go('chat'); return; }
@@ -1447,7 +1447,7 @@ document.addEventListener('click', e => {
   if (ds.memtab) { memTab = ds.memtab; renderMemory(); return; }
   if (ds.memAdd !== undefined) { const v = val('memText'); if (v) { call('memAdd', 'FACT', v); toast('Zapamatováno.'); } return; }
   if (ds.memDel) { call('memDelete', Number(ds.memDel)); return; }
-  if (ds.memClear !== undefined) { if (confirm('Opravdu vymazat celou paměť?')) call('memClear'); return; }
+  if (ds.memClear !== undefined) { call('memClear'); return; } // potvrzení: nativní dialog
   if (ds.gemPrompt !== undefined) { call('memImportCopyPrompt'); return; }
   if (ds.gemText !== undefined) { const v = val('gemText'); if (!v) return toast('Vlož odpověď z Gemini.'); call('memImportText', v); $('#gemText').value = ''; return; }
   if (ds.gemFile !== undefined) { call('memImportFile'); return; }
@@ -1458,8 +1458,8 @@ document.addEventListener('click', e => {
   if (ds.packRefresh !== undefined) { call('packRefresh'); return; }
   if (ds.dbExport !== undefined) { call('dbExport'); return; }
   if (ds.dbImport !== undefined) { if (confirm('Obnova přepíše vlákna, paměť a znalosti. Pokračovat?')) call('dbImport'); return; }
-  if (ds.cloudBackup !== undefined) { toast('Nahrávám zálohu…'); call('cloudBackup'); return; }
-  if (ds.cloudRestore !== undefined) { if (confirm('Obnovit z cloudu? Přepíše současná data.')) call('cloudRestore'); return; }
+  if (ds.cloudBackup !== undefined) { const p = ($('#bkPass') || {}).value || ''; if (p.length < 10) { toast('Zadej heslo zálohy – aspoň 10 znaků'); return; } toast('Šifruji a nahrávám zálohu…'); call('cloudBackup', p); $('#bkPass').value = ''; return; }
+  if (ds.cloudRestore !== undefined) { const p = ($('#bkPass') || {}).value || ''; call('cloudRestore', p); $('#bkPass').value = ''; return; } // potvrzení: nativní dialog
   if (ds.kbImport !== undefined) { call('kbImport'); return; }
   if (ds.kbDel) { if (confirm('Smazat dokument?')) call('kbDelete', Number(ds.kbDel)); return; }
   if (ds.saveKey) { const el = $('#key-' + ds.saveKey); if (el && el.value.trim()) { call('saveKey', ds.saveKey, el.value.trim()); el.value = ''; if (CLOUDS().some(f => f[0] === ds.saveKey)) setTimeout(() => call('testProvider', ds.saveKey), 350); setTimeout(() => { refresh(); if (view === 'modules') renderModules(); }, 300); } else toast('Vlož klíč.'); return; }
