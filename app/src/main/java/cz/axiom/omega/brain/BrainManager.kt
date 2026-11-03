@@ -18,19 +18,21 @@ import java.io.IOException
 class BrainManager(private val context: Context) {
 
     private val dir = File(context.filesDir, "brains").apply { mkdirs() }
-    private val catalogCache = File(dir, "catalog.json")
     private val settings = Settings(context)
 
     private val customCatalog = File(dir, "custom-catalog.json")
 
     @Volatile private var cached: Pair<Long, List<BrainSpec>>? = null
 
-    /** Katalog mozků – volá se u každého dotazu mnohokrát, proto v paměti (znovu jen po změně souborů). */
+    /**
+     * Katalog mozků – volá se u každého dotazu mnohokrát, proto v paměti (znovu jen po změně souborů).
+     * Základ je VŽDY katalog z APK. (Dřív ho úplně nahradil starý stažený `brains/catalog.json` z doby, kdy šel
+     * katalog obnovit ze sítě; tlačítko zmizelo ve 3.1 → zastaralý soubor by navždy skryl nové mozky z aktualizací.)
+     */
     fun catalog(): List<BrainSpec> {
-        val stamp = catalogCache.lastModified() * 31 + customCatalog.lastModified()
+        val stamp = customCatalog.lastModified()
         cached?.let { (k, v) -> if (k == stamp) return v }
-        val remote = runCatching { if (catalogCache.exists()) BrainCatalog.parse(catalogCache.readText()) else null }.getOrNull()
-        val base = remote ?: BrainCatalog.parse(context.assets.open("brains/catalog.json").bufferedReader().use { it.readText() })
+        val base = BrainCatalog.parse(context.assets.open("brains/catalog.json").bufferedReader().use { it.readText() })
         return (base + custom().filter { c -> base.none { it.id == c.id } }).also { cached = stamp to it }
     }
 
@@ -59,20 +61,6 @@ class BrainManager(private val context: Context) {
         return spec
     }
 
-    /** Stáhne aktuální katalog z repozitáře (nové mozky bez aktualizace aplikace). Při chybě zůstane vestavěný. */
-    fun refreshCatalog(): Int {
-        val conn = Http.open(BrainCatalog.REMOTE_URL, readMs = 20_000)
-        try {
-            if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
-            val text = Http.readAll(conn.inputStream, 500_000)
-            val parsed = BrainCatalog.parse(text) // validace před uložením
-            catalogCache.writeText(text)
-            cached = null
-            return parsed.size
-        } finally {
-            conn.disconnect()
-        }
-    }
 
     fun fileFor(spec: BrainSpec) = File(dir, spec.fileName)
 

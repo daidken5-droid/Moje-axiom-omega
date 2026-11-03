@@ -1,5 +1,16 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1008 (mrtvý kód + optimalizace)
+- **Mrtvý kód:**
+  - odstraněno 6 metod mostu JS↔Kotlin, které UI od verze 3.1 nevolá (`renameThread`, `brainRefresh`, `kbAdd`, `memImportPrompt`, `stopSpeaking`, `hfStatus`) – menší útočná plocha mostu,
+  - odstraněny nepoužité `Sentinel.lifeYears` a `BrainCatalog.REMOTE_URL`.
+- **Skrytá chyba (P2):** starý stažený katalog mozků (`files/brains/catalog.json` z doby, kdy šel obnovit ze sítě) úplně nahrazoval katalog z APK, takže nové mozky z aktualizací by se nezobrazily. Základem je teď vždy katalog z APK; vlastní mozky zůstávají.
+- **Výkon paměti odpovědí:**
+  - příčina: klíče uložených otázek se tokenizovaly u každého dotazu a podobnost se počítala dvakrát (líná sekvence),
+  - oprava: klíče jsou předpočítané (`Entry.keys`) a podobnost se počítá jednou,
+  - p95 při 2 000 záznamech **139 ms → 3–7 ms** (JVM),
+  - test `AnswerMemoryPerfTest`.
+
 ## Delta IV · sestavení 1006 (CONVERGENCE, dokončení)
 - **R-01:** migrace DB v4 už neskrývá chyby. Sloupce se zjistí přes `PRAGMA table_info` a doplní jen chybějící. Napůl migrovaná databáze se opraví při otevření.
 - Nové testy datové vrstvy na skutečné Android SQLite (Robolectric) a jejich spouštění v CI: `DbMigrationTest`.

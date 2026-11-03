@@ -29,6 +29,19 @@ PROBE HIT 118/130 (EverydayCoverageTest)
 - Obě aktuální varianty mají 0 chybných odpovědí.
 - Varianty s mozkem (RANDY, RANDY + PROOFCORE) **nebyly měřeny**: v prostředí není model ani zařízení.
 
+## Sestavení 1008: kontrola mrtvého kódu a výkonu
+- **Analýza mrtvého kódu** (skript `tools/audit/dead_code.py`):
+  - každá deklarace v `src/main` × výskyty v kódu (komentáře se nepočítají), včetně volání z `app.js`,
+  - metody mostu nevolané UI: 6 (odstraněno),
+  - nepoužité symboly: 2 (odstraněno),
+  - po úpravě: 0 nepoužitých symbolů, 0 nevolaných metod mostu.
+- **Varování kompilátoru:**
+  - jen zastaralá API (`URL(...)`, `Locale(...)`, barvy lišt),
+  - jedno „Condition is always true“ v `SecTools.kt:192` je planý poplach: Java vrací v `headerFields` klíč `null`.
+- `AnswerMemoryPerfTest`: p95 Reflex s 2 000 uloženými odpověďmi **139 ms před → 3,4–7,3 ms po** (JVM, opakované běhy).
+- `:core:test`: **211 testů, 0 selhání**. Δ Lab beze změny (dev 30/30, final 49/50, 0 chyb).
+- UI náhled (`shoot.js`): 34 obrazovek, bez chyb JavaScriptu.
+
 ## `:app:testDebugUnitTest` (Robolectric `DbMigrationTest`)
 - **Lokálně nespuštěno:** Maven Central vrací z kontejneru HTTP 429.
 - Výsledek z CI je v části „CI“ níže.

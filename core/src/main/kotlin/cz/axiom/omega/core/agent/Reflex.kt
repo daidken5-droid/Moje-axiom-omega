@@ -27,7 +27,10 @@ object Reflex {
         val origin: Proof.Origin = if (good) Proof.Origin.USER else Proof.Origin.MODEL,
         /** Revizní smlouva: po tomto čase se odpověď nepoužije (0 = dosavadních 60 dní). */
         val reviseAt: Long = 0,
-    )
+    ) {
+        /** Klíčová slova otázky – spočítají se jednou (paměť odpovědí je v RAM, prochází se u každého dotazu). */
+        val keys: Set<String> by lazy(LazyThreadSafetyMode.PUBLICATION) { key(question) }
+    }
 
     // ------------------------------------------------------------------ 2) kalendář
 
@@ -122,11 +125,16 @@ object Reflex {
 
     fun key(q: String): Set<String> = TextUtil.words(q, 3).filter { it !in stop }.toSet()
 
-    fun similarity(a: String, b: String): Double {
-        val x = key(a); val y = key(b)
+    fun similarity(a: String, b: String): Double = similarity(key(a), key(b))
+
+    /** Jaccard nad hotovými množinami (bez alokace průniku i sjednocení). */
+    fun similarity(x: Set<String>, y: Set<String>): Double {
         if (x.isEmpty() || y.isEmpty()) return 0.0
-        return (x intersect y).size.toDouble() / (x union y).size
+        val inter = x.count { it in y }
+        return inter.toDouble() / (x.size + y.size - inter)
     }
+
+    private fun shares(x: Set<String>, y: Set<String>) = x.any { it in y }
 
     private val canonMemo = java.util.concurrent.ConcurrentHashMap<String, String>()
     private fun canon(q: String): String = canonMemo[q] ?: (QuestionNorm.variants(q).lastOrNull() ?: q).also { if (canonMemo.size < 4000) canonMemo[q] = it }
@@ -139,17 +147,20 @@ object Reflex {
     }
 
     fun cached(prompt: String, entries: List<Entry>, now: Long = System.currentTimeMillis()): Instant.Answer? {
-        if (timeSensitive(prompt) || key(prompt).size < 2) return null
         val pk = key(prompt)
+        if (pk.size < 2 || timeSensitive(prompt)) return null
         // PŘEFORMULOVANÁ OTÁZKA: když se slova přímo neshodují, porovnat kanonické tvary (slang, překlepy, obaly pryč).
         // Úsporně: jen u záznamů, které sdílí aspoň jedno klíčové slovo, a kanonický tvar se pamatuje.
+        // VÝKON: klíče záznamů jsou předpočítané (Entry.keys), klíče dotazu a jeho kanonického tvaru jen jednou;
+        // podobnost se počítá JEDNOU pro každý záznam (dřív líná sekvence procházená dvakrát → 2× všechno).
+        val ck by lazy(LazyThreadSafetyMode.NONE) { key(canon(prompt)) }
         fun sim(e: Entry): Double {
-            val direct = similarity(prompt, e.question)
-            if (direct >= 0.8 || (pk intersect key(e.question)).isEmpty()) return direct
-            return maxOf(direct, similarity(canon(prompt), canon(e.question)))
+            val direct = similarity(pk, e.keys)
+            if (direct >= 0.8 || !shares(pk, e.keys)) return direct
+            return maxOf(direct, similarity(ck, key(canon(e.question))))
         }
         // REVIZNÍ SMLOUVA: prošlé odpovědi se nepoužijí – otázku znovu vyhodnotí mozek nebo zdroj
-        val scored = entries.asSequence().filter { Proof.alive(it.at, it.reviseAt, now) }.map { it to sim(it) }
+        val scored = entries.filter { Proof.alive(it.at, it.reviseAt, now) }.map { it to sim(it) }
         // PROOFCORE: jistota z DŮKAZU. Ověřené (✓ uživatele, Wikipedie) platí i pro přeformulovanou otázku;
         // neověřená odpověď mozku jen pro tutéž otázku a POD prahem Auto (85) – v Auto ji mozek zodpoví znovu,
         // Flash (práh 70, uživatel chce rychlost) ji vrátí s viditelným štítkem „neověřeno“.

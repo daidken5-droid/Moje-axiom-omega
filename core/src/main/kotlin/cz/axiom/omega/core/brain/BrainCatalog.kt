@@ -38,8 +38,6 @@ data class BrainSpec(
 
 object BrainCatalog {
 
-    const val REMOTE_URL = "https://raw.githubusercontent.com/daidken5-droid/Moje-axiom-omega/main/brains/catalog.json"
-
     private val json = Json { ignoreUnknownKeys = true }
 
     fun toJson(list: List<BrainSpec>): String = kotlinx.serialization.json.buildJsonObject {

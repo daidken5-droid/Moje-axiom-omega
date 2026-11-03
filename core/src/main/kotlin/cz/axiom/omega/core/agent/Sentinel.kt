@@ -178,10 +178,6 @@ object Sentinel {
         return parse(sides.firstOrNull()) to parse(sides.getOrNull(1))
     }
 
-    /** Kompatibilita: jen roky. */
-    fun lifeYears(text: String): Pair<Pair<String, String>?, Pair<String, String>?>? =
-        lifeDates(text)?.let { (b, d) -> b?.let { it.first to it.second.year } to d?.let { it.first to it.second.year } }
-
     /** Rok založení z úvodu hesla – jen když věta o založení obsahuje PRÁVĚ JEDEN letopočet. */
     fun foundingYear(text: String): String? {
         val s = Instant.firstSentences(text, 6, 1500) ?: text.take(1500)

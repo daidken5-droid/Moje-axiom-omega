@@ -27,6 +27,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit testy + Δ Lab (brána proti základně předchozí generace)
         run: ./gradlew :core:test --no-daemon
+      - name: Most JS↔Kotlin bez nevolaných metod (menší útočná plocha)
+        run: python3 tools/audit/bridge_unused.py
       - name: Δ Lab – výsledky do souhrnu běhu
         if: always()
         run: |

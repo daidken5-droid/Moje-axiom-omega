@@ -100,8 +100,6 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun newThread(): Long = omega.db.newThread("Nové vlákno")
 
-    @JavascriptInterface fun renameThread(id: Long, title: String) = omega.db.renameThread(id, title)
-
     @JavascriptInterface fun deleteThread(id: Long) = omega.db.deleteThread(id)
 
     /** Odeslání dotazu: {threadId?, text, mode?, level?} → vrací id vlákna. */
@@ -493,12 +491,6 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun brainImport() = activity.runOnUiThread { activity.pickBrain.launch(arrayOf("application/octet-stream", "*/*")) }
 
-    @JavascriptInterface
-    fun brainRefresh() = async {
-        val n = omega.brains.refreshCatalog()
-        Events.emit("brains", omega.brains.toJson())
-        Events.note("Katalog mozků aktualizován ($n mozků).")
-    }
 
     fun onBrainFile(uri: Uri) {
         OmegaService.start(activity, Intent(OmegaService.ACTION_IMPORT).putExtra("uri", uri))
@@ -510,11 +502,6 @@ class OmegaBridge(private val activity: MainActivity) {
 
     @JavascriptInterface fun kbSearch(q: String): String = omega.db.searchJson(q, 20).toString()
 
-    @JavascriptInterface
-    fun kbAdd(title: String, text: String) = async {
-        omega.db.addDocument(title.take(200), text, "Vlastní poznámka")
-        Events.emit("kb", JSONObject()); Events.note("Uloženo a zaindexováno.")
-    }
 
     @JavascriptInterface fun kbDelete(id: Long) { omega.db.deleteDocument(id); Events.emit("kb", JSONObject()) }
 
@@ -581,8 +568,6 @@ class OmegaBridge(private val activity: MainActivity) {
     // ------------------------------------------------------------------ import paměti z Gemini
 
     /** Dotaz, který si uživatel zkopíruje do Gemini (odpověď pak vloží zpět). */
-    @JavascriptInterface fun memImportPrompt(): String = MemoryImport.PROMPT
-
     @JavascriptInterface
     fun memImportCopyPrompt() = copy(MemoryImport.PROMPT)
 
@@ -783,12 +768,8 @@ class OmegaBridge(private val activity: MainActivity) {
         }
     }
 
-    @JavascriptInterface fun stopSpeaking() = activity.runOnUiThread { tts?.stop() }
-
     // ------------------------------------------------------------------ Hugging Face služby
 
-    @JavascriptInterface
-    fun hfStatus(): String = JSONObject().put("token", omega.hfToken() != null).put("online", Introspect.online(activity)).toString()
 
     @JavascriptInterface
     fun hfModels() = async {
