@@ -10,6 +10,13 @@ OUT=crucible-runtime.md
 MON=$!
 adb shell pm grant cz.axiom.omega.debug android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 echo "[$(date +%T)] emulátor: $(adb shell getprop sys.boot_completed | tr -d '\r') (boot_completed)"
+# EXPERIMENT (běhy #1, #4: emulátor zmizel během instrumentace): smoke NEJDŘÍV – spadne-li i při obyčejném
+# spuštění aplikace, spouštěčem je aplikace/WebView; jinak vazba na testovací platformu
+APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+echo "[$(date +%T)] smoke…"
+timeout 900 tools/crucible/emulator_smoke.sh "$APK" smoke.md
+smoke=$?
+echo "[$(date +%T)] po smoke · zařízení: $(adb devices | tail -n +2 | tr '\n' ' ')"
 adb logcat -c
 echo "[$(date +%T)] instrumentační testy…"
 # limit 25 min: zaseknutý test (čekání na odpověď, ANR) skončí chybou a log se uloží
@@ -26,11 +33,7 @@ adb logcat -d > logcat-instrumentation.txt 2>/dev/null
   grep -h -o "CRUCIBLE.*" app/build/outputs/androidTest-results/connected/debug/*/logcat-*.txt 2>/dev/null | sort -u | sed 's/^/- /'
   echo
 } > "$OUT"
-APK=$(ls app/build/outputs/apk/debug/*.apk | head -1)
-echo "[$(date +%T)] smoke…"
-timeout 900 tools/crucible/emulator_smoke.sh "$APK" smoke.md
-smoke=$?
 cat smoke.md >> "$OUT"
-kill $MON 2>/dev/null; { echo; echo "### Hostitel (paměť, počet zařízení)"; echo '```'; tail -40 host-monitor.log; echo '```'; } >> "$OUT"
+kill $MON 2>/dev/null; { echo; echo "### Hostitel (paměť, počet zařízení)"; echo '```'; tail -120 host-monitor.log; echo '```'; } >> "$OUT"
 cat "$OUT"
 [ $inst -eq 0 ] && [ $smoke -eq 0 ]
