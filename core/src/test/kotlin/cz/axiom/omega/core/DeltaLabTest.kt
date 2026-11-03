@@ -36,7 +36,7 @@ class DeltaLabTest {
 
     data class Result(val set: String, val total: Int, val correct: Int, val wrong: Int, val abstained: Int, val missed: Int, val p50us: Long, val p95us: Long, val failures: List<String>)
 
-    private fun run(set: String): Result {
+    private fun run(set: String, ctx: Reflex.Ctx = this.ctx, label: String = set): Result {
         val cases = rows("$set.tsv")
         var correct = 0; var wrong = 0; var abstained = 0; var missed = 0
         val fails = mutableListOf<String>()
@@ -58,7 +58,7 @@ class DeltaLabTest {
         val lat = mutableListOf<Long>()
         repeat(20) { cases.forEach { c -> val t = System.nanoTime(); Reflex.answer(c[1], ctx); lat += (System.nanoTime() - t) / 1000 } }
         lat.sort()
-        return Result(set, cases.size, correct, wrong, abstained, missed, lat[lat.size / 2], lat[(lat.size * 95) / 100], fails)
+        return Result(label, cases.size, correct, wrong, abstained, missed, lat[lat.size / 2], lat[(lat.size * 95) / 100], fails)
     }
 
     /** Paměť odpovědí: neověřené odpovědi mozku (bez ✓, bez důkazu) – kolik jich reflex vrátí jako hotovou odpověď? */
@@ -84,10 +84,13 @@ class DeltaLabTest {
 
     @Test fun lab() {
         val results = listOf(run("dev"), run("final"))
+        // ABLACE (benchmark variant bez mozku): A = jen deterministika STEP-0 (bez offline Wikipedie → bez WikiReflexu,
+        // Srovnávače a Strážce), B = celé AVIOR bez mozku. Brána platí jen pro B.
+        val ablation = listOf(run("final", ctx.copy(instant = ctx.instant.copy(knowledge = null)), "final·A-bez-knihovny"))
         val (replayed, asked) = selfSourcing()
         val sb = StringBuilder("\nΔ LAB · ${cz.axiom.omega.core.self.Identity.VERSION}\n")
         sb.append("sada    | otázek | správně | CHYBNĚ | zdržel se | mlčel | p50 µs | p95 µs\n")
-        results.forEach { r -> sb.append("%-7s | %6d | %7d | %6d | %9d | %5d | %6d | %6d\n".format(r.set, r.total, r.correct, r.wrong, r.abstained, r.missed, r.p50us, r.p95us)) }
+        (results + ablation).forEach { r -> sb.append("%-7s | %6d | %7d | %6d | %9d | %5d | %6d | %6d\n".format(r.set, r.total, r.correct, r.wrong, r.abstained, r.missed, r.p50us, r.p95us)) }
         sb.append("paměť odpovědí: vráceno $replayed z $asked neověřených odpovědí mozku jako odpověď bez mozku\n")
         results.forEach { r -> r.failures.forEach { sb.append("  ${r.set}: $it\n") } }
         println(sb)
