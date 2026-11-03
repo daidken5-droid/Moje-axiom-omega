@@ -10,6 +10,11 @@
 
 **Závěr (MEASURED):** padá hostitelská binárka emulátoru (segfault), spouštěčem je start aplikace (WebView) – ne proces AVIORu,
 ne paměť, ne disk, ne Vulkan. Symboly binárky nejsou → přesná funkce pádu UNKNOWN.
-**Experiment (běží):** připnutá starší binárka `emulator-build: 12414864`. Výsledek UNKNOWN do jeho doběhnutí.
+**Běh #16 (1d364ea), starší binárka `emulator-build 12414864` = emulátor 35.2.10:** bez AVIORu přežil 180 s, studený start
+2 622 / 1 623 ms, pak **stejný SIGSEGV** v `qemu-system-x86_64-headless` (core 810 MB) a stejné `Unhandled WRMSR(0xc0010007)`.
+→ Není to regrese emulátoru 37.x; pád je společný pro 35.2 i 37.2 na tomto runneru (AMD, vnořená KVM pod Hyper-V).
+**Stav: BLOCKED infrastrukturou CI.** Další experimenty s verzemi emulátoru v CI už přidávají málo informace.
+Doporučení: běhové testy na **fyzickém telefonu** (`tools/crucible/emulator_smoke.sh` + `connectedDebugAndroidTest`), případně
+emulátor na stroji s Intel CPU / bez vnořené virtualizace. Aplikace v emulátoru do pádu nespadla (crash buffer, ANR, JS chyby čisté).
 **Smoke skript:** zmizelé zařízení = exit 2 „NEOVĚŘEN“, nikdy PASS (`tools/crucible/emulator_smoke.sh`).
 Emulátor ≠ telefon: na telefonu tento mechanismus (qemu) neexistuje – ale to je úvaha, ne měření.
