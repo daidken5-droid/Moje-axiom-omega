@@ -82,7 +82,9 @@ class FaultlineTest {
         val keep = Proof.onCorrection(right, "Špatně, narodil se 1945", kb)
         assertEquals(Proof.Stance.KEEP, keep.stance); assertTrue(keep.reply.contains("14. července 1939"))
         // uživatel uvádí zdroj → přehodnotit
-        assertEquals(Proof.Stance.ACCEPT, Proof.onCorrection(right, "Špatně, podle matriky se narodil 1945", kb).stance)
+        // HYPERFORGE M1-C: „podle …“ samo nic nedokazuje → doložená odpověď zůstává, oprava čeká jako nepotvrzená
+        assertEquals(Proof.Stance.PENDING, Proof.onCorrection(right, "Špatně, podle matriky se narodil 1945", kb).stance)
+        assertEquals(Proof.Stance.PENDING, Proof.onCorrection(right, "Špatně, viz https://example.com/gott narodil se 1945", kb).stance)
         // původní odpověď byla vyvrácená nebo neověřitelná → oprava platí
         assertEquals(Proof.Stance.ACCEPT, Proof.onCorrection(wrong, "Špatně, narodil se 1939", kb).stance)
         assertEquals(Proof.Stance.ACCEPT, Proof.onCorrection("Vajíčko se vaří 5 minut.", "Špatně, 10 minut", kb).stance)

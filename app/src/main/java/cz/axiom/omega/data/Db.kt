@@ -84,25 +84,51 @@ class Db private constructor(context: Context) :
     }
 
     /** Uloží/aktualizuje odpověď do paměti odpovědí (✓ od uživatele = ověřená, jinak podle důkazu). */
+    /**
+     * Uloží odpověď do paměti odpovědí.
+     * HYPERFORGE M1-A: potvrzení ✓ (good), původ USER a vyšší jistota patří KONKRÉTNÍMU TEXTU odpovědi.
+     * Dřív je zdědila jakákoli nová odpověď na stejnou otázku („A“ potvrzená → „B“ přepsaná dostala ✓ od „A“).
+     * Teď se dědí jen při shodném textu (normalizovaném); jiný text začíná od svého vlastního důkazu.
+     * Čtení a zápis v jedné transakci (souběžné ✓ a uložení z ASK fronty).
+     */
+    @Synchronized
     fun putAnswer(question: String, answer: String, conf: Int, good: Boolean,
                   origin: cz.axiom.omega.core.agent.Proof.Origin = if (good) cz.axiom.omega.core.agent.Proof.Origin.USER else cz.axiom.omega.core.agent.Proof.Origin.MODEL) {
         val q = question.trim().take(500)
-        if (q.isBlank() || answer.isBlank()) return
-        // bez UPSERT (SQLite < 3.24 na Androidu 8–10): zachovat vyšší jistotu a příznak ověření
+        val a = answer.take(4000)
+        if (q.isBlank() || a.isBlank()) return
         val db = writableDatabase
-        val prev = db.rawQuery("SELECT conf, good FROM answers WHERE question=?", arrayOf(q)).use { if (it.moveToFirst()) it.getInt(0) to it.getInt(1) else null }
-        // potvrzení uživatelem se nikdy neztratí; jinak platí nový důkaz
-        val o = if (good || prev?.second == 1) cz.axiom.omega.core.agent.Proof.Origin.USER else origin
-        val contract = cz.axiom.omega.core.agent.Proof.contract(q, answer, o)
-        db.insertWithOnConflict("answers", null, android.content.ContentValues().apply {
-            put("question", q); put("answer", answer.take(4000))
-            put("conf", maxOf(conf, prev?.first ?: 0)); put("good", if (good || prev?.second == 1) 1 else 0)
-            put("at", System.currentTimeMillis())
-            put("origin", o.code); put("revise", contract.reviseAt)
-        }, SQLiteDatabase.CONFLICT_REPLACE)
-        // držet malé: nejvýš 2000 nejnovějších
-        writableDatabase.execSQL("DELETE FROM answers WHERE id NOT IN (SELECT id FROM answers ORDER BY good DESC, at DESC LIMIT 2000)")
+        db.beginTransaction()
+        try {
+            data class Prev(val answer: String, val conf: Int, val good: Boolean, val origin: String?)
+            val prev = db.rawQuery("SELECT answer, conf, good, origin FROM answers WHERE question=?", arrayOf(q))
+                .use { if (it.moveToFirst()) Prev(it.getString(0), it.getInt(1), it.getInt(2) == 1, it.getString(3)) else null }
+            val same = prev != null && sameAnswer(prev.answer, a)
+            val inheritGood = same && prev!!.good
+            val o = when {
+                good || inheritGood -> cz.axiom.omega.core.agent.Proof.Origin.USER
+                same && prev!!.origin == cz.axiom.omega.core.agent.Proof.Origin.WIKI.code -> cz.axiom.omega.core.agent.Proof.Origin.WIKI
+                else -> origin
+            }
+            val contract = cz.axiom.omega.core.agent.Proof.contract(q, a, o)
+            db.insertWithOnConflict("answers", null, android.content.ContentValues().apply {
+                put("question", q); put("answer", a)
+                put("conf", if (same) maxOf(conf, prev!!.conf) else conf); put("good", if (good || inheritGood) 1 else 0)
+                put("at", System.currentTimeMillis())
+                put("origin", o.code); put("revise", contract.reviseAt)
+            }, SQLiteDatabase.CONFLICT_REPLACE)
+            // držet malé: nejvýš 2000 nejnovějších
+            db.execSQL("DELETE FROM answers WHERE id NOT IN (SELECT id FROM answers ORDER BY good DESC, at DESC LIMIT 2000)")
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
         answersCache = null
+    }
+
+    private fun sameAnswer(x: String, y: String): Boolean {
+        fun n(t: String) = cz.axiom.omega.core.util.TextUtil.fold(t).lowercase().replace(Regex("\\s+"), " ").trim()
+        return n(x) == n(y)
     }
 
     /** Smaže uloženou odpověď na otázku i všechny, které by na ni paměť odpovědí vrátila (podobné / přeformulované). */

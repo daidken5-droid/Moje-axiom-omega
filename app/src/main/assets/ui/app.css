@@ -412,13 +412,14 @@ i.ev-s { background: var(--ti-lo); }                       /* zdroj – plný tl
 i.ev-m { border: 1.5px solid var(--ti-hi); }               /* paměť – kroužek */
 i.ev-e { border: 1px dashed var(--ti-lo); }                /* odhad – čárkovaný */
 i.ev-u { background: var(--s3); }                          /* bez opory */
+i.ev-p, i.ev-x { background: transparent; border: 1px solid var(--line2); }   /* část / citace bez opory */
 .evleg { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: .85rem; }
 .evleg small { color: var(--dim); font-size: .74rem; }
 .evline { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0 8px 12px; border-left: 2px solid var(--line2); margin: 4px 0; font-size: .9rem; line-height: 1.5; }
 .evline span { flex: 1; }
 .evline em { font-style: normal; font-size: .64rem; color: var(--dim); white-space: nowrap; text-transform: uppercase; padding-top: 3px; }
 .evline.ev-c { border-left-color: var(--ti-hi); } .evline.ev-s { border-left-color: var(--ti-lo); } .evline.ev-m { border-left: 3px double var(--ti-hi); }
-.evline.ev-e { border-left: 2px dashed var(--ti-lo); } .evline.ev-u { border-left: 2px dotted var(--line2); }
+.evline.ev-e { border-left: 2px dashed var(--ti-lo); } .evline.ev-p, .evline.ev-x { border-left: 2px dotted var(--line2); } .evline.ev-u { border-left: 2px dotted var(--line2); }
 
 /* ---------- drobnosti ---------- */
 .caret { color: var(--dim); }

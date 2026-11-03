@@ -147,10 +147,11 @@ class EvidenceTest {
     @Test fun mapsSentenceOrigins() {
         val facts = listOf("ASTRAEA +EV: kurz 2,1 | EV 15,5 % | Half-Kelly 7,05 % bankrollu | vklad ≈ 704,55 z bankrollu 10000")
         val answer = "Sázka je +EV ve výši 15,5 %.\nPodle ceníku stojí materiál 1 200 Kč [1].\nPravděpodobně se kurz ještě pohne.\nDaniel preferuje stručné odpovědi s tabulkou, proto tabulka.\nTrh je obecně dost nepředvídatelný."
-        val m = cz.axiom.omega.core.agent.Evidence.map(answer, facts, listOf("Preference uživatele: stručné odpovědi s tabulkou."))
+        val m = cz.axiom.omega.core.agent.Evidence.map(answer, facts, listOf("Preference uživatele: stručné odpovědi s tabulkou."), listOf("Ceník stavebního materiálu 2026"))
         val kinds = m.spans.map { it.kind }
         assertEquals(listOf(cz.axiom.omega.core.agent.Evidence.Kind.COMPUTED, cz.axiom.omega.core.agent.Evidence.Kind.SOURCED, cz.axiom.omega.core.agent.Evidence.Kind.ESTIMATE, cz.axiom.omega.core.agent.Evidence.Kind.MEMORY, cz.axiom.omega.core.agent.Evidence.Kind.MODEL), kinds)
-        assertEquals(60, m.grounded)
+        // M1-B: paměť o uživateli NENÍ opora faktu → 2 z 5 vět (dřív 3 z 5)
+        assertEquals(40, m.grounded)
         assertEquals("Sázka je +EV ve výši 15,5 %.", answer.substring(m.spans[0].start, m.spans[0].end))
         // desetinné číslo uvnitř věty nesmí větu rozdělit; „10000“ se nesmí zkrátit na „1“
         assertEquals(1, cz.axiom.omega.core.agent.Evidence.sentences("Kurz je 2.1 a EV 15.5 procenta.").size)

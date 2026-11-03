@@ -32,7 +32,7 @@ class SentinelNoBrainTest {
         // správná uložená odpověď projde
         val ok = listOf(Reflex.Entry("kdy se narodil karel gott", "Karel Gott se narodil 14. července 1939 v Plzni.", 95, true, System.currentTimeMillis()))
         val b = Reflex.answer("kdy se narodil karel gott", Reflex.Ctx(Instant.Ctx(knowledge = k), cache = ok))
-        assertTrue(b!!.kind.startsWith("ověřená"), b.kind)
+        assertTrue(b!!.kind == Proof.Origin.USER.label, b.kind) // ✓ uživatele = osobní potvrzení (M1-A)
     }
 
     @Test fun cheapSieveAndMemo() {

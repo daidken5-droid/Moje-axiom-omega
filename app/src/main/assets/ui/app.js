@@ -145,7 +145,8 @@ const roleList = () => ROLE_LIST || (ROLE_LIST = J('roles') || ROLES.filter(r =>
 const EXT_IC = { apk: '▣', pdf: 'PDF', docx: 'W', zip: 'ZIP', csv: 'CSV', html: '</>', md: 'MD', json: '{}', svg: 'SVG', ics: '◷' };
 /* ---------- Mapa důkazů a pečeť soukromí (jedinečné pro AVIOR) ---------- */
 const EV = { c: ['spočítáno', 'STEP-0 – číslo spočítal kód, ne odhad modelu'], s: ['doloženo', 'cituje podklad [n] z knihovny, znalostí nebo webu'],
-  m: ['z paměti', 'opírá se o to, co si o tobě pamatuju'], e: ['odhad', 'model sám přiznává nejistotu'], u: ['úvaha', 'vlastní úvaha modelu bez přímé opory – vyplatí se ověřit'] };
+  m: ['z paměti', 'osobní kontext z toho, co si o tobě pamatuju – není to ověřený fakt'], e: ['odhad', 'model sám přiznává nejistotu'], u: ['úvaha', 'vlastní úvaha modelu bez přímé opory – vyplatí se ověřit'],
+  p: ['část spočítána', 'věta obsahuje číslo z výpočtu, ale i další tvrzení – zbytek není doložený'], x: ['citace bez opory', 'odkazuje na podklad, který neexistuje nebo s větou nesouvisí'] };
 function evidenceChip(m) {
   const meta = m.meta || {};
   const ev = meta.evidence;
@@ -162,8 +163,8 @@ function evidenceChip(m) {
   if (meta.learned) parts.push(`<span class="learned" title="Učím se z této otázky">✦ ${esc(meta.learned.domain)}</span>`);
   if (ev && ev.spans && ev.spans.length >= 2) {
     const c = ev.counts || {};
-    const txt = ['c', 's', 'm', 'e', 'u'].filter(k => c[k]).map(k => `<i class="ev-${k}"></i>${c[k]} ${EV[k][0]}`).join(' · ');
-    parts.push(`<button class="evchip" data-evidence="${m.id}" title="Mapa důkazů: ${txt.replace(/<[^>]+>/g, '')}">◇ ${ev.grounded} % ukotveno</button>`);
+    const txt = ['c', 's', 'p', 'x', 'm', 'e', 'u'].filter(k => c[k]).map(k => `<i class="ev-${k}"></i>${c[k]} ${EV[k][0]}`).join(' · ');
+    parts.push(`<button class="evchip" data-evidence="${m.id}" title="Mapa důkazů (heuristická klasifikace, ne ověření pravdivosti): ${txt.replace(/<[^>]+>/g, '')}">◇ ${ev.grounded} % s oporou · heuristika</button>`);
   }
   return parts.length ? `<div class="evrow">${parts.join('')}</div>` : '';
 }
@@ -187,8 +188,8 @@ function evidenceSheet(m) {
   const ev = (m.meta || {}).evidence; if (!ev) return;
   const legend = Object.entries(EV).map(([k, [l, d]]) => `<div class="evleg"><i class="ev-${k}"></i><b>${l}</b><small>${d}</small></div>`).join('');
   const body = ev.spans.map(([a, b, k]) => `<div class="evline ev-${k}"><span>${esc(m.content.slice(a, b).replace(/\*\*/g, '').replace(/`/g, '').replace(/^[-*•#>\s\d.)]+(?=\S)/, '').replace(/^\|\s*|\s*\|$/g, '').replace(/\s*\|\s*/g, ' · '))}</span><em>${EV[k][0]}</em></div>`).join('');
-  sheet(`<div class="eyebrow" style="margin-top:4px">MAPA DŮKAZŮ · ${ev.grounded} % VĚT S OPOROU</div>
-    <p class="small muted">Každou větu odpovědi jsem označil podle toho, odkud pochází. Nic z toho nepočítá další model – je to deterministický rozbor.</p>
+  sheet(`<div class="eyebrow" style="margin-top:4px">MAPA DŮKAZŮ · HEURISTICKÁ KLASIFIKACE · ${ev.grounded} % VĚT S OPOROU</div>
+    <p class="small muted">Každou větu jsem označil podle toho, odkud nejspíš pochází. Je to deterministický odhad podle textu, <b>ne ověření pravdivosti</b>: „doloženo“ znamená, že věta cituje existující související podklad, ne že je podklad správný.</p>
     ${legend}<div class="eyebrow">VĚTY</div>${body}`);
 }
 
@@ -221,7 +222,7 @@ function chatReport(withText = true) {
     if (me.level) f.push('RANDY ' + me.level);
     if (me.variant) f.push(me.variant);
     if (me.confidence != null) f.push('jistota ' + me.confidence + (me.rawConfidence != null ? ' (surová ' + me.rawConfidence + ')' : ''));
-    if (me.evidence) f.push('ukotveno ' + me.evidence.grounded + ' %');
+    if (me.evidence) f.push('s oporou (heuristika) ' + me.evidence.grounded + ' %');
     if (me.inputTokens || me.outputTokens) f.push(`tokeny ${me.inputTokens || 0}→${me.outputTokens || 0}`);
     if (me.finish && me.finish !== 'stop' && me.finish !== 'end_turn') f.push('konec: ' + me.finish);
     if (me.error) f.push('CHYBA');

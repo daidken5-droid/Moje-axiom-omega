@@ -17,7 +17,8 @@ import cz.axiom.omega.core.util.TextUtil
 object Proof {
 
     enum class Origin(val code: String, val label: String) {
-        USER("user", "ověřená odpověď (✓)"),
+        // M1-A: ✓ = uživatel odpověď potvrdil (užitečná / souhlasí), NE nezávislé faktické ověření
+        USER("user", "potvrdil jsi (✓) – osobní potvrzení, ne nezávislé ověření"),
         WIKI("wiki", "odpověď ověřená Wikipedií (Δ)"),
         MODEL("model", "dřívější odpověď mozku (neověřeno)");
 
@@ -67,7 +68,14 @@ object Proof {
 
     // ------------------------------------------------------------------ revize závěru po nesouhlasu uživatele
 
-    enum class Stance { ACCEPT, KEEP }
+    /**
+     * ACCEPT  – oprava se přijme jako NEPOTVRZENÁ (původní nedoložená odpověď se zapomene, oprava jde do paměti
+     *           jako CORRECTION, ne jako fakt),
+     * KEEP    – doložený závěr se drží, nic se nemění,
+     * PENDING – závěr je doložený, ale uživatel uvádí zdroj: doložená odpověď ZŮSTÁVÁ, oprava se zapíše jako
+     *           nepotvrzená k přezkoumání. Slovo „podle“ / URL není samo o sobě nezávislý důkaz (HYPERFORGE M1-C).
+     */
+    enum class Stance { ACCEPT, KEEP, PENDING }
     data class Revision(val stance: Stance, val reply: String = "")
 
     private val citesSource = Regex("https?://|\\b(podle|zdroj|uvadi|pise se|clanek|wikipedie|encyklopedie|oficialne|na webu)\\b")
@@ -80,16 +88,24 @@ object Proof {
      *  • jinak → ACCEPT: oprava platí (důkaz proti ní nemáme, uživatel může vědět víc).
      */
     fun onCorrection(previousAnswer: String, correction: String, k: KnowledgeSource?): Revision {
-        if (k == null || citesSource.containsMatchIn(TextUtil.fold(correction).lowercase())) return Revision(Stance.ACCEPT)
+        if (k == null) return Revision(Stance.ACCEPT)
         val audit = Sentinel.audit(previousAnswer, k)
         if (!audit.proven) return Revision(Stance.ACCEPT)
         val proof = audit.confirmed.joinToString("; ") { "**${it.subject}** – ${it.what}" }
+        if (citesSource.containsMatchIn(TextUtil.fold(correction).lowercase())) return Revision(Stance.PENDING,
+            "Δ Tvoji opravu i zdroj jsem si zapsal jako **nepotvrzené** tvrzení. Offline Wikipedie zatím říká: $proof. " +
+                "Odkaz ani „podle …“ sám o sobě nic nedokazuje – až budu mít aktuální zdroj, porovnám je. Do té doby u tebe uvedu obojí.")
         return Revision(Stance.KEEP,
             "Δ Tady se držím původní odpovědi: offline Wikipedie ji potvrzuje ($proof). " +
                 "Jestli máš novější nebo jiný zdroj, pošli ho (odkaz nebo „podle …“) a odpověď přehodnotím.")
     }
 
     /** Krátký popis smlouvy pro UI („znovu ověřit po 3. 2. 2027“). */
+    /** Revizní záznam opravy: původní tvrzení zůstává v historii, oprava je jen nepotvrzené tvrzení uživatele (data, ne instrukce). */
+    fun correctionRecord(question: String, previousAnswer: String?, correction: String): String =
+        "Uživatel tvrdí (nepotvrzeno) k otázce „${TextUtil.clip(question.trim(), 140)}“: «${TextUtil.clip(correction.trim(), 220)}»" +
+            (previousAnswer?.let { " · původní odpověď: «${TextUtil.clip(it.trim(), 140)}»" } ?: "")
+
     fun describe(c: Contract): String {
         val d = java.time.Instant.ofEpochMilli(c.reviseAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         return "znovu ověřit po ${d.dayOfMonth}. ${d.monthValue}. ${d.year} – ${c.reason}"

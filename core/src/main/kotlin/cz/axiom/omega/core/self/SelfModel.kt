@@ -74,7 +74,8 @@ data class SelfState(
     }
 }
 
-enum class MemoryKind(val label: String) { PROFILE("Profil"), FACT("Fakt"), PREFERENCE("Preference"), LESSON("Poučení"), EPISODE("Epizoda") }
+/** CORRECTION (HYPERFORGE M1-C): oprava od uživatele – NEPOTVRZENÉ tvrzení, ne fakt; reflex bez mozku z ní neodpovídá. */
+enum class MemoryKind(val label: String) { PROFILE("Profil"), FACT("Fakt"), PREFERENCE("Preference"), LESSON("Poučení"), EPISODE("Epizoda"), CORRECTION("Oprava od uživatele – nepotvrzená") }
 
 data class MemoryItem(
     val id: Long = 0,

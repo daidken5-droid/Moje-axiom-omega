@@ -266,7 +266,12 @@ class OmegaService : Service() {
         // PROOFCORE: doložený závěr se nemění kvůli nepodloženému nesouhlasu (ušetří i celý průchod mozku)
         if (prevQ != null && prevA != null && cz.axiom.omega.core.agent.Conversation.isCorrection(text)) {
             val rev = runCatching { cz.axiom.omega.core.agent.Proof.onCorrection(prevA, text, omega.quickKnowledge()) }.getOrNull()
-            if (rev?.stance == cz.axiom.omega.core.agent.Proof.Stance.KEEP) {
+            if (rev?.stance == cz.axiom.omega.core.agent.Proof.Stance.PENDING) runCatching {
+                // doložená odpověď zůstává; oprava jen jako nepotvrzené tvrzení k přezkoumání
+                omega.db.remember(cz.axiom.omega.core.self.MemoryItem(kind = cz.axiom.omega.core.self.MemoryKind.CORRECTION,
+                    text = cz.axiom.omega.core.agent.Proof.correctionRecord(prevQ, prevA, text), weight = 0.6))
+            }
+            if (rev?.stance == cz.axiom.omega.core.agent.Proof.Stance.KEEP || rev?.stance == cz.axiom.omega.core.agent.Proof.Stance.PENDING) {
                 val meta = JSONObject().put("engine", "PROOFCORE · bez mozku").put("variant", "Δ revize").put("reflex", 95).put("private", true).put("level", "L0")
                 val id = omega.db.addMessage(threadId, "assistant", rev.reply, meta)
                 Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", rev.reply).put("meta", meta))
@@ -275,8 +280,9 @@ class OmegaService : Service() {
         }
         if (prevQ != null && cz.axiom.omega.core.agent.Conversation.isCorrection(text)) runCatching {
             omega.db.forgetMatching(prevQ)
-            omega.db.remember(cz.axiom.omega.core.self.MemoryItem(kind = cz.axiom.omega.core.self.MemoryKind.FACT,
-                text = cz.axiom.omega.core.agent.Conversation.correctionMemory(prevQ, text), weight = 0.95))
+            // M1-C: oprava NENÍ fakt – nepotvrzené tvrzení s historií původní odpovědi (dřív FACT s váhou 0,95)
+            omega.db.remember(cz.axiom.omega.core.self.MemoryItem(kind = cz.axiom.omega.core.self.MemoryKind.CORRECTION,
+                text = cz.axiom.omega.core.agent.Proof.correctionRecord(prevQ, prevA, text), weight = 0.6))
         }
         // MALÝ MOZEK V TELEFONU: nová otázka na jiné téma → bez staré výměny (malý model ji jinak zkopíroval)
         // a s kratším zadáním (rychlejší čtení); navazující otázky a cloud dostávají historii dál
@@ -442,9 +448,11 @@ class OmegaService : Service() {
             // MAPA DŮKAZŮ: u každé věty odkud pochází (spočítáno / doloženo / z paměti / odhad / úvaha)
             runCatching {
                 fun strs(a: JSONArray?) = a?.let { arr -> (0 until arr.length()).map { arr.optString(it) } } ?: emptyList()
-                val ev = cz.axiom.omega.core.agent.Evidence.map(answer, strs(meta.optJSONArray("facts")), strs(meta.optJSONArray("memories")))
+                // M1-B: [n] je doloženo jen když podklad n skutečně existuje a věta s ním souvisí
+                val srcs = meta.optJSONArray("sources")?.let { arr -> (0 until arr.length()).map { i -> arr.optJSONObject(i)?.let { it.optString("title") + " " + it.optString("source") + " " + it.optString("snippet") } ?: arr.optString(i) } } ?: emptyList()
+                val ev = cz.axiom.omega.core.agent.Evidence.map(answer, strs(meta.optJSONArray("facts")), strs(meta.optJSONArray("memories")), srcs)
                 val K = cz.axiom.omega.core.agent.Evidence.Kind.entries
-                meta.put("evidence", JSONObject().put("grounded", ev.grounded)
+                meta.put("evidence", JSONObject().put("grounded", ev.grounded).put("heuristic", true)
                     .put("counts", JSONObject().apply { K.forEach { put(it.code, ev.count(it)) } })
                     .put("spans", JSONArray().apply { ev.spans.forEach { put(JSONArray().put(it.start).put(it.end).put(it.kind.code)) } }))
             }

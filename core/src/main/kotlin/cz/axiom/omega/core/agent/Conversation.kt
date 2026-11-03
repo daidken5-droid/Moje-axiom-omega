@@ -43,10 +43,6 @@ object Conversation {
     /** Uživatel opravuje předchozí odpověď. */
     fun isCorrection(text: String): Boolean = correction.containsMatchIn(TextUtil.fold(text).lowercase().trim())
 
-    /** Text vzpomínky z opravy – aby příště stejná otázka dostala správný fakt (i mozek ho uvidí v paměti). */
-    fun correctionMemory(previousQuestion: String, correctionText: String): String =
-        "Uživatel opravil odpověď na otázku „${TextUtil.clip(previousQuestion.trim(), 160)}“: ${TextUtil.clip(correctionText.trim(), 240)}"
-
     /** Úklid artefaktů modelů: citační značky gpt-oss (【4】, 【zdroj…】, [3†L10]) a zbytky značek sebereflexe. */
     fun clean(answer: String): String = answer
         .replace(Regex("【[^】]{0,120}】"), "")

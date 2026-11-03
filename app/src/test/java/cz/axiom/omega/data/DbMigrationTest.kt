@@ -62,9 +62,36 @@ class DbMigrationTest {
         val a = db.answers().associateBy { it.question }
         assertEquals(Proof.Origin.WIKI, a.getValue("kdy se narodil karel gott").origin)
         assertTrue(a.values.all { it.reviseAt > System.currentTimeMillis() })
-        // ✓ uživatele se neztratí ani po pozdějším uložení neověřené verze
+        // ✓ uživatele se neztratí, když se uloží TENTÝŽ text znovu (i s jinými mezerami/diakritikou)
         db.putAnswer("kdo je ministr financí", "X.", 90, good = true)
-        db.putAnswer("kdo je ministr financí", "Y.", 80, good = false)
-        assertEquals(Proof.Origin.USER, db.answers().first { it.question == "kdo je ministr financí" }.origin)
+        db.putAnswer("kdo je ministr financí", "x. ", 70, good = false)
+        db.answers().first { it.question == "kdo je ministr financí" }.let { assertEquals(Proof.Origin.USER, it.origin); assertTrue(it.good); assertEquals(90, it.confidence) }
+    }
+
+    /** HYPERFORGE M1-A: ověření A se NESMÍ přenést na jiný text B. */
+    @Test fun replacedAnswerDoesNotInheritVerification() {
+        val db = Db.get(ctx)
+        db.putAnswer("kdo je ministr financí", "A je ministr.", 95, good = true)
+        db.putAnswer("kdo je ministr financí", "B je ministr.", 60, good = false)
+        val e = db.answers().single { it.question == "kdo je ministr financí" }
+        assertEquals("B je ministr.", e.answer)
+        assertEquals(false, e.good)
+        assertEquals(Proof.Origin.MODEL, e.origin)
+        assertEquals(60, e.confidence)
+        // ani ověření Wikipedií se nepřenese na jiný text
+        db.putAnswer("kdy vznikl most", "1357.", 90, good = false, origin = Proof.Origin.WIKI)
+        db.putAnswer("kdy vznikl most", "1402.", 90, good = false)
+        assertEquals(Proof.Origin.MODEL, db.answers().single { it.question == "kdy vznikl most" }.origin)
+    }
+
+    @Test fun concurrentWritesKeepVerificationBoundToText() {
+        val db = Db.get(ctx)
+        val threads = (0 until 8).map { t -> Thread { repeat(25) { i -> db.putAnswer("otázka $i", if (t == 0) "ověřená $i" else "jiná $t-$i", 50 + t, good = t == 0) } } }
+        threads.forEach { it.start() }; threads.forEach { it.join() }
+        val a = db.answers()
+        assertEquals(25, a.size)
+        // každé ✓ musí patřit textu, který ✓ dostal
+        assertTrue(a.filter { it.good }.all { it.answer.startsWith("ověřená") })
+        assertTrue(a.filter { it.origin == Proof.Origin.USER }.all { it.answer.startsWith("ověřená") })
     }
 }
