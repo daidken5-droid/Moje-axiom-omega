@@ -46,9 +46,11 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
-          # běhy #1, #4, #5: emulátor (qemu 37.2.13) potichu skončil ~100–120 s po startu; -gpu guest (běh #5) nepomohl
-          # → zpět swiftshader_indirect; run_emulator_ci.sh nejdřív ověří emulátor 180 s bez aplikace (kontrola)
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          # běhy #1, #4, #5, #7: emulátor (qemu 37.2.13) potichu skončil 45–120 s po PRVNÍM spuštění AVIORu;
+          # běh #7: bez aplikace přežil 180 s → spouštěč je start aplikace (WebView), umírá ale hostitelský qemu
+          # (aplikace v hostu ho sama zabít nemůže) → podezření na hostitelský renderer; -gpu guest nepomohl (#5)
+          # → experiment: bez Vulkanu (WebView na Androidu 14 jinak kreslí přes hostitelský Vulkan/gfxstream)
+          emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -noaudio -no-boot-anim -no-snapshot
           emulator-boot-timeout: 900
           script: tools/crucible/run_emulator_ci.sh
       - name: Souhrn

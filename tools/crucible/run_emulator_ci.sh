@@ -6,7 +6,7 @@ ADB_BIN="$(command -v adb)"   # timeout spouští program, ne funkci → absolut
 adb() { timeout 60 "$ADB_BIN" "$@"; }
 OUT=crucible-runtime.md
 # paměť hostitele každých 10 s (zda emulátor nezabil nedostatek RAM runneru)
-( while true; do echo "$(date +%T) $(free -m | awk '/Mem:/{print "host used="$3"MB free="$4"MB avail="$7"MB"}') $(adb devices | grep -c 'emulator.*device$') zařízení"; sleep 10; done ) > host-monitor.log 2>&1 &
+( while true; do echo "$(date +%T) $(free -m | awk '/Mem:/{print "host used="$3"MB free="$4"MB avail="$7"MB"}') disk=$(df -m --output=avail "$HOME" | tail -1 | tr -d ' ')MB $(adb devices | grep -c 'emulator.*device$') zařízení"; sleep 10; done ) > host-monitor.log 2>&1 &
 MON=$!
 adb shell pm grant cz.axiom.omega.debug android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 echo "[$(date +%T)] emulátor: $(adb shell getprop sys.boot_completed | tr -d '\r') (boot_completed)"
