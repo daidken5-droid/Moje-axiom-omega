@@ -31,8 +31,11 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1009
+        versionCode = 1010
         versionName = "Delta IV"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // každý běhový test ve vlastním procesu a s čistými daty (žádné sdílené singletony mezi testy)
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
         if (withNative) {
@@ -105,7 +108,10 @@ android {
         )
     }
 
-    testOptions { unitTests.isReturnDefaultValues = true }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
+    }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
 
@@ -140,4 +146,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Testy datové vrstvy (SQLite migrace, paměť odpovědí) na JVM se skutečným Android SQLite – bez emulátoru
     testImplementation("org.robolectric:robolectric:4.14.1")
+    // CRUCIBLE: běhové testy na emulátoru (CI, workflow emulator.yml)
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestUtil("androidx.test:orchestrator:1.5.1")
+    androidTestUtil("androidx.test.services:test-services:1.5.0")
 }
