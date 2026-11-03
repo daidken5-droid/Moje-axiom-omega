@@ -10,3 +10,4 @@
 - 0145df6 – experiment: emulátor bez Vulkanu, disk hostitele v monitoru
 - 2cdcd3b – dokumentace CRUCIBLE, audit dokumenty na 1013
 - 4ceb080 – diagnostika: disk hostitele, AVD, /data v emulátoru a data AVIORu v monitoru (běh #8 vyloučil Vulkan)
+- cb7f944 – běh #9: zápis 7,4 GB = core dump qemu; diagnostika pádu z jádra hostitele (dmesg/coredumpctl)

@@ -78,7 +78,7 @@ Viz `TEST_RESULTS.md`.
 
 ## 9. Známá omezení
 - Žádný test na fyzickém telefonu. Na emulátoru jen start a 1 dotaz – emulátor v CI ve všech vyhodnocených bězích (#1, #4, #5, #7, #8) zmizí 45–120 s po prvním
-  spuštění AVIORu (bez aplikace přežije 180 s; Vulkan i `-gpu guest` vyloučeny; disk hostitele při tom klesne o ~8 GB).
+  spuštění AVIORu (bez aplikace přežije 180 s; Vulkan i `-gpu guest` vyloučeny; disk hostitele při tom klesne o ~8 GB – podle běhu #9 core dump padajícího qemu, AVIOR sám zapsal 1 MB).
   Příčina neověřena (C-08) – **posuď, zda nejde o chybu aplikace** (`crucible/CRUCIBLE_RUNTIME_REPORT.md`).
 - Strážce ověřuje jen data narození, úmrtí a vzniku.
 - Δ Lab a jeho sady napsal tentýž vývojář. Závěrečná sada má 3 kontaminované položky.
