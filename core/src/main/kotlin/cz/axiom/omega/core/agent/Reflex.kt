@@ -213,6 +213,8 @@ object Reflex {
          * (dotaz převezme další reflex nebo mozek) a aplikace ji může z paměti odpovědí smazat.
          */
         val onRejected: (Instant.Answer, List<Sentinel.Flag>) -> Unit = { _, _ -> },
+        /** původní znění dotazu (nastaví [answer]) – přesné výpočty běží jen nad variantami se stejnými čísly */
+        val original: String? = null,
     )
 
     // FAULTLINE F-02: dřív „\\S+\\s+\\S+“ bez ukotvení → kvadratický backtracking (20 000 znaků bez mezer = 3,4 s).
@@ -234,6 +236,7 @@ object Reflex {
         // (procenta) odpověděl jen výši slevy. Když obal otázku mění, má přednost HOLÁ otázka – obal nesmí určovat,
         // který reflex odpoví (metamorfní invariance).
         val t0 = System.nanoTime()
+        @Suppress("NAME_SHADOWING") val c = c.copy(original = prompt)
         val bare = sig.variants.firstOrNull()
         val hit = (if (bare != null && unwrapped(prompt, bare)) answerExact(bare, c) else null)
             ?: answerExact(prompt, c)
@@ -242,23 +245,35 @@ object Reflex {
         return hit?.let { a -> a.contract?.let { a.copy(contract = it.copy(elapsedNs = System.nanoTime() - t0)) } ?: a }
     }
 
+    private val numToken = Regex("[\\d][\\d.,;:/ ]*[\\d]|\\d")
+    /** Stejná čísla i oddělovače (desetinná čárka × čárka s mezerou) v obou zněních. */
+    fun sameNumbers(a: String, b: String): Boolean = numToken.findAll(a).map { it.value }.toList() == numToken.findAll(b).map { it.value }.toList()
+
     /** Je [bare] původní otázka jen bez zdvořilostního obalu (pozdrav, „prosím tě“, „hele“)? */
     private fun unwrapped(prompt: String, bare: String): Boolean {
         val base = TextUtil.fold(prompt).lowercase().replace(Regex("[?!.…,]+"), " ").replace(Regex("\\s+"), " ").trim()
         val b = bare.replace(",", " ").replace(Regex("\\s+"), " ").trim()
-        return b.length in 3 until base.length && base.contains(b)
+        // celá slova: „… kc mesic“ NENÍ obal „… kc mesicne“ (normalizace slovo zkrátila → ztratil se význam „měsíčně“)
+        return b.length in 3 until base.length && Regex("(^| )" + Regex.escape(b) + "( |$)").containsMatchIn(base)
     }
 
     private fun answerExact(prompt: String, c: Ctx): Instant.Answer? {
         val ratesAsOf = c.instant.rates.takeIf { it.fresh }?.date ?: "vestavěné kurzy, stav 10/2026"
-        fun Instant.Answer.tag(m: String, asOf: String? = null) = copy(contract = AnswerContract.of(m, this, asOf))
+        fun Instant.Answer.tag(m: String, asOf: String? = null) = copy(contract = contract ?: AnswerContract.of(m, this, asOf))
         val candidates = sequence {
-            // Praktické první: má nejužší vzory (sleva, DPH, světový čas) – obecná procenta a hodiny by je přebila
+            // EXACT ENGINE (M4) PRVNÍ: jeho vzory jsou nejužší (statistika, finance s výslovnými vstupy…). Dřív obecná
+            // procenta odpověděla na „kolik budu mít za 10 let při 5 % z 100000 Kč“ jen „5 % z 100000 = 5000“.
+            // jen nad zněním se STEJNÝM číselným zápisem jako původní otázka – normalizace nesmí změnit vstup výpočtu
+            // („průměr 4,8,15“ → varianta „4,8, 15“ = jiná čísla)
+            if (c.original == null || sameNumbers(c.original, prompt)) cz.axiom.omega.core.step0.ExactMath.answer(prompt)?.let { yield(it) }
+            // Praktické: úzké vzory (sleva, DPH, světový čas) – obecná procenta a hodiny by je přebila
             Practical.answer(prompt, c.instant.now)?.let { yield(it.tag("practical")) }
             Instant.answer(prompt, c.instant.copy(knowledge = null))?.let { yield(it.tag("instant")) }
             Everyday.answer(prompt, c.today, c.instant.rates, c.instant.battery, c.instant.charging)?.let { yield(it.tag("everyday", if (it.kind.startsWith("kurz") || it.kind == "převod") ratesAsOf else null)) }
             Facts.answer(prompt, c.today)?.let { yield(it.tag("facts", "stav ${Politics.STATE_YEAR}")) }
             Politics.answer(prompt, c.today)?.let { yield(it.tag("politics", "stav ${Politics.STATE_YEAR}")) }
+            // VERIFIED FACT STORE (M4): ISO 3166-1 / ISO 4217 z kompilovaných dat CLDR (kontrakt nese sám)
+            cz.axiom.omega.core.facts.IsoReflex.answer(prompt, c.today)?.let { yield(it) }
             calendar(prompt, c.today)?.let { yield(it.tag("calendar")) }
             recall(prompt, c.memories)?.let { yield(it.tag("recall")) }
             cached(prompt, c.cache)?.let { yield(it.tag("cache")) }
