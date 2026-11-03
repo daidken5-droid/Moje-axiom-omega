@@ -71,7 +71,9 @@ class ReflexTest {
     @Test fun repeatedQuestionReusesBrainAnswer() {
         val t = System.currentTimeMillis()
         val cache = listOf(Reflex.Entry("Jak funguje tepelné čerpadlo?", "Odebírá teplo…", 80, good = false, at = t))
-        assertEquals("Odebírá teplo…", Reflex.answer("jak funguje tepelné čerpadlo", ctx(cache = cache))!!.text)
+        // PROOFCORE (Δ IV): neověřená odpověď mozku se vrací jen s prahem Flash (70), v Auto (85) ji mozek zodpoví znovu
+        assertEquals("Odebírá teplo…", Reflex.answer("jak funguje tepelné čerpadlo", ctx(cache = cache).copy(threshold = 70))!!.text)
+        assertNull(Reflex.answer("jak funguje tepelné čerpadlo", ctx(cache = cache).copy(threshold = 85)))
         assertNull(Reflex.answer("Jak funguje tepelné čerpadlo v zimě při mrazu?", ctx(cache = cache)))
     }
 }

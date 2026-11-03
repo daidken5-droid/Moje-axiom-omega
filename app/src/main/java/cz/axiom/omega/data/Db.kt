@@ -20,7 +20,7 @@ import org.json.JSONObject
  * commit při KAŽDÉM stisku klávesy v poznámkách) → zamrzání UI a ztráta dat při překročení.
  */
 class Db private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 3), KnowledgeSource, MemoryStore {
+    SQLiteOpenHelper(context.applicationContext, "omega.db", null, 4), KnowledgeSource, MemoryStore {
 
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
@@ -43,12 +43,14 @@ class Db private constructor(context: Context) :
         db.execSQL("CREATE TABLE packs(id TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL, docs INTEGER NOT NULL, installed INTEGER NOT NULL)")
         createV2(db)
         createV3(db)
+        createV4(db)
         // Znalosti se plní z offline balíčků (PackManager.ensureAutoInstalled) – vestavěné v APK, bez internetu.
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createV2(db)
         if (oldVersion < 3) createV3(db)
+        if (oldVersion < 4) createV4(db)
     }
 
     /** v3: paměť ověřených odpovědí (reflex – odpověď bez mozku, když je jistá). */
@@ -56,17 +58,30 @@ class Db private constructor(context: Context) :
         db.execSQL("CREATE TABLE IF NOT EXISTS answers(id INTEGER PRIMARY KEY, question TEXT NOT NULL UNIQUE, answer TEXT NOT NULL, conf INTEGER NOT NULL, good INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)")
     }
 
-    /** Uloží/aktualizuje odpověď do paměti odpovědí (✓ od uživatele = ověřená). */
-    fun putAnswer(question: String, answer: String, conf: Int, good: Boolean) {
+    /** v4 (PROOFCORE): původ odpovědi (user/wiki/model) a revizní smlouva (kdy znovu ověřit). */
+    private fun createV4(db: SQLiteDatabase) {
+        runCatching { db.execSQL("ALTER TABLE answers ADD COLUMN origin TEXT NOT NULL DEFAULT 'model'") }
+        runCatching { db.execSQL("ALTER TABLE answers ADD COLUMN revise INTEGER NOT NULL DEFAULT 0") }
+        // dřívější ✓ odpovědi jsou potvrzené uživatelem
+        runCatching { db.execSQL("UPDATE answers SET origin='user' WHERE good=1") }
+    }
+
+    /** Uloží/aktualizuje odpověď do paměti odpovědí (✓ od uživatele = ověřená, jinak podle důkazu). */
+    fun putAnswer(question: String, answer: String, conf: Int, good: Boolean,
+                  origin: cz.axiom.omega.core.agent.Proof.Origin = if (good) cz.axiom.omega.core.agent.Proof.Origin.USER else cz.axiom.omega.core.agent.Proof.Origin.MODEL) {
         val q = question.trim().take(500)
         if (q.isBlank() || answer.isBlank()) return
         // bez UPSERT (SQLite < 3.24 na Androidu 8–10): zachovat vyšší jistotu a příznak ověření
         val db = writableDatabase
         val prev = db.rawQuery("SELECT conf, good FROM answers WHERE question=?", arrayOf(q)).use { if (it.moveToFirst()) it.getInt(0) to it.getInt(1) else null }
+        // potvrzení uživatelem se nikdy neztratí; jinak platí nový důkaz
+        val o = if (good || prev?.second == 1) cz.axiom.omega.core.agent.Proof.Origin.USER else origin
+        val contract = cz.axiom.omega.core.agent.Proof.contract(q, answer, o)
         db.insertWithOnConflict("answers", null, android.content.ContentValues().apply {
             put("question", q); put("answer", answer.take(4000))
             put("conf", maxOf(conf, prev?.first ?: 0)); put("good", if (good || prev?.second == 1) 1 else 0)
             put("at", System.currentTimeMillis())
+            put("origin", o.code); put("revise", contract.reviseAt)
         }, SQLiteDatabase.CONFLICT_REPLACE)
         // držet malé: nejvýš 2000 nejnovějších
         writableDatabase.execSQL("DELETE FROM answers WHERE id NOT IN (SELECT id FROM answers ORDER BY good DESC, at DESC LIMIT 2000)")
@@ -87,8 +102,9 @@ class Db private constructor(context: Context) :
     @Volatile private var answersCache: List<cz.axiom.omega.core.agent.Reflex.Entry>? = null
 
     fun answers(): List<cz.axiom.omega.core.agent.Reflex.Entry> = answersCache ?:
-        readableDatabase.rawQuery("SELECT question, answer, conf, good, at FROM answers ORDER BY at DESC LIMIT 2000", null).use { c ->
-            buildList { while (c.moveToNext()) add(cz.axiom.omega.core.agent.Reflex.Entry(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3) == 1, c.getLong(4))) }
+        readableDatabase.rawQuery("SELECT question, answer, conf, good, at, origin, revise FROM answers ORDER BY at DESC LIMIT 2000", null).use { c ->
+            buildList { while (c.moveToNext()) add(cz.axiom.omega.core.agent.Reflex.Entry(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3) == 1, c.getLong(4),
+                cz.axiom.omega.core.agent.Proof.Origin.of(c.getString(5)), c.getLong(6))) }
         }.also { answersCache = it }
 
     /** v2: vektory pro sémantické hledání + úkoly aktivních agentů. */

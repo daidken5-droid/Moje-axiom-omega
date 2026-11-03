@@ -546,6 +546,7 @@ function msgHtml(m, last) {
   return `<div class="msg ai${last ? ' last' : ''}" data-id="${m.id}">
     ${tech() ? `<div class="head">${logo()}<span class="meta grow">${esc(headTxt)}</span>${confHtml(meta.confidence)}</div>` : ''}
     ${thought}<div class="body answer">${mdCached(m)}</div>${files ? `<div class="files">${files}</div>` : ''}
+    ${(meta.proof || []).length && !(meta.delta || []).length ? `<div class="proof-check"><p><i class="delta-mark">Δ</i>Ověřeno proti Wikipedii: ${meta.proof.map(t => inline(esc(t))).join(' · ')}</p></div>` : ''}${meta.instant === 'dřívější odpověď mozku (neověřeno)' ? '<div class="proof-check"><p>Dřívější odpověď mozku – neověřená. ↻ Rozvést ji vyhodnotí znovu.</p></div>' : ''}
     ${(meta.delta || []).length ? `<div class="delta-check">${meta.delta.map(d => `<p><i class="delta-mark">Δ</i>${inline(esc(d.text))}</p>`).join('')}</div>` : ''}${cites}
     ${evidenceChip(m)}
 

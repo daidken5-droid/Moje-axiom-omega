@@ -21,7 +21,13 @@ import java.time.temporal.ChronoUnit
  */
 object Reflex {
 
-    data class Entry(val question: String, val answer: String, val confidence: Int, val good: Boolean, val at: Long)
+    data class Entry(
+        val question: String, val answer: String, val confidence: Int, val good: Boolean, val at: Long,
+        /** PROOFCORE: kdo odpověď potvrdil (uživatel ✓ / Wikipedie / jen model). */
+        val origin: Proof.Origin = if (good) Proof.Origin.USER else Proof.Origin.MODEL,
+        /** Revizní smlouva: po tomto čase se odpověď nepoužije (0 = dosavadních 60 dní). */
+        val reviseAt: Long = 0,
+    )
 
     // ------------------------------------------------------------------ 2) kalendář
 
@@ -142,15 +148,19 @@ object Reflex {
             if (direct >= 0.8 || (pk intersect key(e.question)).isEmpty()) return direct
             return maxOf(direct, similarity(canon(prompt), canon(e.question)))
         }
-        val scored = entries.asSequence().filter { now - it.at < 60L * 86_400_000 }.map { it to sim(it) }
-        // téměř stejná otázka jako dřív → vrátit dřívější odpověď mozku (i bez ✓), ušetří celé generování
-        scored.filter { (e, sim) -> sim >= 0.95 && e.confidence >= 75 }.maxByOrNull { it.second }?.let { (e, _) ->
-            if (!e.good && e.confidence < 90) return Instant.Answer(e.answer, "dřívější odpověď (stejná otázka)", confidence = 88)
+        // REVIZNÍ SMLOUVA: prošlé odpovědi se nepoužijí – otázku znovu vyhodnotí mozek nebo zdroj
+        val scored = entries.asSequence().filter { Proof.alive(it.at, it.reviseAt, now) }.map { it to sim(it) }
+        // PROOFCORE: jistota z DŮKAZU. Ověřené (✓ uživatele, Wikipedie) platí i pro přeformulovanou otázku;
+        // neověřená odpověď mozku jen pro tutéž otázku a POD prahem Auto (85) – v Auto ji mozek zodpoví znovu,
+        // Flash (práh 70, uživatel chce rychlost) ji vrátí s viditelným štítkem „neověřeno“.
+        val proven = scored.filter { (e, sim) -> e.origin != Proof.Origin.MODEL && sim >= 0.8 }.maxByOrNull { it.second }
+        if (proven != null) {
+            val (e, sim) = proven
+            val base = if (e.origin == Proof.Origin.USER) 96 else 92
+            return Instant.Answer(e.answer, e.origin.label, confidence = (base * sim).toInt().coerceAtMost(98))
         }
-        val best = scored.filter { (e, sim) -> (e.good || e.confidence >= 90) && sim >= 0.8 }.maxByOrNull { it.second } ?: return null
-        val (e, sim) = best
-        val conf = ((if (e.good) 96 else e.confidence) * sim).toInt().coerceAtMost(98)
-        return Instant.Answer(e.answer, if (e.good) "ověřená odpověď (✓)" else "dřívější jistá odpověď", confidence = conf)
+        val same = scored.filter { (e, sim) -> e.origin == Proof.Origin.MODEL && sim >= 0.95 && e.confidence >= 75 }.maxByOrNull { it.second } ?: return null
+        return Instant.Answer(same.first.answer, Proof.Origin.MODEL.label, confidence = 80)
     }
 
     // ------------------------------------------------------------------ orchestrace
@@ -220,5 +230,5 @@ object Reflex {
     }
 
     /** Pochází odpověď z paměti odpovědí (dá se smazat)? */
-    fun fromCache(a: Instant.Answer) = a.kind == "ověřená odpověď (✓)" || a.kind == "dřívější jistá odpověď"
+    fun fromCache(a: Instant.Answer) = Proof.Origin.values().any { it.label == a.kind }
 }

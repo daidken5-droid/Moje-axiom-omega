@@ -462,16 +462,19 @@ class OmegaService : Service() {
             // Běží PŘED uložením do paměti odpovědí: vyvrácená odpověď se nikdy nestane odpovědí „bez mozku“.
             // úklid artefaktů modelů (citační značky gpt-oss 【4】, zbytky značek sebereflexe)
             val clean = cz.axiom.omega.core.agent.Conversation.clean(answer)
-            val deltaFlags = runCatching { cz.axiom.omega.core.agent.Sentinel.check(clean, omega.quickKnowledge()) }.getOrDefault(emptyList())
+            val audit = runCatching { cz.axiom.omega.core.agent.Sentinel.audit(clean, omega.quickKnowledge()) }.getOrDefault(cz.axiom.omega.core.agent.Sentinel.Audit.EMPTY)
+            val deltaFlags = audit.flags
             // PAMĚŤ ODPOVĚDÍ: jistou, nadčasovou odpověď si uložit → příště stejná otázka bez mozku
             if (deltaFlags.isEmpty()) runCatching {
                 // mozek v telefonu nevrací číselnou jistotu → uložit s 80 (použije se jen u téměř stejné otázky)
                 val c = meta.optInt("confidence", -1).takeIf { it >= 0 } ?: if (meta.optBoolean("private")) 80 else -1
                 if (c >= 80 && route.mode == Router.Mode.CHAT && answer.length in 20..3000 && text.length <= 200 && !cz.axiom.omega.core.agent.Reflex.timeSensitive(text))
-                    omega.db.putAnswer(text, answer, c, good = false)
+                    omega.db.putAnswer(text, answer, c, good = false, origin = cz.axiom.omega.core.agent.Proof.originOf(audit))
             }
             val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
             if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
+            // PROOFCORE: co Wikipedie kladně potvrdila (důkaz, ne dojem) – jen když nic není v rozporu
+            if (audit.proven) meta.put("proof", JSONArray().apply { audit.confirmed.forEach { put(it.text()) } })
             if (deltaFlags.isNotEmpty()) meta.put("delta", JSONArray().apply { deltaFlags.forEach { put(JSONObject().put("text", it.text()).put("title", it.title)) } })
             val id = omega.db.addMessage(threadId, "assistant", clean, meta)
             runCatching {

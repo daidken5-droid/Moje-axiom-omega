@@ -291,6 +291,10 @@ details.srcs .cites { margin-top: 6px; }
 .delta-check { margin: 10px 0 0; padding: 8px 12px; border-left: 2px dashed var(--ti-lo); font-size: .85rem; color: var(--muted); }
 .delta-check p { margin: 0; }
 .delta-check .delta-mark { margin: 0 .5em 0 0; color: var(--ti-hi); }
+/* PROOFCORE: kladné ověření (plná čára = potvrzeno) a štítek neověřené dřívější odpovědi */
+.proof-check { margin: 10px 0 0; padding: 6px 12px; border-left: 2px solid var(--ti-lo); font-size: .8rem; color: var(--dim); }
+.proof-check p { margin: 0; }
+.proof-check .delta-mark { margin: 0 .5em 0 0; color: var(--ti); }
 
 /* soubory */
 .files { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; }

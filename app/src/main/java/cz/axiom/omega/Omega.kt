@@ -147,7 +147,7 @@ class Omega private constructor(val app: Context) {
 
     /** Nástroje aktivního agenta (síťové jen online). */
     fun agentTools(): List<AgentTool> {
-        val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(title, text, "Agent") } +
+        val offline = Tools.offline(knowledge(), db, { settings.rates }) { title, text -> db.addDocument(cz.axiom.omega.core.agent.Proof.noteTitle(title), text, "Agent") } +
             Tools.securityOffline() + libraryTool() + Tools.files(forge)
         val online = Introspect.online(app)
         val hfTools = if (online && hfToken() != null) listOf(imageTool()) else emptyList()

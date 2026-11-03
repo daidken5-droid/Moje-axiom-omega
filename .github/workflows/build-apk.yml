@@ -25,8 +25,13 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
-      - name: Unit testy
+      - name: Unit testy + Δ Lab (brána proti základně předchozí generace)
         run: ./gradlew :core:test --no-daemon
+      - name: Δ Lab – výsledky do souhrnu běhu
+        if: always()
+        run: |
+          echo "## Δ Lab" >> "$GITHUB_STEP_SUMMARY"
+          cat core/build/delta-lab/report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(Δ Lab neproběhl)" >> "$GITHUB_STEP_SUMMARY"
       - name: Výsledky testů
         if: always()
         uses: actions/upload-artifact@v4

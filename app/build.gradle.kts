@@ -31,8 +31,8 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1002
-        versionName = "Delta III"
+        versionCode = 1003
+        versionName = "Delta IV"
         buildConfigField("boolean", "WITH_NATIVE", withNative.toString())
 
         if (withNative) {

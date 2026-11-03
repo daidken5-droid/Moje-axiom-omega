@@ -26,7 +26,11 @@ import kotlin.math.tan
  */
 object Calc {
 
+    /** Mezera mezi číslicemi smí být jen oddělovač tisíců („1 024“). „3 5“ by se jinak tiše slilo na 35 (Δ Lab: 3,5 × 4 = 140). */
+    private val badGroup = Regex("\\d[ \u00a0](?!\\d{3}(?!\\d))\\d")
+
     fun eval(expr: String): Result<Double> = runCatching {
+        require(!badGroup.containsMatchIn(expr)) { "Nejednoznačné číslo (mezera uvnitř čísla)" }
         val cleaned = expr
             .replace('×', '*').replace('·', '*').replace('÷', '/').replace('−', '-')
             .replace(" ", "").replace(" ", "")

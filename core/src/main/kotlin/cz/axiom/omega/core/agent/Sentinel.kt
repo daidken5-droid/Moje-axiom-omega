@@ -22,6 +22,17 @@ object Sentinel {
         fun text() = "Wikipedie uvádí jinak: **$subject** – $wiki (v odpovědi: $claimed)."
     }
 
+    /** Tvrzení, které Wikipedie POTVRDILA (PROOFCORE: kladný důkaz, ne jen „nenašel jsem chybu“). */
+    data class Check(val subject: String, val what: String, val title: String) {
+        fun text() = "$subject – $what"
+    }
+
+    /** Výsledek auditu odpovědi: co sedí a co je v rozporu. Nic z toho = nebylo co ověřit. */
+    data class Audit(val confirmed: List<Check>, val flags: List<Flag>) {
+        val proven get() = confirmed.isNotEmpty() && flags.isEmpty()
+        companion object { val EMPTY = Audit(emptyList(), emptyList()) }
+    }
+
     private const val UP = "A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ"
     private const val LOW = "a-záčďéěíňóřšťúůýž"
     // jméno = 2–4 slova s velkým písmenem („Karel Gott“, „Tomáš Garrigue Masaryk“, „Jan Amos Komenský“)
@@ -66,24 +77,27 @@ object Sentinel {
 
     // PAMĚŤ VÝSLEDKŮ: reflex ověřuje stejné uložené odpovědi opakovaně (i pro varianty otázky) → hledat jen jednou
     private const val MEMO_MS = 10 * 60_000L
-    private val memo = object : LinkedHashMap<String, Pair<Long, List<Flag>>>(64, .75f, true) {
-        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Long, List<Flag>>>?) = size > 128
+    private val memo = object : LinkedHashMap<String, Pair<Long, Audit>>(64, .75f, true) {
+        override fun removeEldestEntry(e: MutableMap.MutableEntry<String, Pair<Long, Audit>>?) = size > 128
     }
 
-    fun check(answer: String, k: KnowledgeSource?, maxLookups: Int = 3): List<Flag> {
-        if (k == null || !mayClaim(answer)) return emptyList()
+    fun check(answer: String, k: KnowledgeSource?, maxLookups: Int = 3): List<Flag> = audit(answer, k, maxLookups).flags
+
+    /** Úplný audit: potvrzená i vyvrácená tvrzení (jedno hledání v knihovně pro obojí). */
+    fun audit(answer: String, k: KnowledgeSource?, maxLookups: Int = 3): Audit {
+        if (k == null || !mayClaim(answer)) return Audit.EMPTY
         val key = "${System.identityHashCode(k)}|$answer"
         val now = System.currentTimeMillis()
-        synchronized(memo) { memo[key]?.let { (at, f) -> if (now - at < MEMO_MS) return f } }
-        val flags = verify(answer, k, maxLookups)
-        synchronized(memo) { memo[key] = now to flags }
-        return flags
+        synchronized(memo) { memo[key]?.let { (at, a) -> if (now - at < MEMO_MS) return a } }
+        val a = verify(answer, k, maxLookups)
+        synchronized(memo) { memo[key] = now to a }
+        return a
     }
 
     /** Vyprázdní paměť výsledků (po stažení / smazání knihovny). */
     fun reset() = synchronized(memo) { memo.clear() }
 
-    private fun verify(answer: String, k: KnowledgeSource, maxLookups: Int): List<Flag> {
+    private fun verify(answer: String, k: KnowledgeSource, maxLookups: Int): Audit {
         data class Claim(val name: String, val born: When?, val died: When?, val founded: String? = null)
         val claims = LinkedHashMap<String, Claim>()
         fun add(name: String, b: When?, d: When?, f: String? = null) {
@@ -96,6 +110,7 @@ object Sentinel {
         diedRx.findAll(answer).forEach { add(g(it, 1).trim(), null, mkWhen(g(it, 2), g(it, 3), g(it, 4))) }
         foundRx.findAll(answer).forEach { if (g(it, 1).trim() !in claims) add(g(it, 1).trim(), null, null, g(it, 2)) }
         val out = mutableListOf<Flag>()
+        val ok = mutableListOf<Check>()
         for (c in claims.values.take(maxLookups)) {
             val art = lookup(c.name, k) ?: continue
             val subject = art.title.replace(Regex("^Wikipedie:\\s*"), "").replace(Regex("\\s*\\(.*\\)"), "")
@@ -103,13 +118,20 @@ object Sentinel {
             if (c.founded != null) {
                 val wy = foundingYear(art.text) ?: continue
                 if (wy != c.founded) out += Flag(subject, "vznik ${c.founded}", "vznik **$wy**", title)
+                else ok += Check(subject, "vznik $wy", title)
                 continue
             }
             val (wb, wd) = lifeDates(art.text) ?: continue
-            differs(c.born, wb)?.let { out += Flag(subject, "narození ${c.born!!.show()}", "narození **${wb!!.first}**", title) }
-            differs(c.died, wd)?.let { out += Flag(subject, "úmrtí ${c.died!!.show()}", "úmrtí **${wd!!.first}**", title) }
+            if (c.born != null && wb != null) {
+                if (differs(c.born, wb) != null) out += Flag(subject, "narození ${c.born.show()}", "narození **${wb.first}**", title)
+                else ok += Check(subject, "narození ${wb.first}", title)
+            }
+            if (c.died != null && wd != null) {
+                if (differs(c.died, wd) != null) out += Flag(subject, "úmrtí ${c.died.show()}", "úmrtí **${wd.first}**", title)
+                else ok += Check(subject, "úmrtí ${wd.first}", title)
+            }
         }
-        return out
+        return Audit(ok, out)
     }
 
     /** Liší se tvrzení od hesla? Rok vždy; den a měsíc jen když je mají OBĚ strany. */

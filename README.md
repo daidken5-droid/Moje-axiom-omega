@@ -8,6 +8,50 @@ pro leteckou navigaci – vodicí hvězda. Logo: titanový chevron a hvězda vyc
 Zachovává DNA **AXIOM 2.1 Hybrid** a **AXIOM Titanium 5.5** – RANDY, STEP-0, ASTRAEA +EV / Half-Kelly.
 Rozbor původní aplikace: [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md).
 
+## AVIOR Delta IV – PROOFCORE + Δ Lab
+
+**Δ Lab (měřicí prostředí generací):** `core/src/test/.../DeltaLabTest.kt` a `core/src/test/resources/deltalab/`.
+- **Sady otázek:**
+  - vývojová sada `dev.tsv` (30 otázek, smí se na ní ladit),
+  - **závěrečná** sada `final.tsv` (50 otázek, napsaná před změnami, neladí se na ní),
+  - malá offline Wikipedie `kb.tsv`.
+- **Měří:**
+  - správně,
+  - **chybně** (halucinace reflexu = odpověděl špatně, nebo tam, kde měl mlčet),
+  - zdržel se (→ mozek),
+  - latenci p50/p95,
+  - kolik **vlastních neověřených odpovědí mozku** AVIOR vrátí jako odpověď „bez mozku“.
+- **Brána:** proti `baseline.json` (předchozí generace) se nesmí zhoršit. Výsledek se v CI zapisuje do souhrnu běhu.
+
+| Generace | final: správně | final: chybně | vráceno neověřených odpovědí mozku |
+|---|---|---|---|
+| Delta III (základna) | 46/50 | 1 | **6 z 8** |
+| Delta IV | 49/50 | 0 | **0 z 8** |
+
+Pozor: 3 z těch +3 na závěrečné sadě jsou oprava chyby, kterou závěrečná sada odhalila (desetinná čárka).
+Pro tyto 3 položky už sada není „čistá“.
+
+**PROOFCORE – jistota z důkazu, ne z přesvědčivého textu:**
+- **Původ každé uložené odpovědi:**
+  - ✓ uživatel,
+  - **Wikipedie** (Strážce tvrzení kladně ověřil a nic nevyvrátil),
+  - jen **model**.
+- **Použití podle původu:**
+  - ověřené odpovědi platí i pro přeformulovanou otázku,
+  - neověřená odpověď mozku už nejde jako hotová odpověď v režimu Auto,
+  - ve Flash se vrátí se štítkem „neověřeno“.
+- **Revizní smlouva:** každá uložená odpověď má datum, kdy se znovu vyhodnotí, a důvod:
+  - úřady, ceny a rekordy po 90 dnech,
+  - neověřené odpovědi po 180 dnech,
+  - ověřené nadčasové fakty po 3 letech.
+  - Pak se nepoužije a otázka se zodpoví znovu.
+- **Strážce faktů umí i kladný důkaz:** pod odpovědí může stát „Δ Ověřeno proti Wikipedii: Karel Gott – narození 14. července 1939“.
+- **Poznámky agenta** se ukládají vždy jako „Poznámka AVIORu: …“. Model se tak nemůže vydávat za encyklopedii, protože WikiReflex i Strážce věří jen heslům „Wikipedie:“.
+
+**Opravené chyby nalezené Δ Labem:**
+- „3,5 krát 4“ dávalo 140, protože se ztratila desetinná čárka.
+- Kalkulačka teď odmítne „3 5“ jako jedno číslo (mezera smí oddělovat jen tisíce).
+
 ## AVIOR Delta III
 
 **Δ Srovnávač bez mozku (nová jedinečná funkce):** „Co je větší, Praha nebo Brno?“, „Kdo byl starší, Masaryk nebo

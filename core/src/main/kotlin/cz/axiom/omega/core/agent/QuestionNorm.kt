@@ -188,7 +188,8 @@ object QuestionNorm {
         if (f.isEmpty()) return emptyList()
         out += f
         // 2) slovník (slang, nářečí, slovenština) + výplňová slova pryč
-        f = f.replace(",", " ").split(' ').filter { it.isNotBlank() && it !in fillers }.joinToString(" ") { words[it] ?: it }
+        // desetinná čárka („3,5 krát 4“) zůstane číslem – jen ostatní čárky jsou oddělovač slov
+        f = f.replace(rx("(\\d),(\\d)"), "$1.$2").replace(",", " ").split(' ').filter { it.isNotBlank() && it !in fillers }.joinToString(" ") { words[it] ?: it }
             .replace(rx("\\bhl\\.? ?mest"), "hlavni mest")
             .replace(rx("^kolik (mame|je ted|je to|mame ted) hodin$"), "kolik je hodin")
             .replace(rx("^(cas|kolik je cas|jaky je cas|jaky mame cas|presny cas|aktualni cas|kolik je h|kolik je hod|kolik hodin)$"), "kolik je hodin")
