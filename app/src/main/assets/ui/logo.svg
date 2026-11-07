@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AVIOR">
+  <!-- AVIOR: titanový chevron (A) a hvězda vycházející nad horizontem – jen titan na černé -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2A2B2F"/><stop offset=".45" stop-color="#0C0D10"/><stop offset="1" stop-color="#040405"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4F6F9"/><stop offset=".35" stop-color="#6F757E"/><stop offset=".6" stop-color="#2A2D33"/><stop offset="1" stop-color="#C9CED6"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".16"/><stop offset=".42" stop-color="#FFFFFF" stop-opacity=".03"/><stop offset=".43" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="warm" cx="256" cy="176" r="170" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".2"/><stop offset=".5" stop-color="#8E949D" stop-opacity=".07"/><stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="legL" x1="140" y1="340" x2="256" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8E949D"/><stop offset=".45" stop-color="#E9ECF0"/><stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <linearGradient id="legR" x1="256" y1="120" x2="390" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C7CCD3"/><stop offset=".3" stop-color="#5F656E"/><stop offset=".55" stop-color="#F2F4F7"/><stop offset=".8" stop-color="#7C828B"/><stop offset="1" stop-color="#B9BEC6"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset=".25" stop-color="#C9CED6" stop-opacity=".7"/>
+      <stop offset=".5" stop-color="#FFFFFF"/><stop offset=".75" stop-color="#C9CED6" stop-opacity=".7"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="flare" cx="256" cy="330" r="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset=".25" stop-color="#FFFFFF" stop-opacity=".55"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g class="tile">
+    <rect x="20" y="20" width="472" height="472" rx="112" fill="url(#tile)"/>
+    <rect x="20" y="20" width="472" height="472" rx="112" fill="url(#glass)"/>
+    <rect x="22" y="22" width="468" height="468" rx="110" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  </g>
+  <circle cx="256" cy="176" r="170" fill="url(#warm)"/>
+  <g class="mark">
+    <path class="legL" d="M256 112 L122 344 L176 336 L256 198 Z" fill="url(#legL)"/>
+    <path class="legR" d="M256 112 L256 198 L336 336 L390 344 Z" fill="url(#legR)"/>
+    <path d="M256 112 L256 198" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="2"/>
+    <path class="arc" d="M58 398 Q256 262 454 398 Q256 278 58 398 Z" fill="url(#arc)"/>
+    <g class="star">
+      <circle cx="256" cy="330" r="46" fill="url(#flare)"/>
+      <path d="M256 244 L260.5 325.5 L306 330 L260.5 334.5 L256 432 L251.5 334.5 L206 330 L251.5 325.5 Z" fill="#FFFFFF"/>
+    </g>
+  </g>
+  <!-- řada Delta: obrysový Δ -->
+  <path d="M402 96 L438 160 L366 160 Z" fill="none" stroke="url(#rim)" stroke-width="10" stroke-linejoin="round"/>
+</svg>

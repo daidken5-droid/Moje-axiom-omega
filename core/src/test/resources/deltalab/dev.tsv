@@ -1,0 +1,32 @@
+# VÝVOJOVÁ sada Delta Lab – smí se na ní ladit. kategorie<TAB>otázka<TAB>očekávání
+# očekávání: regex (musí odpovědět a sedět) · ∅ (musí mlčet → mozek) · ?regex (smí mlčet, když odpoví, musí sedět)
+výpočet	kolik je 15 % z 2400	\b360\b
+výpočet	kolik je 7 krát 8	\b56\b
+výpočet	(5+3)/2	\b4\b
+výpočet	21 % dph z 1000	\b210\b|1 ?210
+převod	kolik metrů je 5 km	5 ?000
+převod	kolik deka je půl kila	\b50\b
+převod	100 eur v korunách	Kč
+čas	kolik je hodin	\b10:00\b
+čas	jaký je dnes den	úterý
+čas	kolik dní do vánoc	\b51\b|\b5[0-2]\b
+fakta	hlavní město francie	Paříž
+fakta	jaká je měna v polsku	zlot
+fakta	značka železa	\bFe\b
+wiki	kdy se narodil karel gott	1939
+wiki	kdy zemřel václav havel	2011
+wiki	co je fotosyntéza	světeln
+wiki	kde leží sněžka	Krkonoš
+srovnání	co je větší praha nebo brno	Praha
+srovnání	která řeka je delší vltava nebo labe	Labe
+srovnání	kdo byl starší masaryk nebo beneš	Masaryk
+konverzace	ahoj	(?i)ahoj
+konverzace	děkuju	(?i)není zač|rádo|rád
+mozek	napiš mi básničku o podzimu	∅
+mozek	jak mám investovat 100 tisíc korun	∅
+mozek	porovnej výhody a nevýhody tepelného čerpadla pro starý dům	∅
+mozek	vysvětli rozdíl mezi TCP a UDP v praxi	∅
+mozek	co si myslíš o umělé inteligenci	∅
+mozek	navrhni mi jídelníček na týden	∅
+výpočet	kolik je 2,5 krát 6	\b15\b
+výpočet	kolik je 1,2 plus 3,4	4[,.]6

@@ -1,0 +1,1008 @@
+{"cat": "stat", "q": "prosím tě, rozptyl čísel -3, 61, 297, 165, 395, 186, 440", "expect": "answer", "contains": ["23449,2653", "27357,4762"], "id": "s0-00004", "split": "validation"}
+{"cat": "stat", "q": "Prosím, směrodatná odchylka 308 78 130 287 8 8 170 130 475 386 3 313", "expect": "answer", "contains": ["152,6004", "159,3859"], "id": "s0-00006", "split": "validation"}
+{"cat": "stat", "q": "minimum čísel 119 64 16 477 459 73 249 486 111", "expect": "answer", "contains": ["16"], "id": "s0-00011", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum čísel 210 256 496 56 323 393 1 482 99 350 174", "expect": "answer", "contains": ["1"], "id": "s0-00019", "split": "validation"}
+{"cat": "stat", "q": "minimum -49, 347, 279?", "expect": "answer", "contains": ["-49"], "id": "s0-00021", "split": "validation"}
+{"cat": "stat", "q": "hele, maximum 75 199 333 497 309?", "expect": "answer", "contains": ["497"], "id": "s0-00025", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, medián čísel 313; 173; 43; 381; 474; 485", "expect": "answer", "contains": ["347"], "id": "s0-00029", "split": "validation"}
+{"cat": "stat", "q": "hele, směrodatná odchylka čísel -49 198 0 157 355 409?", "expect": "answer", "contains": ["167,7018", "183,7081"], "id": "s0-00031", "split": "validation"}
+{"cat": "stat", "q": "maximum 315, 13, 308, 39, 449, 479, 240, 137, 323, -40, 30?", "expect": "answer", "contains": ["479"], "id": "s0-00035", "split": "validation"}
+{"cat": "stat", "q": "součet 237; 148; -23; 327; 58; 264; 227; 216.", "expect": "answer", "contains": ["1454"], "id": "s0-00038", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 87 134 240 199 97 378 141?", "expect": "answer", "contains": ["94,3424", "101,9014"], "id": "s0-00039", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum čísel 466, 368, -18, 475, 425, 293, 123, 341", "expect": "answer", "contains": ["475"], "id": "s0-00043", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, medián čísel 11; 97; 211; 485; 384; 465; -12; 393; 230; 247", "expect": "answer", "contains": ["238,5"], "id": "s0-00047", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, rozptyl čísel 360, 166, 175, 446, 487, 313, 394, 185, 59, 479, 287", "expect": "answer", "contains": ["18704,595", "20575,0545"], "id": "s0-00049", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, průměr -43; 32; 366; -4; 364; -34; 373; 103; 224", "expect": "answer", "contains": ["153,4444"], "id": "s0-00053", "split": "validation"}
+{"cat": "stat", "q": "rozptyl 329; 23; 400 prosím", "expect": "answer", "contains": ["26756,2222", "40134,3333"], "id": "s0-00056", "split": "validation"}
+{"cat": "stat", "q": "Prosím, maximum čísel 167; -15; -14; -6; -8; 206; 496; 14; 478; 171", "expect": "answer", "contains": ["496"], "id": "s0-00062", "split": "validation"}
+{"cat": "stat", "q": "medián 306; -19; 91; 86; 283; 50?", "expect": "answer", "contains": ["88,5"], "id": "s0-00063", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum čísel 168 243 63 277 3 258 239 -26", "expect": "answer", "contains": ["277"], "id": "s0-00074", "split": "validation"}
+{"cat": "stat", "q": "Prosím, medián 226 95 358 197 477 485", "expect": "answer", "contains": ["292"], "id": "s0-00077", "split": "validation"}
+{"cat": "stat", "q": "průměr čísel -37, 180, 294, 41, 357, 335, 179, 125, 242 prosím", "expect": "answer", "contains": ["190,6667"], "id": "s0-00078", "split": "validation"}
+{"cat": "stat", "q": "rozptyl čísel 144, 177, 308, 371?", "expect": "answer", "contains": ["8642,5", "11523,3333"], "id": "s0-00083", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, minimum 429; 6; 164; 102; 374; 123; 296; 426; 73; 138; 261", "expect": "answer", "contains": ["6"], "id": "s0-00106", "split": "validation"}
+{"cat": "stat", "q": "průměr čísel 52; 40; 191; 339; 343.", "expect": "answer", "contains": ["193"], "id": "s0-00108", "split": "validation"}
+{"cat": "stat", "q": "průměr 42 125 289 339 255 372 241 102 434 122", "expect": "answer", "contains": ["232,1"], "id": "s0-00113", "split": "validation"}
+{"cat": "stat", "q": "Prosím, rozptyl 200; 131; 463; 184; 17; 233; 47; 297; 338; 42", "expect": "answer", "contains": ["18535,96", "20595,5111"], "id": "s0-00120", "split": "validation"}
+{"cat": "stat", "q": "hele, minimum 148, 401, 216, 381, 67, 282, -30, 280, 222?", "expect": "answer", "contains": ["-30"], "id": "s0-00123", "split": "validation"}
+{"cat": "stat", "q": "hele, maximum čísel 461, 426, 277, 300?", "expect": "answer", "contains": ["461"], "id": "s0-00126", "split": "validation"}
+{"cat": "stat", "q": "hele, součet 470; 110; 367; 92; 314; 33; 438; 436?", "expect": "answer", "contains": ["2260"], "id": "s0-00131", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, medián 225; -7; 370; 126; 0; 239; 244; 47; 370", "expect": "answer", "contains": ["225"], "id": "s0-00142", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 37 25 450 463 -40 101 144 47 306 252 prosím", "expect": "answer", "contains": ["170,9171", "180,1624"], "id": "s0-00146", "split": "validation"}
+{"cat": "stat", "q": "průměr 135, 43, 436, 95, 224, 401, -34, 103 prosím", "expect": "answer", "contains": ["175,375"], "id": "s0-00149", "split": "validation"}
+{"cat": "stat", "q": "medián 473, 329, 374, 234, 70, 92, 223, 81, 348, 496, 104, 74.", "expect": "answer", "contains": ["228,5"], "id": "s0-00161", "split": "validation"}
+{"cat": "stat", "q": "hele, součet čísel 279; 463; 144; 210; 335; 377; 17?", "expect": "answer", "contains": ["1825"], "id": "s0-00165", "split": "validation"}
+{"cat": "stat", "q": "hele, minimum čísel 224, 205, 388, 447, 397, 342, 472, 405, 345, -49, 201?", "expect": "answer", "contains": ["-49"], "id": "s0-00166", "split": "validation"}
+{"cat": "stat", "q": "součet 491, 196, -4, 103, 192, 284, 246, 253?", "expect": "answer", "contains": ["1761"], "id": "s0-00167", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum čísel 404 491 369", "expect": "answer", "contains": ["369"], "id": "s0-00170", "split": "validation"}
+{"cat": "stat", "q": "průměr čísel 199 -12 81 296 6 23 prosím", "expect": "answer", "contains": ["98,8333"], "id": "s0-00172", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, směrodatná odchylka 422 382 76 13 421 370 77 226 -49", "expect": "answer", "contains": ["178,3206", "189,1375"], "id": "s0-00176", "split": "validation"}
+{"cat": "stat", "q": "součet čísel -15, 131, 239.", "expect": "answer", "contains": ["355"], "id": "s0-00182", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 15, 290, 477, 307, 40, 92, 284, 489, 75 prosím", "expect": "answer", "contains": ["171,8943", "182,3214"], "id": "s0-00184", "split": "validation"}
+{"cat": "stat", "q": "minimum 443 86 297 464 311 186 420 385 prosím", "expect": "answer", "contains": ["86"], "id": "s0-00188", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 321, 49, 397, 31, -1, -38, 255, 200, -2, 106 prosím", "expect": "answer", "contains": ["144,2254", "152,0269"], "id": "s0-00198", "split": "validation"}
+{"cat": "stat", "q": "medián 33, 339, 385", "expect": "answer", "contains": ["339"], "id": "s0-00205", "split": "validation"}
+{"cat": "stat", "q": "Prosím, rozptyl 143; 424; 204; 489; 465; 23; -47; 491; -50; 48; 63; 402", "expect": "answer", "contains": ["43663,6875", "47633,1136"], "id": "s0-00209", "split": "validation"}
+{"cat": "stat", "q": "minimum -34; 215; 50; 345; -7; 364; 287", "expect": "answer", "contains": ["-34"], "id": "s0-00220", "split": "validation"}
+{"cat": "stat", "q": "rozptyl 125, 68, 14, 405, 238", "expect": "answer", "contains": ["19322,8", "24153,5"], "id": "s0-00222", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum 154; 411; 256; 135; 291; 305; -24; 101; 143; 443; -2", "expect": "answer", "contains": ["-24"], "id": "s0-00225", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, směrodatná odchylka 208 -11 392 -48 402", "expect": "answer", "contains": ["191,3673", "213,9551"], "id": "s0-00229", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka čísel 173; 64; 89; 409; 418; 466; 31; 437; 206; -1?", "expect": "answer", "contains": ["176,1101", "185,6363"], "id": "s0-00234", "split": "validation"}
+{"cat": "stat", "q": "hele, minimum čísel 118, 429, 252, 270, 404, 362, 488, 76, 316, 458, 111, 402?", "expect": "answer", "contains": ["76"], "id": "s0-00241", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, minimum čísel 477 331 133 107 167 176 150 308 20 386", "expect": "answer", "contains": ["20"], "id": "s0-00247", "split": "validation"}
+{"cat": "stat", "q": "průměr 208; 2; 155", "expect": "answer", "contains": ["121,6667"], "id": "s0-00251", "split": "validation"}
+{"cat": "stat", "q": "hele, medián čísel 412, 121, 52?", "expect": "answer", "contains": ["121"], "id": "s0-00267", "split": "validation"}
+{"cat": "stat", "q": "maximum čísel 415; 214; 155; 239; 98; -21; 411; 401; 224; 423; -9?", "expect": "answer", "contains": ["423"], "id": "s0-00268", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum 318, 324, 461, 448, 64, 86, 445, -13, 130, 35, 313", "expect": "answer", "contains": ["-13"], "id": "s0-00270", "split": "validation"}
+{"cat": "stat", "q": "minimum 404 470 118 458 183 prosím", "expect": "answer", "contains": ["118"], "id": "s0-00272", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, součet čísel 170, -19, 419, 329, 235", "expect": "answer", "contains": ["1134"], "id": "s0-00273", "split": "validation"}
+{"cat": "stat", "q": "součet čísel 305 -10 38 189 365 290.", "expect": "answer", "contains": ["1177"], "id": "s0-00275", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, průměr -22, 270, 165, 463, 223, 219, 68", "expect": "answer", "contains": ["198"], "id": "s0-00279", "split": "validation"}
+{"cat": "stat", "q": "hele, rozptyl čísel 345 483 215 -2 84 174 202 296 101 161?", "expect": "answer", "contains": ["17646,89", "19607,6556"], "id": "s0-00280", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, minimum 144, 64, 388", "expect": "answer", "contains": ["64"], "id": "s0-00286", "split": "validation"}
+{"cat": "stat", "q": "minimum čísel 383, 216, 217?", "expect": "answer", "contains": ["216"], "id": "s0-00287", "split": "validation"}
+{"cat": "stat", "q": "hele, průměr -43 490 476 401 249 304 308 191?", "expect": "answer", "contains": ["297"], "id": "s0-00298", "split": "validation"}
+{"cat": "stat", "q": "součet čísel 403, 295, 278", "expect": "answer", "contains": ["976"], "id": "s0-00311", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, součet 481 496 462 297 302 165 231 402 243", "expect": "answer", "contains": ["3079"], "id": "s0-00323", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, medián čísel 68, 70, 19, 228", "expect": "answer", "contains": ["69"], "id": "s0-00330", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka čísel 443 317 232 prosím", "expect": "answer", "contains": ["86,6808", "106,1618"], "id": "s0-00332", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, rozptyl čísel 228; 454; 374; 274; 211", "expect": "answer", "contains": ["8527,36", "10659,2"], "id": "s0-00338", "split": "validation"}
+{"cat": "stat", "q": "Prosím, maximum čísel 380; 241; -1; 250; 347; 406; 167; 440; -10; -38; 162", "expect": "answer", "contains": ["440"], "id": "s0-00339", "split": "validation"}
+{"cat": "stat", "q": "hele, medián 91 56 102 485 101 379 -36 140 471?", "expect": "answer", "contains": ["102"], "id": "s0-00354", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum 444 6 477 61 374 422 -12 260 256", "expect": "answer", "contains": ["-12"], "id": "s0-00355", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 343 209 343", "expect": "answer", "contains": ["63,1682", "77,3649"], "id": "s0-00356", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, součet 274, 102, 32, 433, 367, 225", "expect": "answer", "contains": ["1433"], "id": "s0-00360", "split": "validation"}
+{"cat": "stat", "q": "Prosím, maximum čísel 146; 390; 55; 380; 215; 405; 458; 301; 490; 102; 484; 464", "expect": "answer", "contains": ["490"], "id": "s0-00362", "split": "validation"}
+{"cat": "stat", "q": "Prosím, minimum čísel 379 100 451 77 -3 -41 118 15", "expect": "answer", "contains": ["-41"], "id": "s0-00363", "split": "validation"}
+{"cat": "stat", "q": "maximum -42 277 7 254 114 271 458 424 -17 327", "expect": "answer", "contains": ["458"], "id": "s0-00365", "split": "validation"}
+{"cat": "stat", "q": "Prosím, směrodatná odchylka 488; 153; 324; 383", "expect": "answer", "contains": ["121,3899", "140,1689"], "id": "s0-00367", "split": "validation"}
+{"cat": "stat", "q": "hele, směrodatná odchylka čísel 199; 3; 241; 249; 45; 67; 475; 211; 493; 354; 278?", "expect": "answer", "contains": ["153,8429", "161,3518"], "id": "s0-00370", "split": "validation"}
+{"cat": "stat", "q": "Prosím, rozptyl 278, 169, 305, 120, 270, 253, 313, 71, 299", "expect": "answer", "contains": ["6978,0988", "7850,3611"], "id": "s0-00375", "split": "validation"}
+{"cat": "stat", "q": "Prosím, medián 58, 440, 295", "expect": "answer", "contains": ["295"], "id": "s0-00376", "split": "validation"}
+{"cat": "stat", "q": "průměr -3, 354, -12, 494, 25, 230, -33, 312, 448, 48, 452?", "expect": "answer", "contains": ["210,4545"], "id": "s0-00379", "split": "validation"}
+{"cat": "stat", "q": "Prosím, medián čísel 71, 171, 68, 476, -6, 432", "expect": "answer", "contains": ["121"], "id": "s0-00380", "split": "validation"}
+{"cat": "stat", "q": "Prosím, průměr 40 495 151 400 258 106 387 69", "expect": "answer", "contains": ["238,25"], "id": "s0-00396", "split": "validation"}
+{"cat": "stat", "q": "hele, minimum čísel 445, 201, 236, 497, 19, 376, 178, 289, 154, 355?", "expect": "answer", "contains": ["19"], "id": "s0-00405", "split": "validation"}
+{"cat": "stat", "q": "hele, směrodatná odchylka 27 85 421?", "expect": "answer", "contains": ["173,6843", "212,7189"], "id": "s0-00410", "split": "validation"}
+{"cat": "stat", "q": "minimum čísel 14, -24, 449, 64", "expect": "answer", "contains": ["-24"], "id": "s0-00412", "split": "validation"}
+{"cat": "stat", "q": "součet 94 455 412 234 146 64 prosím", "expect": "answer", "contains": ["1405"], "id": "s0-00417", "split": "validation"}
+{"cat": "stat", "q": "Prosím, průměr -31; -15; 242", "expect": "answer", "contains": ["65,3333"], "id": "s0-00418", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, minimum 267 488 418", "expect": "answer", "contains": ["267"], "id": "s0-00423", "split": "validation"}
+{"cat": "stat", "q": "součet 478; 391; 464; 209; -6; 263.", "expect": "answer", "contains": ["1799"], "id": "s0-00425", "split": "validation"}
+{"cat": "stat", "q": "rozptyl čísel 217; 384; 90; 451; 274", "expect": "answer", "contains": ["16022,16", "20027,7"], "id": "s0-00427", "split": "validation"}
+{"cat": "stat", "q": "součet 372, 218, 471.", "expect": "answer", "contains": ["1061"], "id": "s0-00430", "split": "validation"}
+{"cat": "stat", "q": "Prosím, směrodatná odchylka 56, 348, 435, 10, 180, 350", "expect": "answer", "contains": ["158,9155", "174,0832"], "id": "s0-00441", "split": "validation"}
+{"cat": "stat", "q": "maximum čísel 305 408 102 106 483 173 -20 129 191.", "expect": "answer", "contains": ["483"], "id": "s0-00448", "split": "validation"}
+{"cat": "stat", "q": "rozptyl 147, 420, 124, 438, 27, 343, 495, -13 prosím", "expect": "answer", "contains": ["34781,9844", "39750,8393"], "id": "s0-00454", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum čísel -29, 339, 493, 348, 380, -30, 284", "expect": "answer", "contains": ["493"], "id": "s0-00456", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum čísel 246, 270, -47, 224, 432", "expect": "answer", "contains": ["432"], "id": "s0-00467", "split": "validation"}
+{"cat": "stat", "q": "průměr 100 163 312 217 133 389 492 295 prosím", "expect": "answer", "contains": ["262,625"], "id": "s0-00476", "split": "validation"}
+{"cat": "stat", "q": "maximum 235, -47, 213, -31", "expect": "answer", "contains": ["235"], "id": "s0-00490", "split": "validation"}
+{"cat": "stat", "q": "průměr čísel 224, 197, 191, 194, 316, 255 prosím", "expect": "answer", "contains": ["229,5"], "id": "s0-00494", "split": "validation"}
+{"cat": "stat", "q": "Prosím, průměr čísel 250; 90; 279; 178; -40; 321", "expect": "answer", "contains": ["179,6667"], "id": "s0-00495", "split": "validation"}
+{"cat": "stat", "q": "medián čísel 447; -35; 20.", "expect": "answer", "contains": ["20"], "id": "s0-00497", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum čísel 330; 213; 107; 37; 98; 232; 365; 446; 488; 92; 224", "expect": "answer", "contains": ["488"], "id": "s0-00499", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, průměr -30; 264; 440; -38; 379; 68", "expect": "answer", "contains": ["180,5"], "id": "s0-00500", "split": "validation"}
+{"cat": "stat", "q": "medián čísel 87, 200, 145, 222, 473, 396, 461, 472, 500.", "expect": "answer", "contains": ["396"], "id": "s0-00501", "split": "validation"}
+{"cat": "stat", "q": "minimum čísel 439 462 366 384 194 415 383 157 -23 prosím", "expect": "answer", "contains": ["-23"], "id": "s0-00507", "split": "validation"}
+{"cat": "stat", "q": "hele, průměr čísel 448; 412; 26; 478; 147; 381; 447; 189; 464; 477; 313?", "expect": "answer", "contains": ["343,8182"], "id": "s0-00515", "split": "validation"}
+{"cat": "stat", "q": "maximum čísel 165, 144, 90, 247, 466?", "expect": "answer", "contains": ["466"], "id": "s0-00517", "split": "validation"}
+{"cat": "stat", "q": "součet 198 340 275.", "expect": "answer", "contains": ["813"], "id": "s0-00528", "split": "validation"}
+{"cat": "stat", "q": "Prosím, součet čísel 245 485 99 433 467 351", "expect": "answer", "contains": ["2080"], "id": "s0-00532", "split": "validation"}
+{"cat": "stat", "q": "hele, součet -39 99 360 382?", "expect": "answer", "contains": ["802"], "id": "s0-00537", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, medián čísel 365; 430; 101; 442", "expect": "answer", "contains": ["397,5"], "id": "s0-00538", "split": "validation"}
+{"cat": "stat", "q": "hele, maximum čísel 231 200 408 436 476 -30 462 499 379 435?", "expect": "answer", "contains": ["499"], "id": "s0-00549", "split": "validation"}
+{"cat": "stat", "q": "maximum 353, 284, 421, 289, 150, 237?", "expect": "answer", "contains": ["421"], "id": "s0-00550", "split": "validation"}
+{"cat": "stat", "q": "minimum 203 60 -2 256 -2.", "expect": "answer", "contains": ["-2"], "id": "s0-00557", "split": "validation"}
+{"cat": "stat", "q": "hele, rozptyl 259 54 -48 243?", "expect": "answer", "contains": ["16708,5", "22278"], "id": "s0-00560", "split": "validation"}
+{"cat": "stat", "q": "Prosím, průměr čísel 77 478 -49 227 186 295 8 283 183 356 210", "expect": "answer", "contains": ["204,9091"], "id": "s0-00572", "split": "validation"}
+{"cat": "stat", "q": "hele, směrodatná odchylka 244; 183; -43; 334; 176; 456; 234; 17; 418; 254?", "expect": "answer", "contains": ["149,3232", "157,4004"], "id": "s0-00573", "split": "validation"}
+{"cat": "stat", "q": "AVIOR, maximum 398 351 -27 238 159", "expect": "answer", "contains": ["398"], "id": "s0-00580", "split": "validation"}
+{"cat": "stat", "q": "maximum čísel 232; -4; 363; 109?", "expect": "answer", "contains": ["363"], "id": "s0-00591", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 351 50 204 302 -23 145?", "expect": "answer", "contains": ["131,4036", "143,9455"], "id": "s0-00593", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka čísel 279 143 165 21 207 235 467 -50 349 46 118 prosím", "expect": "answer", "contains": ["143,3559", "150,3529"], "id": "s0-00595", "split": "validation"}
+{"cat": "stat", "q": "medián čísel 161, 178, 216, 262, 83, 424.", "expect": "answer", "contains": ["197"], "id": "s0-00596", "split": "validation"}
+{"cat": "stat", "q": "hele, medián 274, -11, 396, 331, 451, 141, 158?", "expect": "answer", "contains": ["274"], "id": "s0-00597", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka 95; 201; 325; 167; 223; 214; 263; 151; 249 prosím", "expect": "answer", "contains": ["63,5746", "67,431"], "id": "s0-00601", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, maximum čísel 450, 165, 371", "expect": "answer", "contains": ["450"], "id": "s0-00607", "split": "validation"}
+{"cat": "stat", "q": "hele, medián čísel -19 477 494 -29?", "expect": "answer", "contains": ["229"], "id": "s0-00620", "split": "validation"}
+{"cat": "stat", "q": "směrodatná odchylka čísel 461, 324, 359, 77, 492, 319, 373, 306", "expect": "answer", "contains": ["117,3706", "125,4745"], "id": "s0-00624", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, součet čísel 337 179 47 -1 120 234", "expect": "answer", "contains": ["916"], "id": "s0-00640", "split": "validation"}
+{"cat": "stat", "q": "medián 428; 342; 472; 358; 381; 372; 176; 171; 65 prosím", "expect": "answer", "contains": ["358"], "id": "s0-00642", "split": "validation"}
+{"cat": "stat", "q": "maximum čísel 477 497 20 189 390 -6.", "expect": "answer", "contains": ["497"], "id": "s0-00643", "split": "validation"}
+{"cat": "stat", "q": "prosím tě, minimum čísel 309; 424; 401; 128; 437; 384; -39; 155", "expect": "answer", "contains": ["-39"], "id": "s0-00645", "split": "validation"}
+{"cat": "stat", "q": "rozptyl čísel 373, 424, 448, 380, -36, 276, 325, 159, 254.", "expect": "answer", "contains": ["20450,8395", "23007,1944"], "id": "s0-00646", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 1306 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00661", "split": "validation"}
+{"cat": "prime", "q": "je 8953 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00663", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 4165 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00667", "split": "validation"}
+{"cat": "prime", "q": "hele, je 892 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00675", "split": "validation"}
+{"cat": "prime", "q": "je 1003 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00683", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 2075 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00691", "split": "validation"}
+{"cat": "prime", "q": "je 4175 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00692", "split": "validation"}
+{"cat": "prime", "q": "je 117641403 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00693", "split": "validation"}
+{"cat": "prime", "q": "hele, je 6435 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00694", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 3195 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00710", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 7817 prvočíslo", "expect": "answer", "contains": ["Ano"], "id": "s0-00717", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 1619 prvočíslo", "expect": "answer", "contains": ["Ano"], "id": "s0-00722", "split": "validation"}
+{"cat": "prime", "q": "je 681911066 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00726", "split": "validation"}
+{"cat": "prime", "q": "je 378699277 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00728", "split": "validation"}
+{"cat": "prime", "q": "je 1536 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00737", "split": "validation"}
+{"cat": "prime", "q": "je 2459 prvočíslo.", "expect": "answer", "contains": ["Ano"], "id": "s0-00750", "split": "validation"}
+{"cat": "prime", "q": "hele, je 481272846 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00767", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 7154 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00775", "split": "validation"}
+{"cat": "prime", "q": "je 1333 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00784", "split": "validation"}
+{"cat": "prime", "q": "je 5667 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00788", "split": "validation"}
+{"cat": "prime", "q": "je 1648 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-00789", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 2198 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00790", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 907333053 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00793", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 3138 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00796", "split": "validation"}
+{"cat": "prime", "q": "hele, je 2584 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00801", "split": "validation"}
+{"cat": "prime", "q": "je 742483038 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00805", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 6077 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00816", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 262854247 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00820", "split": "validation"}
+{"cat": "prime", "q": "je 5100 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00831", "split": "validation"}
+{"cat": "prime", "q": "je 4248 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00837", "split": "validation"}
+{"cat": "prime", "q": "hele, je 119332290 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00838", "split": "validation"}
+{"cat": "prime", "q": "je 715281958 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00839", "split": "validation"}
+{"cat": "prime", "q": "je 674448755 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00841", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 5512 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00843", "split": "validation"}
+{"cat": "prime", "q": "je 898 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00844", "split": "validation"}
+{"cat": "prime", "q": "hele, je 4687 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00848", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 5038 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00859", "split": "validation"}
+{"cat": "prime", "q": "je 290777041 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-00865", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 5487 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00872", "split": "validation"}
+{"cat": "prime", "q": "je 597811780 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00875", "split": "validation"}
+{"cat": "prime", "q": "je 8881 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00877", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 2271 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00878", "split": "validation"}
+{"cat": "prime", "q": "hele, je 299575863 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00894", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 7006 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00895", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 4453 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00903", "split": "validation"}
+{"cat": "prime", "q": "je 4119 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00908", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 6229 prvočíslo", "expect": "answer", "contains": ["Ano"], "id": "s0-00911", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 771382961 prvočíslo", "expect": "answer", "contains": ["Ano"], "id": "s0-00918", "split": "validation"}
+{"cat": "prime", "q": "je 924048485 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-00929", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 7228 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00932", "split": "validation"}
+{"cat": "prime", "q": "je 722 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-00940", "split": "validation"}
+{"cat": "prime", "q": "je 966316657 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-00942", "split": "validation"}
+{"cat": "prime", "q": "je 249017096 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-00955", "split": "validation"}
+{"cat": "prime", "q": "AVIOR, je 126091671 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00963", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 849753890 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00975", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 4317 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00979", "split": "validation"}
+{"cat": "prime", "q": "je 1595 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-00986", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 5794 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00990", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 8137 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-00994", "split": "validation"}
+{"cat": "prime", "q": "je 724194583 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-01002", "split": "validation"}
+{"cat": "prime", "q": "je 9540 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-01007", "split": "validation"}
+{"cat": "prime", "q": "je 6696 prvočíslo prosím", "expect": "answer", "contains": ["není"], "id": "s0-01014", "split": "validation"}
+{"cat": "prime", "q": "prosím tě, je 3909 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-01018", "split": "validation"}
+{"cat": "prime", "q": "je 2646 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-01030", "split": "validation"}
+{"cat": "prime", "q": "je 804891610 prvočíslo.", "expect": "answer", "contains": ["není"], "id": "s0-01036", "split": "validation"}
+{"cat": "prime", "q": "Prosím, je 452890532 prvočíslo", "expect": "answer", "contains": ["není"], "id": "s0-01039", "split": "validation"}
+{"cat": "prime", "q": "hele, je 5696 prvočíslo?", "expect": "answer", "contains": ["není"], "id": "s0-01049", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 227332 a 277081?", "expect": "answer", "contains": ["161"], "id": "s0-01054", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 528474 a 400242.", "expect": "answer", "contains": ["6"], "id": "s0-01056", "split": "validation"}
+{"cat": "gcd", "q": "Prosím, největší společný dělitel 307627 a 982993", "expect": "answer", "contains": ["1"], "id": "s0-01064", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 7793 a 4322?", "expect": "answer", "contains": ["33681346"], "id": "s0-01065", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8308 a 8516.", "expect": "answer", "contains": ["17687732"], "id": "s0-01073", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 519895 a 669874", "expect": "answer", "contains": ["1"], "id": "s0-01080", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 7287 a 5887 prosím", "expect": "answer", "contains": ["6128367"], "id": "s0-01081", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 534684 a 727967?", "expect": "answer", "contains": ["1"], "id": "s0-01088", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 4050 a 7445", "expect": "answer", "contains": ["6030450"], "id": "s0-01089", "split": "validation"}
+{"cat": "lcm", "q": "AVIOR, nejmenší společný násobek 2114 a 6875", "expect": "answer", "contains": ["14533750"], "id": "s0-01091", "split": "validation"}
+{"cat": "gcd", "q": "AVIOR, největší společný dělitel 990698 a 802254", "expect": "answer", "contains": ["2"], "id": "s0-01092", "split": "validation"}
+{"cat": "gcd", "q": "hele, největší společný dělitel 589089 a 270387?", "expect": "answer", "contains": ["3"], "id": "s0-01096", "split": "validation"}
+{"cat": "gcd", "q": "AVIOR, největší společný dělitel 905044 a 52220", "expect": "answer", "contains": ["28"], "id": "s0-01118", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 1459 a 5357", "expect": "answer", "contains": ["7815863"], "id": "s0-01121", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 3291 a 3574 prosím", "expect": "answer", "contains": ["11762034"], "id": "s0-01123", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 7722 a 4522", "expect": "answer", "contains": ["17459442"], "id": "s0-01129", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 4686 a 9639", "expect": "answer", "contains": ["15056118"], "id": "s0-01145", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 3669 a 4624?", "expect": "answer", "contains": ["16965456"], "id": "s0-01149", "split": "validation"}
+{"cat": "lcm", "q": "hele, nejmenší společný násobek 9704 a 1133?", "expect": "answer", "contains": ["10994632"], "id": "s0-01153", "split": "validation"}
+{"cat": "gcd", "q": "Prosím, největší společný dělitel 8680 a 105519", "expect": "answer", "contains": ["1"], "id": "s0-01158", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 8037 a 6532", "expect": "answer", "contains": ["52497684"], "id": "s0-01159", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 499481 a 266364", "expect": "answer", "contains": ["1"], "id": "s0-01160", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 322479 a 339910", "expect": "answer", "contains": ["1"], "id": "s0-01162", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8742 a 5713", "expect": "answer", "contains": ["49943046"], "id": "s0-01163", "split": "validation"}
+{"cat": "gcd", "q": "AVIOR, největší společný dělitel 141019 a 225069", "expect": "answer", "contains": ["1"], "id": "s0-01166", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 7770 a 5474", "expect": "answer", "contains": ["3038070"], "id": "s0-01167", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 566 a 4148", "expect": "answer", "contains": ["1173884"], "id": "s0-01169", "split": "validation"}
+{"cat": "gcd", "q": "AVIOR, největší společný dělitel 237347 a 399053", "expect": "answer", "contains": ["1"], "id": "s0-01172", "split": "validation"}
+{"cat": "gcd", "q": "hele, největší společný dělitel 252825 a 385821?", "expect": "answer", "contains": ["3"], "id": "s0-01174", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 186471 a 483336", "expect": "answer", "contains": ["9"], "id": "s0-01176", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 41545 a 513197.", "expect": "answer", "contains": ["1"], "id": "s0-01180", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 6756 a 4832", "expect": "answer", "contains": ["8161248"], "id": "s0-01181", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8374 a 2436?", "expect": "answer", "contains": ["10199532"], "id": "s0-01183", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 2018 a 309?", "expect": "answer", "contains": ["623562"], "id": "s0-01185", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 1388 a 5315", "expect": "answer", "contains": ["7377220"], "id": "s0-01187", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 351234 a 354138", "expect": "answer", "contains": ["6"], "id": "s0-01188", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 6354 a 2651", "expect": "answer", "contains": ["16844454"], "id": "s0-01189", "split": "validation"}
+{"cat": "gcd", "q": "AVIOR, největší společný dělitel 338715 a 109682", "expect": "answer", "contains": ["1"], "id": "s0-01192", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8394 a 7269?", "expect": "answer", "contains": ["20338662"], "id": "s0-01197", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 3043 a 9078", "expect": "answer", "contains": ["1624962"], "id": "s0-01203", "split": "validation"}
+{"cat": "lcm", "q": "AVIOR, nejmenší společný násobek 3846 a 266", "expect": "answer", "contains": ["511518"], "id": "s0-01207", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 327196 a 559856", "expect": "answer", "contains": ["4"], "id": "s0-01218", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 8404 a 615", "expect": "answer", "contains": ["5168460"], "id": "s0-01219", "split": "validation"}
+{"cat": "gcd", "q": "Prosím, největší společný dělitel 749756 a 597057", "expect": "answer", "contains": ["1"], "id": "s0-01224", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 5125 a 9896", "expect": "answer", "contains": ["50717000"], "id": "s0-01227", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8350 a 3694.", "expect": "answer", "contains": ["15422450"], "id": "s0-01231", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 643115 a 978149.", "expect": "answer", "contains": ["1"], "id": "s0-01234", "split": "validation"}
+{"cat": "lcm", "q": "Prosím, nejmenší společný násobek 8842 a 2997", "expect": "answer", "contains": ["26499474"], "id": "s0-01235", "split": "validation"}
+{"cat": "lcm", "q": "AVIOR, nejmenší společný násobek 8829 a 6745", "expect": "answer", "contains": ["59551605"], "id": "s0-01239", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 6189 a 6718 prosím", "expect": "answer", "contains": ["41577702"], "id": "s0-01241", "split": "validation"}
+{"cat": "lcm", "q": "AVIOR, nejmenší společný násobek 2815 a 3255", "expect": "answer", "contains": ["1832565"], "id": "s0-01245", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 723263 a 221949", "expect": "answer", "contains": ["1"], "id": "s0-01254", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 482 a 1122", "expect": "answer", "contains": ["270402"], "id": "s0-01261", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 3534 a 3747", "expect": "answer", "contains": ["4413966"], "id": "s0-01263", "split": "validation"}
+{"cat": "lcm", "q": "hele, nejmenší společný násobek 4419 a 7323?", "expect": "answer", "contains": ["10786779"], "id": "s0-01267", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 779909 a 482661", "expect": "answer", "contains": ["1"], "id": "s0-01268", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 488660 a 58454", "expect": "answer", "contains": ["2"], "id": "s0-01272", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 324050 a 723517", "expect": "answer", "contains": ["1"], "id": "s0-01274", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 508754 a 101298.", "expect": "answer", "contains": ["2"], "id": "s0-01276", "split": "validation"}
+{"cat": "lcm", "q": "AVIOR, nejmenší společný násobek 8618 a 3570", "expect": "answer", "contains": ["15383130"], "id": "s0-01277", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 381455 a 954429?", "expect": "answer", "contains": ["1"], "id": "s0-01278", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 29904 a 733393", "expect": "answer", "contains": ["1"], "id": "s0-01294", "split": "validation"}
+{"cat": "gcd", "q": "Prosím, největší společný dělitel 677076 a 926543", "expect": "answer", "contains": ["1"], "id": "s0-01298", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 870010 a 434978", "expect": "answer", "contains": ["2"], "id": "s0-01306", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 8748 a 9781", "expect": "answer", "contains": ["85564188"], "id": "s0-01309", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 822053 a 918751.", "expect": "answer", "contains": ["1"], "id": "s0-01310", "split": "validation"}
+{"cat": "lcm", "q": "nejmenší společný násobek 8116 a 8477 prosím", "expect": "answer", "contains": ["68799332"], "id": "s0-01315", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 684853 a 556415", "expect": "answer", "contains": ["1"], "id": "s0-01318", "split": "validation"}
+{"cat": "gcd", "q": "Prosím, největší společný dělitel 884362 a 569887", "expect": "answer", "contains": ["1"], "id": "s0-01328", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 882632 a 614850", "expect": "answer", "contains": ["2"], "id": "s0-01334", "split": "validation"}
+{"cat": "gcd", "q": "největší společný dělitel 964924 a 385359 prosím", "expect": "answer", "contains": ["1"], "id": "s0-01336", "split": "validation"}
+{"cat": "gcd", "q": "prosím tě, největší společný dělitel 728560 a 959362", "expect": "answer", "contains": ["2"], "id": "s0-01338", "split": "validation"}
+{"cat": "lcm", "q": "prosím tě, nejmenší společný násobek 4219 a 4154", "expect": "answer", "contains": ["17525726"], "id": "s0-01339", "split": "validation"}
+{"cat": "comb", "q": "Prosím, 13 nad 1", "expect": "answer", "contains": ["13"], "id": "s0-01351", "split": "validation"}
+{"cat": "fact", "q": "faktoriál 6 prosím", "expect": "answer", "contains": ["720"], "id": "s0-01356", "split": "validation"}
+{"cat": "comb", "q": "prosím tě, 47 nad 39", "expect": "answer", "contains": ["314457495"], "id": "s0-01361", "split": "validation"}
+{"cat": "comb", "q": "50 nad 23 prosím", "expect": "answer", "contains": ["108043253365600"], "id": "s0-01407", "split": "validation"}
+{"cat": "fact", "q": "faktoriál 8.", "expect": "answer", "contains": ["40320"], "id": "s0-01410", "split": "validation"}
+{"cat": "comb", "q": "22 nad 10.", "expect": "answer", "contains": ["646646"], "id": "s0-01411", "split": "validation"}
+{"cat": "comb", "q": "56 nad 41.", "expect": "answer", "contains": ["16253249498640"], "id": "s0-01415", "split": "validation"}
+{"cat": "comb", "q": "prosím tě, 38 nad 7", "expect": "answer", "contains": ["12620256"], "id": "s0-01419", "split": "validation"}
+{"cat": "comb", "q": "51 nad 51?", "expect": "answer", "contains": ["1"], "id": "s0-01425", "split": "validation"}
+{"cat": "comb", "q": "19 nad 11", "expect": "answer", "contains": ["75582"], "id": "s0-01435", "split": "validation"}
+{"cat": "comb", "q": "Prosím, 60 nad 17", "expect": "answer", "contains": ["387221678682300"], "id": "s0-01439", "split": "validation"}
+{"cat": "fact", "q": "faktoriál 6.", "expect": "answer", "contains": ["720"], "id": "s0-01444", "split": "validation"}
+{"cat": "fact", "q": "faktoriál 13?", "expect": "answer", "contains": ["6227020800"], "id": "s0-01448", "split": "validation"}
+{"cat": "comb", "q": "hele, 3 nad 2?", "expect": "answer", "contains": ["3"], "id": "s0-01461", "split": "validation"}
+{"cat": "fact", "q": "Prosím, faktoriál 11", "expect": "answer", "contains": ["39916800"], "id": "s0-01462", "split": "validation"}
+{"cat": "comb", "q": "54 nad 39 prosím", "expect": "answer", "contains": ["8654327655120"], "id": "s0-01465", "split": "validation"}
+{"cat": "fact", "q": "AVIOR, faktoriál 13", "expect": "answer", "contains": ["6227020800"], "id": "s0-01466", "split": "validation"}
+{"cat": "fact", "q": "prosím tě, faktoriál 6", "expect": "answer", "contains": ["720"], "id": "s0-01468", "split": "validation"}
+{"cat": "comb", "q": "prosím tě, 58 nad 6", "expect": "answer", "contains": ["40475358"], "id": "s0-01473", "split": "validation"}
+{"cat": "fact", "q": "hele, faktoriál 18?", "expect": "answer", "contains": ["6402373705728000"], "id": "s0-01480", "split": "validation"}
+{"cat": "fact", "q": "AVIOR, faktoriál 12", "expect": "answer", "contains": ["479001600"], "id": "s0-01490", "split": "validation"}
+{"cat": "comb", "q": "27 nad 11?", "expect": "answer", "contains": ["13037895"], "id": "s0-01493", "split": "validation"}
+{"cat": "comb", "q": "hele, 41 nad 21?", "expect": "answer", "contains": ["269128937220"], "id": "s0-01497", "split": "validation"}
+{"cat": "comb", "q": "AVIOR, 20 nad 5", "expect": "answer", "contains": ["15504"], "id": "s0-01511", "split": "validation"}
+{"cat": "comb", "q": "hele, 35 nad 5?", "expect": "answer", "contains": ["324632"], "id": "s0-01513", "split": "validation"}
+{"cat": "comb", "q": "60 nad 55", "expect": "answer", "contains": ["5461512"], "id": "s0-01515", "split": "validation"}
+{"cat": "comb", "q": "hele, 17 nad 8?", "expect": "answer", "contains": ["24310"], "id": "s0-01531", "split": "validation"}
+{"cat": "comb", "q": "52 nad 16 prosím", "expect": "answer", "contains": ["10363194502115"], "id": "s0-01533", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, přepona trojúhelníku 20 a 102", "expect": "answer", "contains": ["103,9423"], "id": "s0-01551", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 24 cm prosím", "expect": "answer", "contains": ["1809,5574"], "id": "s0-01552", "split": "validation"}
+{"cat": "geo", "q": "hele, obsah kruhu o poloměru 17 cm?", "expect": "answer", "contains": ["907,9203"], "id": "s0-01554", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 58 cm", "expect": "answer", "contains": ["10568,3177"], "id": "s0-01556", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, přepona trojúhelníku 132 a 194", "expect": "answer", "contains": ["234,6487"], "id": "s0-01557", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 60 cm", "expect": "answer", "contains": ["11309,7336"], "id": "s0-01562", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 95 a 45 prosím", "expect": "answer", "contains": ["105,119"], "id": "s0-01565", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 65 cm prosím", "expect": "answer", "contains": ["13273,229"], "id": "s0-01570", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 60 cm", "expect": "answer", "contains": ["11309,7336"], "id": "s0-01572", "split": "validation"}
+{"cat": "geo", "q": "hele, přepona trojúhelníku 42 a 125?", "expect": "answer", "contains": ["131,8674"], "id": "s0-01573", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 22 cm?", "expect": "answer", "contains": ["1520,5308"], "id": "s0-01574", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, obsah kruhu o poloměru 35 cm", "expect": "answer", "contains": ["3848,451"], "id": "s0-01580", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 30 a 145.", "expect": "answer", "contains": ["148,0709"], "id": "s0-01583", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 101 a 179?", "expect": "answer", "contains": ["205,5286"], "id": "s0-01585", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 97 cm prosím", "expect": "answer", "contains": ["29559,2453"], "id": "s0-01588", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 84 cm prosím", "expect": "answer", "contains": ["22167,0778"], "id": "s0-01594", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, přepona trojúhelníku 173 a 156", "expect": "answer", "contains": ["232,9485"], "id": "s0-01595", "split": "validation"}
+{"cat": "geo", "q": "hele, přepona trojúhelníku 163 a 148?", "expect": "answer", "contains": ["220,1658"], "id": "s0-01603", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, přepona trojúhelníku 27 a 10", "expect": "answer", "contains": ["28,7924"], "id": "s0-01605", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 70 a 57", "expect": "answer", "contains": ["90,2718"], "id": "s0-01609", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 29 cm", "expect": "answer", "contains": ["2642,0794"], "id": "s0-01614", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 56 cm", "expect": "answer", "contains": ["9852,0346"], "id": "s0-01616", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, obsah kruhu o poloměru 10 cm", "expect": "answer", "contains": ["314,1593"], "id": "s0-01620", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 67 cm", "expect": "answer", "contains": ["14102,6094"], "id": "s0-01624", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, obsah kruhu o poloměru 70 cm", "expect": "answer", "contains": ["15393,804"], "id": "s0-01630", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, přepona trojúhelníku 104 a 30", "expect": "answer", "contains": ["108,2405"], "id": "s0-01633", "split": "validation"}
+{"cat": "geo", "q": "hele, přepona trojúhelníku 87 a 73?", "expect": "answer", "contains": ["113,5694"], "id": "s0-01643", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 54 cm", "expect": "answer", "contains": ["9160,8842"], "id": "s0-01644", "split": "validation"}
+{"cat": "geo", "q": "hele, přepona trojúhelníku 53 a 45?", "expect": "answer", "contains": ["69,527"], "id": "s0-01655", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 39 cm prosím", "expect": "answer", "contains": ["4778,3624"], "id": "s0-01662", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 158 a 109.", "expect": "answer", "contains": ["191,9505"], "id": "s0-01665", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 88 a 63?", "expect": "answer", "contains": ["108,2266"], "id": "s0-01667", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, přepona trojúhelníku 197 a 143", "expect": "answer", "contains": ["243,4297"], "id": "s0-01671", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 58 cm prosím", "expect": "answer", "contains": ["10568,3177"], "id": "s0-01680", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 91 cm prosím", "expect": "answer", "contains": ["26015,5288"], "id": "s0-01686", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 62 cm?", "expect": "answer", "contains": ["12076,2822"], "id": "s0-01702", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 32 a 200 prosím", "expect": "answer", "contains": ["202,5438"], "id": "s0-01705", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 130 a 17.", "expect": "answer", "contains": ["131,1068"], "id": "s0-01707", "split": "validation"}
+{"cat": "geo", "q": "hele, obsah kruhu o poloměru 73 cm?", "expect": "answer", "contains": ["16741,5473"], "id": "s0-01708", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 101 a 80 prosím", "expect": "answer", "contains": ["128,8449"], "id": "s0-01709", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 93 cm?", "expect": "answer", "contains": ["27171,6349"], "id": "s0-01710", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 98 a 161", "expect": "answer", "contains": ["188,4808"], "id": "s0-01711", "split": "validation"}
+{"cat": "geo", "q": "AVIOR, obsah kruhu o poloměru 73 cm", "expect": "answer", "contains": ["16741,5473"], "id": "s0-01718", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 9 a 132", "expect": "answer", "contains": ["132,3065"], "id": "s0-01719", "split": "validation"}
+{"cat": "geo", "q": "přepona trojúhelníku 77 a 132?", "expect": "answer", "contains": ["152,8169"], "id": "s0-01725", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 20 cm.", "expect": "answer", "contains": ["1256,6371"], "id": "s0-01730", "split": "validation"}
+{"cat": "geo", "q": "prosím tě, obsah kruhu o poloměru 83 cm", "expect": "answer", "contains": ["21642,4318"], "id": "s0-01742", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 83 cm.", "expect": "answer", "contains": ["21642,4318"], "id": "s0-01744", "split": "validation"}
+{"cat": "geo", "q": "obsah kruhu o poloměru 86 cm prosím", "expect": "answer", "contains": ["23235,2193"], "id": "s0-01748", "split": "validation"}
+{"cat": "base", "q": "Prosím, 589940 do dvojkové", "expect": "answer", "contains": ["0b10010000000001110100"], "id": "s0-01753", "split": "validation"}
+{"cat": "base", "q": "prosím tě, 385835 do dvojkové", "expect": "answer", "contains": ["0b1011110001100101011"], "id": "s0-01759", "split": "validation"}
+{"cat": "base", "q": "převeď 0x3f37e22d84 na desítkovou prosím", "expect": "answer", "contains": ["271520509316"], "id": "s0-01760", "split": "validation"}
+{"cat": "base", "q": "450114 do dvojkové.", "expect": "answer", "contains": ["0b1101101111001000010"], "id": "s0-01763", "split": "validation"}
+{"cat": "base", "q": "převeď 0x5dd935a488 na desítkovou", "expect": "answer", "contains": ["403076129928"], "id": "s0-01774", "split": "validation"}
+{"cat": "base", "q": "převeď 0x3d3384984c na desítkovou?", "expect": "answer", "contains": ["262857332812"], "id": "s0-01776", "split": "validation"}
+{"cat": "base", "q": "prosím tě, 897399 do dvojkové", "expect": "answer", "contains": ["0b11011011000101110111"], "id": "s0-01777", "split": "validation"}
+{"cat": "base", "q": "850581 do dvojkové.", "expect": "answer", "contains": ["0b11001111101010010101"], "id": "s0-01783", "split": "validation"}
+{"cat": "base", "q": "AVIOR, převeď 0x684838e1e1 na desítkovou", "expect": "answer", "contains": ["447888286177"], "id": "s0-01784", "split": "validation"}
+{"cat": "base", "q": "Prosím, převeď 0x5a040c458b na desítkovou", "expect": "answer", "contains": ["386614969739"], "id": "s0-01788", "split": "validation"}
+{"cat": "base", "q": "Prosím, převeď 0xf672629a74 na desítkovou", "expect": "answer", "contains": ["1058481019508"], "id": "s0-01794", "split": "validation"}
+{"cat": "base", "q": "979041 do dvojkové?", "expect": "answer", "contains": ["0b11101111000001100001"], "id": "s0-01797", "split": "validation"}
+{"cat": "base", "q": "převeď 0xd72bfc22d4 na desítkovou.", "expect": "answer", "contains": ["924155912916"], "id": "s0-01824", "split": "validation"}
+{"cat": "base", "q": "AVIOR, 153350 do dvojkové", "expect": "answer", "contains": ["0b100101011100000110"], "id": "s0-01833", "split": "validation"}
+{"cat": "base", "q": "589512 do dvojkové.", "expect": "answer", "contains": ["0b10001111111011001000"], "id": "s0-01841", "split": "validation"}
+{"cat": "base", "q": "prosím tě, převeď 0x73e7662a5a na desítkovou", "expect": "answer", "contains": ["497803471450"], "id": "s0-01842", "split": "validation"}
+{"cat": "base", "q": "Prosím, převeď 0x62a3fb57e3 na desítkovou", "expect": "answer", "contains": ["423657953251"], "id": "s0-01844", "split": "validation"}
+{"cat": "base", "q": "523690 do dvojkové.", "expect": "answer", "contains": ["0b1111111110110101010"], "id": "s0-01847", "split": "validation"}
+{"cat": "base", "q": "AVIOR, převeď 0x2e699618d5 na desítkovou", "expect": "answer", "contains": ["199339940053"], "id": "s0-01850", "split": "validation"}
+{"cat": "base", "q": "převeď 0x4f49c25afe na desítkovou prosím", "expect": "answer", "contains": ["340539890430"], "id": "s0-01860", "split": "validation"}
+{"cat": "base", "q": "524355 do dvojkové.", "expect": "answer", "contains": ["0b10000000000001000011"], "id": "s0-01863", "split": "validation"}
+{"cat": "base", "q": "hele, 576095 do dvojkové?", "expect": "answer", "contains": ["0b10001100101001011111"], "id": "s0-01865", "split": "validation"}
+{"cat": "base", "q": "hele, 104731 do dvojkové?", "expect": "answer", "contains": ["0b11001100100011011"], "id": "s0-01869", "split": "validation"}
+{"cat": "base", "q": "626463 do dvojkové?", "expect": "answer", "contains": ["0b10011000111100011111"], "id": "s0-01871", "split": "validation"}
+{"cat": "base", "q": "hele, 501331 do dvojkové?", "expect": "answer", "contains": ["0b1111010011001010011"], "id": "s0-01877", "split": "validation"}
+{"cat": "base", "q": "AVIOR, převeď 0x2bb6ed838 na desítkovou", "expect": "answer", "contains": ["11734538296"], "id": "s0-01890", "split": "validation"}
+{"cat": "base", "q": "prosím tě, převeď 0x8040959713 na desítkovou", "expect": "answer", "contains": ["550839359251"], "id": "s0-01892", "split": "validation"}
+{"cat": "base", "q": "854353 do dvojkové.", "expect": "answer", "contains": ["0b11010000100101010001"], "id": "s0-01897", "split": "validation"}
+{"cat": "base", "q": "převeď 0x6b4f609d70 na desítkovou", "expect": "answer", "contains": ["460893232496"], "id": "s0-01906", "split": "validation"}
+{"cat": "base", "q": "hele, 407134 do dvojkové?", "expect": "answer", "contains": ["0b1100011011001011110"], "id": "s0-01909", "split": "validation"}
+{"cat": "base", "q": "Prosím, 856619 do dvojkové", "expect": "answer", "contains": ["0b11010001001000101011"], "id": "s0-01913", "split": "validation"}
+{"cat": "base", "q": "154837 do dvojkové.", "expect": "answer", "contains": ["0b100101110011010101"], "id": "s0-01917", "split": "validation"}
+{"cat": "base", "q": "hele, 394512 do dvojkové?", "expect": "answer", "contains": ["0b1100000010100010000"], "id": "s0-01919", "split": "validation"}
+{"cat": "base", "q": "186647 do dvojkové.", "expect": "answer", "contains": ["0b101101100100010111"], "id": "s0-01925", "split": "validation"}
+{"cat": "base", "q": "801266 do dvojkové", "expect": "answer", "contains": ["0b11000011100111110010"], "id": "s0-01927", "split": "validation"}
+{"cat": "base", "q": "321903 do dvojkové.", "expect": "answer", "contains": ["0b1001110100101101111"], "id": "s0-01935", "split": "validation"}
+{"cat": "base", "q": "1002456 do dvojkové prosím", "expect": "answer", "contains": ["0b11110100101111011000"], "id": "s0-01943", "split": "validation"}
+{"cat": "base", "q": "prosím tě, 187115 do dvojkové", "expect": "answer", "contains": ["0b101101101011101011"], "id": "s0-01945", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 786 kB prosím", "expect": "answer", "contains": ["786000"], "id": "s0-01952", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 780 MB prosím", "expect": "answer", "contains": ["780000000"], "id": "s0-01956", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 313 kB.", "expect": "answer", "contains": ["313000"], "id": "s0-01960", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 71 kB.", "expect": "answer", "contains": ["71000"], "id": "s0-01962", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 734 kB", "expect": "answer", "contains": ["734000"], "id": "s0-01969", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 762 kB", "expect": "answer", "contains": ["762000"], "id": "s0-01976", "split": "validation"}
+{"cat": "data", "q": "AVIOR, kolik bajtů je 324 GB", "expect": "answer", "contains": ["324000000000"], "id": "s0-01978", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 133 kB.", "expect": "answer", "contains": ["133000"], "id": "s0-01982", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 843 kB?", "expect": "answer", "contains": ["843000"], "id": "s0-01990", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 310 MB.", "expect": "answer", "contains": ["310000000"], "id": "s0-01996", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 349 kB", "expect": "answer", "contains": ["349000"], "id": "s0-01997", "split": "validation"}
+{"cat": "data", "q": "kolik bajtů je 592 MB", "expect": "answer", "contains": ["592000000"], "id": "s0-01998", "split": "validation"}
+{"cat": "bmi", "q": "Prosím, BMI 196 cm 83 kg", "expect": "answer", "contains": ["21,6"], "id": "s0-02003", "split": "validation"}
+{"cat": "bmi", "q": "BMI 191 cm 96 kg prosím", "expect": "answer", "contains": ["26,3"], "id": "s0-02006", "split": "validation"}
+{"cat": "bmi", "q": "Prosím, BMI 181 cm 76 kg", "expect": "answer", "contains": ["23,2"], "id": "s0-02010", "split": "validation"}
+{"cat": "bmi", "q": "BMI 153 cm 55 kg.", "expect": "answer", "contains": ["23,5"], "id": "s0-02014", "split": "validation"}
+{"cat": "bmi", "q": "BMI 189 cm 89 kg?", "expect": "answer", "contains": ["24,9"], "id": "s0-02017", "split": "validation"}
+{"cat": "bmi", "q": "BMI 198 cm 93 kg", "expect": "answer", "contains": ["23,7"], "id": "s0-02024", "split": "validation"}
+{"cat": "bmi", "q": "prosím tě, BMI 194 cm 50 kg", "expect": "answer", "contains": ["13,3"], "id": "s0-02030", "split": "validation"}
+{"cat": "bmi", "q": "prosím tě, BMI 196 cm 62 kg", "expect": "answer", "contains": ["16,1"], "id": "s0-02033", "split": "validation"}
+{"cat": "bmi", "q": "prosím tě, BMI 167 cm 122 kg", "expect": "answer", "contains": ["43,7"], "id": "s0-02039", "split": "validation"}
+{"cat": "bmi", "q": "BMI 174 cm 49 kg", "expect": "answer", "contains": ["16,2"], "id": "s0-02041", "split": "validation"}
+{"cat": "bmi", "q": "hele, BMI 153 cm 99 kg?", "expect": "answer", "contains": ["42,3"], "id": "s0-02051", "split": "validation"}
+{"cat": "bmi", "q": "BMI 185 cm 129 kg prosím", "expect": "answer", "contains": ["37,7"], "id": "s0-02054", "split": "validation"}
+{"cat": "bmi", "q": "Prosím, BMI 190 cm 93 kg", "expect": "answer", "contains": ["25,8"], "id": "s0-02065", "split": "validation"}
+{"cat": "bmi", "q": "AVIOR, BMI 190 cm 72 kg", "expect": "answer", "contains": ["19,9"], "id": "s0-02068", "split": "validation"}
+{"cat": "bmi", "q": "hele, BMI 173 cm 99 kg?", "expect": "answer", "contains": ["33,1"], "id": "s0-02069", "split": "validation"}
+{"cat": "bmi", "q": "BMI 199 cm 51 kg", "expect": "answer", "contains": ["12,9"], "id": "s0-02071", "split": "validation"}
+{"cat": "bmi", "q": "AVIOR, BMI 175 cm 49 kg", "expect": "answer", "contains": ["16"], "id": "s0-02074", "split": "validation"}
+{"cat": "bmi", "q": "BMI 162 cm 64 kg", "expect": "answer", "contains": ["24,4"], "id": "s0-02075", "split": "validation"}
+{"cat": "bmi", "q": "BMI 171 cm 94 kg?", "expect": "answer", "contains": ["32,1"], "id": "s0-02080", "split": "validation"}
+{"cat": "bmi", "q": "BMI 199 cm 129 kg", "expect": "answer", "contains": ["32,6"], "id": "s0-02098", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 1000000 Kč na 21 let při úroku 6 %.", "expect": "answer", "contains": ["6988,57"], "id": "s0-02100", "split": "validation"}
+{"cat": "loan", "q": "hele, hypotéka 2400000 na 17 let úrok 8,5 %?", "expect": "answer", "contains": ["22279,01"], "id": "s0-02102", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 6800000 na 2 let úrok 5 %.", "expect": "answer", "contains": ["298325,45"], "id": "s0-02105", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 520000 na 29 let úrok 7 % prosím", "expect": "answer", "contains": ["3495,08"], "id": "s0-02106", "split": "validation"}
+{"cat": "loan", "q": "Prosím, hypotéka 4300000 na 14 let úrok 6 %", "expect": "answer", "contains": ["37893,14"], "id": "s0-02107", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 4900000 Kč na 23 let při úroku 5 %.", "expect": "answer", "contains": ["29909,89"], "id": "s0-02123", "split": "validation"}
+{"cat": "loan", "q": "půjčka 190000 Kč na 30 let, úrok 9,9 %", "expect": "answer", "contains": ["1653,36"], "id": "s0-02128", "split": "validation"}
+{"cat": "loan", "q": "půjčka 310000 Kč na 27 let, úrok 9,9 %", "expect": "answer", "contains": ["2749,43"], "id": "s0-02134", "split": "validation"}
+{"cat": "loan", "q": "Prosím, měsíční splátka úvěru 400000 Kč na 25 let při úroku 4 %", "expect": "answer", "contains": ["2111,35"], "id": "s0-02136", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 7800000 Kč na 24 let při úroku 4 %?", "expect": "answer", "contains": ["42173,88"], "id": "s0-02139", "split": "validation"}
+{"cat": "loan", "q": "půjčka 6500000 Kč na 15 let, úrok 9,9 %.", "expect": "answer", "contains": ["69452,22"], "id": "s0-02156", "split": "validation"}
+{"cat": "loan", "q": "AVIOR, hypotéka 720000 na 21 let úrok 7 %", "expect": "answer", "contains": ["5461"], "id": "s0-02167", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 790000 Kč na 15 let při úroku 5 % prosím", "expect": "answer", "contains": ["6247,27"], "id": "s0-02173", "split": "validation"}
+{"cat": "loan", "q": "půjčka 650000 Kč na 15 let, úrok 6 % prosím", "expect": "answer", "contains": ["5485,07"], "id": "s0-02175", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 4800000 na 2 let úrok 6 %?", "expect": "answer", "contains": ["212738,93"], "id": "s0-02185", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 680000 na 6 let úrok 5,9 % prosím", "expect": "answer", "contains": ["11237,49"], "id": "s0-02188", "split": "validation"}
+{"cat": "loan", "q": "Prosím, hypotéka 980000 na 25 let úrok 4,5 %", "expect": "answer", "contains": ["5447,16"], "id": "s0-02190", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 3600000 Kč na 26 let při úroku 4,5 %", "expect": "answer", "contains": ["19594,95"], "id": "s0-02194", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 4800000 na 3 let úrok 4,5 %?", "expect": "answer", "contains": ["142785,24"], "id": "s0-02195", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 670000 Kč na 6 let při úroku 4 %.", "expect": "answer", "contains": ["10482,27"], "id": "s0-02221", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 5900000 Kč na 17 let při úroku 3 %", "expect": "answer", "contains": ["36956,11"], "id": "s0-02233", "split": "validation"}
+{"cat": "loan", "q": "půjčka 440000 Kč na 23 let, úrok 8,5 %.", "expect": "answer", "contains": ["3634,78"], "id": "s0-02249", "split": "validation"}
+{"cat": "loan", "q": "Prosím, hypotéka 5600000 na 11 let úrok 5 %", "expect": "answer", "contains": ["55241,13"], "id": "s0-02250", "split": "validation"}
+{"cat": "loan", "q": "hele, hypotéka 500000 na 3 let úrok 5,9 %?", "expect": "answer", "contains": ["15188,32"], "id": "s0-02251", "split": "validation"}
+{"cat": "loan", "q": "Prosím, půjčka 30000 Kč na 30 let, úrok 5 %", "expect": "answer", "contains": ["161,05"], "id": "s0-02253", "split": "validation"}
+{"cat": "loan", "q": "AVIOR, půjčka 270000 Kč na 5 let, úrok 5 %", "expect": "answer", "contains": ["5095,23"], "id": "s0-02258", "split": "validation"}
+{"cat": "loan", "q": "AVIOR, půjčka 690000 Kč na 22 let, úrok 7 %", "expect": "answer", "contains": ["5129,63"], "id": "s0-02266", "split": "validation"}
+{"cat": "loan", "q": "hele, měsíční splátka úvěru 5700000 Kč na 22 let při úroku 7 %?", "expect": "answer", "contains": ["42375,17"], "id": "s0-02273", "split": "validation"}
+{"cat": "loan", "q": "hele, hypotéka 770000 na 7 let úrok 5,9 %?", "expect": "answer", "contains": ["11211,71"], "id": "s0-02278", "split": "validation"}
+{"cat": "loan", "q": "AVIOR, hypotéka 3200000 na 2 let úrok 9,9 %", "expect": "answer", "contains": ["147516,11"], "id": "s0-02280", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 1500000 Kč na 22 let při úroku 5 %.", "expect": "answer", "contains": ["9379,21"], "id": "s0-02286", "split": "validation"}
+{"cat": "loan", "q": "AVIOR, půjčka 5400000 Kč na 17 let, úrok 6 %", "expect": "answer", "contains": ["42287,44"], "id": "s0-02308", "split": "validation"}
+{"cat": "loan", "q": "Prosím, půjčka 2400000 Kč na 13 let, úrok 9,9 %", "expect": "answer", "contains": ["27407,1"], "id": "s0-02314", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 6600000 Kč na 1 let při úroku 7 %", "expect": "answer", "contains": ["571076,52"], "id": "s0-02319", "split": "validation"}
+{"cat": "loan", "q": "půjčka 770000 Kč na 2 let, úrok 6 %?", "expect": "answer", "contains": ["34126,87"], "id": "s0-02335", "split": "validation"}
+{"cat": "loan", "q": "hele, hypotéka 2500000 na 13 let úrok 4,5 %?", "expect": "answer", "contains": ["21196,78"], "id": "s0-02337", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 4100000 na 16 let úrok 4 %", "expect": "answer", "contains": ["28945,84"], "id": "s0-02346", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 680000 Kč na 10 let při úroku 9,9 %", "expect": "answer", "contains": ["8948,64"], "id": "s0-02347", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 3800000 na 6 let úrok 4 %?", "expect": "answer", "contains": ["59451,7"], "id": "s0-02352", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 860000 na 30 let úrok 4,5 % prosím", "expect": "answer", "contains": ["4357,49"], "id": "s0-02356", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 6500000 Kč na 17 let při úroku 5,9 %", "expect": "answer", "contains": ["50541,39"], "id": "s0-02365", "split": "validation"}
+{"cat": "loan", "q": "prosím tě, měsíční splátka úvěru 3500000 Kč na 13 let při úroku 6 %", "expect": "answer", "contains": ["32365,32"], "id": "s0-02366", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 60000 Kč na 28 let při úroku 4,5 %?", "expect": "answer", "contains": ["314,39"], "id": "s0-02368", "split": "validation"}
+{"cat": "loan", "q": "půjčka 4300000 Kč na 28 let, úrok 7 % prosím", "expect": "answer", "contains": ["29223,17"], "id": "s0-02377", "split": "validation"}
+{"cat": "loan", "q": "půjčka 780000 Kč na 10 let, úrok 3 % prosím", "expect": "answer", "contains": ["7531,74"], "id": "s0-02379", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 690000 na 4 let úrok 6 %.", "expect": "answer", "contains": ["16204,67"], "id": "s0-02381", "split": "validation"}
+{"cat": "loan", "q": "hele, měsíční splátka úvěru 1800000 Kč na 21 let při úroku 5,9 %?", "expect": "answer", "contains": ["12474,53"], "id": "s0-02385", "split": "validation"}
+{"cat": "loan", "q": "hele, měsíční splátka úvěru 6900000 Kč na 19 let při úroku 8,5 %?", "expect": "answer", "contains": ["61095,75"], "id": "s0-02390", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 2400000 Kč na 8 let při úroku 5 %?", "expect": "answer", "contains": ["30383,81"], "id": "s0-02391", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 7500000 Kč na 7 let při úroku 4,5 %", "expect": "answer", "contains": ["104251,21"], "id": "s0-02397", "split": "validation"}
+{"cat": "loan", "q": "Prosím, půjčka 820000 Kč na 21 let, úrok 9,9 %", "expect": "answer", "contains": ["7741,39"], "id": "s0-02401", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 520000 Kč na 17 let při úroku 5,9 %?", "expect": "answer", "contains": ["4043,31"], "id": "s0-02403", "split": "validation"}
+{"cat": "loan", "q": "půjčka 4600000 Kč na 24 let, úrok 8,5 %", "expect": "answer", "contains": ["37493,79"], "id": "s0-02404", "split": "validation"}
+{"cat": "loan", "q": "Prosím, měsíční splátka úvěru 4700000 Kč na 17 let při úroku 6 %", "expect": "answer", "contains": ["36805,74"], "id": "s0-02406", "split": "validation"}
+{"cat": "loan", "q": "půjčka 6100000 Kč na 21 let, úrok 7 %.", "expect": "answer", "contains": ["46266,77"], "id": "s0-02410", "split": "validation"}
+{"cat": "loan", "q": "Prosím, měsíční splátka úvěru 130000 Kč na 8 let při úroku 5 %", "expect": "answer", "contains": ["1645,79"], "id": "s0-02411", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 150000 Kč na 30 let při úroku 4,5 % prosím", "expect": "answer", "contains": ["760,03"], "id": "s0-02419", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 730000 na 13 let úrok 5 % prosím", "expect": "answer", "contains": ["6373,34"], "id": "s0-02426", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 2400000 Kč na 25 let při úroku 9,9 %", "expect": "answer", "contains": ["21639,86"], "id": "s0-02429", "split": "validation"}
+{"cat": "loan", "q": "hele, měsíční splátka úvěru 3700000 Kč na 7 let při úroku 8,5 %?", "expect": "answer", "contains": ["58595"], "id": "s0-02434", "split": "validation"}
+{"cat": "loan", "q": "měsíční splátka úvěru 970000 Kč na 30 let při úroku 3 %.", "expect": "answer", "contains": ["4089,56"], "id": "s0-02440", "split": "validation"}
+{"cat": "loan", "q": "hypotéka 360000 na 20 let úrok 5 %?", "expect": "answer", "contains": ["2375,84"], "id": "s0-02441", "split": "validation"}
+{"cat": "loan", "q": "Prosím, půjčka 2400000 Kč na 8 let, úrok 5 %", "expect": "answer", "contains": ["30383,81"], "id": "s0-02446", "split": "validation"}
+{"cat": "loan", "q": "Prosím, měsíční splátka úvěru 720000 Kč na 4 let při úroku 5,9 %", "expect": "answer", "contains": ["16876,23"], "id": "s0-02449", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 170000 Kč 4 % 30 let", "expect": "answer", "contains": ["551377,58"], "id": "s0-02454", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 460000 Kč 5 % 3 let.", "expect": "answer", "contains": ["532507,5"], "id": "s0-02457", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 570000 Kč 6 % 10 let prosím", "expect": "answer", "contains": ["1020783,19"], "id": "s0-02470", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 740000 Kč 3 % 30 let.", "expect": "answer", "contains": ["1796174,23"], "id": "s0-02473", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 690000 Kč 2 % 26 let prosím", "expect": "answer", "contains": ["1154658,5"], "id": "s0-02480", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 820000 Kč 2 % 24 let.", "expect": "answer", "contains": ["1318918,54"], "id": "s0-02484", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 920000 Kč 8 % 7 let prosím", "expect": "answer", "contains": ["1576718,33"], "id": "s0-02486", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 300000 Kč 1 % 17 let", "expect": "answer", "contains": ["355291,33"], "id": "s0-02487", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 880000 Kč 3 % 25 let prosím", "expect": "answer", "contains": ["1842524,58"], "id": "s0-02494", "split": "validation"}
+{"cat": "compound", "q": "hele, složené úročení 180000 Kč 6 % 28 let?", "expect": "answer", "contains": ["920103,61"], "id": "s0-02498", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 740000 Kč 5 % 25 let?", "expect": "answer", "contains": ["2505902,66"], "id": "s0-02506", "split": "validation"}
+{"cat": "compound", "q": "hele, složené úročení 680000 Kč 8 % 24 let?", "expect": "answer", "contains": ["4312002,9"], "id": "s0-02513", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 730000 Kč 5 % 11 let prosím", "expect": "answer", "contains": ["1248547,73"], "id": "s0-02515", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 540000 Kč 3 % 30 let", "expect": "answer", "contains": ["1310721,73"], "id": "s0-02524", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 10000 Kč 2 % 17 let", "expect": "answer", "contains": ["14002,41"], "id": "s0-02526", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 850000 Kč 8 % 26 let", "expect": "answer", "contains": ["6286900,23"], "id": "s0-02531", "split": "validation"}
+{"cat": "compound", "q": "hele, složené úročení 540000 Kč 2 % 5 let?", "expect": "answer", "contains": ["596203,63"], "id": "s0-02532", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 860000 Kč 6 % 5 let", "expect": "answer", "contains": ["1150874"], "id": "s0-02537", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 300000 Kč 6 % 9 let", "expect": "answer", "contains": ["506843,69"], "id": "s0-02540", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 690000 Kč 1 % 10 let prosím", "expect": "answer", "contains": ["762189,27"], "id": "s0-02547", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 300000 Kč 3 % 29 let", "expect": "answer", "contains": ["706969,65"], "id": "s0-02554", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 340000 Kč 6 % 25 let.", "expect": "answer", "contains": ["1459236,04"], "id": "s0-02556", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 710000 Kč 5 % 25 let prosím", "expect": "answer", "contains": ["2404312,01"], "id": "s0-02559", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 590000 Kč 4 % 27 let?", "expect": "answer", "contains": ["1701187,46"], "id": "s0-02567", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 130000 Kč 5 % 13 let", "expect": "answer", "contains": ["245134,39"], "id": "s0-02575", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 550000 Kč 5 % 18 let", "expect": "answer", "contains": ["1323640,58"], "id": "s0-02577", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 770000 Kč 2 % 10 let", "expect": "answer", "contains": ["938625,7"], "id": "s0-02585", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 530000 Kč 2 % 6 let.", "expect": "answer", "contains": ["596866,08"], "id": "s0-02593", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 260000 Kč 6 % 25 let prosím", "expect": "answer", "contains": ["1115886,39"], "id": "s0-02596", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 180000 Kč 2 % 23 let", "expect": "answer", "contains": ["283841,87"], "id": "s0-02598", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 150000 Kč 1 % 9 let", "expect": "answer", "contains": ["164052,79"], "id": "s0-02607", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 160000 Kč 3 % 16 let prosím", "expect": "answer", "contains": ["256753,03"], "id": "s0-02614", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 270000 Kč 1 % 12 let prosím", "expect": "answer", "contains": ["304242,76"], "id": "s0-02619", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 850000 Kč 5 % 28 let?", "expect": "answer", "contains": ["3332109,77"], "id": "s0-02627", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 370000 Kč 3 % 14 let?", "expect": "answer", "contains": ["559658,2"], "id": "s0-02628", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 440000 Kč 8 % 4 let", "expect": "answer", "contains": ["598615,14"], "id": "s0-02647", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 110000 Kč 1 % 24 let", "expect": "answer", "contains": ["139670,81"], "id": "s0-02651", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 310000 Kč 8 % 22 let", "expect": "answer", "contains": ["1685327,53"], "id": "s0-02653", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 300000 Kč 5 % 11 let", "expect": "answer", "contains": ["513101,81"], "id": "s0-02654", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 810000 Kč 1 % 14 let", "expect": "answer", "contains": ["931074,11"], "id": "s0-02656", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 170000 Kč 8 % 14 let?", "expect": "answer", "contains": ["499322,92"], "id": "s0-02660", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 150000 Kč 5 % 1 let", "expect": "answer", "contains": ["157500"], "id": "s0-02665", "split": "validation"}
+{"cat": "compound", "q": "Prosím, složené úročení 720000 Kč 6 % 15 let", "expect": "answer", "contains": ["1725521,9"], "id": "s0-02671", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 460000 Kč 1 % 27 let?", "expect": "answer", "contains": ["601776,08"], "id": "s0-02672", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 860000 Kč 5 % 9 let?", "expect": "answer", "contains": ["1334142,27"], "id": "s0-02674", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 400000 Kč 8 % 26 let", "expect": "answer", "contains": ["2958541,28"], "id": "s0-02675", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 530000 Kč 6 % 20 let.", "expect": "answer", "contains": ["1699781,8"], "id": "s0-02677", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 980000 Kč 6 % 22 let prosím", "expect": "answer", "contains": ["3531466,67"], "id": "s0-02683", "split": "validation"}
+{"cat": "compound", "q": "hele, složené úročení 120000 Kč 3 % 11 let?", "expect": "answer", "contains": ["166108,06"], "id": "s0-02686", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 800000 Kč 1 % 15 let", "expect": "answer", "contains": ["928775,16"], "id": "s0-02688", "split": "validation"}
+{"cat": "compound", "q": "AVIOR, složené úročení 350000 Kč 4 % 20 let", "expect": "answer", "contains": ["766893,1"], "id": "s0-02690", "split": "validation"}
+{"cat": "compound", "q": "složené úročení 570000 Kč 1 % 21 let.", "expect": "answer", "contains": ["702463,41"], "id": "s0-02693", "split": "validation"}
+{"cat": "compound", "q": "prosím tě, složené úročení 170000 Kč 6 % 5 let", "expect": "answer", "contains": ["227498,35"], "id": "s0-02697", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Anguilla", "expect": "answer", "contains": ["AI", "AIA", "660"], "id": "s0-02712", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód AL", "expect": "answer", "contains": ["Albánie"], "id": "s0-02717", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Arménie prosím", "expect": "answer", "contains": ["AM", "ARM", "051"], "id": "s0-02718", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Arménie?", "expect": "answer", "contains": ["ARM"], "id": "s0-02719", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Angola prosím", "expect": "answer", "contains": ["AO", "AGO", "024"], "id": "s0-02721", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód AO prosím", "expect": "answer", "contains": ["Angola"], "id": "s0-02723", "split": "validation"}
+{"cat": "iso", "q": "hele, třípísmenný kód země Antarktida?", "expect": "answer", "contains": ["ATA"], "id": "s0-02725", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Americká Samoa", "expect": "answer", "contains": ["ASM"], "id": "s0-02731", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Rakousko.", "expect": "answer", "contains": ["AUT"], "id": "s0-02734", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód AT", "expect": "answer", "contains": ["Rakousko"], "id": "s0-02735", "split": "validation"}
+{"cat": "iso", "q": "hele, ISO kód státu Aruba?", "expect": "answer", "contains": ["AW", "ABW", "533"], "id": "s0-02739", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Barbados.", "expect": "answer", "contains": ["BB", "BRB", "052"], "id": "s0-02751", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód BD prosím", "expect": "answer", "contains": ["Bangladéš"], "id": "s0-02756", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Bahrajn", "expect": "answer", "contains": ["BHR"], "id": "s0-02767", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód BJ", "expect": "answer", "contains": ["Benin"], "id": "s0-02774", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Svatý Bartoloměj?", "expect": "answer", "contains": ["BLM"], "id": "s0-02776", "split": "validation"}
+{"cat": "iso", "q": "Prosím, co je ISO 3166 kód BO", "expect": "answer", "contains": ["Bolívie"], "id": "s0-02786", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Brazílie", "expect": "answer", "contains": ["BR", "BRA", "076"], "id": "s0-02790", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Bhútán", "expect": "answer", "contains": ["BTN"], "id": "s0-02797", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód BT", "expect": "answer", "contains": ["Bhútán"], "id": "s0-02798", "split": "validation"}
+{"cat": "iso", "q": "Prosím, třípísmenný kód země Bouvetův ostrov", "expect": "answer", "contains": ["BVT"], "id": "s0-02800", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Botswana", "expect": "answer", "contains": ["BW", "BWA", "072"], "id": "s0-02802", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód BY", "expect": "answer", "contains": ["Bělorusko"], "id": "s0-02807", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód BZ", "expect": "answer", "contains": ["Belize"], "id": "s0-02810", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Kanada", "expect": "answer", "contains": ["CA", "CAN", "124"], "id": "s0-02811", "split": "validation"}
+{"cat": "iso", "q": "hele, ISO kód státu Kokosové ostrovy?", "expect": "answer", "contains": ["CC", "CCK", "166"], "id": "s0-02814", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Kokosové ostrovy.", "expect": "answer", "contains": ["CCK"], "id": "s0-02815", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Kongo – Brazzaville", "expect": "answer", "contains": ["CG", "COG", "178"], "id": "s0-02823", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Švýcarsko.", "expect": "answer", "contains": ["CH", "CHE", "756"], "id": "s0-02826", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Švýcarsko prosím", "expect": "answer", "contains": ["CHE"], "id": "s0-02827", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Pobřeží slonoviny", "expect": "answer", "contains": ["CI", "CIV", "384"], "id": "s0-02829", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Kamerun", "expect": "answer", "contains": ["CM", "CMR", "120"], "id": "s0-02838", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Kamerun", "expect": "answer", "contains": ["CMR"], "id": "s0-02839", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód CN", "expect": "answer", "contains": ["Čína"], "id": "s0-02843", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Kuba?", "expect": "answer", "contains": ["CU", "CUB", "192"], "id": "s0-02850", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód CU prosím", "expect": "answer", "contains": ["Kuba"], "id": "s0-02852", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód CW.", "expect": "answer", "contains": ["Curaçao"], "id": "s0-02858", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód CY", "expect": "answer", "contains": ["Kypr"], "id": "s0-02864", "split": "validation"}
+{"cat": "iso", "q": "hele, co je ISO 3166 kód DK?", "expect": "answer", "contains": ["Dánsko"], "id": "s0-02876", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Dominikánská republika.", "expect": "answer", "contains": ["DO", "DOM", "214"], "id": "s0-02880", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód DZ", "expect": "answer", "contains": ["Alžírsko"], "id": "s0-02885", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Estonsko", "expect": "answer", "contains": ["EE", "EST", "233"], "id": "s0-02889", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Estonsko", "expect": "answer", "contains": ["EST"], "id": "s0-02890", "split": "validation"}
+{"cat": "iso", "q": "hele, třípísmenný kód země Egypt?", "expect": "answer", "contains": ["EGY"], "id": "s0-02893", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód EG", "expect": "answer", "contains": ["Egypt"], "id": "s0-02894", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Západní Sahara", "expect": "answer", "contains": ["EH", "ESH", "732"], "id": "s0-02895", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Eritrea", "expect": "answer", "contains": ["ERI"], "id": "s0-02899", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Mikronésie", "expect": "answer", "contains": ["FSM"], "id": "s0-02917", "split": "validation"}
+{"cat": "iso", "q": "hele, ISO kód státu Faerské ostrovy?", "expect": "answer", "contains": ["FO", "FRO", "234"], "id": "s0-02919", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Francie", "expect": "answer", "contains": ["FR", "FRA", "250"], "id": "s0-02922", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód FR", "expect": "answer", "contains": ["Francie"], "id": "s0-02924", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód GB prosím", "expect": "answer", "contains": ["Spojené království"], "id": "s0-02930", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Grenada", "expect": "answer", "contains": ["GD", "GRD", "308"], "id": "s0-02931", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Gruzie", "expect": "answer", "contains": ["GE", "GEO", "268"], "id": "s0-02934", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Gruzie", "expect": "answer", "contains": ["GEO"], "id": "s0-02935", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód GE.", "expect": "answer", "contains": ["Gruzie"], "id": "s0-02936", "split": "validation"}
+{"cat": "iso", "q": "Prosím, třípísmenný kód země Francouzská Guyana", "expect": "answer", "contains": ["GUF"], "id": "s0-02938", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód GG?", "expect": "answer", "contains": ["Guernsey"], "id": "s0-02942", "split": "validation"}
+{"cat": "iso", "q": "Prosím, co je ISO 3166 kód GH", "expect": "answer", "contains": ["Ghana"], "id": "s0-02945", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Gibraltar", "expect": "answer", "contains": ["GIB"], "id": "s0-02947", "split": "validation"}
+{"cat": "iso", "q": "hele, třípísmenný kód země Grónsko?", "expect": "answer", "contains": ["GRL"], "id": "s0-02950", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód GL.", "expect": "answer", "contains": ["Grónsko"], "id": "s0-02951", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Guinea prosím", "expect": "answer", "contains": ["GN", "GIN", "324"], "id": "s0-02955", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Guadeloupe?", "expect": "answer", "contains": ["GLP"], "id": "s0-02959", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód GP prosím", "expect": "answer", "contains": ["Guadeloupe"], "id": "s0-02960", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Řecko", "expect": "answer", "contains": ["GR", "GRC", "300"], "id": "s0-02964", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Guatemala", "expect": "answer", "contains": ["GTM"], "id": "s0-02971", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Guinea-Bissau", "expect": "answer", "contains": ["GNB"], "id": "s0-02977", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Guyana.", "expect": "answer", "contains": ["GY", "GUY", "328"], "id": "s0-02979", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Hongkong – ZAO Číny", "expect": "answer", "contains": ["HK", "HKG", "344"], "id": "s0-02982", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Heardův ostrov a McDonaldovy ostrovy?", "expect": "answer", "contains": ["HM", "HMD", "334"], "id": "s0-02985", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Maďarsko", "expect": "answer", "contains": ["HUN"], "id": "s0-02998", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Irsko", "expect": "answer", "contains": ["IE", "IRL", "372"], "id": "s0-03003", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Irsko", "expect": "answer", "contains": ["IRL"], "id": "s0-03004", "split": "validation"}
+{"cat": "iso", "q": "hele, třípísmenný kód země Izrael?", "expect": "answer", "contains": ["ISR"], "id": "s0-03007", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Britské indickooceánské území.", "expect": "answer", "contains": ["IO", "IOT", "086"], "id": "s0-03015", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Írán", "expect": "answer", "contains": ["IRN"], "id": "s0-03022", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Jersey", "expect": "answer", "contains": ["JEY"], "id": "s0-03031", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Jordánsko?", "expect": "answer", "contains": ["JO", "JOR", "400"], "id": "s0-03036", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Keňa", "expect": "answer", "contains": ["KE", "KEN", "404"], "id": "s0-03042", "split": "validation"}
+{"cat": "iso", "q": "Prosím, ISO kód státu Kambodža", "expect": "answer", "contains": ["KH", "KHM", "116"], "id": "s0-03048", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Komory", "expect": "answer", "contains": ["KM", "COM", "174"], "id": "s0-03054", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Svatý Kryštof a Nevis", "expect": "answer", "contains": ["KNA"], "id": "s0-03058", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód KN", "expect": "answer", "contains": ["Svatý Kryštof a Nevis"], "id": "s0-03059", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Jižní Korea", "expect": "answer", "contains": ["KR", "KOR", "410"], "id": "s0-03063", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Kazachstán", "expect": "answer", "contains": ["KAZ"], "id": "s0-03073", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód LB?", "expect": "answer", "contains": ["Libanon"], "id": "s0-03080", "split": "validation"}
+{"cat": "iso", "q": "hele, co je ISO 3166 kód LI?", "expect": "answer", "contains": ["Lichtenštejnsko"], "id": "s0-03086", "split": "validation"}
+{"cat": "iso", "q": "Prosím, třípísmenný kód země Srí Lanka", "expect": "answer", "contains": ["LKA"], "id": "s0-03088", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód LK", "expect": "answer", "contains": ["Srí Lanka"], "id": "s0-03089", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Lesotho.", "expect": "answer", "contains": ["LSO"], "id": "s0-03094", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód LS.", "expect": "answer", "contains": ["Lesotho"], "id": "s0-03095", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, ISO kód státu Litva", "expect": "answer", "contains": ["LT", "LTU", "440"], "id": "s0-03096", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód LT?", "expect": "answer", "contains": ["Litva"], "id": "s0-03098", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Marshallovy ostrovy.", "expect": "answer", "contains": ["MHL"], "id": "s0-03127", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód MK?", "expect": "answer", "contains": ["Severní Makedonie"], "id": "s0-03131", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód ML", "expect": "answer", "contains": ["Mali"], "id": "s0-03134", "split": "validation"}
+{"cat": "iso", "q": "Prosím, třípísmenný kód země Macao – ZAO Číny", "expect": "answer", "contains": ["MAC"], "id": "s0-03142", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Severní Mariany?", "expect": "answer", "contains": ["MNP"], "id": "s0-03145", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Malta", "expect": "answer", "contains": ["MT", "MLT", "470"], "id": "s0-03156", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Malawi.", "expect": "answer", "contains": ["MW", "MWI", "454"], "id": "s0-03165", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Malawi", "expect": "answer", "contains": ["MWI"], "id": "s0-03166", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Malajsie.", "expect": "answer", "contains": ["MYS"], "id": "s0-03172", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód MY prosím", "expect": "answer", "contains": ["Malajsie"], "id": "s0-03173", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Mosambik", "expect": "answer", "contains": ["MZ", "MOZ", "508"], "id": "s0-03174", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód MZ.", "expect": "answer", "contains": ["Mosambik"], "id": "s0-03176", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Nová Kaledonie", "expect": "answer", "contains": ["NCL"], "id": "s0-03181", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Niger", "expect": "answer", "contains": ["NER"], "id": "s0-03184", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód NE.", "expect": "answer", "contains": ["Niger"], "id": "s0-03185", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód NF?", "expect": "answer", "contains": ["Norfolk"], "id": "s0-03188", "split": "validation"}
+{"cat": "iso", "q": "Prosím, třípísmenný kód země Nikaragua", "expect": "answer", "contains": ["NIC"], "id": "s0-03193", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Nauru", "expect": "answer", "contains": ["NRU"], "id": "s0-03205", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Omán", "expect": "answer", "contains": ["OMN"], "id": "s0-03214", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Filipíny", "expect": "answer", "contains": ["PH", "PHL", "608"], "id": "s0-03228", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Pákistán", "expect": "answer", "contains": ["PK", "PAK", "586"], "id": "s0-03231", "split": "validation"}
+{"cat": "iso", "q": "Prosím, co je ISO 3166 kód PM", "expect": "answer", "contains": ["Saint-Pierre a Miquelon"], "id": "s0-03239", "split": "validation"}
+{"cat": "iso", "q": "hele, co je ISO 3166 kód PN?", "expect": "answer", "contains": ["Pitcairnovy ostrovy"], "id": "s0-03242", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Portoriko", "expect": "answer", "contains": ["PRI"], "id": "s0-03244", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Portugalsko", "expect": "answer", "contains": ["PRT"], "id": "s0-03250", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód PT", "expect": "answer", "contains": ["Portugalsko"], "id": "s0-03251", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Palau", "expect": "answer", "contains": ["PW", "PLW", "585"], "id": "s0-03252", "split": "validation"}
+{"cat": "iso", "q": "hele, ISO kód státu Paraguay?", "expect": "answer", "contains": ["PY", "PRY", "600"], "id": "s0-03255", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód RU prosím", "expect": "answer", "contains": ["Rusko"], "id": "s0-03272", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Saúdská Arábie prosím", "expect": "answer", "contains": ["SAU"], "id": "s0-03277", "split": "validation"}
+{"cat": "iso", "q": "Prosím, co je ISO 3166 kód SB", "expect": "answer", "contains": ["Šalamounovy ostrovy"], "id": "s0-03281", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Svatá Helena", "expect": "answer", "contains": ["SH", "SHN", "654"], "id": "s0-03294", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód SH prosím", "expect": "answer", "contains": ["Svatá Helena"], "id": "s0-03296", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Špicberky a Jan Mayen.", "expect": "answer", "contains": ["SJ", "SJM", "744"], "id": "s0-03300", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód SK?", "expect": "answer", "contains": ["Slovensko"], "id": "s0-03305", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Sierra Leone?", "expect": "answer", "contains": ["SLE"], "id": "s0-03307", "split": "validation"}
+{"cat": "iso", "q": "hele, třípísmenný kód země Senegal?", "expect": "answer", "contains": ["SEN"], "id": "s0-03313", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, co je ISO 3166 kód SN", "expect": "answer", "contains": ["Senegal"], "id": "s0-03314", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód SO.", "expect": "answer", "contains": ["Somálsko"], "id": "s0-03317", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Surinam?", "expect": "answer", "contains": ["SUR"], "id": "s0-03319", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Svatý Tomáš a Princův ostrov prosím", "expect": "answer", "contains": ["ST", "STP", "678"], "id": "s0-03324", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Salvador", "expect": "answer", "contains": ["SV", "SLV", "222"], "id": "s0-03327", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, co je ISO 3166 kód SV", "expect": "answer", "contains": ["Salvador"], "id": "s0-03329", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Sýrie", "expect": "answer", "contains": ["SYR"], "id": "s0-03334", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Francouzská jižní území?", "expect": "answer", "contains": ["ATF"], "id": "s0-03346", "split": "validation"}
+{"cat": "iso", "q": "hele, co je ISO 3166 kód TF?", "expect": "answer", "contains": ["Francouzská jižní území"], "id": "s0-03347", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Togo", "expect": "answer", "contains": ["TG", "TGO", "768"], "id": "s0-03348", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Togo", "expect": "answer", "contains": ["TGO"], "id": "s0-03349", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Turkmenistán prosím", "expect": "answer", "contains": ["TKM"], "id": "s0-03364", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Tunisko", "expect": "answer", "contains": ["TUN"], "id": "s0-03367", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód TV", "expect": "answer", "contains": ["Tuvalu"], "id": "s0-03380", "split": "validation"}
+{"cat": "iso", "q": "hele, ISO kód státu Tchaj-wan?", "expect": "answer", "contains": ["TW", "TWN", "158"], "id": "s0-03381", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód TW.", "expect": "answer", "contains": ["Tchaj-wan"], "id": "s0-03383", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Menší odlehlé ostrovy USA", "expect": "answer", "contains": ["UMI"], "id": "s0-03394", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Venezuela", "expect": "answer", "contains": ["VEN"], "id": "s0-03412", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Americké Panenské ostrovy", "expect": "answer", "contains": ["VIR"], "id": "s0-03418", "split": "validation"}
+{"cat": "iso", "q": "co je ISO 3166 kód VI", "expect": "answer", "contains": ["Americké Panenské ostrovy"], "id": "s0-03419", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, ISO kód státu Vanuatu", "expect": "answer", "contains": ["VU", "VUT", "548"], "id": "s0-03423", "split": "validation"}
+{"cat": "iso", "q": "prosím tě, třípísmenný kód země Vanuatu", "expect": "answer", "contains": ["VUT"], "id": "s0-03424", "split": "validation"}
+{"cat": "iso", "q": "ISO kód státu Samoa prosím", "expect": "answer", "contains": ["WS", "WSM", "882"], "id": "s0-03429", "split": "validation"}
+{"cat": "iso", "q": "AVIOR, třípísmenný kód země Samoa", "expect": "answer", "contains": ["WSM"], "id": "s0-03430", "split": "validation"}
+{"cat": "iso", "q": "třípísmenný kód země Jemen?", "expect": "answer", "contains": ["YEM"], "id": "s0-03433", "split": "validation"}
+{"cat": "iso_gen", "q": "ISO kód Španělska", "expect": "answer", "contains": ["ES", "ESP"], "id": "s0-03454", "split": "validation"}
+{"cat": "iso_gen", "q": "Prosím, ISO kód Číny", "expect": "answer", "contains": ["CN", "CHN"], "id": "s0-03456", "split": "validation"}
+{"cat": "iso_gen", "q": "ISO kód Mexika?", "expect": "answer", "contains": ["MX", "MEX"], "id": "s0-03460", "split": "validation"}
+{"cat": "iso_gen", "q": "ISO kód Švédska", "expect": "answer", "contains": ["SE", "SWE"], "id": "s0-03461", "split": "validation"}
+{"cat": "iso_gen", "q": "ISO kód Norska.", "expect": "answer", "contains": ["NO", "NOR"], "id": "s0-03462", "split": "validation"}
+{"cat": "iso_gen", "q": "hele, ISO kód Egypta?", "expect": "answer", "contains": ["EG", "EGY"], "id": "s0-03467", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 6,4,55", "expect": "abstain", "contains": [], "id": "s0-03482", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 9,4,10", "expect": "abstain", "contains": [], "id": "s0-03491", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 4,4,39", "expect": "abstain", "contains": [], "id": "s0-03494", "split": "validation"}
+{"cat": "neg", "q": "průměr 2,3,58?", "expect": "abstain", "contains": [], "id": "s0-03499", "split": "validation"}
+{"cat": "neg", "q": "průměr 3,5,92?", "expect": "abstain", "contains": [], "id": "s0-03502", "split": "validation"}
+{"cat": "neg", "q": "průměr 4,7,34.", "expect": "abstain", "contains": [], "id": "s0-03507", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 6,8,99", "expect": "abstain", "contains": [], "id": "s0-03508", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 2,6,32", "expect": "abstain", "contains": [], "id": "s0-03515", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 7,9,65?", "expect": "abstain", "contains": [], "id": "s0-03517", "split": "validation"}
+{"cat": "neg", "q": "průměr 5,6,73 prosím", "expect": "abstain", "contains": [], "id": "s0-03519", "split": "validation"}
+{"cat": "neg", "q": "průměr 5,3,57", "expect": "abstain", "contains": [], "id": "s0-03520", "split": "validation"}
+{"cat": "neg", "q": "průměr 3,9,32", "expect": "abstain", "contains": [], "id": "s0-03521", "split": "validation"}
+{"cat": "neg", "q": "průměr 8,5,25.", "expect": "abstain", "contains": [], "id": "s0-03525", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 1,3,58?", "expect": "abstain", "contains": [], "id": "s0-03526", "split": "validation"}
+{"cat": "neg", "q": "Prosím, průměr 6,9,75", "expect": "abstain", "contains": [], "id": "s0-03527", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 5,7,91", "expect": "abstain", "contains": [], "id": "s0-03534", "split": "validation"}
+{"cat": "neg", "q": "průměr 7,3,13 prosím", "expect": "abstain", "contains": [], "id": "s0-03555", "split": "validation"}
+{"cat": "neg", "q": "průměr 1,2,27?", "expect": "abstain", "contains": [], "id": "s0-03556", "split": "validation"}
+{"cat": "neg", "q": "průměr 7,2,13", "expect": "abstain", "contains": [], "id": "s0-03559", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 7,6,95?", "expect": "abstain", "contains": [], "id": "s0-03563", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, průměr 6,3,32", "expect": "abstain", "contains": [], "id": "s0-03565", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 8,2,79?", "expect": "abstain", "contains": [], "id": "s0-03566", "split": "validation"}
+{"cat": "neg", "q": "průměr 8,3,24", "expect": "abstain", "contains": [], "id": "s0-03571", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 2,4,86", "expect": "abstain", "contains": [], "id": "s0-03580", "split": "validation"}
+{"cat": "neg", "q": "Prosím, průměr 6,3,11", "expect": "abstain", "contains": [], "id": "s0-03585", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 2,8,18", "expect": "abstain", "contains": [], "id": "s0-03589", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 5,8,10", "expect": "abstain", "contains": [], "id": "s0-03593", "split": "validation"}
+{"cat": "neg", "q": "Prosím, průměr 7,3,50", "expect": "abstain", "contains": [], "id": "s0-03594", "split": "validation"}
+{"cat": "neg", "q": "průměr 1,4,59 prosím", "expect": "abstain", "contains": [], "id": "s0-03595", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, průměr 7,2,92", "expect": "abstain", "contains": [], "id": "s0-03601", "split": "validation"}
+{"cat": "neg", "q": "průměr 4,9,71?", "expect": "abstain", "contains": [], "id": "s0-03604", "split": "validation"}
+{"cat": "neg", "q": "průměr 8,1,57?", "expect": "abstain", "contains": [], "id": "s0-03606", "split": "validation"}
+{"cat": "neg", "q": "průměr 2,1,49 prosím", "expect": "abstain", "contains": [], "id": "s0-03608", "split": "validation"}
+{"cat": "neg", "q": "průměr 2,1,70 prosím", "expect": "abstain", "contains": [], "id": "s0-03611", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 4,5,65?", "expect": "abstain", "contains": [], "id": "s0-03613", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 7,4,94?", "expect": "abstain", "contains": [], "id": "s0-03616", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 6,3,55?", "expect": "abstain", "contains": [], "id": "s0-03620", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 8,1,93?", "expect": "abstain", "contains": [], "id": "s0-03623", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 4,5,96", "expect": "abstain", "contains": [], "id": "s0-03626", "split": "validation"}
+{"cat": "neg", "q": "průměr 5,8,33", "expect": "abstain", "contains": [], "id": "s0-03628", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 7,4,24", "expect": "abstain", "contains": [], "id": "s0-03631", "split": "validation"}
+{"cat": "neg", "q": "průměr 4,3,12?", "expect": "abstain", "contains": [], "id": "s0-03633", "split": "validation"}
+{"cat": "neg", "q": "průměr 5,8,31.", "expect": "abstain", "contains": [], "id": "s0-03646", "split": "validation"}
+{"cat": "neg", "q": "medián 6,430 prosím", "expect": "abstain", "contains": [], "id": "s0-03651", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, medián 3,679", "expect": "abstain", "contains": [], "id": "s0-03655", "split": "validation"}
+{"cat": "neg", "q": "medián 6,177 prosím", "expect": "abstain", "contains": [], "id": "s0-03659", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, medián 3,263", "expect": "abstain", "contains": [], "id": "s0-03660", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, medián 8,933", "expect": "abstain", "contains": [], "id": "s0-03661", "split": "validation"}
+{"cat": "neg", "q": "medián 1,505.", "expect": "abstain", "contains": [], "id": "s0-03664", "split": "validation"}
+{"cat": "neg", "q": "Prosím, medián 7,324", "expect": "abstain", "contains": [], "id": "s0-03666", "split": "validation"}
+{"cat": "neg", "q": "medián 4,605.", "expect": "abstain", "contains": [], "id": "s0-03686", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, medián 9,561", "expect": "abstain", "contains": [], "id": "s0-03687", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, medián 2,511", "expect": "abstain", "contains": [], "id": "s0-03688", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, spočítej mi hypotéku na 3 milionů na 25 let", "expect": "abstain", "contains": [], "id": "s0-03702", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 6 milionů na 29 let prosím", "expect": "abstain", "contains": [], "id": "s0-03715", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 2 milionů na 22 let", "expect": "abstain", "contains": [], "id": "s0-03720", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 2 milionů na 28 let?", "expect": "abstain", "contains": [], "id": "s0-03725", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 2 milionů na 22 let?", "expect": "abstain", "contains": [], "id": "s0-03734", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 9 milionů na 24 let.", "expect": "abstain", "contains": [], "id": "s0-03735", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 3 milionů na 22 let.", "expect": "abstain", "contains": [], "id": "s0-03737", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 6 milionů na 22 let prosím", "expect": "abstain", "contains": [], "id": "s0-03743", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 4 milionů na 27 let.", "expect": "abstain", "contains": [], "id": "s0-03744", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 2 milionů na 5 let", "expect": "abstain", "contains": [], "id": "s0-03745", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi hypotéku na 9 milionů na 25 let?", "expect": "abstain", "contains": [], "id": "s0-03748", "split": "validation"}
+{"cat": "neg", "q": "hele, spočítej mi hypotéku na 8 milionů na 6 let?", "expect": "abstain", "contains": [], "id": "s0-03761", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 130000 Kč prosím", "expect": "abstain", "contains": [], "id": "s0-03779", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 470000 Kč", "expect": "abstain", "contains": [], "id": "s0-03787", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 140000 Kč.", "expect": "abstain", "contains": [], "id": "s0-03788", "split": "validation"}
+{"cat": "neg", "q": "Prosím, měsíční splátka úvěru 400000 Kč", "expect": "abstain", "contains": [], "id": "s0-03793", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 640000 Kč", "expect": "abstain", "contains": [], "id": "s0-03796", "split": "validation"}
+{"cat": "neg", "q": "Prosím, měsíční splátka úvěru 260000 Kč", "expect": "abstain", "contains": [], "id": "s0-03797", "split": "validation"}
+{"cat": "neg", "q": "hele, měsíční splátka úvěru 830000 Kč?", "expect": "abstain", "contains": [], "id": "s0-03799", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 310000 Kč", "expect": "abstain", "contains": [], "id": "s0-03801", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 370000 Kč?", "expect": "abstain", "contains": [], "id": "s0-03804", "split": "validation"}
+{"cat": "neg", "q": "hele, měsíční splátka úvěru 110000 Kč?", "expect": "abstain", "contains": [], "id": "s0-03805", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 640000 Kč", "expect": "abstain", "contains": [], "id": "s0-03812", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, měsíční splátka úvěru 790000 Kč", "expect": "abstain", "contains": [], "id": "s0-03813", "split": "validation"}
+{"cat": "neg", "q": "Prosím, měsíční splátka úvěru 570000 Kč", "expect": "abstain", "contains": [], "id": "s0-03814", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 640000 Kč", "expect": "abstain", "contains": [], "id": "s0-03822", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 120000 Kč?", "expect": "abstain", "contains": [], "id": "s0-03823", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, měsíční splátka úvěru 850000 Kč", "expect": "abstain", "contains": [], "id": "s0-03830", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 10000 Kč", "expect": "abstain", "contains": [], "id": "s0-03836", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 50000 Kč", "expect": "abstain", "contains": [], "id": "s0-03837", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 160000 Kč", "expect": "abstain", "contains": [], "id": "s0-03839", "split": "validation"}
+{"cat": "neg", "q": "měsíční splátka úvěru 40000 Kč.", "expect": "abstain", "contains": [], "id": "s0-03844", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, měsíční splátka úvěru 560000 Kč", "expect": "abstain", "contains": [], "id": "s0-03848", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, kolik zaplatím za úvěr 930000 Kč s úrokem 11 %", "expect": "abstain", "contains": [], "id": "s0-03854", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, kolik zaplatím za úvěr 740000 Kč s úrokem 12 %", "expect": "abstain", "contains": [], "id": "s0-03863", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, kolik zaplatím za úvěr 190000 Kč s úrokem 6 %", "expect": "abstain", "contains": [], "id": "s0-03875", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 580000 Kč s úrokem 11 %?", "expect": "abstain", "contains": [], "id": "s0-03877", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 480000 Kč s úrokem 5 %", "expect": "abstain", "contains": [], "id": "s0-03879", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 760000 Kč s úrokem 12 %", "expect": "abstain", "contains": [], "id": "s0-03880", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 850000 Kč s úrokem 5 % prosím", "expect": "abstain", "contains": [], "id": "s0-03881", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 40000 Kč s úrokem 9 %?", "expect": "abstain", "contains": [], "id": "s0-03893", "split": "validation"}
+{"cat": "neg", "q": "hele, kolik zaplatím za úvěr 30000 Kč s úrokem 4 %?", "expect": "abstain", "contains": [], "id": "s0-03895", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 260000 Kč s úrokem 7 % prosím", "expect": "abstain", "contains": [], "id": "s0-03899", "split": "validation"}
+{"cat": "neg", "q": "kolik zaplatím za úvěr 270000 Kč s úrokem 9 % prosím", "expect": "abstain", "contains": [], "id": "s0-03908", "split": "validation"}
+{"cat": "neg", "q": "hele, kolik zaplatím za úvěr 670000 Kč s úrokem 12 %?", "expect": "abstain", "contains": [], "id": "s0-03909", "split": "validation"}
+{"cat": "neg", "q": "složené úročení 630000 Kč na 29 let prosím", "expect": "abstain", "contains": [], "id": "s0-03913", "split": "validation"}
+{"cat": "neg", "q": "Prosím, složené úročení 860000 Kč na 5 let", "expect": "abstain", "contains": [], "id": "s0-03925", "split": "validation"}
+{"cat": "neg", "q": "složené úročení 930000 Kč na 24 let prosím", "expect": "abstain", "contains": [], "id": "s0-03928", "split": "validation"}
+{"cat": "neg", "q": "Prosím, složené úročení 300000 Kč na 16 let", "expect": "abstain", "contains": [], "id": "s0-03947", "split": "validation"}
+{"cat": "neg", "q": "hele, složené úročení 880000 Kč na 16 let?", "expect": "abstain", "contains": [], "id": "s0-03958", "split": "validation"}
+{"cat": "neg", "q": "složené úročení 140000 Kč na 26 let?", "expect": "abstain", "contains": [], "id": "s0-03959", "split": "validation"}
+{"cat": "neg", "q": "hele, sleva 41 % a kurz 1,3?", "expect": "abstain", "contains": [], "id": "s0-03982", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 33 % a kurz 2,5", "expect": "abstain", "contains": [], "id": "s0-03988", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, sleva 32 % a kurz 2,8", "expect": "abstain", "contains": [], "id": "s0-03997", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 35 % a kurz 2,8", "expect": "abstain", "contains": [], "id": "s0-04004", "split": "validation"}
+{"cat": "neg", "q": "hele, sleva 13 % a kurz 1,8?", "expect": "abstain", "contains": [], "id": "s0-04006", "split": "validation"}
+{"cat": "neg", "q": "sleva 43 % a kurz 3,2?", "expect": "abstain", "contains": [], "id": "s0-04009", "split": "validation"}
+{"cat": "neg", "q": "sleva 41 % a kurz 3,7", "expect": "abstain", "contains": [], "id": "s0-04011", "split": "validation"}
+{"cat": "neg", "q": "sleva 40 % a kurz 1,6?", "expect": "abstain", "contains": [], "id": "s0-04013", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 40 % a kurz 3,3", "expect": "abstain", "contains": [], "id": "s0-04018", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 48 % a kurz 2,2", "expect": "abstain", "contains": [], "id": "s0-04019", "split": "validation"}
+{"cat": "neg", "q": "hele, sleva 21 % a kurz 3,3?", "expect": "abstain", "contains": [], "id": "s0-04022", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 47 % a kurz 3,3", "expect": "abstain", "contains": [], "id": "s0-04026", "split": "validation"}
+{"cat": "neg", "q": "sleva 13 % a kurz 3,4", "expect": "abstain", "contains": [], "id": "s0-04033", "split": "validation"}
+{"cat": "neg", "q": "sleva 45 % a kurz 3,4 prosím", "expect": "abstain", "contains": [], "id": "s0-04040", "split": "validation"}
+{"cat": "neg", "q": "sleva 7 % a kurz 2,9.", "expect": "abstain", "contains": [], "id": "s0-04044", "split": "validation"}
+{"cat": "neg", "q": "sleva 9 % a kurz 3,9?", "expect": "abstain", "contains": [], "id": "s0-04055", "split": "validation"}
+{"cat": "neg", "q": "sleva 17 % a kurz 1,2.", "expect": "abstain", "contains": [], "id": "s0-04065", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 9 % a kurz 1,6", "expect": "abstain", "contains": [], "id": "s0-04073", "split": "validation"}
+{"cat": "neg", "q": "sleva 38 % a kurz 2,6.", "expect": "abstain", "contains": [], "id": "s0-04082", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, sleva 26 % a kurz 2,3", "expect": "abstain", "contains": [], "id": "s0-04087", "split": "validation"}
+{"cat": "neg", "q": "kurz 2,2 a DPH 21 % prosím", "expect": "abstain", "contains": [], "id": "s0-04096", "split": "validation"}
+{"cat": "neg", "q": "kurz 2,9 a DPH 21 % prosím", "expect": "abstain", "contains": [], "id": "s0-04098", "split": "validation"}
+{"cat": "neg", "q": "kurz 2,8 a DPH 21 %", "expect": "abstain", "contains": [], "id": "s0-04102", "split": "validation"}
+{"cat": "neg", "q": "kurz 3,9 a DPH 21 %?", "expect": "abstain", "contains": [], "id": "s0-04105", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, kurz 3,7 a DPH 21 %", "expect": "abstain", "contains": [], "id": "s0-04106", "split": "validation"}
+{"cat": "neg", "q": "kurz 1,7 a DPH 21 %.", "expect": "abstain", "contains": [], "id": "s0-04107", "split": "validation"}
+{"cat": "neg", "q": "kurz 3,3 a DPH 21 %.", "expect": "abstain", "contains": [], "id": "s0-04110", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, kurz 3,4 a DPH 21 %", "expect": "abstain", "contains": [], "id": "s0-04113", "split": "validation"}
+{"cat": "neg", "q": "Prosím, kurz 2,1 a DPH 21 %", "expect": "abstain", "contains": [], "id": "s0-04123", "split": "validation"}
+{"cat": "neg", "q": "Prosím, kurz 3,4 a DPH 21 %", "expect": "abstain", "contains": [], "id": "s0-04130", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Atlantidy", "expect": "abstain", "contains": [], "id": "s0-04135", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Atlantidy", "expect": "abstain", "contains": [], "id": "s0-04138", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, co je ISO 9001", "expect": "abstain", "contains": [], "id": "s0-04140", "split": "validation"}
+{"cat": "neg", "q": "jaký je ISO kód Evropy", "expect": "abstain", "contains": [], "id": "s0-04141", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, jaký je kód na wifi", "expect": "abstain", "contains": [], "id": "s0-04144", "split": "validation"}
+{"cat": "neg", "q": "hele, jaký je ISO kód Evropy?", "expect": "abstain", "contains": [], "id": "s0-04152", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, kód státu Mordor", "expect": "abstain", "contains": [], "id": "s0-04155", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor", "expect": "abstain", "contains": [], "id": "s0-04157", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, PSČ Prahy", "expect": "abstain", "contains": [], "id": "s0-04158", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Bohemie 1620 prosím", "expect": "abstain", "contains": [], "id": "s0-04164", "split": "validation"}
+{"cat": "neg", "q": "Prosím, jaký je PIN mé karty", "expect": "abstain", "contains": [], "id": "s0-04170", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, ISO kód Atlantidy", "expect": "abstain", "contains": [], "id": "s0-04174", "split": "validation"}
+{"cat": "neg", "q": "hele, ISO citlivost foťáku 400?", "expect": "abstain", "contains": [], "id": "s0-04185", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, dvoupísmenný kód měsíce", "expect": "abstain", "contains": [], "id": "s0-04187", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, co je kód XYZ", "expect": "abstain", "contains": [], "id": "s0-04192", "split": "validation"}
+{"cat": "neg", "q": "co je kód XYZ", "expect": "abstain", "contains": [], "id": "s0-04197", "split": "validation"}
+{"cat": "neg", "q": "ISO citlivost foťáku 400.", "expect": "abstain", "contains": [], "id": "s0-04200", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor prosím", "expect": "abstain", "contains": [], "id": "s0-04202", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, jaký je ISO kód Evropy", "expect": "abstain", "contains": [], "id": "s0-04207", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, dvoupísmenný kód měsíce", "expect": "abstain", "contains": [], "id": "s0-04216", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, ISO kód Atlantidy", "expect": "abstain", "contains": [], "id": "s0-04217", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor?", "expect": "abstain", "contains": [], "id": "s0-04220", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor prosím", "expect": "abstain", "contains": [], "id": "s0-04221", "split": "validation"}
+{"cat": "neg", "q": "ISO citlivost foťáku 400.", "expect": "abstain", "contains": [], "id": "s0-04243", "split": "validation"}
+{"cat": "neg", "q": "kód Gotham City?", "expect": "abstain", "contains": [], "id": "s0-04250", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, co je kód XYZ", "expect": "abstain", "contains": [], "id": "s0-04255", "split": "validation"}
+{"cat": "neg", "q": "jaký je ISO kód Evropy?", "expect": "abstain", "contains": [], "id": "s0-04256", "split": "validation"}
+{"cat": "neg", "q": "jaký je PIN mé karty?", "expect": "abstain", "contains": [], "id": "s0-04257", "split": "validation"}
+{"cat": "neg", "q": "hele, co je kód XYZ?", "expect": "abstain", "contains": [], "id": "s0-04266", "split": "validation"}
+{"cat": "neg", "q": "jaký je kód na wifi?", "expect": "abstain", "contains": [], "id": "s0-04272", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, kód Morseovy abecedy pro A", "expect": "abstain", "contains": [], "id": "s0-04274", "split": "validation"}
+{"cat": "neg", "q": "hele, ISO kód Atlantidy?", "expect": "abstain", "contains": [], "id": "s0-04282", "split": "validation"}
+{"cat": "neg", "q": "PSČ Prahy?", "expect": "abstain", "contains": [], "id": "s0-04284", "split": "validation"}
+{"cat": "neg", "q": "hele, PSČ Prahy?", "expect": "abstain", "contains": [], "id": "s0-04287", "split": "validation"}
+{"cat": "neg", "q": "jaký je ISO kód Evropy", "expect": "abstain", "contains": [], "id": "s0-04297", "split": "validation"}
+{"cat": "neg", "q": "Prosím, PSČ Prahy", "expect": "abstain", "contains": [], "id": "s0-04299", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, ISO kód Bohemie 1620", "expect": "abstain", "contains": [], "id": "s0-04301", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor prosím", "expect": "abstain", "contains": [], "id": "s0-04304", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Bohemie 1620.", "expect": "abstain", "contains": [], "id": "s0-04312", "split": "validation"}
+{"cat": "neg", "q": "Prosím, kód pro odemčení telefonu", "expect": "abstain", "contains": [], "id": "s0-04319", "split": "validation"}
+{"cat": "neg", "q": "Prosím, co je kód XYZ", "expect": "abstain", "contains": [], "id": "s0-04322", "split": "validation"}
+{"cat": "neg", "q": "PSČ Prahy?", "expect": "abstain", "contains": [], "id": "s0-04323", "split": "validation"}
+{"cat": "neg", "q": "ISO citlivost foťáku 400 prosím", "expect": "abstain", "contains": [], "id": "s0-04327", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, co je ISO 9001", "expect": "abstain", "contains": [], "id": "s0-04335", "split": "validation"}
+{"cat": "neg", "q": "hele, ISO citlivost foťáku 400?", "expect": "abstain", "contains": [], "id": "s0-04340", "split": "validation"}
+{"cat": "neg", "q": "kód státu Mordor", "expect": "abstain", "contains": [], "id": "s0-04341", "split": "validation"}
+{"cat": "neg", "q": "co je kód XYZ?", "expect": "abstain", "contains": [], "id": "s0-04344", "split": "validation"}
+{"cat": "neg", "q": "PSČ Prahy?", "expect": "abstain", "contains": [], "id": "s0-04345", "split": "validation"}
+{"cat": "neg", "q": "kód pro odemčení telefonu.", "expect": "abstain", "contains": [], "id": "s0-04346", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Bohemie 1620 prosím", "expect": "abstain", "contains": [], "id": "s0-04348", "split": "validation"}
+{"cat": "neg", "q": "dvoupísmenný kód měsíce.", "expect": "abstain", "contains": [], "id": "s0-04355", "split": "validation"}
+{"cat": "neg", "q": "Prosím, kód státu Mordor", "expect": "abstain", "contains": [], "id": "s0-04364", "split": "validation"}
+{"cat": "neg", "q": "ISO kód Atlantidy", "expect": "abstain", "contains": [], "id": "s0-04366", "split": "validation"}
+{"cat": "neg", "q": "Prosím, kód Morseovy abecedy pro A", "expect": "abstain", "contains": [], "id": "s0-04368", "split": "validation"}
+{"cat": "neg", "q": "kód Morseovy abecedy pro A?", "expect": "abstain", "contains": [], "id": "s0-04370", "split": "validation"}
+{"cat": "neg", "q": "Prosím, ISO citlivost foťáku 400", "expect": "abstain", "contains": [], "id": "s0-04374", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, ISO citlivost foťáku 400", "expect": "abstain", "contains": [], "id": "s0-04382", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, jaký je PIN mé karty", "expect": "abstain", "contains": [], "id": "s0-04383", "split": "validation"}
+{"cat": "neg", "q": "kód Gotham City.", "expect": "abstain", "contains": [], "id": "s0-04388", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, faktoriál 2390", "expect": "abstain", "contains": [], "id": "s0-04392", "split": "validation"}
+{"cat": "neg", "q": "Prosím, faktoriál 1018", "expect": "abstain", "contains": [], "id": "s0-04395", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 2286.", "expect": "abstain", "contains": [], "id": "s0-04402", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 4960 prosím", "expect": "abstain", "contains": [], "id": "s0-04409", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, faktoriál 7392", "expect": "abstain", "contains": [], "id": "s0-04410", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 2158", "expect": "abstain", "contains": [], "id": "s0-04413", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 967.", "expect": "abstain", "contains": [], "id": "s0-04415", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 6427 prosím", "expect": "abstain", "contains": [], "id": "s0-04424", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 6468 prosím", "expect": "abstain", "contains": [], "id": "s0-04428", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, faktoriál 5090", "expect": "abstain", "contains": [], "id": "s0-04434", "split": "validation"}
+{"cat": "neg", "q": "faktoriál 4548 prosím", "expect": "abstain", "contains": [], "id": "s0-04446", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 18824816972663 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04453", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, je 102131050982770 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04468", "split": "validation"}
+{"cat": "neg", "q": "je 832585877279955 prvočíslo.", "expect": "abstain", "contains": [], "id": "s0-04470", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 837543945747002 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04473", "split": "validation"}
+{"cat": "neg", "q": "je 251120514640756 prvočíslo?", "expect": "abstain", "contains": [], "id": "s0-04480", "split": "validation"}
+{"cat": "neg", "q": "je 454530815211810 prvočíslo.", "expect": "abstain", "contains": [], "id": "s0-04481", "split": "validation"}
+{"cat": "neg", "q": "je 525583006866127 prvočíslo?", "expect": "abstain", "contains": [], "id": "s0-04482", "split": "validation"}
+{"cat": "neg", "q": "hele, je 449049614957100 prvočíslo?", "expect": "abstain", "contains": [], "id": "s0-04484", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 403628712701415 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04485", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, je 314857683146259 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04488", "split": "validation"}
+{"cat": "neg", "q": "je 266244768567020 prvočíslo prosím", "expect": "abstain", "contains": [], "id": "s0-04500", "split": "validation"}
+{"cat": "neg", "q": "je 907389855677050 prvočíslo.", "expect": "abstain", "contains": [], "id": "s0-04501", "split": "validation"}
+{"cat": "neg", "q": "je 82465605059232 prvočíslo.", "expect": "abstain", "contains": [], "id": "s0-04504", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 908410201680460 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04506", "split": "validation"}
+{"cat": "neg", "q": "je 601558199653453 prvočíslo prosím", "expect": "abstain", "contains": [], "id": "s0-04508", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, je 334717372182401 prvočíslo", "expect": "abstain", "contains": [], "id": "s0-04509", "split": "validation"}
+{"cat": "neg", "q": "4530 nad 2?", "expect": "abstain", "contains": [], "id": "s0-04512", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, 4198 nad 2", "expect": "abstain", "contains": [], "id": "s0-04513", "split": "validation"}
+{"cat": "neg", "q": "hele, 3072 nad 9?", "expect": "abstain", "contains": [], "id": "s0-04514", "split": "validation"}
+{"cat": "neg", "q": "1446 nad 1.", "expect": "abstain", "contains": [], "id": "s0-04528", "split": "validation"}
+{"cat": "neg", "q": "4893 nad 1?", "expect": "abstain", "contains": [], "id": "s0-04529", "split": "validation"}
+{"cat": "neg", "q": "hele, 4885 nad 5?", "expect": "abstain", "contains": [], "id": "s0-04536", "split": "validation"}
+{"cat": "neg", "q": "BMI 53 cm 2 kg prosím", "expect": "abstain", "contains": [], "id": "s0-04552", "split": "validation"}
+{"cat": "neg", "q": "BMI 42 cm 3 kg", "expect": "abstain", "contains": [], "id": "s0-04570", "split": "validation"}
+{"cat": "neg", "q": "Prosím, BMI 26 cm 6 kg", "expect": "abstain", "contains": [], "id": "s0-04574", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, BMI 55 cm 14 kg", "expect": "abstain", "contains": [], "id": "s0-04579", "split": "validation"}
+{"cat": "neg", "q": "BMI 38 cm 15 kg?", "expect": "abstain", "contains": [], "id": "s0-04586", "split": "validation"}
+{"cat": "neg", "q": "průměr 3, 7, 5 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04591", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, průměr 1, 4, 3 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04594", "split": "validation"}
+{"cat": "neg", "q": "Prosím, průměr 8, 5, 3 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04597", "split": "validation"}
+{"cat": "neg", "q": "průměr 4, 2, 1 a vysvětli mi proč se používá?", "expect": "abstain", "contains": [], "id": "s0-04601", "split": "validation"}
+{"cat": "neg", "q": "Prosím, průměr 7, 7, 7 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04609", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, průměr 6, 1, 4 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04611", "split": "validation"}
+{"cat": "neg", "q": "hele, průměr 1, 9, 5 a vysvětli mi proč se používá?", "expect": "abstain", "contains": [], "id": "s0-04612", "split": "validation"}
+{"cat": "neg", "q": "průměr 9, 7, 3 a vysvětli mi proč se používá prosím", "expect": "abstain", "contains": [], "id": "s0-04613", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, průměr 4, 5, 2 a vysvětli mi proč se používá", "expect": "abstain", "contains": [], "id": "s0-04617", "split": "validation"}
+{"cat": "neg", "q": "průměr 6, 7, 2 a vysvětli mi proč se používá.", "expect": "abstain", "contains": [], "id": "s0-04621", "split": "validation"}
+{"cat": "neg", "q": "průměr 8, 3, 1 a vysvětli mi proč se používá prosím", "expect": "abstain", "contains": [], "id": "s0-04626", "split": "validation"}
+{"cat": "neg", "q": "průměr 2, 1, 1 a vysvětli mi proč se používá?", "expect": "abstain", "contains": [], "id": "s0-04634", "split": "validation"}
+{"cat": "neg", "q": "průměr 1, 5, 1 a vysvětli mi proč se používá?", "expect": "abstain", "contains": [], "id": "s0-04646", "split": "validation"}
+{"cat": "neg", "q": "průměr 4, 1, 5 a vysvětli mi proč se používá?", "expect": "abstain", "contains": [], "id": "s0-04647", "split": "validation"}
+{"cat": "neg", "q": "je 849 prvočíslo a jak se to dokazuje obecně.", "expect": "abstain", "contains": [], "id": "s0-04657", "split": "validation"}
+{"cat": "neg", "q": "Prosím, je 43 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04665", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 884 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04666", "split": "validation"}
+{"cat": "neg", "q": "je 693 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04675", "split": "validation"}
+{"cat": "neg", "q": "Prosím, je 749 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04679", "split": "validation"}
+{"cat": "neg", "q": "hele, je 499 prvočíslo a jak se to dokazuje obecně?", "expect": "abstain", "contains": [], "id": "s0-04689", "split": "validation"}
+{"cat": "neg", "q": "je 36 prvočíslo a jak se to dokazuje obecně prosím", "expect": "abstain", "contains": [], "id": "s0-04690", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 688 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04693", "split": "validation"}
+{"cat": "neg", "q": "je 819 prvočíslo a jak se to dokazuje obecně?", "expect": "abstain", "contains": [], "id": "s0-04695", "split": "validation"}
+{"cat": "neg", "q": "je 767 prvočíslo a jak se to dokazuje obecně prosím", "expect": "abstain", "contains": [], "id": "s0-04706", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, je 893 prvočíslo a jak se to dokazuje obecně", "expect": "abstain", "contains": [], "id": "s0-04708", "split": "validation"}
+{"cat": "neg", "q": "je moje BMI v pořádku", "expect": "abstain", "contains": [], "id": "s0-04713", "split": "validation"}
+{"cat": "neg", "q": "Prosím, co si myslíš o umělé inteligenci", "expect": "abstain", "contains": [], "id": "s0-04717", "split": "validation"}
+{"cat": "neg", "q": "hele, napiš mi email šéfovi, že zítra nepřijdu?", "expect": "abstain", "contains": [], "id": "s0-04718", "split": "validation"}
+{"cat": "neg", "q": "jak zhubnout 10 kg za měsíc?", "expect": "abstain", "contains": [], "id": "s0-04731", "split": "validation"}
+{"cat": "neg", "q": "hele, kolik budu mít v důchodu?", "expect": "abstain", "contains": [], "id": "s0-04732", "split": "validation"}
+{"cat": "neg", "q": "jak zhubnout 10 kg za měsíc.", "expect": "abstain", "contains": [], "id": "s0-04733", "split": "validation"}
+{"cat": "neg", "q": "co si myslíš o umělé inteligenci prosím", "expect": "abstain", "contains": [], "id": "s0-04735", "split": "validation"}
+{"cat": "neg", "q": "porovnej výhody hypotéky a nájmu pro mladou rodinu prosím", "expect": "abstain", "contains": [], "id": "s0-04741", "split": "validation"}
+{"cat": "neg", "q": "porovnej výhody hypotéky a nájmu pro mladou rodinu", "expect": "abstain", "contains": [], "id": "s0-04746", "split": "validation"}
+{"cat": "neg", "q": "hele, kolik budu mít v důchodu?", "expect": "abstain", "contains": [], "id": "s0-04748", "split": "validation"}
+{"cat": "neg", "q": "jaká hypotéka je teď nejvýhodnější prosím", "expect": "abstain", "contains": [], "id": "s0-04755", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi rozpočet na svatbu.", "expect": "abstain", "contains": [], "id": "s0-04763", "split": "validation"}
+{"cat": "neg", "q": "napiš mi email šéfovi, že zítra nepřijdu", "expect": "abstain", "contains": [], "id": "s0-04766", "split": "validation"}
+{"cat": "neg", "q": "spočítej mi rozpočet na svatbu prosím", "expect": "abstain", "contains": [], "id": "s0-04769", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, vymysli mi heslo", "expect": "abstain", "contains": [], "id": "s0-04774", "split": "validation"}
+{"cat": "neg", "q": "doporuč mi investici na 10 let prosím", "expect": "abstain", "contains": [], "id": "s0-04780", "split": "validation"}
+{"cat": "neg", "q": "jaká hypotéka je teď nejvýhodnější.", "expect": "abstain", "contains": [], "id": "s0-04790", "split": "validation"}
+{"cat": "neg", "q": "kolik budu mít v důchodu", "expect": "abstain", "contains": [], "id": "s0-04804", "split": "validation"}
+{"cat": "neg", "q": "jak zhubnout 10 kg za měsíc prosím", "expect": "abstain", "contains": [], "id": "s0-04820", "split": "validation"}
+{"cat": "neg", "q": "hele, napiš mi email šéfovi, že zítra nepřijdu?", "expect": "abstain", "contains": [], "id": "s0-04841", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, napiš mi email šéfovi, že zítra nepřijdu", "expect": "abstain", "contains": [], "id": "s0-04856", "split": "validation"}
+{"cat": "neg", "q": "porovnej výhody hypotéky a nájmu pro mladou rodinu.", "expect": "abstain", "contains": [], "id": "s0-04857", "split": "validation"}
+{"cat": "neg", "q": "hele, jak zhubnout 10 kg za měsíc?", "expect": "abstain", "contains": [], "id": "s0-04881", "split": "validation"}
+{"cat": "neg", "q": "jaká hypotéka je teď nejvýhodnější.", "expect": "abstain", "contains": [], "id": "s0-04888", "split": "validation"}
+{"cat": "neg", "q": "hele, co si myslíš o umělé inteligenci?", "expect": "abstain", "contains": [], "id": "s0-04892", "split": "validation"}
+{"cat": "neg", "q": "prosím tě, vymysli mi heslo", "expect": "abstain", "contains": [], "id": "s0-04900", "split": "validation"}
+{"cat": "neg", "q": "AVIOR, jak zhubnout 10 kg za měsíc", "expect": "abstain", "contains": [], "id": "s0-04920", "split": "validation"}
+{"cat": "neg", "q": "porovnej výhody hypotéky a nájmu pro mladou rodinu prosím", "expect": "abstain", "contains": [], "id": "s0-04928", "split": "validation"}
+{"cat": "neg", "q": "vymysli mi heslo.", "expect": "abstain", "contains": [], "id": "s0-04940", "split": "validation"}
+{"cat": "fresh", "q": "Prosím, aktuální kurz dolaru", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04942", "split": "validation"}
+{"cat": "fresh", "q": "AVIOR, kolik je teď kurz eura", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04946", "split": "validation"}
+{"cat": "fresh", "q": "AVIOR, aktuální kurz dolaru", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04949", "split": "validation"}
+{"cat": "fresh", "q": "AVIOR, aktuální kurz dolaru", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04951", "split": "validation"}
+{"cat": "fresh", "q": "hele, aktuální kurz dolaru?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04953", "split": "validation"}
+{"cat": "fresh", "q": "kurz švýcarského franku?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04954", "split": "validation"}
+{"cat": "fresh", "q": "prosím tě, kurz švýcarského franku", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04957", "split": "validation"}
+{"cat": "fresh", "q": "kolik je 100 eur v korunách dnes", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04959", "split": "validation"}
+{"cat": "fresh", "q": "kolik je teď kurz eura.", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04963", "split": "validation"}
+{"cat": "fresh", "q": "hele, aktuální kurz dolaru?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04964", "split": "validation"}
+{"cat": "fresh", "q": "prosím tě, kurz švýcarského franku", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04968", "split": "validation"}
+{"cat": "fresh", "q": "AVIOR, kolik je teď kurz eura", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04992", "split": "validation"}
+{"cat": "fresh", "q": "kolik je teď kurz eura?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04995", "split": "validation"}
+{"cat": "fresh", "q": "hele, kolik je teď kurz eura?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-04996", "split": "validation"}
+{"cat": "fresh", "q": "AVIOR, kurz švýcarského franku", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05000", "split": "validation"}
+{"cat": "fresh", "q": "aktuální kurz dolaru prosím", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05010", "split": "validation"}
+{"cat": "fresh", "q": "kolik je 100 eur v korunách dnes.", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05013", "split": "validation"}
+{"cat": "fresh", "q": "Prosím, kurz švýcarského franku", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05020", "split": "validation"}
+{"cat": "fresh", "q": "hele, kolik je 100 eur v korunách dnes?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05025", "split": "validation"}
+{"cat": "fresh", "q": "hele, kolik je 100 eur v korunách dnes?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05026", "split": "validation"}
+{"cat": "fresh", "q": "prosím tě, kolik je teď kurz eura", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05043", "split": "validation"}
+{"cat": "fresh", "q": "kolik je 100 eur v korunách dnes", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05045", "split": "validation"}
+{"cat": "fresh", "q": "hele, aktuální kurz dolaru?", "expect": "caveat", "contains": ["NENÍ aktuální"], "id": "s0-05057", "split": "validation"}

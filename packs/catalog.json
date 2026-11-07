@@ -1,0 +1,281 @@
+{
+  "version": 1,
+  "updated": "2026-11-01",
+  "packs": [
+    {
+      "id": "axiom-metodika",
+      "name": "AVIOR · metodika",
+      "description": "RANDY, STEP-0, sebemodel a pravidla práce s důkazy.",
+      "file": "axiom-metodika.md",
+      "version": 5,
+      "bytes": 4570,
+      "sha256": "ff0460bb44542d63bae3a17bc8afae4e4f600e5a12d2f424e088357fcb20388b",
+      "sections": 10,
+      "autoInstall": true
+    },
+    {
+      "id": "jednotky-konstanty",
+      "name": "Jednotky a konstanty SI",
+      "description": "Přesné konstanty SI a převody jednotek.",
+      "file": "jednotky-konstanty.md",
+      "version": 1,
+      "bytes": 1472,
+      "sha256": "230e20770e97f5dcd3cb57cccfccdc3d58cbe4432685d1777174507716d1e167",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "stavba-materialy",
+      "name": "Stavba a materiály",
+      "description": "Objemové hmotnosti, mikrocement, stěrky, prořez, DPH ve stavebnictví.",
+      "file": "stavba-materialy.md",
+      "version": 2,
+      "bytes": 1910,
+      "sha256": "1d934854aac5fca412778b4bcf276317e2addad74454fdd7c367939141ed9d63",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "finance-ev",
+      "name": "Finance a +EV",
+      "description": "EV, Kelly, marže, ROI, úročení, DPH v ČR.",
+      "file": "finance-ev.md",
+      "version": 2,
+      "bytes": 1547,
+      "sha256": "a1dcfeb3a4cb859935c37aabc1a889ba01fc153f5ebbd67c123e760b4c4e65ed",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "kimi-k3-server",
+      "name": "Kimi K3 a vlastní server",
+      "description": "K3 online i offline, mozky v telefonu, Claude.",
+      "file": "kimi-k3-server.md",
+      "version": 2,
+      "bytes": 1754,
+      "sha256": "18e9cac2f06d8ff58f8e5fcb8d265ad5f7733a4fbe7d35b2e6dd3215bb57a4da",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "matematika-statistika",
+      "name": "Matematika a statistika",
+      "description": "Rovnice, geometrie, procenta, statistika, pravděpodobnost.",
+      "file": "matematika-statistika.md",
+      "version": 2,
+      "bytes": 1804,
+      "sha256": "77d4d42a31f22d1720808dc3d110340a8832494a52f1f9fc589cb4f2b535ea04",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "elektro-energie",
+      "name": "Elektro a energie",
+      "description": "Ohmův zákon, domácí rozvody, spotřeba, fotovoltaika, elektromobilita.",
+      "file": "elektro-energie.md",
+      "version": 2,
+      "bytes": 1717,
+      "sha256": "c509cbd207ebd0c8ccf68f566d35595045fadfa8f4ec700b1c94d5d5c57960b8",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "it-prikazy",
+      "name": "IT, Linux, Git a sítě",
+      "description": "Příkazy Linuxu, Git, sítě, Docker, bezpečnost.",
+      "file": "it-prikazy.md",
+      "version": 2,
+      "bytes": 1701,
+      "sha256": "2865361287c9a8785418ac7e8f0f5ed1fedccb27caae420fc1acd12c80c38543",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "cestina-styl",
+      "name": "Čeština – pravopis a styl",
+      "description": "i/y, mě/mně, čárky, oslovení, psaní čísel a jednotek.",
+      "file": "cestina-styl.md",
+      "version": 2,
+      "bytes": 1532,
+      "sha256": "53ec57d686b53851b11d92d1c3762d92c629f7f29a7fdc364ee3fa6d1e61d201",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "vladni-projekty",
+      "name": "Vládní a tajné projekty",
+      "description": "Doložené programy: Manhattan, MKUltra, COINTELPRO, PRISM, Area 51, StB Akce Kámen… – s prameny.",
+      "file": "vladni-projekty.md",
+      "version": 2,
+      "bytes": 6954,
+      "sha256": "f7ed1ae2f8eea8ada131c5ebbc61f72da8ed9fc2a596ff0ff9e87cc58ebc8fb5",
+      "sections": 17,
+      "autoInstall": true
+    },
+    {
+      "id": "konspiracni-teorie",
+      "name": "Konspirační teorie",
+      "description": "Měsíc, chemtrails, 11. září, JFK, vakcíny, 5G, QAnon… – tvrzení vs. důkazy a jak je ověřit.",
+      "file": "konspiracni-teorie.md",
+      "version": 2,
+      "bytes": 7698,
+      "sha256": "ec2533aceb436161a8a57f271c18791907d8a6694bd768a60fc4b1063b8be3e0",
+      "sections": 16,
+      "autoInstall": true
+    },
+    {
+      "id": "pravo-urady",
+      "name": "Právo a úřady",
+      "description": "Reklamace, nájem, pracovní právo, daně, náležitosti dokumentů.",
+      "file": "pravo-urady.md",
+      "version": 1,
+      "bytes": 2178,
+      "sha256": "518309bc4db61c3ba5b9a0f9f3ca93577f7bfedd7eb83fcd6465256c02b97775",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "auta-doprava",
+      "name": "Auta a doprava",
+      "description": "STK, zimní pneu, dálniční známka, údržba, náklady na km, nehoda, kontrolky.",
+      "file": "auta-doprava.md",
+      "version": 1,
+      "bytes": 2224,
+      "sha256": "91405a8cf2098a7291e6f6de71f65869186c7d5641c96671063cb9386775cc17",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "zdravi-prvni-pomoc",
+      "name": "Zdraví a první pomoc",
+      "description": "Tísňové linky, KPR, dušení, popáleniny, mrtvice, výživa.",
+      "file": "zdravi-prvni-pomoc.md",
+      "version": 1,
+      "bytes": 2103,
+      "sha256": "d4cab71d27798a3ad1822169791fb18bb7ab9effc5e7598844f8b34e1dcb9b85",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "sport-trenink",
+      "name": "Sport a trénink",
+      "description": "Doporučení WHO, tepové zóny, hubnutí a svaly, začátek s během, regenerace.",
+      "file": "sport-trenink.md",
+      "version": 1,
+      "bytes": 1578,
+      "sha256": "7ee94ee8b1573efe4274bd169c29066e3437a7175af79c41f8f7a7016dfe657b",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "psychologie",
+      "name": "Psychologie a vztahy",
+      "description": "Zvládání stresu, prokrastinace, nenásilná komunikace, návyky, kdy k odborníkovi.",
+      "file": "psychologie.md",
+      "version": 1,
+      "bytes": 1758,
+      "sha256": "2533beedd0bc0fd1980a87b8be65e848d489c3851040ff0e9c050b71d13d5a09",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "kyberbezpecnost",
+      "name": "Kyberbezpečnost",
+      "description": "Hesla a 2FA, phishing a podvody, co dělat po útoku, zálohy.",
+      "file": "kyberbezpecnost.md",
+      "version": 1,
+      "bytes": 1696,
+      "sha256": "a7823ef2db54910c6997b6b79800aa265bc8e8cfba9aa2d415685a042553e46b",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "podnikani-marketing",
+      "name": "Podnikání a marketing",
+      "description": "Marže, bod zvratu, CAC/LTV, cenotvorba, marketing, OSVČ a DPH.",
+      "file": "podnikani-marketing.md",
+      "version": 1,
+      "bytes": 1786,
+      "sha256": "9efe8b20d5db7f95914b3c62c1ecec36ee9023339b7240bdf1f2eba15dbb79df",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "domacnost-bydleni",
+      "name": "Domácnost a bydlení",
+      "description": "Teplota a vlhkost, plíseň, bezpečná chemie, spotřeba energie, požární bezpečnost.",
+      "file": "domacnost-bydleni.md",
+      "version": 1,
+      "bytes": 1603,
+      "sha256": "1def4e7d016b3bcbe7a2521b8dacc232f20dc59ad38f24704f138683a34857a5",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "zahrada",
+      "name": "Zahrada",
+      "description": "Kalendář výsadby, půda a kompost, zálivka, škůdci, trávník.",
+      "file": "zahrada.md",
+      "version": 1,
+      "bytes": 1576,
+      "sha256": "a33ebb8dfdcb2a078fd9ee74bb7e5e88598756fce342da5365ea5cb4dbc6863d",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "vareni-jidlo",
+      "name": "Vaření a jídlo",
+      "description": "Bezpečné teploty, míry a převody, základní poměry, alergeny.",
+      "file": "vareni-jidlo.md",
+      "version": 1,
+      "bytes": 1471,
+      "sha256": "ba17aa1427c2ca23be405d9a0e306d26c0bf570b1c47fa0589a5aeb0026bac34",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "cestovani",
+      "name": "Cestování",
+      "description": "Doklady, EHIC a pojištění, roaming, letiště, kompenzace za zpoždění.",
+      "file": "cestovani.md",
+      "version": 1,
+      "bytes": 1700,
+      "sha256": "6d56ed19d7baca9683e4da5a57b5b9b2621baac12a90d30b5b681713b28f020f",
+      "sections": 5,
+      "autoInstall": true
+    },
+    {
+      "id": "politika-cr",
+      "name": "Česká politika · fakta",
+      "description": "Ústava, instituce, prezidenti, premiéři, volby 2025, strany, NATO a EU.",
+      "file": "politika-cr.md",
+      "version": 2,
+      "bytes": 4941,
+      "sha256": "87c85561d6e68507a4a3a33d1078a81fc4aafe9650988cac294ace5802ee365d",
+      "sections": 8,
+      "autoInstall": true
+    },
+    {
+      "id": "politika-svet",
+      "name": "Zahraniční politika · fakta",
+      "description": "EU, NATO, USA, Rusko a Ukrajina, Blízký východ, Čína, OSN.",
+      "file": "politika-svet.md",
+      "version": 3,
+      "bytes": 3868,
+      "sha256": "09438f27218c5b3b9103d6535adf8a21c62e06457d63fcb5064e45aae4edffa2",
+      "sections": 7,
+      "autoInstall": true
+    },
+    {
+      "id": "politika-pravicovy-pohled",
+      "name": "Politika · pravicový pohled",
+      "description": "Konzervativní a liberálně-pravicové postoje k hlavním tématům (označeno jako pohled, s protiargumenty).",
+      "file": "politika-pravicovy-pohled.md",
+      "version": 2,
+      "bytes": 5874,
+      "sha256": "6c9c4da67e7bec1b2eefa0ad0330451a708be8cc970a1b1b8c63a865a1b029fc",
+      "sections": 9,
+      "autoInstall": true
+    }
+  ]
+}
