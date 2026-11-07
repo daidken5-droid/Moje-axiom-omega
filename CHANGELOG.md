@@ -1,5 +1,17 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1015 (online modul, holá témata, bez mozku rozumí víc)
+- **Holý název tématu** („Operation Prato“, „Fotosyntéza“) = „co je X“: offline heslo, E-ARL definice, mozek s jasným
+  zadáním. Dřív lehký mozek bez hledání → chyba nebo vymýšlení.
+- **Online modul s webem pro všechny cloudy** (dřív jen Claude): Wikipedie cs→en + DuckDuckGo paralelně, limit 4 s,
+  mezipaměť 10 min; podklady [n] s adresou → citace a klikací zdroje. I řetězec podmodelů, rada a eskalace.
+- **Bez mozku, ale online:** výňatek z Wikipedie nebo přehled výsledků s odkazy místo chyby; srozumitelná zpráva,
+  když nejde nic.
+- **Bez mozku rozumí heslovitým dotazům** („Gruzie měna“, „Německo hlavní město“) a u hesel z offline Wikipedie
+  ukáže **„Souvisí:“** (propojení témat bez modelu).
+- Výkon beze změny (StressTest střídavě před/po), eval 100 % / 0 falešných jistot, 255 testů jádra.
+- Neověřeno: živý web z telefonu (z cloudového prostředí Wikimedia omezuje sdílenou IP a DuckDuckGo blokuje boty).
+
 ## Delta IV · sestavení 1014 (HYPERFORGE: integrita + STEP-0)
 Podrobně: `docs/hyperforge/` (AUDIT_FIXES, STEP0_HYPERFORGE_ARCHITECTURE, STEP0_EVALUATION, BENCHMARK_BEFORE_AFTER,
 SECURITY_REVIEW, RUNTIME_C08, BUILD_AND_TEST).

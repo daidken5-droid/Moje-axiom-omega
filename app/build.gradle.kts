@@ -31,7 +31,7 @@ android {
         applicationId = "cz.axiom.omega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1014
+        versionCode = 1015
         versionName = "Delta IV"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // každý běhový test ve vlastním procesu a s čistými daty (žádné sdílené singletony mezi testy)

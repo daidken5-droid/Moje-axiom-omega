@@ -341,7 +341,8 @@ class OmegaService : Service() {
                 Router.Mode.COUNCIL -> {
                     val (members, judge) = if (route.duo) omega.duoMembers(route.engine) else omega.councilMembers()
                     val r = omega.orchestrator().council(
-                        AskRequest(route.prompt, history, forced, 1, s.reflect, s.web, s.thinking, true, s.rates, s.userName.ifBlank { null }),
+                        AskRequest(route.prompt, history, forced, 1, s.reflect, s.web, s.thinking, true, s.rates, s.userName.ifBlank { null },
+                            webGround = if (s.web && Introspect.online(this)) { q -> cz.axiom.omega.core.hub.WebGround.gather(q).snippets } else null),
                         members, judge, cancel, listener, parallel = route.duo,
                     )
                     omega.rememberConfidence(r.confidence)
@@ -415,7 +416,7 @@ class OmegaService : Service() {
                         omega.randy.record(variant, r.millis, r.confidence, true)
                         val r2 = omega.orchestrator().run(
                             AskRequest(route.prompt, history, up.level ?: forced, up.passes ?: 3, s.reflect, s.web && engine.kind == EngineKind.CLAUDE, up.thinking ?: true, true,
-                                s.rates, s.userName.ifBlank { null }, up.style, up.temperature, insight),
+                                s.rates, s.userName.ifBlank { null }, up.style, up.temperature, insight, webGround = webGround(engine)),
                             engine, cancel, listener,
                         )
                         if ((r2.confidence ?: 0) >= (r.confidence ?: 0)) { r = r2; escalatedTo = up }
@@ -645,7 +646,9 @@ class OmegaService : Service() {
                         AskRequest(stagePrompt, if (i == 0) history else emptyList(), v.level,
                             if (local) minOf(v.passes ?: 1, if (i == n - 1) 2 else 1) else v.passes ?: s.maxPasses,
                             s.reflect && i == n - 1, false, if (plan.power == cz.axiom.omega.core.device.Power.SHERLOCK) true else v.thinking ?: s.thinking, true, s.rates,
-                            s.userName.ifBlank { null }, listOfNotNull(v.style, plan.extraStyle).joinToString("\n").ifBlank { null }, v.temperature, insight),
+                            s.userName.ifBlank { null }, listOfNotNull(v.style, plan.extraStyle).joinToString("\n").ifBlank { null }, v.temperature, insight,
+                            // web jen pro první stupeň řetězce (další navazují na jeho výstup)
+                            webGround = if (i == 0) webGround(engine) else null),
                         engine, cancel, listener,
                     )
                     lastChat = r
