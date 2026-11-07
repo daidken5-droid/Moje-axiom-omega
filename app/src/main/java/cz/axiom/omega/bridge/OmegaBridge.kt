@@ -153,6 +153,19 @@ class OmegaBridge(private val activity: MainActivity) {
             if (r.handled) { phoneReply(threadId, cmd, r.text); return threadId }
         }
         val mode = o.optString("mode", "").takeIf { it in cz.axiom.omega.data.Settings.MODES } ?: omega.settings.mode
+        // ZASEKNUTÍ: „Pokračuj“ ve chvíli, kdy předchozí úloha pořád visí → zastavit ji a otázku položit znovu načisto
+        if (cz.axiom.omega.core.agent.Conversation.isRetryCommand(text) && OmegaService.RUNNING_ASK.get()) {
+            OmegaService.cancel(activity)
+            val tid = threadId
+            Thread({
+                // počkat, až se myšlení opravdu uvolní (zrušení se projeví mezi tokeny / po vypršení síťového čtení)
+                val until = System.currentTimeMillis() + 20_000
+                while (OmegaService.RUNNING_ASK.get() && System.currentTimeMillis() < until) Thread.sleep(150)
+                if (OmegaService.RUNNING_ASK.get()) Events.note("Předchozí výpočet ještě dobíhá – napiš „Pokračuj“ za chvíli znovu.")
+                else OmegaService.start(activity, Intent(OmegaService.ACTION_ASK).putExtra("threadId", tid).putExtra("text", text).putExtra("mode", mode).putExtra("forceRetry", true))
+            }, "avior-retry").start()
+            return threadId
+        }
         OmegaService.start(
             activity,
             Intent(OmegaService.ACTION_ASK).putExtra("threadId", threadId).putExtra("text", text).putExtra("mode", mode)

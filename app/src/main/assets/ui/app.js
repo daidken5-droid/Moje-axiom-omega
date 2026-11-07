@@ -703,7 +703,9 @@ function send(text, kind, role, variantOverride) {
     attachment = null;
   }
   refresh();
-  if (S.job && S.job.busy) return toast('Právě pracuji – počkej nebo mě zastav.');
+  // „Pokračuj“ / „zkus to znovu“ během zaseknutí smí projít: AVIOR zastaví visící úlohu a otázku položí znovu načisto
+  const retry = /^(pokra[cč]uj|pokra[cč]ovat|je[dď] d[aá]l|zkus (to )?znovu|zkus to je[sš]t[eě]( jednou)?|znovu|opakuj|restart|za[cč]ni (znovu|odznova)|odznova)( pros[ií]m( t[eě])?| u[zž])?[.!?]*$/i.test(text);
+  if (S.job && S.job.busy && !retry) return toast('Právě pracuji – počkej nebo mě zastav. (Když jsem se zasekl, napiš „Pokračuj“.)');
   send.at = Date.now();
   const id = call('send', JSON.stringify({ threadId, text, level: forcedLevel || '', kind: kind ?? forcedKind, role: role || '', variant: variantOverride || (kind === 'agent' && role ? '' : variant) }));
   if (!id || id < 0) return;

@@ -38,3 +38,14 @@ class NoBrainUnderstandingTest {
         assertTrue("Fotbal" !in a.text, "nesouvisející heslo: ${a.text}")
     }
 }
+
+class RetryCommandTest {
+    @Test fun retryCommands() {
+        listOf("Pokračuj", "pokračuj prosím", "Zkus to znovu", "znovu!", "jeď dál", "začni odznova", "Pokracuj.").forEach {
+            assertTrue(Conversation.isRetryCommand(it), it)
+        }
+        listOf("pokračuj v přehrávání", "Pokračuj v příběhu o drakovi", "znovu mi vysvětli fotosyntézu", "co je pokračování").forEach {
+            assertTrue(!Conversation.isRetryCommand(it), it)
+        }
+    }
+}

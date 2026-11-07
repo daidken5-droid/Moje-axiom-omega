@@ -19,6 +19,14 @@ object Conversation {
 
     private fun keys(s: String) = TextUtil.words(s, 4).map { it.take(5) }.toSet()
 
+    private val retry = rx("^(pokracuj|pokracovat|jed dal|jed|dal|zkus to znovu|zkus znovu|zkus to jeste jednou|zkus to jeste|znovu|opakuj|restart|zacni znovu|zacni odznova|odznova)( prosim| prosim te| uz)?$")
+
+    /**
+     * „Pokračuj“ / „zkus to znovu“ – když se AVIOR zasekl nebo napsal chybu, znamená to: polož poslední otázku znovu
+     * a přemýšlej od začátku. (Po normální, jen zkrácené odpovědi zůstává „pokračuj“ pokračováním textu.)
+     */
+    fun isRetryCommand(text: String): Boolean = text.length <= 40 && retry.matches(TextUtil.fold(text).lowercase().trim().trimEnd('.', '!', '?', ' ').replace(Regex("\\s+"), " "))
+
     /** Samostatná otázka na nové téma (bez odkazu na předchozí a bez společných klíčových slov). */
     fun standalone(question: String, previousQuestion: String?): Boolean {
         if (previousQuestion.isNullOrBlank()) return true

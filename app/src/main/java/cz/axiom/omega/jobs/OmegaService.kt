@@ -190,9 +190,29 @@ class OmegaService : Service() {
 
     // ------------------------------------------------------------------ dotaz
 
+    /**
+     * „POKRAČUJ“ PO CHYBĚ / ZASEKNUTÍ: najde poslední skutečnou otázku vlákna; když na ni nepřišla odpověď,
+     * skončila chybou nebo byla zastavena (i naším resetem zaseknuté úlohy), vrátí ji k novému položení. Jinak null.
+     */
+    private fun retryTarget(threadId: Long, forced: Boolean): String? {
+        val arr = omega.db.messages(threadId, 30)
+        val msgs = (0 until arr.length()).map { arr.getJSONObject(it) }.dropLast(1) // poslední = právě napsané „Pokračuj“
+        val qi = msgs.indexOfLast { it.getString("role") == "user" && !cz.axiom.omega.core.agent.Conversation.isRetryCommand(it.getString("content")) }
+        if (qi < 0) return null
+        val after = msgs.drop(qi + 1).filter { it.getString("role") == "assistant" }
+        val last = after.lastOrNull()
+        val failed = forced || last == null || last.optJSONObject("meta")?.let { it.optBoolean("error") || it.optBoolean("stopped") } == true ||
+            last.getString("content").endsWith("[Zastaveno.]")
+        return if (failed) msgs[qi].getString("content") else null
+    }
+
     private fun ask(intent: Intent, cancel: CancelToken) {
         val threadId = intent.getLongExtra("threadId", 0)
-        val text = intent.getStringExtra("text").orEmpty()
+        val typed = intent.getStringExtra("text").orEmpty()
+        // RESET po chybě / zaseknutí: „Pokračuj“ = poslední otázka znovu, přemýšlení od začátku
+        val retryOf = if (cz.axiom.omega.core.agent.Conversation.isRetryCommand(typed)) retryTarget(threadId, intent.getBooleanExtra("forceRetry", false)) else null
+        val text = retryOf ?: typed
+        if (retryOf != null) Events.emit("phase", JSONObject().put("text", "Začínám znovu: ${cz.axiom.omega.core.util.TextUtil.clip(retryOf, 60)}"))
         val mode = intent.getStringExtra("mode") ?: omega.settings.mode
         // Výslovné volby uživatele (Ω varianta, režim, role, hloubka) – RANDY je nikdy nepřepíše
         val userVariant = cz.axiom.omega.core.agent.Variant.of(intent.getStringExtra("variant"))
@@ -260,6 +280,8 @@ class OmegaService : Service() {
                 .filter { it.getString("role") in setOf("user", "assistant") && it.optJSONObject("meta")?.optBoolean("error") != true }
                 .map { ChatMessage(if (it.getString("role") == "user") Role.USER else Role.ASSISTANT, it.getString("content")) }
         }.dropLast(1) // poslední je právě odeslaný dotaz
+            .let { h -> if (retryOf == null) h else h.dropLastWhile { it.role == Role.USER || it.role == Role.ASSISTANT && it.content.endsWith("[Zastaveno.]") }
+                .let { t -> if (t.lastOrNull()?.content == retryOf) t.dropLast(1) else t } }
         val prevQ = fullHistory.lastOrNull { it.role == Role.USER }?.content
         val prevA = fullHistory.lastOrNull { it.role == Role.ASSISTANT }?.content
         // OPRAVA OD UŽIVATELE („Špatně, hraje to Petr Rychlý“) → špatnou odpověď zapomenout a opravu si zapamatovat

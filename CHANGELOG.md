@@ -9,7 +9,10 @@
   když nejde nic.
 - **Bez mozku rozumí heslovitým dotazům** („Gruzie měna“, „Německo hlavní město“) a u hesel z offline Wikipedie
   ukáže **„Souvisí:“** (propojení témat bez modelu).
-- Výkon beze změny (StressTest střídavě před/po), eval 100 % / 0 falešných jistot, 255 testů jádra.
+- **„Pokračuj“ po chybě nebo zaseknutí** (i „zkus to znovu“, „jeď dál“): AVIOR položí poslední otázku znovu a přemýšlí
+  od začátku (neúspěšná výměna se do historie nedává). Když úloha visí, „Pokračuj“ ji zastaví a spustí znovu – UI ho pustí
+  i během práce. Po normální (jen zkrácené) odpovědi „Pokračuj“ dál navazuje na text.
+- Výkon beze změny (StressTest střídavě před/po), eval 100 % / 0 falešných jistot, 254 testů jádra.
 - Neověřeno: živý web z telefonu (z cloudového prostředí Wikimedia omezuje sdílenou IP a DuckDuckGo blokuje boty).
 
 ## Delta IV · sestavení 1014 (HYPERFORGE: integrita + STEP-0)
