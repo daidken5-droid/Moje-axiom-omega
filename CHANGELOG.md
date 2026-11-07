@@ -1,5 +1,22 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1020 (Video vysvětlení)
+- **Nová funkce: Video vysvětlení** – „/video fotosyntéza“, „udělej mi video o černých dírách“ (+ „podrobně“ = víc scén).
+  Krátké video 30–60 s (720×1280) s titulky a tichou hudbou, **celé vyrobené v telefonu** (port šablony
+  „video explainer maker“ bez cloudu, ffmpeg a placených volání):
+  - podklad: offline Wikipedie (i skloňované téma „o fotosyntéze“) → web → mozek jen když podklad chybí (pak
+    výslovně „ověř fakta“); podklad jsou data, ne pokyny,
+  - storyboard 4 scén (nejvýš 8, 7–10 s): první se ptá („Co je…?“ / „Kdo byl…?“), poslední odpovídá definicí,
+    mezi tím věty článku, číslo/rok jako velký prvek; bez mozku jsou titulky doslova věty zdroje,
+  - jednotný styl AVIOR (černá + titan), animace otázky / čísla / faktu / fajfky, pruh průběhu, zdroj,
+  - kontrola snímků místo recenzenta: titulek celý nad zápatím (zalomení + zmenšení písma), kontrast WCAG,
+  - hudba kódem: 4 akordy Am–F–C–G, 80 BPM, trojúhelník + sinusový bas, puls na dobu, náběh 1 s, doznění 2 s,
+    špička 25 % rozsahu, přesně tak dlouhá jako video,
+  - H.264 (hardwarový kodér) + AAC → MP4 ve Stažené/AVIOR + obrázek se snímky scén, karta s Otevřít/Sdílet.
+  - Náhled GIF se nevyrábí (Android nemá kodér GIF) – AVIOR to řekne.
+- Testy: storyboard, záměr, výběr článku, hudba, rozvržení (core); skutečné vykreslení scén (Robolectric
+  nativní grafika); MP4 s obrazem, zvukem a délkou na emulátoru (CRUCIBLE).
+
 ## Delta IV · sestavení 1019 (hovorové tvary hesel bez mozku)
 - **„Co je porno“ odpoví bez mozku** z offline Wikipedie (heslo „Pornografie“). Dřív: FTS hledal v názvu jen přesné
   slovo „porno“ a shoda hesla tolerovala nejvýš 3 znaky → odpověď převzal jazykový model.

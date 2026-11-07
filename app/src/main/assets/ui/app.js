@@ -287,6 +287,7 @@ const SUGGEST = [
   { ic: 'W', t: 'Z offline Wikipedie', q: 'Jak funguje tepelné čerpadlo?' },
   { ic: '?', t: 'Ověř teorii', q: 'Je pravda, že přistání na Měsíci bylo natočené? Ukaž důkazy.' },
   { ic: '▣', t: 'Vyrob aplikaci', q: 'Vytvoř aplikaci APK „Nákupní seznam“ s kategoriemi a odškrtáváním' },
+  { ic: '▶︎', t: 'Video vysvětlení', q: '/video fotosyntéza' },
 ];
 
 const POWERS = [
@@ -495,7 +496,7 @@ function renderChat() {
       ${ready ? '' : busy('download') ? `<div class="card glow" style="text-align:left"><p style="margin:0 0 6px">Stahuji mozek na pozadí – mezitím se klidně ptej (odpovím cloudem nebo z offline znalostí, jakmile bude mozek stažený, myslím v telefonu).</p>
         <div class="progress"><i style="width:${Math.max(0, S.bg.progress)}%"></i></div><div class="meta">${esc(S.bg.detail || S.bg.phase || '')}</div></div>` : `<div class="card glow" style="text-align:left"><p style="margin:0 0 10px">Stáhni mi mozek do telefonu – pak myslím úplně offline.</p>
         <button class="btn primary wide" data-go="modules">Otevřít Moduly</button></div>`}
-      <div class="suggest">${SUGGEST.filter((x, i) => [0, 3, 4, 5].includes(i)).map(s => `<button data-suggest="${esc(s.q)}"><span class="s-ic">${esc(s.ic)}</span><b>${esc(s.t)}</b><small>${esc(s.q.replace(/^\/agent /, ''))}</small></button>`).join('')}</div>
+      <div class="suggest">${SUGGEST.filter((x, i) => [0, 3, 5, 6].includes(i)).map(s => `<button data-suggest="${esc(s.q)}"><span class="s-ic">${esc(s.ic)}</span><b>${esc(s.t)}</b><small>${esc(s.q.replace(/^\/agent /, ''))}</small></button>`).join('')}</div>
     </section></div>`;
     return;
   }

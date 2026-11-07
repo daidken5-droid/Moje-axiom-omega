@@ -233,6 +233,8 @@ class OmegaService : Service() {
         }
         val userRole = cz.axiom.omega.core.agent.AgentRole.of(intent.getStringExtra("role"))
         val userLevel = RandyLevel.fromCode(intent.getStringExtra("level"))
+        // VIDEO VYSVĚTLENÍ: „/video téma“, „udělej video o …“ → krátké video s titulky a hudbou, vyrobené v telefonu
+        cz.axiom.omega.core.video.VideoIntent.parse(text)?.let { topic -> video(threadId, text, topic, cancel); return }
         // Ω FLASH · OKAMŽITĚ: jednoduché otázky (čas, datum, výpočet, převod, krátká definice) bez mozku, v milisekundách
         if (instant(threadId, text, userVariant, userKind, userRole, userLevel)) return
         // RANDY SUPERVISOR: nadřazený modul naplánuje podfunkce a zdroje
@@ -550,6 +552,94 @@ class OmegaService : Service() {
             // ani knihovna, ani web: srozumitelně, co se stalo a co zkusit (technický detail až za tím)
             val human = "Teď se mi nepodařilo odpovědět – mozek ani cloud nejsou dostupné a v offline knihovně ani na webu jsem nic nenašel. " +
                 "Zkus to za chvíli znovu, zeptej se jinými slovy, nebo v Nastavení zapni cloud / stáhni mozek.\n\n_Detail: ${msg.take(160)}_"
+            omega.db.addMessage(threadId, "assistant", human, JSONObject().put("error", true))
+            Events.emit("error", JSONObject().put("threadId", threadId).put("message", human))
+        }
+    }
+
+    /**
+     * VIDEO VYSVĚTLENÍ (podle šablony „explainer video“, ale celé v telefonu): podklad z offline Wikipedie → web →
+     * mozek (jen když podklad chybí; fakta pak označená k ověření) → storyboard → scény + hudba → MP4 ve Stažené/AVIOR.
+     */
+    private fun video(threadId: Long, text: String, topic: String, cancel: CancelToken) {
+        val job = omega.job
+        job.reset("ask", threadId)
+        Events.emit("state", job.toJson())
+        val started = System.currentTimeMillis()
+        fun phase(t: String, pct: Int = -1) { job.phase = t; job.progress = pct; Events.emit("phase", JSONObject().put("text", t)); updateNotification(t, pct) }
+        try {
+            val E = cz.axiom.omega.core.video.Explainer
+            val long = cz.axiom.omega.core.video.VideoIntent.wantsLong(text)
+            phase("Hledám podklady k videu: $topic")
+            var engineLabel = "bez mozku"
+            var private = true
+            var url = ""
+            // 1) offline knihovna (bez internetu, bez mozku)
+            val bare = cz.axiom.omega.core.agent.Topic.bare(topic) ?: topic
+            var board = runCatching {
+                val hits = omega.quickKnowledge().search(bare, 6)
+                E.pickArticle(bare, hits)?.let { a -> E.fromSource(E.displayTitle(a.title), a.text, a.title.replace(": ", " – "), long) }
+            }.getOrNull()
+            // 2) web (Wikipedie / výsledky hledání) – jen se zapnutým webem
+            if (board == null && omega.settings.web && Introspect.online(this)) {
+                phase("Offline nic – hledám na webu…")
+                board = runCatching {
+                    val snips = cz.axiom.omega.core.hub.WebGround.gather(bare).snippets
+                    (E.pickArticle(bare, snips) ?: snips.firstOrNull { it.title.contains("Wikipedi", true) })?.let { a ->
+                        url = a.source; private = false
+                        E.fromSource(E.displayTitle(a.title), a.text, "web – " + a.title, long)
+                    }
+                }.getOrNull()
+            }
+            // 3) mozek: jen když podklad chybí (titulky z jeho znalostí, výslovně označené k ověření)
+            if (board == null) {
+                val engines = omega.availableEngines()
+                if (engines.isNotEmpty()) {
+                    val engine = omega.resolve(if ("local" in engines && omega.settings.mode == "local") "local" else omega.settings.mode)
+                    phase("Podklad nenalezen – storyboard píše ${engine.label}…")
+                    val r = engine.generate(listOf(ChatMessage(Role.USER, E.prompt(topic, long))),
+                        cz.axiom.omega.core.llm.GenOptions(maxTokens = 900, effort = "low", temperature = 0.3f), cancel) { }
+                    board = E.parse(topic, r.text)
+                    engineLabel = engine.label; private = engine.kind == EngineKind.LOCAL
+                }
+            }
+            if (board == null) {
+                val msg = "Na video o „$topic“ jsem nenašel podklad – v offline knihovně ani na webu není článek, ze kterého bych vzal fakta, " +
+                    "a mozek není k dispozici. Zkus přesnější název tématu (např. „/video fotosyntéza“), stáhni Wikipedii v Knihovně, nebo zapni mozek / cloud."
+                omega.job.busy = false
+                val id = omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("engine", "Video").put("error", false))
+                Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", msg).put("meta", JSONObject().put("engine", "Video")))
+                return
+            }
+            phase("Storyboard: ${board.scenes.size} scény · ${board.seconds} s – vykresluji v telefonu…", 1)
+            val r = cz.axiom.omega.video.VideoMaker(this).make(board, cancel) { t, p -> phase(t, p) }
+            synchronized(omega.forge.session) { omega.forge.session.clear() }
+            val base = "AVIOR-video-" + cz.axiom.omega.core.forge.FileForge.safeName(
+                java.text.Normalizer.normalize(board.topic, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").replace(Regex("[^A-Za-z0-9]+"), "-").trim('-').take(40).ifBlank { "tema" }, "mp4",
+            ).removeSuffix(".mp4")
+            omega.forge.save("$base.mp4", "video/mp4", r.mp4.readBytes())
+            r.stills?.let { omega.forge.save("$base-snimky.png", "image/png", it) }
+            r.mp4.delete()
+            val sb = StringBuilder()
+            sb.append("**Video vysvětlení: ${board.topic}** – ${board.seconds} s, ${board.scenes.size} scén, 720×1280, titulky a tichá hudba složená v telefonu.\n\n")
+            sb.append(E.describe(board)).append("\n\n")
+            sb.append("Zdroj faktů: ${board.source}").append(if (board.byBrain) " – titulky napsal mozek bez podkladu, fakta si ověř." else " – titulky jsou věty ze zdroje.").append("\n")
+            sb.append(if (r.qa.isEmpty()) "Kontrola snímků: titulky celé v ploše, kontrast v pořádku.\n" else "Kontrola snímků: ${r.qa.joinToString("; ")}.\n")
+            if (r.silent) sb.append("Hudbu se nepodařilo zakódovat – video je bez zvuku.\n")
+            sb.append("Uloženo do Stažené/AVIOR (video + obrázek se snímky scén). Náhled GIF nevyrábím – Android nemá kodér GIF.")
+            if (private) sb.append(" Vyrobeno v telefonu, nic neodešlo na internet.")
+            val answer = sb.toString()
+            val meta = JSONObject().put("engine", "Video · $engineLabel").put("millis", System.currentTimeMillis() - started).put("private", private)
+                .put("route", "video vysvětlení · ${r.frames} snímků za ${r.millis / 1000} s")
+            if (url.isNotBlank() || !board.byBrain) meta.put("sources", JSONArray().put(JSONObject().put("title", board.source).put("url", url).put("source", board.source)))
+            val made = synchronized(omega.forge.session) { omega.forge.session.toList() }
+            if (made.isNotEmpty()) meta.put("files", JSONArray().apply { made.forEach { put(it) } })
+            val id = omega.db.addMessage(threadId, "assistant", answer, meta)
+            Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", answer).put("meta", meta))
+        } catch (e: CancelledException) {
+            Events.emit("done", JSONObject().put("threadId", threadId).put("stopped", true))
+        } catch (e: Exception) {
+            val human = "Video se nepodařilo vyrobit: ${e.message?.take(160) ?: e.javaClass.simpleName}. Zkus to znovu (napiš „Pokračuj“), případně kratší téma."
             omega.db.addMessage(threadId, "assistant", human, JSONObject().put("error", true))
             Events.emit("error", JSONObject().put("threadId", threadId).put("message", human))
         }
