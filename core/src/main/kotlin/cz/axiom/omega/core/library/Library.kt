@@ -62,7 +62,8 @@ object Libraries {
         if (words.isEmpty()) return null
         // Pozor: FTS4 předponu v uvozovkách ("abc"*) NEpodporuje – jen holé abc*.
         // Slova z TextUtil.words obsahují jen písmena a číslice (malá), takže nejde o FTS syntaxi.
-        val terms = words.map { w -> (if (titleOnly) "title:" else "") + if (w.length > 5) "${w.take(5)}*" else w }
+        // v NÁZVU předpona už od 4 znaků („porno“ → title:porno* najde „Pornografie“); v textu dál od 6
+        val terms = words.map { w -> if (titleOnly) "title:" + (if (w.length >= 4) "${w.take(5)}*" else w) else if (w.length > 5) "${w.take(5)}*" else w }
         return terms.joinToString(if (and) " " else " OR ")
     }
 

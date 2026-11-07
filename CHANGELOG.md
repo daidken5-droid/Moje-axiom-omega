@@ -1,5 +1,15 @@
 # Changelog – AVIOR
 
+## Delta IV · sestavení 1019 (hovorové tvary hesel bez mozku)
+- **„Co je porno“ odpoví bez mozku** z offline Wikipedie (heslo „Pornografie“). Dřív: FTS hledal v názvu jen přesné
+  slovo „porno“ a shoda hesla tolerovala nejvýš 3 znaky → odpověď převzal jazykový model.
+  - v názvu článku se hledá předponou už od 4 písmen (`title:porno*`),
+  - tabulka jednoznačných hovorových zkratek (porno, foto, auto, moto, kilo, info, net, tv…) → plné heslo,
+  - heslo začínající slovem, které ho v úvodu samo zmiňuje („Pornografie (zkráceně porno)…“),
+  - E-ARL (RETRIEVE) rozhoduje stejně jako WikiReflex.
+- **Oprava falešné shody:** „co je auto“ dřív mohlo dostat heslo „Autor“ – tolerance je teď jen pro pádové koncovky.
+- Export vlákna nese původ odpovědi (1018).
+
 ## Delta IV · sestavení 1015 (online modul, holá témata, bez mozku rozumí víc)
 - **Holý název tématu** („Operation Prato“, „Fotosyntéza“) = „co je X“: offline heslo, E-ARL definice, mozek s jasným
   zadáním. Dřív lehký mozek bez hledání → chyba nebo vymýšlení.

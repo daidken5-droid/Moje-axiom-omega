@@ -91,7 +91,8 @@ object Earl {
             val entity = define.find(s.canonical)?.groupValues?.get(1)?.trim()?.trimEnd('?', '.') ?: Topic.bare(s.prompt) ?: ""
             val hits = runCatching { c.knowledge.invoke(entity) }.getOrDefault(emptyList())
             // názvy z offline knihovny mají předponu („Wikipedie: Fotosyntéza“) – dřív se proto přesná shoda nenašla NIKDY
-            val exact = hits.firstOrNull { WikiReflex.titleMatches(it.title, entity) }
+            // stejné rozhodnutí jako WikiReflex (± skloňování, hovorové zkratky „porno“ → Pornografie, heslo se zmínkou v úvodu)
+            val exact = WikiReflex.match(entity, hits) ?: WikiReflex.find(entity, object : KnowledgeSource { override fun search(query: String, limit: Int) = c.knowledge.invoke(query) })?.first
             if (exact != null && exact.text.length >= 120) {
                 var conf = 88
                 if (c.brainLoaded) conf -= 6          // mozek je v RAM → lehká odpověď mozkem je levná a bohatší

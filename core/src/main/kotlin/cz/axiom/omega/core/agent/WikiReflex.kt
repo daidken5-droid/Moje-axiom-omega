@@ -22,8 +22,14 @@ object WikiReflex {
     fun titleMatches(title: String, subject: String): Boolean {
         val t = cleanTitle(title); val s = TextUtil.fold(subject).lowercase().trim()
         if (s.length < 2) return false
-        return t == s || (s.length >= 4 && (t.startsWith(s) || s.startsWith(t)) && kotlin.math.abs(t.length - s.length) <= 3)
+        if (t == s) return true
+        if (s.length < 4) return false
+        // jen skloňování: delší tvar = kratší + pádová koncovka („Telč“/„Telče“). Dřív stačil rozdíl ≤ 3 znaky,
+        // takže „co je auto“ dostalo heslo „Autor“.
+        val (short, long) = if (t.length <= s.length) t to s else s to t
+        return long.startsWith(short) && long.length - short.length <= 3 && long.substring(short.length) in ENDINGS
     }
+    private val ENDINGS = setOf("a", "e", "i", "o", "u", "y", "em", "ou", "ech", "ach", "ami", "ovi", "um", "im", "eho", "emu", "ym", "ych", "mi", "ove", "ie", "ii", "ia")
 
     private val birth = rx("^kdy se narodil[a]? (.{2,50})$|^kdy (?:ma|mel|mela) narozeniny (.{2,50})$|^datum narozeni (.{2,50})$")
     private val death = rx("^kdy zemrel[a]? (.{2,50})$|^kdy umrel[a]? (.{2,50})$|^datum umrti (.{2,50})$")
@@ -52,11 +58,41 @@ object WikiReflex {
         return null
     }
 
-    private fun article(subject: String, k: KnowledgeSource): Snippet? {
-        if (subject.split(' ').size > 6) return null
-        val hits = runCatching { k.search(subject, 5) }.getOrDefault(emptyList())
-        return hits.firstOrNull { titleMatches(it.title, subject) }
+    /**
+     * Hovorové / zkrácené tvary → heslo (jen jednoznačné). „Co je porno“ dřív heslo „Pornografie“ nenašlo
+     * (rozdíl délky > 3) a odpověď převzal jazykový model.
+     */
+    private val aliases = mapOf("porno" to "pornografie", "foto" to "fotografie", "fotka" to "fotografie", "auto" to "automobil",
+        "moto" to "motocykl", "kilo" to "kilogram", "info" to "informace", "mobil" to "mobilni telefon", "net" to "internet",
+        "televka" to "televize", "tv" to "televize", "lednice" to "chladnicka", "kolo" to "jizdni kolo",
+        "eko" to "ekologie", "bio" to "biologie", "psycho" to "psychologie", "hifi" to "hi-fi", "wifi" to "wi-fi")
+
+    /**
+     * Heslo pro [subject] mezi [hits]: přesná shoda (± skloňování) → hovorová zkratka → heslo začínající slovem, které
+     * ho v úvodu samo zmiňuje („Pornografie (zkráceně porno) …“). Jinak null (zdržet se).
+     */
+    fun match(subject: String, hits: List<Snippet>): Snippet? {
+        hits.firstOrNull { titleMatches(it.title, subject) }?.let { return it }
+        val s = TextUtil.fold(subject).lowercase().trim()
+        aliases[s]?.let { a -> hits.firstOrNull { titleMatches(it.title, a) }?.let { return it } }
+        if (s.length >= 4 && ' ' !in s) {
+            val word = Regex("(^|[^\\p{L}])" + Regex.escape(s) + "([^\\p{L}]|$)")
+            hits.firstOrNull { cleanTitle(it.title).startsWith(s) && word.containsMatchIn(TextUtil.fold(it.text.take(500)).lowercase()) }?.let { return it }
+        }
+        return null
     }
+
+    /** Hledání hesla včetně hovorové zkratky (druhé hledání pod plným názvem). Vrací (heslo, všechny výsledky). */
+    fun find(subject: String, k: KnowledgeSource, limit: Int = 6): Pair<Snippet, List<Snippet>>? {
+        if (subject.split(' ').size > 6) return null
+        val hits = runCatching { k.search(subject, limit) }.getOrDefault(emptyList())
+        match(subject, hits)?.let { return it to hits }
+        val alias = aliases[TextUtil.fold(subject).lowercase().trim()] ?: return null
+        val more = runCatching { k.search(alias, limit) }.getOrDefault(emptyList())
+        return hits.firstOrNull { titleMatches(it.title, alias) }?.let { it to hits } ?: more.firstOrNull { titleMatches(it.title, alias) }?.let { it to more }
+    }
+
+    private fun article(subject: String, k: KnowledgeSource): Snippet? = find(subject, k, 5)?.first
 
     private fun source(s: Snippet) = "\n\n— *offline: ${s.title.replace(Regex("^Wikipedie:\\s*"), "Wikipedie – ")}*"
 
@@ -85,9 +121,7 @@ object WikiReflex {
     }
 
     private fun define(subject: String, k: KnowledgeSource): Instant.Answer? {
-        if (subject.split(' ').size > 6) return null
-        val hits = runCatching { k.search(subject, 6) }.getOrDefault(emptyList())
-        val a = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
+        val (a, hits) = find(subject, k) ?: return null
         val t = Instant.firstSentences(a.text, 2, 420) ?: return null
         return Instant.Answer(t + source(a) + related(a, subject, hits), "Wikipedie", confidence = 87)
     }
