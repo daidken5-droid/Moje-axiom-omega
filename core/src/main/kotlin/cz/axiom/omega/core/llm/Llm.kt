@@ -14,7 +14,15 @@ data class GenOptions(
     val webSearch: Boolean = false,
     /** Lokální modely s přepínačem přemýšlení (Qwen3/3.5): <think> ano/ne. */
     val thinking: Boolean = false,
+    /** NATIVNÍ NÁSTROJE (OpenAI „tools“): když je poskytovatel podporuje, model volá nástroje strukturovaně. */
+    val tools: List<ToolSpec> = emptyList(),
 )
+
+/** Popis nástroje pro nativní function calling: [parametersJson] je JSON Schema objektu argumentů. */
+data class ToolSpec(val name: String, val description: String, val parametersJson: String)
+
+/** Strukturované volání nástroje od modelu (argumenty jako JSON text, složený ze streamu). */
+data class ToolCall(val id: String, val name: String, val arguments: String)
 
 data class Source(val title: String, val url: String)
 
@@ -29,6 +37,8 @@ data class GenResult(
     val inputTokens: Long? = null,
     val outputTokens: Long? = null,
     val millis: Long = 0,
+    /** nativní volání nástrojů (prázdné, když model odpověděl textem) */
+    val toolCalls: List<ToolCall> = emptyList(),
 )
 
 class CancelToken {

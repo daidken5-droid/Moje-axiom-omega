@@ -12,6 +12,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 import java.io.IOException
 
@@ -48,7 +49,16 @@ class KimiEngine(
     }
     override val contextBudgetChars = if (kind == EngineKind.HF) 60_000 else 400_000
 
-    override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
+    override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult = try {
+        generateOnce(messages, options, cancel, onDelta)
+    } catch (e: EngineException) {
+        // poskytovatel nativní nástroje nezná (HTTP 400 „tools“ / „function“) → stejný dotaz bez nich (textový protokol agenta)
+        if (options.tools.isNotEmpty() && e.message.orEmpty().let { it.contains("HTTP 400") && Regex("(?i)tool|function").containsMatchIn(it) }) {
+            generateOnce(messages, options.copy(tools = emptyList()), cancel, onDelta)
+        } else throw e
+    }
+
+    private fun generateOnce(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val started = System.currentTimeMillis()
         val body = buildRequest(messages, options)
         val conn = Http.open(baseUrl.trimEnd('/') + "/chat/completions", "POST", readMs = 300_000)
@@ -70,6 +80,8 @@ class KimiEngine(
             var usageIn: Long? = null
             var usageOut: Long? = null
             var servedModel = model
+            // NATIVNÍ VOLÁNÍ NÁSTROJŮ: název a argumenty chodí po kouscích podle indexu → skládat, nezahazovat
+            val calls = java.util.TreeMap<Int, Triple<StringBuilder, StringBuilder, StringBuilder>>() // id, name, args
 
             Sse.read(conn.inputStream, cancel) { _, data ->
                 if (data.trim() == "[DONE]") return@read false
@@ -82,6 +94,13 @@ class KimiEngine(
                     reasoning.append(it); onDelta(Delta(it, reasoning = true))
                 }
                 delta?.str("content")?.takeIf { it.isNotEmpty() }?.let { splitter.feed(it) }
+                (delta?.get("tool_calls") as? JsonArray)?.forEach { tc ->
+                    val o = tc as? JsonObject ?: return@forEach
+                    val idx = (o["index"] as? JsonPrimitive)?.intOrNull ?: calls.size
+                    val slot = calls.getOrPut(idx) { Triple(StringBuilder(), StringBuilder(), StringBuilder()) }
+                    o.str("id")?.let { if (slot.first.isEmpty()) slot.first.append(it) }
+                    (o["function"] as? JsonObject)?.let { f -> f.str("name")?.let { slot.second.append(it) }; f.str("arguments")?.let { slot.third.append(it) } }
+                }
                 choice?.str("finish_reason")?.let { finish = it }
                 val usage = (obj["usage"] as? JsonObject) ?: (choice?.get("usage") as? JsonObject)
                 usage?.let {
@@ -92,9 +111,12 @@ class KimiEngine(
             }
             splitter.finish()
             cancel.check()
-            if (text.isBlank()) throw EngineException("$vendor nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.")
+            val toolCalls = calls.values.filter { it.second.isNotBlank() }.mapIndexed { i, (id, name, args) ->
+                ToolCall(id.toString().ifBlank { "call_$i" }, name.toString().trim(), args.toString().ifBlank { "{}" })
+            }
+            if (text.isBlank() && toolCalls.isEmpty()) throw EngineException("$vendor nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.")
             if (finish == "length") text.append("\n\n[Odpověď byla zkrácena limitem tokenů.]")
-            return GenResult(text.toString().trim(), reasoning.toString().trim(), servedModel, finish, emptyList(), usageIn, usageOut, System.currentTimeMillis() - started)
+            return GenResult(text.toString().trim(), reasoning.toString().trim(), servedModel, finish, emptyList(), usageIn, usageOut, System.currentTimeMillis() - started, toolCalls)
         } catch (e: CancelledException) {
             throw e
         } catch (e: EngineException) {
@@ -117,6 +139,15 @@ class KimiEngine(
         put("max_tokens", options.maxTokens.coerceAtMost(maxOut))
         if (kind != EngineKind.KIMI_CLOUD) put("temperature", options.temperature.toDouble())
         effortMapper?.invoke(options.effort)?.let { put("reasoning_effort", it) }
+        if (options.tools.isNotEmpty()) put("tools", buildJsonArray {
+            options.tools.forEach { t -> add(buildJsonObject {
+                put("type", "function")
+                put("function", buildJsonObject {
+                    put("name", t.name); put("description", t.description)
+                    put("parameters", runCatching { Json.parseToJsonElement(t.parametersJson) }.getOrElse { buildJsonObject { put("type", "object") } })
+                })
+            }) }
+        })
         put("messages", buildJsonArray {
             // Sloučí systémové zprávy do jedné na začátku (některé servery víc nesnesou).
             val system = messages.filter { it.role == Role.SYSTEM }.joinToString("\n\n") { it.content }
