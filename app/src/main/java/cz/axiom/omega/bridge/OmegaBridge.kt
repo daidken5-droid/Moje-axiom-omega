@@ -127,7 +127,9 @@ class OmegaBridge(private val activity: MainActivity) {
         val o = JSONObject(json)
         val text = o.getString("text").trim()
         require(text.isNotEmpty()) { "Prázdný dotaz." }
-        require(text.length <= 32_000) { "Dotaz je příliš dlouhý (max. 32 000 znaků)." }
+        // 120 000 znaků: delší zadání se do Intentu služby nevejde bezpečně (limit Binderu ~1 MB); co se nevejde do okna
+        // modelu, orchestrátor rozdělí na části a syntetizuje (nic se nezkracuje potichu)
+        require(text.length <= 120_000) { "Dotaz je příliš dlouhý (${text.length} znaků, max. 120 000). Pošli ho prosím ve dvou zprávách, nebo jako přílohu." }
         if (OmegaService.RUNNING_ASK.get()) { Events.note("Právě přemýšlím – počkej nebo mě zastav."); return -1L }
         var threadId = o.optLong("threadId", 0)
         if (threadId <= 0) threadId = omega.db.newThread(TextUtil.clip(Randy.detect(text).cleanedPrompt.ifBlank { text }, 48))
