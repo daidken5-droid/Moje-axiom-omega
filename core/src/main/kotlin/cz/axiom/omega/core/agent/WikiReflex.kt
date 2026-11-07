@@ -85,8 +85,25 @@ object WikiReflex {
     }
 
     private fun define(subject: String, k: KnowledgeSource): Instant.Answer? {
-        val a = article(subject, k) ?: return null
+        if (subject.split(' ').size > 6) return null
+        val hits = runCatching { k.search(subject, 6) }.getOrDefault(emptyList())
+        val a = hits.firstOrNull { titleMatches(it.title, subject) } ?: return null
         val t = Instant.firstSentences(a.text, 2, 420) ?: return null
-        return Instant.Answer(t + source(a), "Wikipedie", confidence = 87)
+        return Instant.Answer(t + source(a) + related(a, subject, hits), "Wikipedie", confidence = 87)
+    }
+
+    /**
+     * PROPOJENÍ TÉMAT bez mozku: jiná hesla ze stejného hledání, která o tématu skutečně mluví (zmíní ho v textu).
+     * Žádné další hledání ani model – jen hesla, která v knihovně existují; na každé se dá rovnou zeptat holým názvem.
+     */
+    fun related(article: Snippet, subject: String, hits: List<Snippet>, max: Int = 3): String {
+        val stem = TextUtil.fold(subject).lowercase().split(' ').filter { it.length >= 4 }.map { it.take(maxOf(4, it.length - 2)) }
+        if (stem.isEmpty()) return ""
+        val self = cleanTitle(article.title)
+        val rel = hits.asSequence().filter { it !== article && it.title.startsWith("Wikipedie") }
+            .map { it to cleanTitle(it.title) }.filter { (_, t) -> t != self && t.isNotBlank() }
+            .filter { (s, _) -> val txt = TextUtil.fold(s.text).lowercase(); stem.all { it in txt } }
+            .map { (s, _) -> s.title.removePrefix("Wikipedie:").trim() }.distinct().take(max).toList()
+        return if (rel.isEmpty()) "" else "\n\n**Souvisí:** " + rel.joinToString(" · ")
     }
 }

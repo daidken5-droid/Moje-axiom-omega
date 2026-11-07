@@ -195,6 +195,8 @@ object QuestionNorm {
             .replace(rx("^(cas|kolik je cas|jaky je cas|jaky mame cas|presny cas|aktualni cas|kolik je h|kolik je hod|kolik hodin)$"), "kolik je hodin")
         f = stripWrap(f)
         out += f
+        // 2b) HESLOVITÝ DOTAZ bez tvaru otázky („Gruzie měna“, „Brno poloha“, „Karel Gott narození“) → otázka
+        telegraphic(f)?.let { out += it }
         // 3) přeformulování na tvary, které reflexy znají
         val r = rephrase(f)
         out += r
@@ -239,6 +241,31 @@ object QuestionNorm {
             return "kolik je ${m.groupValues[1]} $op ${m.groupValues[3]}"
         }
         rx("^(?:give me a |pick a )?random number (?:from|between) (\\d+) (?:to|and) (\\d+)$").find(f)?.let { m -> return "nahodne cislo od ${m.groupValues[1]} do ${m.groupValues[2]}" }
+        return null
+    }
+
+    private val telegram = listOf(
+        rx("^(.{2,40}?) (?:narozeni|narozen|narozena|datum narozeni)$") to "kdy se narodil %s",
+        rx("^(.{2,40}?) (?:umrti|zemrel|zemrela|smrt|datum umrti)$") to "kdy zemrel %s",
+        rx("^(.{2,40}?) (?:hlavni mesto|metropole)$") to "jake je hlavni mesto %s",
+        rx("^(.{2,40}?) (?:mena|platidlo|jaka mena)$") to "jakou menu ma %s",
+        rx("^(.{2,40}?) (?:predvolba|telefonni predvolba|volaci kod)$") to "jaka je predvolba %s",
+        rx("^(.{2,40}?) (?:poloha|lokace|umisteni|kde lezi|kde je)$") to "kde lezi %s",
+        rx("^(.{2,40}?) (?:zalozeni|vznik|zalozen|zalozena)$") to "kdy vznikl %s",
+        rx("^(.{2,40}?) (?:iso|iso kod|kod iso)$") to "iso kod %s",
+        rx("^(.{2,40}?) (?:definice|vyznam|wiki|wikipedie|info|informace)$") to "co je %s",
+    )
+    private val telegramTail = setOf("narozeni", "narozen", "narozena", "umrti", "zemrel", "zemrela", "smrt", "mesto", "metropole", "mena", "platidlo",
+        "predvolba", "kod", "poloha", "lokace", "umisteni", "lezi", "je", "zalozeni", "vznik", "zalozen", "zalozena", "iso", "definice", "vyznam",
+        "wiki", "wikipedie", "info", "informace")
+    private val questionStart = rx("^(co|kdo|kdy|kde|jak|proc|kolik|ktery|ktera|ktere|jaky|jaka|jake|je|jsou|ma|mas|muzes|umis)\\b")
+
+    /** Heslovitý dotaz → otázka (jen krátký vstup bez otázkového slova; nic nedosazuje, jen přeskládá slova). */
+    fun telegraphic(f: String): String? {
+        // levný předfiltr: heslovitý dotaz končí jedním z klíčových slov – jinak žádný regex
+        val last = f.substringAfterLast(' ')
+        if (last !in telegramTail || f.count { it == ' ' } > 6 || questionStart.containsMatchIn(f)) return null
+        for ((r, t) in telegram) r.find(f)?.let { return t.format(it.groupValues[1].trim()) }
         return null
     }
 
