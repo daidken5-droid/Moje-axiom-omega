@@ -15,8 +15,9 @@ class RandyStore(context: Context) {
         val o = runCatching { JSONObject(p.getString("stats", "{}")!!) }.getOrDefault(JSONObject())
         return o.keys().asSequence().mapNotNull { k ->
             val v = Variant.entries.firstOrNull { it.name == k } ?: return@mapNotNull null
-            val j = o.getJSONObject(k)
-            v to Supervisor.VariantStat(j.optInt("runs"), j.optLong("ms"), if (j.has("conf")) j.getInt("conf") else null, j.optInt("good"), j.optInt("bad"), j.optInt("esc"))
+            // statistika nesmí NIKDY shodit dotaz (dřív „Value null at conf … cannot be converted to int“ u každé otázky)
+            val j = o.optJSONObject(k) ?: return@mapNotNull null
+            v to Supervisor.VariantStat(j.optInt("runs"), j.optLong("ms"), if (j.has("conf") && !j.isNull("conf")) j.getInt("conf") else null, j.optInt("good"), j.optInt("bad"), j.optInt("esc"))
         }.toMap()
     }
 

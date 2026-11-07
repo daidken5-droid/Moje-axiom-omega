@@ -132,8 +132,19 @@ class OmegaService : Service() {
                 }
             } catch (e: Throwable) {
                 job.phase = "Chyba"
-                Events.emit("error", JSONObject().put("message", e.message ?: e.javaClass.simpleName).put("lane", lane.name.lowercase())
-                    .put("threadId", intent.getLongExtra("threadId", 0)))
+                val tid = intent.getLongExtra("threadId", 0)
+                val raw = e.message ?: e.javaClass.simpleName
+                // DOTAZ spadl mimo hlavní zpracování (plánování, statistiky…): i tak zkusit knihovnu / web a odpovědět
+                // srozumitelně – dřív uživatel viděl jen surovou zprávu („Value null at conf …“). Uložená chyba umožní „Pokračuj“.
+                if (intent.action == ACTION_ASK && tid > 0) {
+                    val text = intent.getStringExtra("text").orEmpty()
+                    val answered = runCatching { offlineAnswer(tid, text, "vnitřní chyba: ${raw.take(80)}") }.getOrDefault(false)
+                    if (!answered) {
+                        val human = "Při zpracování dotazu nastala vnitřní chyba a odpověď nevznikla. Napiš „Pokračuj“ a zkusím to znovu od začátku.\n\n_Detail: ${raw.take(160)}_"
+                        runCatching { omega.db.addMessage(tid, "assistant", human, JSONObject().put("error", true)) }
+                        Events.emit("error", JSONObject().put("message", human).put("lane", lane.name.lowercase()).put("threadId", tid))
+                    }
+                } else Events.emit("error", JSONObject().put("message", raw).put("lane", lane.name.lowercase()).put("threadId", tid))
             } finally {
                 job.busy = false
                 if (bg) bgToken = null else askToken = null
