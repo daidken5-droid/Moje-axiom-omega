@@ -47,6 +47,8 @@ object WikiReflex {
             founded.find(f)?.let { m -> return sentence(subj(m) ?: return null, k, rx("\\b(zalozil|zalozila|zalozen|vznikl|vznikla|vzniklo|zrizen|zalozeni)\\w*"), "vznik") }
             what.find(f)?.let { m -> return define(subj(m) ?: return null, k) }
         }
+        // holý název hesla („Fotosyntéza“, „Karel Gott“) = „co je X“ – jen přesná shoda hesla
+        Topic.bare(prompt)?.let { return define(it, k) }
         return null
     }
 

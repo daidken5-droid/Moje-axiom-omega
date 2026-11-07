@@ -57,6 +57,8 @@ object Earl {
         val c = s.canonical.replace(opener, "").ifBlank { s.canonical }
         // tvorbu a analýzu poznat z PŮVODNÍHO znění – normalizátor „napiš mi“ odstraní jako zdvořilostní obal
         val raw = s.folded.trimEnd('?', '.', '!').replace(Regex("^(prosim( te)?|ahoj|hele|avior)[ ,]+"), "").replace(opener, "").ifBlank { s.folded }
+        // holý název tématu („Operation Prato“) = definice, ne „obecné“ (→ lehký mozek bez hledání)
+        if (Topic.bare(s.prompt) != null) return "definice"
         return when {
             s.hasCode || (codeAsk.containsMatchIn(raw) && (create.containsMatchIn(raw) || rx("\\b(oprav|vysvetli|proc nefunguje|chyba)\\b").containsMatchIn(raw))) -> "kód"
             live.containsMatchIn(raw) && !define.matches(c) -> "aktuální"
@@ -86,7 +88,7 @@ object Earl {
         }
         // definice: přesná shoda hesla v offline knihovně → stačí výňatek (když mozek není po ruce levně)
         if (cat == "definice" && !s.timeSensitive && c.knowledge != null) {
-            val entity = define.find(s.canonical)?.groupValues?.get(1)?.trim()?.trimEnd('?', '.') ?: ""
+            val entity = define.find(s.canonical)?.groupValues?.get(1)?.trim()?.trimEnd('?', '.') ?: Topic.bare(s.prompt) ?: ""
             val hits = runCatching { c.knowledge.invoke(entity) }.getOrDefault(emptyList())
             // názvy z offline knihovny mají předponu („Wikipedie: Fotosyntéza“) – dřív se proto přesná shoda nenašla NIKDY
             val exact = hits.firstOrNull { WikiReflex.titleMatches(it.title, entity) }

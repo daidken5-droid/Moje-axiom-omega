@@ -56,6 +56,11 @@ data class AskRequest(
     /** Rozpočet Regulátoru výkonu: max. tokenů odpovědi a počet podkladů (null = výchozí). */
     val maxTokens: Int? = null,
     val knowledgeLimit: Int? = null,
+    /**
+     * WEBOVÉ PODKLADY pro cloudové modely (Wikipedie + web, s adresou) – null = bez webu.
+     * Použijí se jen u dotazů na fakta / témata / aktuální věci (ne u tvorby, kódu a konverzace).
+     */
+    val webGround: ((String) -> List<Snippet>)? = null,
 )
 
 data class PassTrace(val index: Int, val pass: RandyPass, val text: String, val millis: Long, val model: String)
@@ -123,7 +128,14 @@ class Orchestrator(
 
         // 4) Vybavení: znalosti + paměť
         val tk = System.currentTimeMillis()
-        val snippets = if (req.useKnowledge) runCatching { knowledge.search(prompt, req.knowledgeLimit ?: if (local) 2 else 5) }.getOrDefault(emptyList()) else emptyList()
+        val offline = if (req.useKnowledge) runCatching { knowledge.search(prompt, req.knowledgeLimit ?: if (local) 2 else 5) }.getOrDefault(emptyList()) else emptyList()
+        // ONLINE MODUL jako moderní asistent: aktuální podklady z webu s citacemi (dřív jen Claude a jen přes vlastní nástroj)
+        // telefon: web jen u holého tématu (jinak by malý mozek s holým názvem neznámé věci jen hádal); cloud: fakta/témata/aktuality
+        val web = if (req.webGround != null && (if (engine.kind == EngineKind.LOCAL) Topic.bare(prompt) != null else wantsWeb(prompt))) {
+            listener.onPhase("Hledám na webu…")
+            runCatching { req.webGround.invoke(Topic.bare(prompt) ?: prompt) }.getOrDefault(emptyList())
+        } else emptyList()
+        val snippets = if (web.isEmpty()) offline else offline.take(2) + web
         knowledgeMillis = System.currentTimeMillis() - tk
         val memories = MemoryRanker.rank(prompt, memory.all(), if (local) 4 else 10)
         memory.touch(memories.map { it.id })
@@ -134,12 +146,14 @@ class Orchestrator(
         val system = if (phone) SystemPrompt.staticLocal(req.userName)
         else SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
             (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "") + (req.selfInsight?.let { "\n\n$it" } ?: "")
+        // holé téma → mozek dostane jasné zadání (jinak „Operation Prato“ neví, co se po něm chce)
+        val askText = Topic.bare(prompt)?.let { "Co je „$it“? Vysvětli stručně a věcně, co to je, kdy a kde se to odehrálo nebo k čemu slouží; cituj podklady [n]. Když podklady nic neříkají, řekni to – nevymýšlej si." } ?: prompt
         val grounded = if (phone) buildString {
-            append(groundedPrompt(prompt, facts, snippets, true))
+            append(groundedPrompt(askText, facts, snippets, true))
             append("\n\n---\n").append(SystemPrompt.dynamicLocal(level, selfState(), memories))
             req.style?.let { append("\nSTYL: ").append(it) }
             req.selfInsight?.let { append("\n").append(TextUtil.clip(it, 400)) }
-        } else groundedPrompt(prompt, facts, snippets, local)
+        } else groundedPrompt(askText, facts, snippets, local)
         val history = if (phone) phoneHistory(req.history) else trimHistory(req.history, engine.contextBudgetChars - system.length - grounded.length - 4_000)
         // sebereflexe (skrytý blok jistoty a poučení) stojí v telefonu desítky tokenů psaní → jen v cloudu
         val reflect = req.reflect && !phone
@@ -148,6 +162,7 @@ class Orchestrator(
         val passes = planPasses(level, req.maxPasses)
         val trace = mutableListOf<PassTrace>()
         val sources = LinkedHashMap<String, Source>()
+        web.filter { it.source.startsWith("https://") }.forEach { sources.putIfAbsent(it.source, Source(it.title, it.source)) }
         var last: GenResult? = null
         var reasoning = ""
         passes.forEachIndexed { i, pass ->
@@ -318,6 +333,10 @@ class Orchestrator(
             if (all.size <= m) return all
             return all.take(m - 1) + all.last()
         }
+
+        /** Dotaz, u kterého pomůže web: fakta, témata, definice, aktuální věci, analýza – ne tvorba, kód ani pokec. */
+        fun wantsWeb(prompt: String): Boolean = Topic.bare(prompt) != null ||
+            Earl.category(Pavucina.of(prompt)) in setOf("definice", "fakt", "aktuální", "obecné", "analýza")
 
         fun groundedPrompt(prompt: String, facts: List<Step0.Fact>, snippets: List<Snippet>, local: Boolean): String = buildString {
             append(prompt.trim())

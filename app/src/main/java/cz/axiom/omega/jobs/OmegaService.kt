@@ -391,7 +391,9 @@ class OmegaService : Service() {
                     fun req(e: cz.axiom.omega.core.llm.LlmEngine) = AskRequest(route.prompt, history, forced, passes, s.reflect, s.web && e.kind == EngineKind.CLAUDE,
                         !light && (plan.thinking ?: s.thinking) && budget.thinking, true, s.rates,
                         s.userName.ifBlank { null }, listOfNotNull(variant.style, plan.extraStyle).joinToString("\n").ifBlank { null }, variant.temperature, insight,
-                        maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge)
+                        maxTokens = budget.maxTokens.takeIf { e.kind == EngineKind.LOCAL }, knowledgeLimit = budget.knowledge,
+                        // ONLINE MODUL: webové podklady s citacemi pro všechny cloudové modely (Claude má vlastní webový nástroj)
+                        webGround = webGround(e))
                     var failover: String? = null
                     var r = try {
                         orch.run(req(engine), engine, cancel, listener)
@@ -511,10 +513,18 @@ class OmegaService : Service() {
             val msg = e.message ?: e.javaClass.simpleName
             // i při chybě zkusit odpovědět z offline knihovny (s vysvětlením, proč bez mozku)
             if (offlineAnswer(threadId, text, "mozek teď nejde použít: ${msg.take(90)}")) return
-            omega.db.addMessage(threadId, "assistant", msg, JSONObject().put("error", true))
-            Events.emit("error", JSONObject().put("threadId", threadId).put("message", msg))
+            // ani knihovna, ani web: srozumitelně, co se stalo a co zkusit (technický detail až za tím)
+            val human = "Teď se mi nepodařilo odpovědět – mozek ani cloud nejsou dostupné a v offline knihovně ani na webu jsem nic nenašel. " +
+                "Zkus to za chvíli znovu, zeptej se jinými slovy, nebo v Nastavení zapni cloud / stáhni mozek.\n\n_Detail: ${msg.take(160)}_"
+            omega.db.addMessage(threadId, "assistant", human, JSONObject().put("error", true))
+            Events.emit("error", JSONObject().put("threadId", threadId).put("message", human))
         }
     }
+
+    /** Webové podklady pro daný engine: jen online, se zapnutým webem, ne pro Claude (ten hledá sám). */
+    private fun webGround(e: cz.axiom.omega.core.llm.LlmEngine): ((String) -> List<cz.axiom.omega.core.agent.Snippet>)? =
+        if (!omega.settings.web || e.kind == EngineKind.CLAUDE || !Introspect.online(this)) null
+        else { q -> cz.axiom.omega.core.hub.WebGround.gather(q).snippets }
 
     /** E-ARL RETRIEVE: přesné heslo v offline knihovně → výňatek místo načítání mozku. */
     private fun earlRetrieve(threadId: Long, text: String, e: cz.axiom.omega.core.agent.Earl.Decision): Boolean {
@@ -532,9 +542,15 @@ class OmegaService : Service() {
     /** Odpověď z offline knihovny (Wikipedie, dokumenty, balíčky) – extraktivní, se zdrojem. false = nic vhodného. */
     private fun offlineAnswer(threadId: Long, text: String, reason: String): Boolean {
         val started = System.currentTimeMillis()
-        val a = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(text, 5)) }.getOrNull() ?: return false
-        val meta = JSONObject().put("engine", "Offline knihovna · bez mozku").put("millis", System.currentTimeMillis() - started).put("route", reason)
-            .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", true).put("level", "L0").put("offline", true)
+        val q = cz.axiom.omega.core.agent.Topic.bare(text) ?: text
+        val local = runCatching { cz.axiom.omega.core.agent.OfflineAnswer.compose(text, omega.quickKnowledge().search(q, 5)) }.getOrNull()
+        // knihovna nic → při internetu výňatek z webu (Wikipedie / výsledky hledání) místo surové chyby
+        val a = local ?: (if (omega.settings.web && Introspect.online(this)) runCatching {
+            cz.axiom.omega.core.hub.WebAnswer.compose(text) { cz.axiom.omega.core.hub.WebGround.gather(it).snippets }
+        }.getOrNull() else null) ?: return false
+        val meta = JSONObject().put("engine", if (local != null) "Offline knihovna · bez mozku" else "Web · bez mozku").put("millis", System.currentTimeMillis() - started).put("route", reason)
+            .put("instant", a.kind).put("reflex", a.confidence).put("confidence", a.confidence).put("private", local != null).put("level", "L0").put("offline", local != null)
+        a.contract?.let { k -> meta.put("contract", JSONObject().put("type", k.type.code).put("label", k.type.label).put("reason", k.reason).put("refs", JSONArray(k.evidenceRefs))) }
         omega.job.busy = false
         val id = omega.db.addMessage(threadId, "assistant", a.text, meta)
         Events.emit("done", JSONObject().put("threadId", threadId).put("id", id).put("content", a.text).put("meta", meta))
