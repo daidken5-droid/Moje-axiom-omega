@@ -161,6 +161,8 @@ class FreeCloudEngine(
     private val listModels: (FreeCloud.Provider, String) -> List<String> = { p, k -> KimiEngine.listModels(p.base, k) },
     /** Zapamatovat opravený model (aby se příště nezkoušel ten neplatný). */
     private val onModel: (String, String) -> Unit = { _, _ -> },
+    /** COST GUARD: placení členové jen s povolením a v rozpočtu (null = testy / bez ochrany) */
+    private val guard: CostGuard? = null,
 ) : LlmEngine {
     init { require(members.isNotEmpty()) { "Cloud: chybí klíč (Cerebras, Groq, OpenRouter, DeepSeek nebo Chutes)." } }
 
@@ -181,10 +183,18 @@ class FreeCloudEngine(
                 cancel.check()
                 val eng = factory(m)
                 var started = false
+                val opts = options.copy(maxTokens = options.maxTokens.coerceIn(256, m.provider.maxOut))
+                val fitted = fit(messages, m.provider.contextChars)
+                val chars = fitted.sumOf { it.content.length }
+                // PLACENÝ ČLEN: bez povolení / nad rozpočet se přeskočí – nikdy tichý přechod na placený endpoint
+                if (m.provider.paid && guard != null) {
+                    val d = guard.check(m.provider.id, m.model, chars, opts.maxTokens)
+                    if (d is CostGuard.Decision.Deny) { last = CostGuard.BudgetException(d.reason); break }
+                }
                 try {
-                    val opts = options.copy(maxTokens = options.maxTokens.coerceIn(256, m.provider.maxOut))
-                    val r = eng.generate(fit(messages, m.provider.contextChars), opts, cancel) { d -> started = true; onDelta(d) }
+                    val r = eng.generate(fitted, opts, cancel) { d -> started = true; onDelta(d) }
                     lastLabel = eng.label
+                    if (m.provider.paid) guard?.record(m.provider.id, m.model, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length)
                     return r
                 } catch (e: CancelledException) {
                     throw e

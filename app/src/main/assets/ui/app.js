@@ -854,7 +854,11 @@ function freeCloudHtml() {
       ${k[id] ? modelPick(id) : ''}
       <button class="link" data-open="${url}">Získat klíč ↗</button></div></details>`;
   const primary = on.length > 1 ? `<label>Hlavní cloud</label><select data-cloud-primary><option value="">Automaticky (podle priority)</option>${on.map(([id, nm]) => `<option value="${id}"${st.cloudPrimary === id ? ' selected' : ''}>${nm}</option>`).join('')}</select>
-    <p class="small muted" style="margin-top:6px">Hlavní cloud odpovídá vždy první, ostatní připojené jsou záloha při limitu nebo výpadku.</p>` : '';
+    <p class="small muted" style="margin-top:6px">Hlavní cloud odpovídá vždy první, ostatní připojené jsou záloha při limitu nebo výpadku. Placenou zálohu AVIOR použije jen s povolením níže.</p>` : '';
+  // NÁKLADY (COST GUARD): placení poskytovatelé jen s povolením a do měsíčního stropu; útrata je odhad z tokenů
+  const costs = (st.costs || []).map(c => `<div class="row" style="gap:8px;margin-top:6px"><label class="grow" style="margin:0"><input type="checkbox" data-cost-allow="${c.id}"${c.explicit ? ' checked' : ''}> ${esc(c.name)}${c.allowed && !c.explicit ? ' <small class="muted">(zvolen jako hlavní / režim)</small>' : ''}</label>
+    <input type="number" min="0" max="1000" step="0.5" style="width:72px" data-cost-budget="${c.id}" value="${c.budget}"><small class="muted">USD/měs · utraceno ${cz(Number(c.spent || 0).toFixed(2))}</small></div>`).join('');
+  const costBox = costs ? `<div class="sub">NÁKLADY – PLACENÉ CLOUDY</div><p class="small muted">Zdarma má vždy přednost. Placený cloud se použije jen když ho povolíš (nebo zvolíš jako hlavní) a jen do stropu – před každým voláním se cena odhadne.</p>${costs}` : '';
   return card(`<div class="row" style="gap:12px"><span class="v-ic">∞</span><span class="grow"><b>Cloud</b>
       <small class="muted" style="display:block">${on.length ? 'Připojeno ' + on.length + '× · ' + on.map(x => x[1]).join(' · ') : 'Stačí jeden klíč – zdarma bez karty'}</small></span><span class="dot ${on.length ? 'on' : 'off'}"></span></div>
     <p class="small">Velký model na cizím serveru: rychlejší a přesnější než mozek v telefonu a telefon nenačítá nic do RAM. Víc klíčů = automatická záloha, když jeden server narazí na limit.</p>
@@ -864,7 +868,7 @@ function freeCloudHtml() {
     ${PAID.map(f => prov(f, false)).join('')}
     <div class="sub">PAUŠÁL · VÝKONNÉ MODELY ZA PEVNOU CENU</div>
     ${FLAT.map(f => prov(f, false)).join('')}
-    ${primary}
+    ${primary}${costBox}
     <label>Priorita</label>
     <div class="seg"><button data-setv="cloudPriority" data-val="speed" class="${st.cloudPriority !== 'quality' ? 'on' : ''}">Rychlost</button><button data-setv="cloudPriority" data-val="quality" class="${st.cloudPriority === 'quality' ? 'on' : ''}">Kvalita</button></div>
     <p class="small muted" style="margin-top:6px">Rychlost = nejdřív Cerebras/Groq (stovky slov za sekundu). Kvalita = nejdřív placené silné modely (paušál, DeepSeek, Chutes), zdarma jako záloha.</p>
@@ -1515,6 +1519,8 @@ document.addEventListener('change', e => {
   }
   if (t.dataset.reportText !== undefined) { reportSheet.text = t.checked; reportSheet(); return; }
   if (t.dataset.cloudModel) { call('setCloudModel', t.dataset.cloudModel, t.value); return; }
+  if (t.dataset.costAllow !== undefined) { configure({ costAllow: { [t.dataset.costAllow]: t.checked } }); toast(t.checked ? 'Placené volání povoleno do stropu' : 'Placené volání zakázáno'); return; }
+  if (t.dataset.costBudget !== undefined) { configure({ costBudget: { [t.dataset.costBudget]: Number(t.value) || 0 } }); toast('Strop uložen'); return; }
   if (t.dataset.cloudPrimary !== undefined) { configure({ cloudPrimary: t.value }); toast(t.value ? 'Hlavní cloud: ' + ((CLOUDS().find(c => c[0] === t.value) || [])[1] || t.value) : 'Pořadí cloudů podle priority.'); return; }
   if (t.dataset.set) configure({ [t.dataset.set]: t.checked });
   if (t.dataset.text) configure({ [t.dataset.text]: t.value });

@@ -64,7 +64,7 @@ class CancelToken {
 class CancelledException : Exception("Zastaveno uživatelem.")
 
 /** Chyba poskytovatele s lidsky čitelnou zprávou. [retryable] = má smysl zkusit později. */
-class EngineException(message: String, val retryable: Boolean = false, cause: Throwable? = null) : Exception(message, cause)
+open class EngineException(message: String, val retryable: Boolean = false, cause: Throwable? = null) : Exception(message, cause)
 
 /** Společné rozhraní všech mozků: lokální llama.cpp, Kimi K3 (cloud / vlastní server), Claude. */
 interface LlmEngine {

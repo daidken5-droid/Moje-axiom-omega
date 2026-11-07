@@ -188,6 +188,26 @@ class Settings(context: Context) {
         get() = p.getString("cloudPrimary", "")!!
         set(v) = p.edit().putString("cloudPrimary", v).apply()
 
+    // ------------------------------------------------------------------ COST GUARD (placení poskytovatelé)
+    /** Povolení placených volání: výslovný přepínač, nebo poskytovatel zvolený jako hlavní cloud. */
+    fun costAllowed(id: String): Boolean = p.getBoolean("cost.allow.$id", false) || (id == cloudPrimary && id.isNotBlank()) ||
+        id == mode || (id == "claude" && p.contains("claudeBoost") && claudeBoost) // výslovně zvolený režim / „Claude jako posila“ = souhlas s tímto poskytovatelem
+
+    /** Přehled nákladů pro UI: placení poskytovatelé, povolení, rozpočet, útrata tento měsíc. */
+    fun costsJson(): org.json.JSONArray = org.json.JSONArray().apply {
+        (listOf("claude" to "Claude", "kimi" to "Kimi (Moonshot)") + cz.axiom.omega.core.llm.FreeCloud.PROVIDERS.filter { it.paid }.map { it.id to it.name }).forEach { (id, name) ->
+            put(JSONObject().put("id", id).put("name", name).put("allowed", costAllowed(id)).put("explicit", p.getBoolean("cost.allow.$id", false))
+                .put("budget", costBudget(id)).put("spent", costSpent(id)))
+        }
+    }
+    fun setCostAllowed(id: String, v: Boolean) = p.edit().putBoolean("cost.allow.$id", v).apply()
+    /** Měsíční strop v USD (výchozí 2 USD – ochrana kreditu, ne povolení ho utratit). */
+    fun costBudget(id: String): Double = p.getFloat("cost.budget.$id", 2f).toDouble()
+    fun setCostBudget(id: String, usd: Double) = p.edit().putFloat("cost.budget.$id", usd.coerceIn(0.0, 1000.0).toFloat()).apply()
+    private fun month() = java.time.YearMonth.now().toString()
+    fun costSpent(id: String): Double = p.getFloat("cost.spent.$id.${month()}", 0f).toDouble()
+    @Synchronized fun addCostSpent(id: String, usd: Double) { if (usd > 0) p.edit().putFloat("cost.spent.$id.${month()}", (costSpent(id) + usd).toFloat()).apply() }
+
     /** Služby Hugging Face (Inference Providers) – modely a přepínače. */
     var hfChat: Boolean
         get() = p.getBoolean("hfChat", true)
@@ -232,9 +252,12 @@ class Settings(context: Context) {
         .put("onboarded", onboarded).put("rates", rates.label())
         .put("nodeUrl", nodeUrl).put("nodeModel", nodeModel).put("hfRepo", hfRepo).put("agentSteps", agentSteps).put("semantic", semantic).put("randyAuthority", randyAuthority).put("power", power).put("ctxManual", ctxManual).put("keepBrain", keepBrain).put("instant", instant).put("phoneControl", phoneControl).put("powerStrength", powerStrength).put("autoReclaim", autoReclaim).put("airgap", airgap).put("dlp", dlp).put("secureScreen", secureScreen).put("autoDuo", autoDuo).put("claudeBoost", claudeBoost).put("memSafe", memSafe).put("freeFirst", freeFirst).put("cloudPriority", cloudPriority).put("cloudPrimary", cloudPrimary)
         .put("hfChat", hfChat).put("hfVision", hfVision).put("hfChatModel", hfChatModel).put("hfVisionModel", hfVisionModel)
+        .put("costs", costsJson())
         .put("hfAsrModel", hfAsrModel).put("hfImageModel", hfImageModel).put("learning", learning).put("selfStudy", selfStudy).put("lora", lora).put("loraScale", loraScale)
 
     fun apply(o: JSONObject) {
+        o.optJSONObject("costAllow")?.let { m -> m.keys().forEach { setCostAllowed(it, m.getBoolean(it)) } }
+        o.optJSONObject("costBudget")?.let { m -> m.keys().forEach { setCostBudget(it, m.getDouble(it)) } }
         if (o.has("mode")) mode = o.getString("mode").takeIf { it in MODES } ?: "auto"
         if (o.has("kimiBase")) kimiBase = o.getString("kimiBase").ifBlank { KimiEngine.CLOUD_BASE }
         if (o.has("kimiModel")) kimiModel = o.getString("kimiModel").ifBlank { KimiEngine.CLOUD_MODEL }.also(::checkModelId)

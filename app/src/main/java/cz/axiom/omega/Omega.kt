@@ -311,9 +311,17 @@ class Omega private constructor(val app: Context) {
         return LocalEngine.obtain(app, file, spec, effectiveCtx(), lora, settings.loraScale / 100f, device.threads, settings.memSafe)
     }
 
-    fun kimi(): KimiEngine {
+    /** COST GUARD: placené cloudy jen s povolením a v měsíčním rozpočtu (Nastavení → Cloud → Náklady). */
+    val costGuard = cz.axiom.omega.core.llm.CostGuard(object : cz.axiom.omega.core.llm.CostGuard.Store {
+        override fun allowed(provider: String) = settings.costAllowed(provider)
+        override fun budgetUsd(provider: String) = settings.costBudget(provider)
+        override fun spentUsd(provider: String) = settings.costSpent(provider)
+        override fun addSpent(provider: String, usd: Double) = settings.addCostSpent(provider, usd)
+    })
+
+    fun kimi(): LlmEngine {
         val key = vault.read(Vault.KIMI) ?: throw EngineException("Chybí API klíč Kimi (platform.moonshot.ai). Zadej ho v Systému.")
-        return KimiEngine(settings.kimiBase, key, settings.kimiModel, EngineKind.KIMI_CLOUD)
+        return cz.axiom.omega.core.llm.GuardedEngine(KimiEngine(settings.kimiBase, key, settings.kimiModel, EngineKind.KIMI_CLOUD), "kimi", settings.kimiModel, costGuard)
     }
 
     fun server(): KimiEngine {
@@ -341,7 +349,7 @@ class Omega private constructor(val app: Context) {
     fun free(fast: Boolean = false): LlmEngine {
         val m = freeMembers(fast)
         if (m.isEmpty()) throw EngineException("Cloud potřebuje klíč – Cerebras, Groq, OpenRouter (zdarma), DeepSeek, Chutes (kredit) nebo NanoGPT, Ollama Cloud, Synthetic (paušál). Moduly → Cloud.")
-        return cz.axiom.omega.core.llm.FreeCloudEngine(m,
+        return cz.axiom.omega.core.llm.FreeCloudEngine(m, guard = costGuard,
             onFallback = { Events.emit("phase", org.json.JSONObject().put("text", "Přepínám na záložní server – $it")) },
             onModel = { id, model -> if (fast) settings.setFreeModel(id, settings.freeModel(id) ?: model, model) else settings.setFreeModel(id, model) })
     }
@@ -355,8 +363,8 @@ class Omega private constructor(val app: Context) {
             if (freeReady()) add("free")
             if (online && settings.nodeUrl.isNotBlank()) add("node")
             if (settings.serverUrl.isNotBlank()) add("server")
-            if (online && vault.has(Vault.KIMI)) add("kimi")
-            if (online && vault.has(Vault.CLAUDE)) add("claude")
+            if (online && vault.has(Vault.KIMI) && settings.costAllowed("kimi")) add("kimi")
+            if (online && vault.has(Vault.CLAUDE) && settings.costAllowed("claude")) add("claude")
             if (online && settings.hfChat && vault.has(Vault.HF)) add("hf")
         }
     }
@@ -368,9 +376,9 @@ class Omega private constructor(val app: Context) {
         hfToken() ?: throw EngineException("Chybí token Hugging Face – zadej ho v Moduly → Hugging Face služby."), settings.hfChatModel,
     )
 
-    fun claude(): ClaudeEngine {
+    fun claude(): LlmEngine {
         val key = vault.read(Vault.CLAUDE) ?: throw EngineException("Chybí API klíč Claude (console.anthropic.com). Zadej ho v Systému.")
-        return ClaudeEngine(key, settings.claudeModel)
+        return cz.axiom.omega.core.llm.GuardedEngine(ClaudeEngine(key, settings.claudeModel), "claude", settings.claudeModel, costGuard)
     }
 
     fun localAvailable() = NativeLlama.available(app) && brains.active() != null
@@ -449,9 +457,9 @@ class Omega private constructor(val app: Context) {
     fun councilMembers(): Pair<List<LlmEngine>, LlmEngine> {
         val online = Introspect.online(app)
         val members = buildList {
-            if (online && vault.has(Vault.KIMI)) runCatching { kimi() }.getOrNull()?.let(::add)
+            if (online && vault.has(Vault.KIMI) && settings.costAllowed("kimi")) runCatching { kimi() }.getOrNull()?.let(::add)
             if (online && settings.nodeUrl.isNotBlank()) runCatching { node() }.getOrNull()?.let(::add)
-            if (online && vault.has(Vault.CLAUDE)) runCatching { claude() }.getOrNull()?.let(::add)
+            if (online && vault.has(Vault.CLAUDE) && settings.costAllowed("claude")) runCatching { claude() }.getOrNull()?.let(::add)
             if (freeReady()) runCatching { free() }.getOrNull()?.let(::add)
             if (settings.serverUrl.isNotBlank()) runCatching { server() }.getOrNull()?.let(::add)
             if (localAvailable()) runCatching { local() }.getOrNull()?.let { add(0, it) }
