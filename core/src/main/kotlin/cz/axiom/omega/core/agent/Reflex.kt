@@ -281,6 +281,8 @@ object Reflex {
             Politics.answer(prompt, c.today)?.let { yield(it.tag("politics", "stav ${Politics.STATE_YEAR}")) }
             // VERIFIED FACT STORE (M4): ISO 3166-1 / ISO 4217 z kompilovaných dat CLDR (kontrakt nese sám)
             cz.axiom.omega.core.facts.IsoReflex.answer(prompt, c.today)?.let { yield(it) }
+            // ZERO-BRAIN 2.0: graf znalostí s deterministickým odvozováním přes víc vztahů (řetězec + podklady)
+            cz.axiom.omega.core.kg.KnowledgeGraph.answer(prompt)?.let { yield(it) }
             calendar(prompt, c.today)?.let { yield(it.tag("calendar")) }
             recall(prompt, c.memories)?.let { yield(it.tag("recall")) }
             cached(prompt, c.cache)?.let { yield(it.tag("cache")) }
