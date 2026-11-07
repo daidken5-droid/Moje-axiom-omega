@@ -40,8 +40,11 @@ const ICONS = {
 
 /* ------------------------------------------------------------------ markdown (bezpečný: nejdřív escape) */
 
+const EVK = { FAKT: 'f', ZDROJ: 's', INFERENCE: 'i', 'HYPOTÉZA': 'h', SPEKULACE: 'x', 'NEZNÁMÉ': 'u' };
 function inline(s) {
   return s
+    // štítky evidence ([FAKT], [HYPOTÉZA]…) jako malé odznaky – čitelné a nerušivé
+    .replace(/\[(FAKT|ZDROJ|INFERENCE|HYPOTÉZA|SPEKULACE|NEZNÁMÉ)\]/g, (m, t) => `<span class="evt evt-${EVK[t]}">${t.toLowerCase()}</span>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>')
@@ -161,6 +164,11 @@ function evidenceChip(m) {
   else if (meta.reflex != null) parts.push(`<span class="reflex" title="Odpověď bez mozku – ${esc(meta.contract ? meta.contract.reason + (meta.contract.asOf ? ' · stav: ' + meta.contract.asOf : '') : (meta.instant || 'reflex'))}">ϟ ${esc(meta.contract ? meta.contract.label : 'reflex')} · ${esc(meta.instant || '')}${meta.contract && meta.contract.asOf ? ' · ' + esc(meta.contract.asOf) : ''}</span><button class="evchip" data-brain-retry="${m.id}" title="Zeptat se mozku">↻ rozvést mozkem</button>`);
   else if (meta.private) parts.push('<span class="privacy" title="Odpověď vznikla v telefonu, nic neodešlo na internet">◉ v telefonu</span>');
   if (meta.learned) parts.push(`<span class="learned" title="Učím se z této otázky">✦ ${esc(meta.learned.domain)}</span>`);
+  if (meta.matrix) {
+    const c = meta.matrix.counts || {};
+    const parts2 = [['FACT', 'fakt'], ['SOURCE', 'zdroj'], ['INFERENCE', 'závěr'], ['HYPOTHESIS', 'hypotéza'], ['SPECULATION', 'spekulace'], ['UNKNOWN', 'neznámé']].filter(([k]) => c[k]).map(([k, l]) => `${c[k]} ${l}`);
+    parts.push(`<button class="evchip" data-matrix="${m.id}" title="Matice důkazů">▦ ${parts2.join(' · ')} · ${meta.matrix.independent} nezáv. zdroj${meta.matrix.independent === 1 ? '' : 'e'}</button>`);
+  }
   if (ev && ev.spans && ev.spans.length >= 2) {
     const c = ev.counts || {};
     const txt = ['c', 's', 'p', 'x', 'm', 'e', 'u'].filter(k => c[k]).map(k => `<i class="ev-${k}"></i>${c[k]} ${EV[k][0]}`).join(' · ');
@@ -182,6 +190,14 @@ function msgMoreSheet(m, last) {
     opt('data-report', '⎙', 'Report pro Clauda', 'Jak se AVIOR v tomto chatu zachoval – ke zkopírování') +
     opt('data-export="md"', 'MD', 'Exportovat jako Markdown', 'Do Stažené/AVIOR') +
     opt('data-export="pdf"', 'PDF', 'Exportovat jako PDF', 'Do Stažené/AVIOR'));
+}
+
+function matrixSheet(m) {
+  const mx = (m.meta || {}).matrix; if (!mx) return;
+  const L = { FACT: 'Ověřené fakty (s podkladem)', SOURCE: 'Tvrzení zdrojů', INFERENCE: 'Analytické závěry', HYPOTHESIS: 'Hypotézy', SPECULATION: 'Spekulace', UNKNOWN: 'Neznámé / bez opory' };
+  const groups = Object.keys(L).map(k => { const cs = (mx.claims || []).filter(c => c[0] === k); return cs.length ? `<div class="eyebrow">${L[k].toUpperCase()} · ${cs.length}</div>` + cs.map(c => `<div class="evline"><span>${esc(c[1])}</span><em>${(c[2] || []).map(n => '[' + n + ']').join(' ')}</em></div>`).join('') : ''; }).join('');
+  sheet(`<div class="eyebrow" style="margin-top:4px">MATICE DŮKAZŮ · ${mx.independent} NEZÁVISLÝCH ZDROJŮ</div>
+    <p class="small muted">Sestaveno ze štítků v odpovědi a z čísel podkladů. „Fakt“ bez platného podkladu se počítá jako neznámé${mx.invalidRefs ? ` (${mx.invalidRefs}× citace na neexistující podklad)` : ''}. Zdroje ze stejné domény = jeden nezávislý zdroj. Nejde o kalibrovanou jistotu.</p>${groups}`);
 }
 
 function evidenceSheet(m) {
@@ -1400,6 +1416,7 @@ document.addEventListener('click', e => {
   if (ds.attachClear !== undefined) { attachment = null; $('#composerSlot').innerHTML = composer(); bindComposer(); return; }
   if (ds.threadSearch !== undefined) return;
   if (ds.evidence) { const m = msgs.find(x => x.id === Number(ds.evidence)); m && evidenceSheet(m); return; }
+  if (ds.matrix) { const m = msgs.find(x => x.id === Number(ds.matrix)); m && matrixSheet(m); return; }
   if (ds.critique || ds.deeper) {
     closeSheet();
     const id = Number(ds.critique || ds.deeper); const i = msgs.findIndex(x => x.id === id); const m = msgs[i];

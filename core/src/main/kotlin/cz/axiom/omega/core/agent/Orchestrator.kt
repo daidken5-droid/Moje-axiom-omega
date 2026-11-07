@@ -61,6 +61,10 @@ data class AskRequest(
      * Použijí se jen u dotazů na fakta / témata / aktuální věci (ne u tvorby, kódu a konverzace).
      */
     val webGround: ((String) -> List<Snippet>)? = null,
+    /** Hloubka výzkumu; null = AUTO (odhad ze zadání). */
+    val depth: ResearchDepth? = null,
+    /** Automatické pokračování při dosažení limitu výstupu (max. počet navazujících volání). */
+    val autoContinue: Int = 2,
 )
 
 data class PassTrace(val index: Int, val pass: RandyPass, val text: String, val millis: Long, val model: String)
@@ -111,8 +115,14 @@ class Orchestrator(
 
         // 1) RANDY úroveň
         val detection = Randy.detect(req.prompt)
-        val level = req.forcedLevel ?: detection.level
-        val prompt = detection.cleanedPrompt.ifBlank { req.prompt }
+        val prompt0 = detection.cleanedPrompt.ifBlank { req.prompt }
+        // povel hloubky („/deep …“) je pokyn pro AVIOR, ne součást otázky
+        val prompt = prompt0.replace(Regex("(?i)^\\s*/(deep|forensic|fast|hloubkove|hloubkově|forenzne|forenzně|rychle)\\b[\\s:,-]*"), "").ifBlank { prompt0 }
+        // RESEARCH DEPTH: FAST / DEEP / FORENSIC (výslovná volba > AUTO); FORENSIC v cloudu = aspoň hloubková úroveň RANDY
+        val subs = if (prompt.length > 120) LongInput.subQuestions(prompt) else emptyList()
+        val depth = req.depth ?: ResearchDepth.explicit(prompt0) ?: ResearchDepth.auto(prompt, subs.size)
+        val level0 = req.forcedLevel ?: detection.level
+        val level = if (depth == ResearchDepth.FORENSIC && engine.kind != EngineKind.LOCAL && level0.ordinal < RandyLevel.L2_DEEP.ordinal) RandyLevel.L2_DEEP else level0
         listener.onPhase("RANDY ${level.badge}")
 
         // 2) Paměť – výslovné "pamatuj si / zapomeň"
@@ -132,8 +142,11 @@ class Orchestrator(
         // ONLINE MODUL jako moderní asistent: aktuální podklady z webu s citacemi (dřív jen Claude a jen přes vlastní nástroj)
         // telefon: web jen u holého tématu (jinak by malý mozek s holým názvem neznámé věci jen hádal); cloud: fakta/témata/aktuality
         val web = if (req.webGround != null && (if (engine.kind == EngineKind.LOCAL) Topic.bare(prompt) != null else wantsWeb(prompt))) {
-            listener.onPhase("Hledám na webu…")
-            runCatching { req.webGround.invoke(Topic.bare(prompt) ?: prompt) }.getOrDefault(emptyList())
+            // DEEP/FORENSIC: hlavní dotaz + hledání pro jednotlivé podotázky (paralelně v WebGround, s mezipamětí)
+            val queries = (listOf(Topic.bare(prompt) ?: TextUtil.clip(prompt, 200)) +
+                if (engine.kind == EngineKind.LOCAL) emptyList() else subs.take(depth.webQueries - 1).map { TextUtil.clip(it, 160) }).distinct()
+            listener.onPhase(if (queries.size > 1) "Hledám na webu (${queries.size} dotazy · ${depth.label})…" else "Hledám na webu…")
+            queries.flatMap { q -> runCatching { req.webGround.invoke(q) }.getOrDefault(emptyList()) }.distinctBy { it.source }.take(depth.webMax)
         } else emptyList()
         val snippets = if (web.isEmpty()) offline else offline.take(2) + web
         knowledgeMillis = System.currentTimeMillis() - tk
@@ -145,11 +158,11 @@ class Orchestrator(
         val phone = engine.kind == EngineKind.LOCAL
         val system = if (phone) SystemPrompt.staticLocal(req.userName)
         else SystemPrompt.build(level, selfState(), memories, compact = local, userName = req.userName) +
-            (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "") + (req.selfInsight?.let { "\n\n$it" } ?: "")
+            (req.style?.let { "\n\nSTYL ODPOVĚDI: $it" } ?: "") + (req.selfInsight?.let { "\n\n$it" } ?: "") +
+            (depth.instruction()?.let { "\n\n$it" } ?: "")
         // holé téma → mozek dostane jasné zadání (jinak „Operation Prato“ neví, co se po něm chce)
         val askText0 = Topic.bare(prompt)?.let { "Co je „$it“? Vysvětli stručně a věcně, co to je, kdy a kde se to odehrálo nebo k čemu slouží; cituj podklady [n]. Když podklady nic neříkají, řekni to – nevymýšlej si." } ?: prompt
         // DLOUHÉ / SLOŽENÉ ZADÁNÍ: kontrolní seznam podotázek (deterministicky) a řízené rozdělení, když se nevejde do okna
-        val subs = if (prompt.length > 300) LongInput.subQuestions(prompt) else emptyList()
         val room = (engine.contextBudgetChars - 12_000).coerceAtLeast(4_000)
         val askText = when {
             askText0.length > room -> mapLongInput(askText0, subs, room, engine, cancel, listener)
@@ -208,6 +221,26 @@ class Orchestrator(
             trace += pt
             listener.onPassComplete(pt)
         }
+
+        // 5b) DLOUHÝ VÝSTUP: narazil na limit tokenů → pokračovat (max. req.autoContinue×), bez opakování textu
+        var finalText = last!!.text.removeSuffix("[Odpověď byla zkrácena limitem tokenů.]").trimEnd()
+        var stop = last!!.stopReason
+        var cont = 0
+        while (!phone && stop in setOf("length", "max_tokens") && cont < req.autoContinue) {
+            cancel.check(); cont++
+            listener.onPhase("Odpověď je dlouhá – pokračuji (${cont}/${req.autoContinue})")
+            val msgs = listOf(ChatMessage(Role.SYSTEM, system), ChatMessage(Role.USER, grounded),
+                ChatMessage(Role.ASSISTANT, TextUtil.clip(finalText, 60_000)),
+                ChatMessage(Role.USER, "Pokračuj PŘESNĚ tam, kde jsi skončil (uprostřed věty klidně dokonči větu). Nic neopakuj a nezačínej znovu."))
+            val r = generateWithRetry(engine, msgs, GenOptions(maxTokens = 32_000, effort = level.effort, temperature = req.temperature ?: 0.6f), cancel) { d -> listener.onDelta(passes.size, passes.size, d) }
+            val add = dedupeOverlap(finalText, r.text.removeSuffix("[Odpověď byla zkrácena limitem tokenů.]").trimEnd())
+            if (add.isBlank()) break // model nemá co dodat → žádné nekonečné pokračování
+            finalText = finalText + (if (finalText.endsWith(" ") || add.startsWith(" ") || add.startsWith("\n")) "" else " ") + add
+            stop = r.stopReason
+            last = r.copy(text = finalText)
+        }
+        if (cont > 0 && stop in setOf("length", "max_tokens")) finalText += "\n\n[Odpověď byla zkrácena limitem tokenů.]"
+        last = last!!.copy(text = finalText, stopReason = stop)
 
         // 6) Sebereflexe
         val parsed = Reflection.parse(last!!.text)
@@ -335,6 +368,13 @@ class Orchestrator(
     }
 
     companion object {
+        /** Pokračování může zopakovat konec předchozího textu – odstraní nejdelší překryv (konec A = začátek B). */
+        fun dedupeOverlap(a: String, b: String): String {
+            val max = minOf(a.length, b.length, 600)
+            for (k in max downTo 20) if (a.endsWith(b.substring(0, k))) return b.substring(k)
+            return b
+        }
+
         fun planPasses(level: RandyLevel, maxPasses: Int): List<RandyPass> {
             val all = level.passes
             val m = maxPasses.coerceIn(1, 3)

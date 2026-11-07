@@ -709,6 +709,13 @@ class OmegaService : Service() {
             r.trace.forEach { put(JSONObject().put("index", it.index).put("label", it.pass.label).put("millis", it.millis).put("model", it.model)) }
         })
         .put("reasoning", r.reasoning.take(4_000))
+        .also { m ->
+            // EVIDENCE MATRIX: ze štítků [FAKT]/[ZDROJ]/[INFERENCE]/… a podkladů [n]; [FAKT] bez platného podkladu = [NEZNÁMÉ]
+            val mx = cz.axiom.omega.core.agent.EvidenceMatrix.build(r.answer, r.snippets.map { it.source })
+            if (mx.claims.size >= 2) m.put("matrix", JSONObject().put("independent", mx.independentSources).put("invalidRefs", mx.invalidRefs)
+                .put("counts", JSONObject().apply { cz.axiom.omega.core.agent.EvidenceMatrix.Kind.entries.forEach { k -> put(k.name, mx.count(k)) } })
+                .put("claims", JSONArray().apply { mx.claims.take(60).forEach { c -> put(JSONArray().put(c.kind.name).put(cz.axiom.omega.core.util.TextUtil.clip(c.text, 300)).put(JSONArray(c.refs))) } }))
+        }
 
     // ------------------------------------------------------------------ mozky
 
