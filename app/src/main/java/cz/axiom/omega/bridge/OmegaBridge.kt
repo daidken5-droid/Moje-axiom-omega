@@ -764,6 +764,8 @@ class OmegaBridge(private val activity: MainActivity) {
                 val m = msgs.getJSONObject(i)
                 if (m.optJSONObject("meta")?.optBoolean("error") == true) continue
                 append(if (m.getString("role") == "user") "## Ty\n\n" else "## AVIOR\n\n").append(m.getString("content").trim()).append("\n\n")
+                // PŮVOD ODPOVĚDI v exportu: kdo odpověděl (bez mozku / mozek v telefonu / cloud), model a podklady [n]
+                if (m.getString("role") == "assistant") m.optJSONObject("meta")?.let { me -> provenance(me)?.let { append(it).append("\n\n") } }
             }
             append("---\nExportováno z AVIOR ${java.text.SimpleDateFormat("d. M. yyyy HH:mm", java.util.Locale("cs")).format(java.util.Date())}\n")
         }
@@ -773,6 +775,24 @@ class OmegaBridge(private val activity: MainActivity) {
         val msg = if (format == "pdf") omega.forge.save("$base.pdf", "application/pdf", omega.forge.pdf(title, md.replace(Regex("(?m)^#+ "), "")))
         else omega.forge.save("$base.md", "text/markdown", md.toByteArray())
         Events.note(msg)
+    }
+
+    /** Řádek „Původ“ pro export: typ odpovědi, engine/model, podklady v pořadí [1], [2], … a webové zdroje. */
+    private fun provenance(me: JSONObject): String? {
+        val engine = me.optString("engine").ifBlank { null } ?: return null
+        val kind = when {
+            me.has("reflex") -> "bez mozku (${me.optString("instant").ifBlank { "reflex" }})"
+            me.optBoolean("private") -> "mozek v telefonu"
+            else -> "jazykový model (cloud nebo telefon)"
+        }
+        val model = me.optString("model").takeIf { it.isNotBlank() && it != engine }?.let { " · model $it" } ?: ""
+        val snippets = me.optJSONArray("snippets")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.mapIndexed { i, o -> "[${i + 1}] ${o.optString("title")}" + o.optString("source").takeIf { it.startsWith("https://") }?.let { " – $it" }.orEmpty() } }.orEmpty()
+        val web = me.optJSONArray("sources")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { it.optString("url").startsWith("https://") }.map { "${it.optString("title")} – ${it.optString("url")}" } }.orEmpty()
+        return buildString {
+            append("> _Původ: ").append(kind).append(" · ").append(engine).append(model).append("_")
+            if (snippets.isNotEmpty()) append("\n> _Podklady: ").append(snippets.joinToString(" · ")).append("_")
+            else if (web.isNotEmpty()) append("\n> _Zdroje: ").append(web.joinToString(" · ")).append("_")
+        }
     }
 
     @JavascriptInterface fun attach() = activity.runOnUiThread {
