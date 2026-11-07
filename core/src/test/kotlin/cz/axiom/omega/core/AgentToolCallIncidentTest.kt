@@ -120,3 +120,13 @@ class AgentToolCallIncidentTest {
         assertTrue("\"tools\"" in body && "\"web_search\"" in body, body)
     }
 }
+
+/** REBIRTH S-02: přesměrování nesmí vést do lokální sítě ani na http. */
+class RedirectSsrfTest {
+    @Test fun redirectsAreRevalidated() {
+        listOf("https://192.168.1.1/admin", "//10.0.0.5/x", "http://example.org/", "https://127.0.0.1/", "https://[::1]/").forEach { loc ->
+            try { cz.axiom.omega.core.hub.Web.redirectTarget("https://example.org/a", loc); org.junit.Assert.fail("prošlo: $loc") }
+            catch (_: EngineException) {}
+        }
+    }
+}

@@ -18,10 +18,24 @@ object Web {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun get(url: String, maxBytes: Int = 2_000_000, accept: String = "text/html,application/json,text/plain;q=0.9,*/*;q=0.5"): Pair<String, String> {
-        requirePublicHttps(url)
-        val c = Http.open(url, readMs = 25_000)
-        c.setRequestProperty("Accept", accept)
-        c.setRequestProperty("Accept-Language", "cs,en;q=0.8")
+        // SSRF (REBIRTH S-02): přesměrování se sleduje RUČNĚ a každý krok se znovu ověří – dřív veřejná adresa mohla
+        // přesměrovat na https://192.168.x.x a HTTP klient by ji otevřel bez kontroly
+        var target = url
+        var c: java.net.HttpURLConnection
+        var hops = 0
+        while (true) {
+            requirePublicHttps(target)
+            c = Http.open(target, readMs = 25_000)
+            c.instanceFollowRedirects = false
+            c.setRequestProperty("Accept", accept)
+            c.setRequestProperty("Accept-Language", "cs,en;q=0.8")
+            val code = c.responseCode
+            if (code !in setOf(301, 302, 303, 307, 308)) break
+            val loc = c.getHeaderField("Location") ?: break
+            c.disconnect()
+            if (++hops > 5) throw EngineException("Příliš mnoho přesměrování (${URI(url).host}).")
+            target = redirectTarget(target, loc)
+        }
         try {
             val code = c.responseCode
             if (code !in 200..299) throw EngineException("HTTP $code z ${URI(url).host}")
@@ -34,6 +48,10 @@ object Web {
             c.disconnect()
         }
     }
+
+    /** Cíl přesměrování relativně k aktuální adrese – ověřený stejně jako první adresa (jinak výjimka). */
+    fun redirectTarget(current: String, location: String): String =
+        URI(current).resolve(location.trim()).toString().also { requirePublicHttps(it) }
 
     /** Agent smí jen na veřejné https adresy (ne do lokální sítě telefonu). */
     fun requirePublicHttps(url: String) {
