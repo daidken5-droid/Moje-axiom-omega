@@ -12,10 +12,9 @@
 </head>
 <body>
 <header class="top">
-  <svg class="mark" viewBox="0 0 108 108" aria-label="VEGA"><path fill="currentColor" d="M24 35h12l15 28 11-20h12L55 77h-9z"/><path fill="#FF735F" d="M49 32h29l6 10-10 17-6-10 4-7H55z"/></svg>
-  <button class="space" id="space" data-act="library" aria-label="Knihovna"><span id="spaceName">Konverzace</span><b class="caret">▼</b></button>
-  <div class="grow"></div>
-  <button class="iconbtn" data-act="new" aria-label="Nová konverzace">✎</button>
+  <button class="iconbtn" data-act="library" aria-label="Menu"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button>
+  <button class="title" data-act="title"><span id="spaceName">VEGA</span></button>
+  <button class="iconbtn" data-act="new" aria-label="Nová konverzace"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button>
 </header>
 <main class="stream" id="stream" aria-live="polite"></main>
 <footer class="dock">
@@ -24,7 +23,7 @@
   <div class="files" id="files"></div>
   <div class="bar">
     <button class="round plus" data-act="plus" aria-label="Přidat">+</button>
-    <textarea id="input" rows="1" placeholder="Napiš, nebo přilož soubor…" maxlength="120000" aria-label="Zpráva"></textarea>
+    <textarea id="input" rows="1" placeholder="Zeptej se VEGA" maxlength="120000" aria-label="Zpráva"></textarea>
     <button class="round go" id="go" data-act="send" aria-label="Odeslat">↑</button>
   </div>
 </footer>

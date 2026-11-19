@@ -35,7 +35,7 @@ function md(t) {
 const plural = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 function hello() {
   const h = new Date().getHours();
-  return h < 5 ? 'Dobrou noc.' : h < 10 ? 'Dobré ráno.' : h < 12 ? 'Dobré dopoledne.' : h < 18 ? 'Dobré odpoledne.' : 'Dobrý večer.';
+  return h < 5 ? 'Dobrou noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Ahoj' : 'Dobrý večer';
 }
 const chatId = () => S.space.kind === 'temp' ? 'temp' : S.space.kind === 'project' ? 'proj-' + S.space.id : S.space.id;
 function busyGuard() { if (S.busy) { toast(BUSY_MSG); return true; } return false; }
@@ -60,24 +60,16 @@ function renderStream() {
   renderChips();
 }
 
+/** Prázdná plocha = jen pozdrav (jako úvod Gemini). Všechno ostatní je za „+“ a menu – nic nezahlcuje. */
 function emptyState() {
-  if (S.space.kind === 'temp') return `<div class="hello"><h1>Dočasný chat.</h1><p>Nic se neukládá do historie ani do paměti. Po zavření zmizí.</p></div>`;
+  if (S.space.kind === 'temp') return `<div class="hello"><h1>Dočasný chat</h1><p>Nic se neukládá.</p></div>`;
   if (S.space.kind === 'project') {
     const p = call('project', S.space.id) || {};
-    return `<div class="hello"><h1>${esc(p.name || 'Projekt')}</h1><p>${p.next ? esc(p.next) : 'Řekni, co se má udělat – třeba „přidej export do CSV“ nebo „vysvětli tuhle funkci“.'}</p>
-      <div class="starts">${start('▶', 'Spustit testy', 'ověří aktuální stav', 'tests')}${start('↺', 'Co se změnilo', 'rozdíl proti importu a návrat', 'panel')}${start('?', 'Vysvětli projekt', 'co dělá a jak je postavený', 'say:Vysvětli, co tento projekt dělá a jak je postavený.')}</div></div>`;
+    return `<div class="hello"><h1>${esc(p.name || 'Projekt')}</h1><p>${p.next ? esc(p.next) : 'Co se má udělat?'}</p></div>`;
   }
   const h = call('home') || {};
-  const proj = (call('projects') || []).find(p => p.next);
-  return `<div class="hello"><h1>${hello()}</h1><p>Na čem pracujeme?</p>
-    ${proj ? `<button class="continue" data-act="openProject" data-id="${esc(proj.id)}"><small>Pokračovat</small><div><b>${esc(proj.name)}</b></div><div class="note">${esc(proj.next)}</div></button>` : ''}
-    <div class="starts">
-      ${start('Kč', 'Zpracovat bankovní výpis', 'přilož CSV – udělám z něj opakovatelný nástroj', 'pick:statement')}
-      ${start('{ }', 'Opravit chybu z logu', 'přilož log nebo projekt', 'pick:crash')}
-      ${start('⌕', 'Prozkoumat téma', 'stačí název, dohledám zdroje', 'focus:operation Prato')}
-      ${start('◎', 'Přečíst NFC štítek', 'přilož štítek k telefonu', 'nfc')}
-    </div>
-    ${h.engine ? '' : `<p class="note" style="margin-top:18px">Pro rozhovor přidej klíč Gemini (zdarma) v <button class="btn ghost" data-act="settings" style="min-height:0;padding:0;text-decoration:underline">Nastavení</button>. Nástroje fungují i bez něj.</p>`}</div>`;
+  return `<div class="hello"><h1>${hello()}</h1><p>Jak ti můžu pomoct?</p>
+    ${h.engine ? '' : `<div class="quiet">Pro rozhovor přidej klíč Gemini – <button data-act="settings">Nastavení</button></div>`}</div>`;
 }
 const start = (g, t, s, act) => `<button class="start" data-act="start" data-v="${esc(act)}"><span class="glyph">${esc(g)}</span><span><b>${esc(t)}</b><small>${esc(s)}</small></span></button>`;
 
@@ -151,37 +143,32 @@ function card(c) {
 }
 
 /* ------------------------------------------------------------------ návrhy pod vstupem (max 4, jen co dává smysl teď) */
+/** Návrhy jen když něco konkrétního čeká (přiložený soubor, uložitelný výsledek) – nejvýš 3. Prázdná plocha je čistá. */
 function chips() {
-  if (S.tool) return [];
+  if (S.tool || S.busy) return [];
   const f = S.files[S.files.length - 1];
   if (f) {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
-    const procs = (call('procedures') || []).filter(p => p.inputKind === 'BYTES').slice(0, 1).map(p => ({ t: '▶ ' + p.name, a: 'proc:' + p.id, sig: true }));
-    if (['csv', 'tsv'].includes(ext)) return [...procs, { t: 'Zpracovat výpis', a: 'say:Udělej z toho nástroj, který každý týden použiju na výpis.' }, { t: 'Najít chyby', a: 'tool:csv.inspect' }, { t: 'Kontrolní součet', a: 'tool:hash' }].slice(0, 4);
-    if (['log', 'txt'].includes(ext)) return [{ t: 'Rozbor pádu', a: 'tool:log.crash' }, { t: 'Hledat v logu', a: 'tool:log.search' }, { t: 'Shrnout', a: 'say:Shrň mi, co je v souboru.' }];
-    if (ext === 'json') return [{ t: 'Prozkoumat JSON', a: 'tool:json.inspect' }, { t: 'Na tabulku', a: 'tool:json.table' }];
-    if (['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'].includes(ext)) return [{ t: 'Přečíst text', a: 'tool:file.text' }, { t: 'Shrnout', a: 'say:Shrň mi tento dokument.' }, { t: 'Kontrolní součet', a: 'tool:hash' }];
-    return [{ t: 'Co s tím?', a: 'say:Co s tímhle souborem?' }, { t: 'Kontrolní součet', a: 'tool:hash' }];
+    const proc = (call('procedures') || []).find(p => p.inputKind === 'BYTES');
+    if (['csv', 'tsv'].includes(ext)) return [...(proc ? [{ t: proc.name, a: 'proc:' + proc.id, sig: true }] : [{ t: 'Zpracovat výpis', a: 'say:Udělej z toho nástroj, který každý týden použiju na výpis.', sig: true }]), { t: 'Najít chyby', a: 'tool:csv.inspect' }];
+    if (['log', 'txt'].includes(ext)) return [{ t: 'Rozbor pádu', a: 'tool:log.crash', sig: true }, { t: 'Shrnout', a: 'say:Shrň mi, co je v souboru.' }];
+    if (ext === 'json') return [{ t: 'Prozkoumat', a: 'tool:json.inspect', sig: true }];
+    if (['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx'].includes(ext)) return [{ t: 'Shrnout', a: 'say:Shrň mi tento dokument.', sig: true }, { t: 'Přečíst text', a: 'tool:file.text' }];
+    return [];
   }
-  if (S.space.kind === 'project') return [{ t: 'Spustit testy', a: 'tests' }, { t: 'Rozdíl a návrat', a: 'panel' }, { t: 'Co dál?', a: 'say:Jaký je další krok v projektu?' }];
-  if (S.lastCard && !S.busy) {
-    const c = S.lastCard, out = [];
-    if (c.save) out.push({ t: 'Uložit jako nástroj', a: 'saveLast', sig: true });
-    if (c.failed) out.push({ t: 'Pokračovat', a: 'resumeLast', sig: true }); else out.push({ t: 'Předat dál', a: 'passLast' });
-    out.push({ t: 'Tohle je divné', a: 'say:Tohle je nějaké divné – co v tom výsledku nesedí?' });
-    return out.slice(0, 3);
-  }
+  if (S.lastCard && S.lastCard.save) return [{ t: 'Uložit jako nástroj', a: 'saveLast', sig: true }];
   return [];
 }
 function renderChips() {
   $('#chips').innerHTML = chips().map(c => `<button class="chip ${c.sig ? 'sig' : ''}" data-act="chip" data-v="${esc(c.a)}">${esc(c.t)}</button>`).join('');
   $('#files').innerHTML = S.files.map(f => `<span class="file">📎 ${esc(f.name)}<button data-act="dropFile" data-id="${esc(f.id)}" aria-label="Odebrat">×</button></span>`).join('');
   $('#mode').innerHTML = S.tool ? `<span class="mode">${esc(S.tool.title)}${S.toolInput ? ' · na předchozí výsledek' : ''}<button data-act="exitTool" aria-label="Zrušit nástroj">×</button></span>` : '';
-  const go = $('#go'); go.className = 'round ' + (S.busy ? 'stop' : 'go'); go.textContent = S.busy ? '■' : '↑'; go.dataset.act = S.busy ? 'stop' : 'send';
+  const go = $('#go'); const empty = !S.busy && !$('#input').value.trim() && !S.files.length && !S.tool;
+  go.className = 'round ' + (S.busy ? 'stop' : 'go') + (empty ? ' empty' : ''); go.textContent = S.busy ? '■' : '↑'; go.dataset.act = S.busy ? 'stop' : 'send';
   go.setAttribute('aria-label', S.busy ? 'Zastavit' : 'Odeslat');
-  $('#input').placeholder = S.tool ? ((S.tool.input || []).includes('URL') ? 'Vlož adresu…' : 'Vlož text nebo přilož soubor…') : S.space.kind === 'project' ? 'Co se má v projektu udělat?' : 'Napiš, nebo přilož soubor…';
+  $('#input').placeholder = S.tool ? ((S.tool.input || []).includes('URL') ? 'Vlož adresu…' : 'Vlož text nebo přilož soubor…') : S.space.kind === 'project' ? 'Co se má v projektu udělat?' : 'Zeptej se VEGA';
 }
-function renderTop() { $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name : 'Konverzace'; }
+function renderTop() { $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name : 'VEGA'; }
 function render() { renderTop(); renderStream(); }
 
 /* ------------------------------------------------------------------ listy */
@@ -200,8 +187,7 @@ function plusSheet() {
     <button class="row" data-act="pick"><b>📎</b><span class="grow"><b>Soubor</b><small>CSV, log, JSON, PDF, fotka dokumentu…</small></span></button>
     <button class="row" data-act="tools"><b>⌘</b><span class="grow"><b>Nástroje</b><small>diff, kontrolní součty, inspektory, čtení URL…</small></span></button>
     <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek</b><small>přečte text nebo adresu</small></span></button>
-    <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Složka jako projekt</b><small>pracuji v kopii, originál nechám být</small></span></button>
-    <button class="row" data-act="demand"><b>§</b><span class="grow"><b>Předžalobní výzva</b><small>faktura → DOCX a PDF</small></span></button>
+    <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
   </div>`);
 }
 
@@ -210,7 +196,8 @@ function toolsSheet() {
   const groups = [...new Set(S.tools.map(t => t.group))];
   sheet(`<h2>Nástroje</h2><p class="lede">Stejné nástroje volá i rozhovor. Offline fungují bez sítě i bez kvóty.</p>
     <input class="field search" id="toolq" placeholder="Hledat nástroj" autocomplete="off">
-    <div id="toollist">${toolList(S.tools, groups)}</div>`, true);
+    <div id="toollist">${toolList(S.tools, groups)}</div>
+    <h3>Dokumenty</h3><div class="list"><button class="row" data-act="demand"><span class="grow"><b>Předžalobní výzva</b><small>faktura a úhrady → DOCX a PDF se zkontrolovaným výpočtem</small></span></button></div>`, true);
 }
 const toolList = (ts, groups) => groups.map(g => { const xs = ts.filter(t => t.group === g); return xs.length ? `<h3>${esc(g)}</h3><div class="list">${xs.map(t => `<button class="row" data-act="useTool" data-id="${esc(t.id)}"><span class="grow"><b>${esc(t.title)}</b><small>${esc(t.description)}</small></span><span class="end">${t.offline ? '' : 'síť'}</span></button>`).join('')}</div>` : ''; }).join('');
 
@@ -245,9 +232,27 @@ function runTool() {
   S.tool = null; S.toolInput = null; render();
 }
 
+/** Menu jako u Gemini: vysouvací panel zleva – nová konverzace, nedávné, dole knihovna a nastavení. */
+function drawer() {
+  const cs = (call('chats') || []).slice(0, 30);
+  closeSheet(true);
+  $('#layer').innerHTML = `<div class="scrim" data-act="close"></div><nav class="drawer" aria-label="Menu">
+    <button class="drow strong" data-act="new">＋ Nová konverzace</button>
+    <button class="drow" data-act="temp">Dočasný chat</button>
+    <div class="dlabel">Nedávné</div>
+    <div class="dscroll">${cs.map(c => `<button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button>`).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
+    <div class="dfoot">
+      <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
+      <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
+      <button class="drow" data-act="libTab" data-tab="memory">Paměť</button>
+      <button class="drow" data-act="settings">Nastavení</button>
+    </div></nav>`;
+}
+
 function library(tab) {
   S.libTab = tab || S.libTab;
-  const T = { chats: 'Konverzace', projects: 'Projekty', procs: 'Nástroje', memory: 'Paměť' };
+  const T = { projects: 'Projekty', procs: 'Moje nástroje', memory: 'Paměť' };
+  if (S.libTab === 'chats') S.libTab = 'projects';
   let body = '';
   if (S.libTab === 'chats') {
     const cs = call('chats') || [];
@@ -268,8 +273,7 @@ function library(tab) {
       <div class="inline"><input class="field" id="memText" placeholder="Pamatuj si…"><button class="btn primary" data-act="memAdd">Uložit</button></div>
       <div class="list" style="margin-top:10px">${ms.map(m => `<div class="row"><span class="grow"><b>${esc(m.text)}</b><small>${esc(m.kind)}${m.scope !== 'global' ? ' · jen projekt' : ''} · ${esc(m.why)}</small></span>${m.canRevert ? `<button class="btn" data-act="memRevert" data-id="${esc(m.id)}">Vrátit</button>` : ''}<button class="btn ghost" data-act="memForget" data-id="${esc(m.id)}">Zapomenout</button></div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Řekni „pamatuj si, že…“.</span></div>'}</div>`;
   }
-  sheet(`<div class="seg" role="tablist">${Object.entries(T).map(([k, v]) => `<button class="${S.libTab === k ? 'on' : ''}" data-act="libTab" data-tab="${k}" role="tab">${v}</button>`).join('')}</div>${body}
-    <div class="list" style="margin-top:18px"><button class="row" data-act="settings"><span class="grow"><b>Nastavení</b><small>modely, náklady, soukromí</small></span><span class="end">›</span></button></div>`, true);
+  sheet(`<h2>${T[S.libTab]}</h2>${body}`, true);
 }
 
 function projectPanel() {
@@ -500,7 +504,9 @@ function act(a, d) {
         <h3>Kontrola PDF</h3><p>${c.checks.map(k => `<span class="pill ${k.ok ? 'ok' : 'bad'}">${esc(k.what)}</span>`).join(' ')}</p>`, true); break; }
     case 'openOut': B.openOut(d.f); break;
     case 'share': B.share(d.f); break;
-    case 'library': case 'libTab': library(d.tab); break;
+    case 'library': if (d.tab) library(d.tab); else drawer(); break;
+    case 'libTab': library(d.tab); break;
+    case 'title': if (S.space.kind === 'project') projectPanel(); break;
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;
@@ -617,7 +623,7 @@ document.addEventListener('change', e => {
   if (t.dataset.usdkc !== undefined) call('setSetting', 'usdKc', t.value);
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'input') autosize();
+  if (e.target.id === 'input') { autosize(); renderChips(); }
   if (e.target.id === 'toolq') { const q = e.target.value.toLowerCase(); const ts = (S.tools || []).filter(t => (t.title + ' ' + t.description).toLowerCase().includes(q)); $('#toollist').innerHTML = toolList(ts, [...new Set(ts.map(t => t.group))]); }
 });
 document.addEventListener('keydown', e => {
