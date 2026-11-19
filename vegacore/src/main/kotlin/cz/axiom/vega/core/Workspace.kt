@@ -36,7 +36,13 @@ class Workspace(val root: File) {
 
     companion object {
         /** Soubory, které se nikdy nečtou do kontextu modelu (klíče, osobní data). */
-        val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|jks|keystore)|id_rsa.*|secrets?\\.(json|ya?ml|properties)|local\\.properties|keystore\\.properties)$", RegexOption.IGNORE_CASE)
+        /** Kontroluj vždy NORMALIZOVANOU cestu ([isSecret]) – „.env/“ nebo „cfg\\.env“ by surový výraz obešly. */
+        val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|pfx|jks|keystore|ovpn)|id_(rsa|ed25519|ecdsa|dsa).*|secrets?\\.(json|ya?ml|properties|toml)|.*credentials.*\\.json|service-account.*\\.json|google-services\\.json|GoogleService-Info\\.plist|local\\.properties|keystore\\.properties|gradle\\.properties|\\.npmrc|\\.netrc|\\.pypirc|\\.git-credentials|\\.htpasswd)$", RegexOption.IGNORE_CASE)
+
+        fun isSecret(path: String): Boolean {
+            val n = path.replace('\\', '/').split('/').filter { it.isNotEmpty() && it != "." }.joinToString("/")
+            return SECRET.containsMatchIn(n) || SECRET.containsMatchIn(path)
+        }
         private val SKIP = Regex("(^|/)(\\.git|node_modules|build|\\.gradle|dist|__pycache__|\\.idea)(/|$)")
         val TEXT_EXT = setOf("kt", "kts", "java", "js", "mjs", "cjs", "ts", "tsx", "jsx", "py", "json", "md", "txt", "csv", "tsv", "xml", "html", "css", "yml", "yaml", "toml", "gradle", "properties", "sh", "sql", "go", "rs", "c", "h", "cpp", "swift", "rb", "php", "ini", "cfg", "log")
         const val MAX_FILE = 2_000_000
@@ -169,7 +175,7 @@ class Workspace(val root: File) {
 
     private fun lang(p: String) = when (p.substringAfterLast('.').lowercase()) { "kt", "kts" -> "kt"; "java" -> "java"; "js", "mjs", "cjs", "ts", "tsx", "jsx" -> "js"; "py" -> "py"; else -> null }
 
-    fun symbols(): List<Symbol> = files().filter { lang(it) != null && !SECRET.containsMatchIn(it) }.flatMap { p ->
+    fun symbols(): List<Symbol> = files().filter { lang(it) != null && !isSecret(it) }.flatMap { p ->
         val rxs = symRx[lang(p)]!!
         read(p).lines().mapIndexedNotNull { i, l ->
             rxs.firstNotNullOfOrNull { r -> r.rx.find(l)?.let { m -> Symbol(m.groupValues[r.nameGroup], r.kind ?: m.groupValues[r.kindGroup], p, i + 1) } }?.takeIf { it.name !in notNames }
@@ -185,14 +191,14 @@ class Workspace(val root: File) {
 
     /** Konfigurace projektu (build, balíčky) – nikdy soubory s klíči. */
     fun config(): Map<String, String> = files().filter { p ->
-        !SECRET.containsMatchIn(p) && p.substringAfterLast('/') in setOf("package.json", "build.gradle", "build.gradle.kts", "settings.gradle.kts", "pyproject.toml", "requirements.txt", "tsconfig.json", "Cargo.toml", "go.mod", "pom.xml", "vega.json")
+        !isSecret(p) && p.substringAfterLast('/') in setOf("package.json", "build.gradle", "build.gradle.kts", "settings.gradle.kts", "pyproject.toml", "requirements.txt", "tsconfig.json", "Cargo.toml", "go.mod", "pom.xml", "vega.json")
     }.associateWith { read(it).take(8_000) }
 
     /** Soubory relevantní k zadání (jména symbolů/souborů ve větě) – pro kontext modelu, v limitu znaků. */
     fun relevant(task: String, maxChars: Int = 24_000): List<String> {
         val words = cz.axiom.omega.core.util.TextUtil.words(task, 3).map { it.lowercase() }.toSet()
         val syms = symbols()
-        val scored = files().filter { !SECRET.containsMatchIn(it) && it.substringAfterLast('.').lowercase() in TEXT_EXT }.map { p ->
+        val scored = files().filter { !isSecret(it) && it.substringAfterLast('.').lowercase() in TEXT_EXT }.map { p ->
             val n = p.lowercase()
             var s = words.count { n.contains(it) } * 5
             s += syms.count { it.path == p && it.name.lowercase() in words } * 4
@@ -207,7 +213,8 @@ class Workspace(val root: File) {
     /** ZIP s pracovní kopií (export). */
     fun exportZip(): ByteArray {
         val o = java.io.ByteArrayOutputStream()
-        java.util.zip.ZipOutputStream(o).use { z -> files().forEach { p -> z.putNextEntry(java.util.zip.ZipEntry("$name/$p")); z.write(file(p).readBytes()); z.closeEntry() } }
+        // soubory s klíči do exportu (veřejné Stažené) nepatří
+        java.util.zip.ZipOutputStream(o).use { z -> files().filter { !isSecret(it) }.forEach { p -> z.putNextEntry(java.util.zip.ZipEntry("$name/$p")); z.write(file(p).readBytes()); z.closeEntry() } }
         return o.toByteArray()
     }
 

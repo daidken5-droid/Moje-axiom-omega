@@ -39,9 +39,9 @@ class OpsAcceptanceTest {
     @Test fun statementToolProcedureSurvivesRestartAndRunsOnAnotherFile() {
         val r = Rec(); val o = ops(r)
         val chat = o.newChat()
-        o.attach("vypis-duben.csv", "text/csv", fixture("vypis-duben.csv"))
+        val a1 = o.attach("vypis-duben.csv", "text/csv", fixture("vypis-duben.csv")).getString("id")
         var n = r.ev.size
-        o.chat(chat, "udělej z toho nástroj, který každý týden použiju na výpis")
+        o.chat(chat, "udělej z toho nástroj, který každý týden použiju na výpis", listOf(a1))
         val m = awaitMsg(r, n)
         assertTrue(m.getString("text"), m.getString("text").contains("desetinnou čárku") && m.getString("text").contains("5/5"))
         val card = m.getJSONObject("card"); assertTrue(card.getBoolean("done"))
@@ -58,9 +58,9 @@ class OpsAcceptanceTest {
 
         // „restart“: nová instance Ops nad stejným úložištěm, jiný soubor, spuštění větou
         val r2 = Rec(); val o2 = ops(r2)
-        o2.attach("vypis-kveten.csv", "text/csv", fixture("vypis-kveten.csv"))
+        val a2 = o2.attach("vypis-kveten.csv", "text/csv", fixture("vypis-kveten.csv")).getString("id")
         n = r2.ev.size
-        o2.chat(o2.newChat(), "zpracuj výpis")
+        o2.chat(o2.newChat(), "zpracuj výpis", listOf(a2))
         val m2 = awaitMsg(r2, n)
         val v = m2.getJSONObject("card").getJSONObject("value")
         assertEquals("2025-05", v.getJSONArray("rows").getJSONArray(0).getString(0))
@@ -96,7 +96,7 @@ class OpsAcceptanceTest {
     @Test fun offlineLocalSearchAndToolsWithoutNetworkOrLlm() {
         val r = Rec(); val o = ops(r)
         assertNull(o.engines.pick()) // žádný klíč = žádný model
-        o.attach("vypis-duben.csv", "text/csv", fixture("vypis-duben.csv"))
+        o.attach("vypis-duben.csv", "text/csv", fixture("vypis-duben.csv")) // jen do lokálního indexu, ke zprávě se nepřikládá
         val chat = o.newChat()
         var n = r.ev.size
         o.chat(chat, "najdi v mých souborech Netflix")
@@ -104,9 +104,9 @@ class OpsAcceptanceTest {
         val rows = m.getJSONObject("card").getJSONObject("value").getJSONArray("rows")
         assertTrue(rows.length() >= 1 && rows.getJSONArray(0).getString(0) == "vypis-duben.csv")
         // CSV diagnostika z chatu bez modelu
-        o.attach("rozbity.csv", "text/csv", "a;b\n1;\"neuzavřené\n2;3\n".toByteArray())
+        val bad = o.attach("rozbity.csv", "text/csv", "a;b\n1;\"neuzavřené\n2;3\n".toByteArray()).getString("id")
         n = r.ev.size
-        o.chat(chat, "proč se mi rozbil import CSV?")
+        o.chat(chat, "proč se mi rozbil import CSV?", listOf(bad))
         val notes = awaitMsg(r, n).getJSONObject("card").getJSONObject("value").getJSONArray("notes").toString()
         assertTrue(notes, notes.contains("neuzavřené"))
         // rozhovor bez modelu = srozumitelná odpověď, ne pád

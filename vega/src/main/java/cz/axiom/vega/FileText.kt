@@ -92,11 +92,13 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun search(query: String, limit: Int): List<Snippet> {
         val words = cz.axiom.omega.core.util.TextUtil.words(query, 2).distinct().take(8)
         if (words.isEmpty()) return emptyList()
-        val q = words.joinToString(" ") { if (it.length >= 4) "${it.take(6)}*" else it }
-        return runCatching {
+        val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
+        fun run(q: String) = runCatching {
             readableDatabase.rawQuery("SELECT rowid, name, snippet(docs, '«', '»', '…', 1, 24) FROM docs WHERE docs MATCH ? LIMIT ?", arrayOf(q, limit.toString())).use { c ->
                 buildList { while (c.moveToNext()) add(Snippet(c.getLong(0), c.getString(1), c.getString(2), "lokální index")) }
             }
         }.getOrDefault(emptyList())
+        // nejdřív všechna slova, když nic – kterékoli
+        return run(terms.joinToString(" ")).ifEmpty { if (terms.size > 1) run(terms.joinToString(" OR ")) else emptyList() }
     }
 }

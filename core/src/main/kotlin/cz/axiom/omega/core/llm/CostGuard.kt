@@ -10,7 +10,18 @@ package cz.axiom.omega.core.llm
  * Dřív: FreeCloud při výpadku bezplatného serveru sám přešel na placený (Chutes, NanoGPT, DeepSeek…), konzilium a
  * výchozí pořadí samo bralo Claude → kredit se mohl utrácet bez souhlasu.
  */
-class CostGuard(private val store: Store, private val price: (provider: String, model: String) -> Price = ::defaultPrice) {
+class CostGuard(
+    private val store: Store,
+    private val price: (provider: String, model: String) -> Price = ::defaultPrice,
+    /** znaků na token pro odhad (čeština se tokenizuje hůř než angličtina: ~2,5–3) */
+    val charsPerToken: Double = 3.5,
+    /**
+     * PŘÍSNÝ REŽIM (VEGA): odhad se ZAREZERVUJE před voláním a po něm vyrovná na skutečnost; přerušené / zrušené volání
+     * po přijetí odpovědi rezervaci ponechá (tokeny už byly naúčtované); bez údajů o spotřebě u přemýšlejících modelů
+     * se počítá celý limit výstupu.
+     */
+    val strict: Boolean = false,
+) {
 
     interface Store {
         /** uživatel výslovně povolil placená volání tohoto poskytovatele */
@@ -30,12 +41,14 @@ class CostGuard(private val store: Store, private val price: (provider: String, 
         data class Deny(val reason: String) : Decision()
     }
 
-    class BudgetException(msg: String) : EngineException(msg)
+    class BudgetException(msg: String, val provider: String? = null, val model: String? = null, val estUsd: Double = 0.0) : EngineException(msg)
+
+    fun priceOf(provider: String, model: String) = price(provider, model)
 
     fun estimateUsd(provider: String, model: String, inputChars: Int, maxOutTokens: Int): Double {
         val p = price(provider, model)
         if (p.flat) return 0.0
-        return inputChars / 3.5 / 1e6 * p.inPerM + maxOutTokens / 1e6 * p.outPerM
+        return inputChars / charsPerToken / 1e6 * p.inPerM + maxOutTokens / 1e6 * p.outPerM
     }
 
     fun check(provider: String, model: String, inputChars: Int, maxOutTokens: Int): Decision {
@@ -51,12 +64,38 @@ class CostGuard(private val store: Store, private val price: (provider: String, 
     fun record(provider: String, model: String, inputTokens: Long?, outputTokens: Long?, inputChars: Int, outputChars: Int) {
         val p = price(provider, model)
         if (p.flat) return
-        val inT = inputTokens ?: (inputChars / 3.5).toLong()
-        val outT = outputTokens ?: (outputChars / 3.5).toLong()
+        val inT = inputTokens ?: (inputChars / charsPerToken).toLong()
+        val outT = outputTokens ?: (outputChars / charsPerToken).toLong()
         store.addSpent(provider, inT / 1e6 * p.inPerM + outT / 1e6 * p.outPerM)
     }
 
+    // ------------------------------------------------------------------ přísný režim: rezervace a vyrovnání
+
+    /** Zarezervuje odhad (vstup + celý limit výstupu) – útrata je vidět a hlídá strop ještě během volání. */
+    fun reserve(provider: String, model: String, inputChars: Int, maxOutTokens: Int): Double {
+        val e = estimateUsd(provider, model, inputChars, maxOutTokens)
+        if (e > 0) store.addSpent(provider, e)
+        return e
+    }
+
+    /** Po úspěchu: rezervace → skutečnost (tokeny od poskytovatele; bez nich u přemýšlejících modelů celý limit výstupu). */
+    fun settle(provider: String, model: String, reserved: Double, inputTokens: Long?, outputTokens: Long?, inputChars: Int, outputChars: Int, maxOutTokens: Int) {
+        val p = price(provider, model)
+        if (p.flat) { if (reserved != 0.0) store.addSpent(provider, -reserved); return }
+        val inT = inputTokens ?: (inputChars / charsPerToken).toLong()
+        val thinking = Regex("(?i)gemini|reason|gpt-oss|o\\d|r1|thinking").containsMatchIn(model)
+        val outT = outputTokens ?: if (thinking) maxOutTokens.toLong() else (outputChars / charsPerToken).toLong()
+        store.addSpent(provider, inT / 1e6 * p.inPerM + outT / 1e6 * p.outPerM - reserved)
+    }
+
+    /** Volání neprošlo k poskytovateli (HTTP chyba před odpovědí, síť) → nic se neúčtovalo, rezervace zpět. */
+    fun refund(provider: String, reserved: Double) { if (reserved > 0) store.addSpent(provider, -reserved) }
+
     companion object {
+        /** Chyba vznikla dřív, než poskytovatel začal odpovídat (nic nenaúčtoval)? */
+        fun preResponse(e: Throwable): Boolean = e is EngineException && !e.billed
+
+
         /**
          * Konzervativní ceník (horní odhady veřejných ceníků k 11/2026; skutečná cena bývá nižší).
          * Paušály (NanoGPT, Ollama Cloud, Synthetic) = flat: volání nestojí navíc, ale i tak vyžadují povolení.
@@ -83,11 +122,21 @@ class GuardedEngine(private val inner: LlmEngine, private val provider: String, 
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val chars = messages.sumOf { it.content.length }
         when (val d = guard.check(provider, model, chars, options.maxTokens)) {
-            is CostGuard.Decision.Deny -> throw CostGuard.BudgetException("Placené volání zastaveno: ${d.reason}.")
+            is CostGuard.Decision.Deny -> throw CostGuard.BudgetException("Placené volání zastaveno: ${d.reason}.", provider, model, guard.estimateUsd(provider, model, chars, options.maxTokens))
             CostGuard.Decision.Allow -> Unit
         }
-        val r = inner.generate(messages, options, cancel, onDelta)
-        guard.record(provider, model, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length)
+        if (!guard.strict) {
+            val r = inner.generate(messages, options, cancel, onDelta)
+            guard.record(provider, model, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length)
+            return r
+        }
+        val reserved = guard.reserve(provider, model, chars, options.maxTokens)
+        val r = try { inner.generate(messages, options, cancel, onDelta) } catch (e: CancelledException) { throw e } catch (e: Exception) {
+            // jiný SDK (Claude): HTTP chyby před odpovědí poznáme podle kódu v textu → vrátit; jinak konzervativně ponechat
+            if (CostGuard.preResponse(e) && !(e as EngineException).billed || Regex("HTTP 4\\d\\d|\\b(401|403|429)\\b|overloaded|invalid", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) guard.refund(provider, reserved)
+            throw e
+        }
+        guard.settle(provider, model, reserved, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, options.maxTokens)
         return r
     }
 }

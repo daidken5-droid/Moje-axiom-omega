@@ -25,10 +25,15 @@ import org.json.JSONObject
  * Jedna obrazovka s WebView (UI v assets/ui). Most [Bridge] vrací jen data – klíče nikdy. Soubory volí uživatel
  * (systémový výběr), NFC se čte jen po klepnutí na „Načíst štítek“ (reader mode), síť pro UI je zakázaná CSP.
  */
+const val CSP = "default-src 'none'; script-src 'self' 'unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'"
+
 class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
     lateinit var ops: Ops
     @Volatile private var nfcChat: String? = null
+    /** Události před načtením stránky (studený start, sdílení) se drží a pošlou, až JS zavolá ready(). */
+    private val early = java.util.ArrayList<String>()
+    @Volatile private var pageReady = false
 
     private val pickFiles = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) Thread { attachUris(uris) }.start() else send("files", JSONObject().put("files", JSONArray())) }
     private val pickTree = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) Thread { importTree(uri) }.start() }
@@ -46,12 +51,14 @@ class MainActivity : ComponentActivity() {
             setGeolocationEnabled(false); mediaPlaybackRequiresUserGesture = true
         }
         web.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? = loader.shouldInterceptRequest(request.url)
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                // CSP i jako HTTP hlavička (platí spolehlivě i pro blob: Workery testů): žádná síť, žádné inline skripty
+                loader.shouldInterceptRequest(request.url)?.also { r -> r.responseHeaders = (r.responseHeaders ?: emptyMap()) + mapOf("Content-Security-Policy" to CSP, "X-Content-Type-Options" to "nosniff") }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
-                if (u.host == "appassets.androidplatform.net") return false
-                // odkazy ze zdrojů otevřít v prohlížeči, ne ve WebView
-                if (u.scheme == "https" || u.scheme == "http") startActivity(Intent(Intent.ACTION_VIEW, u))
+                if (u.host == "appassets.androidplatform.net" && u.scheme == "https") return false
+                // ven jen http(s), jen hlavní rámec a jen po skutečném klepnutí (skript nesmí sám otevírat stránky = únik dat)
+                if ((u.scheme == "https" || u.scheme == "http") && request.isForMainFrame && request.hasGesture()) runCatching { startActivity(Intent(Intent.ACTION_VIEW, u).addCategory(Intent.CATEGORY_BROWSABLE)) }
                 return true
             }
         }
@@ -75,17 +82,35 @@ class MainActivity : ComponentActivity() {
 
     fun send(type: String, data: JSONObject) {
         val js = "window.vega && vega.on(${JSONObject.quote(type)}, ${data})"
+        synchronized(early) { if (!pageReady) { early += js; if (early.size > 200) early.removeAt(0); return } }
         runOnUiThread { if (!isFinishing) web.evaluateJavascript(js, null) }
     }
 
+    /** Stránka načtena (volá JS) → poslat odložené události a znovu ukázat otevřené dotazy. */
+    fun ready() {
+        val q = synchronized(early) { pageReady = true; early.toList().also { early.clear() } }
+        runOnUiThread { q.forEach { web.evaluateJavascript(it, null) } }
+        ops.replay()
+    }
+
+    override fun onDestroy() { synchronized(early) { pageReady = false }; super.onDestroy() }
+
     private fun nameOf(u: Uri) = runCatching { contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: u.lastPathSegment ?: "soubor"
 
+    /** Sdílené / vybrané soubory: jen content:// od CIZÍ aplikace (ne soukromá data VEGA, ne file://), čtení s limitem. */
     private fun attachUris(uris: List<Uri>) {
         val arr = JSONArray()
         for (u in uris.take(8)) {
             runCatching {
-                val bytes = contentResolver.openInputStream(u)!!.use { s -> s.readBytes() }
-                require(bytes.size <= 60_000_000) { "Soubor je větší než 60 MB." }
+                require(u.scheme == "content") { "Soubor nejde otevřít (jen přes systémový výběr / sdílení)." }
+                require(u.authority?.startsWith(packageName) != true) { "Vlastní soubory VEGA sem nepatří." }
+                val size = runCatching { contentResolver.query(u, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L } }.getOrNull() ?: -1L
+                require(size <= 60_000_000) { "Soubor je větší než 60 MB." }
+                val bytes = contentResolver.openInputStream(u)!!.use { s ->
+                    val o = java.io.ByteArrayOutputStream(); val buf = ByteArray(64 * 1024); var total = 0L
+                    while (true) { val n = s.read(buf); if (n < 0) break; total += n; require(total <= 60_000_000) { "Soubor je větší než 60 MB." }; o.write(buf, 0, n) }
+                    o.toByteArray()
+                }
                 arr.put(ops.attach(nameOf(u), contentResolver.getType(u), bytes))
             }.onFailure { arr.put(JSONObject().put("error", "${nameOf(u)}: ${it.message}")) }
         }
@@ -163,6 +188,15 @@ class MainActivity : ComponentActivity() {
 
 }
 
+/** Obsah vložený do pole klíče: „export GEMINI_API_KEY="AIza…"“, uvozovky, středník, celý řádek → jen klíč. */
+fun normalizeKey(provider: String, raw: String): String {
+    var k = raw.trim().removePrefix("export ").trim()
+    if (Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*[=:]").containsMatchIn(k)) k = k.substringAfter('=').substringAfter(':').trim()
+    k = k.trim().trimEnd(';').trim().trim('"', '\'', '`').trim()
+    if (provider.startsWith("gemini")) Regex("AIza[0-9A-Za-z_-]{30,}").find(raw)?.let { k = it.value }
+    return k
+}
+
 /** Most JS → Kotlin. Každá metoda vrací JSON (nebo prázdné), dlouhé operace hlásí výsledek událostí. */
 class Bridge(private val a: MainActivity) {
     private val ops get() = a.ops
@@ -174,10 +208,15 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun chats() = safe { ops.chats() }
     @JavascriptInterface fun newChat() = safe { ops.newChat() }
     @JavascriptInterface fun messages(chat: String) = safe { ops.messages(chat) }
-    @JavascriptInterface fun send(chat: String, text: String) = safe { if (chat == "temp") ops.chatTemp(text) else if (text.length > 6000) ops.longTask(chat, text) else ops.chat(chat, text) }
+    @JavascriptInterface fun send(chat: String, text: String, ids: String) = safe {
+        val f = runCatching { JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } } }.getOrDefault(emptyList())
+        if (chat == "temp") ops.chatTemp(text, f) else if (text.length > 6000) ops.longTask(chat, text, f) else ops.chat(chat, text, f)
+    }
+    @JavascriptInterface fun ready() = safe { a.ready() }
     @JavascriptInterface fun clearTemp() = safe { ops.clearTemp() }
     @JavascriptInterface fun stop() = safe { ops.stop() }
     @JavascriptInterface fun answer(req: String, json: String) = safe { ops.answer(req, JSONObject(json)) }
+    @JavascriptInterface fun isBusy() = safe { ops.busy }
     @JavascriptInterface fun pickFiles() = safe { a.pick() }
     @JavascriptInterface fun pickFolder() = safe { a.pickFolder() }
     @JavascriptInterface fun clearFiles() = safe { ops.clearAttachments() }
@@ -200,7 +239,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun project(id: String) = safe { ops.projectInfo(id) }
     @JavascriptInterface fun newProject(name: String) = safe { ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap()) }
     @JavascriptInterface fun activate(id: String) = safe { ops.settings.activeProject = id.ifBlank { null } }
-    @JavascriptInterface fun file(id: String, path: String) = safe { JSONObject().put("text", ops.workspace(id).let { if (cz.axiom.vega.core.Workspace.SECRET.containsMatchIn(path)) "(citlivý soubor – nezobrazuji)" else it.read(path).take(200_000) }).put("hash", ops.workspace(id).hash(path)) }
+    @JavascriptInterface fun file(id: String, path: String) = safe { JSONObject().put("text", ops.workspace(id).let { if (cz.axiom.vega.core.Workspace.isSecret(path)) "(citlivý soubor – nezobrazuji)" else it.read(path).take(200_000) }).put("hash", ops.workspace(id).hash(path)) }
     @JavascriptInterface fun saveFile(id: String, path: String, text: String, hash: String) = safe { ops.workspace(id).write(path, text, hash.ifBlank { null }, "ruční úprava").id }
     @JavascriptInterface fun undo(id: String, change: Int) = safe { ops.workspace(id).undo(change.takeIf { it > 0 }).path }
     @JavascriptInterface fun diff(id: String) = safe { JSONArray().apply { ops.workspace(id).diffFromBase().forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3))) } } }
@@ -216,6 +255,7 @@ class Bridge(private val a: MainActivity) {
         val s = ops.settings
         when (key) {
             "budgetKc" -> s.budgetKc = value.toIntOrNull() ?: 0
+            "usdKc" -> s.usdKc = (value.replace(',', '.').toFloatOrNull() ?: 23.5f).coerceIn(10f, 60f)
             "initiative" -> s.initiative = value == "true"
             "airgap" -> s.airgap = value == "true"
             "claudeModel" -> s.claudeModel = value
@@ -228,7 +268,13 @@ class Bridge(private val a: MainActivity) {
     }
     @JavascriptInterface fun saveKey(provider: String, key: String) = safe {
         require(provider in ops.engines.PROVIDERS) { "Neznámý poskytovatel" }
-        val k = key.trim()
+        val k = normalizeKey(provider, key)
+        // stejný klíč v obou slotech Gemini = „zdarma“ by čerpal placený projekt bez stropu
+        if (k.isNotEmpty() && provider.startsWith("gemini")) {
+            val other = if (provider == "gemini") "geminipro" else "gemini"
+            require(ops.vault.read(other) != k) { "Stejný klíč už je ve slotu „${ops.engines.name(other)}“. Klíč z projektu s fakturací patří jen do „Gemini – kredit Pro“." }
+        }
+        if (provider == "gemini" && k.isNotEmpty()) ops.settings.geminiFreeConfirmed = true // UI potvrzení „projekt bez fakturace“ proběhlo před uložením
         // klíč nikdy neprojde zpět do WebView; formát: bez mezer, rozumná délka (vložený celý odstavec ≠ klíč)
         require(k.isEmpty() || (k.length in 16..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
         ops.vault.save(provider, k)

@@ -57,6 +57,10 @@ object Mem {
         Regex("(?i)\\b(sk|pk|rk)-[a-z0-9_-]{16,}"), Regex("(?i)\\bghp_[A-Za-z0-9]{20,}"), Regex("(?i)\\bAKIA[0-9A-Z]{16}\\b"), Regex("(?i)\\bAIza[0-9A-Za-z_-]{30,}"),
         Regex("(?i)\\b(heslo|password|passwd|pin|token|api[ _-]?key|klíč k api|secret)\\b\\s*[:=je]+\\s*\\S{4,}"), Regex("(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
         Regex("\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{4}\\b"),
+        // klíče poskytovatelů (Groq gsk_, Cerebras csk-, xAI, Google OAuth, Slack, Hugging Face)
+        Regex("(?i)\\b(gsk_|csk-|xai-|ya29\\.|xox[bpa]-|hf_)[A-Za-z0-9_.-]{12,}"),
+        // obecně: dlouhý token s písmeny i číslicemi bez mezer (32+ znaků)
+        Regex("(?<![A-Za-z0-9])(?=[A-Za-z0-9_-]{32,})(?=[^\\s]*\\d)(?=[^\\s]*[A-Za-z])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9])"),
     )
 
     fun looksSecret(s: String) = secretRx.any { it.containsMatchIn(s) }

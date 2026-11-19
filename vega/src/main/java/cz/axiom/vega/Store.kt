@@ -63,9 +63,21 @@ class Settings(context: Context) {
     fun setModel(provider: String, model: String) = p.edit().putString("model.$provider", model).apply()
     fun setAllowed(provider: String, v: Boolean) = p.edit().putBoolean("allow.$provider", v).apply()
 
-    private fun month() = java.time.YearMonth.now().toString()
-    fun spentUsd(provider: String) = p.getFloat("spent.${month()}.$provider", 0f).toDouble()
-    fun addSpent(provider: String, usd: Double) = p.edit().putFloat("spent.${month()}.$provider", (spentUsd(provider) + usd).toFloat()).apply()
+    /** Měsíc v UTC (změna časového pásma ani přetočení hodin uprostřed měsíce útratu nevynuluje dřív). */
+    private fun month() = java.time.YearMonth.now(java.time.ZoneOffset.UTC).toString()
+    /** Útrata v mikro-USD (Long, atomicky) – Float ztrácel přesnost a souběžný zápis by se mohl přepsat. */
+    @Synchronized fun spentUsd(provider: String) = p.getLong("spentu.${month()}.$provider", 0L) / 1e6
+    @Synchronized fun addSpent(provider: String, usd: Double) {
+        val k = "spentu.${month()}.$provider"
+        p.edit().putLong(k, (p.getLong(k, 0L) + Math.round(usd * 1e6)).coerceAtLeast(0L)).commit()
+    }
+    /** STÍNOVÉ MĚŘENÍ bezplatného klíče Gemini: kolik by to stálo, KDYBY byl klíč z placeného projektu (varování). */
+    @Synchronized fun shadowUsd() = p.getLong("shadow.${month()}", 0L) / 1e6
+    @Synchronized fun addShadow(usd: Double) { val k = "shadow.${month()}"; p.edit().putLong(k, p.getLong(k, 0L) + Math.round(usd * 1e6)).apply() }
+    var shadowWarned: String get() = p.getString("shadowWarned", "")!!; set(v) = p.edit().putString("shadowWarned", v).apply()
+    fun monthKey() = month()
+    /** Uživatel potvrdil, že klíč ve slotu „zdarma“ je z projektu BEZ fakturace. */
+    var geminiFreeConfirmed: Boolean get() = p.getBoolean("geminiFreeConfirmed", false); set(v) = p.edit().putBoolean("geminiFreeConfirmed", v).apply()
     fun spentKcTotal() = listOf("claude", "kimi", "deepseek", "chutes", "nanogpt", "ollama", "synthetic", "geminipro").sumOf { spentUsd(it) } * usdKc
 }
 

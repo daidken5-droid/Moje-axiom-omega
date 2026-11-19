@@ -9,7 +9,8 @@ import kotlinx.serialization.json.put
 data class NdefRecord(val tnf: Int, val type: String, val id: String, val payload: ByteArray, val display: String, val typeLabel: String, val lang: String? = null) {
     /** Hodnota pro předání dalšímu nástroji: URL → Url, text → Text, jinak bajty. */
     fun asValue(): Value = when (typeLabel) {
-        "URL" -> Value.Url(display)
+        // jen http(s) je adresa; „javascript:“, „intent:“, „file:“… ze štítku je jen TEXT (cizí štítek nesmí spustit kód)
+        "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display)) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
         "Text", "MIME text" -> Value.Text(display, "NFC")
         else -> Value.Bytes("ndef-$type.bin", payload)
     }

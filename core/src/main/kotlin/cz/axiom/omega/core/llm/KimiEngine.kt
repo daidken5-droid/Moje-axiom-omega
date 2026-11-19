@@ -75,10 +75,12 @@ class KimiEngine(
         conn.setRequestProperty("Accept", "text/event-stream")
         if (!apiKey.isNullOrBlank()) conn.setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
 
+        var gotResponse = false
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
             if (code !in 200..299) throw httpError(code, Http.readAll(conn.errorStream, 64_000))
+            gotResponse = true
 
             val text = StringBuilder()
             val reasoning = StringBuilder()
@@ -94,7 +96,7 @@ class KimiEngine(
             Sse.read(conn.inputStream, cancel) { _, data ->
                 if (data.trim() == "[DONE]") return@read false
                 val obj = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return@read true
-                (obj["error"] as? JsonObject)?.let { throw EngineException("$vendor: ${it.str("message") ?: "chyba streamu"}", retryable = true) }
+                (obj["error"] as? JsonObject)?.let { throw EngineException("$vendor: ${it.str("message") ?: "chyba streamu"}", retryable = true, billed = true) }
                 obj.str("model")?.let { servedModel = it }
                 val choice = (obj["choices"] as? JsonArray)?.firstOrNull() as? JsonObject
                 val delta = choice?.get("delta") as? JsonObject
@@ -118,6 +120,9 @@ class KimiEngine(
                     val total = (it["total_tokens"] as? JsonPrimitive)?.longOrNull
                     val pin = usageIn
                     if (total != null && pin != null && total > pin + (usageOut ?: 0)) usageOut = total - pin
+                    // nebo zvlášť v completion_tokens_details.reasoning_tokens (když je completion_tokens neobsahuje)
+                    val rt = ((it["completion_tokens_details"] as? JsonObject)?.get("reasoning_tokens") as? JsonPrimitive)?.longOrNull
+                    if (rt != null && total == null) usageOut = (usageOut ?: 0) + rt
                 }
                 true
             }
@@ -126,7 +131,7 @@ class KimiEngine(
             val toolCalls = calls.values.filter { it.second.isNotBlank() }.mapIndexed { i, (id, name, args) ->
                 ToolCall(id.toString().ifBlank { "call_$i" }, name.toString().trim(), args.toString().ifBlank { "{}" })
             }
-            if (text.isBlank() && toolCalls.isEmpty()) throw EngineException("$vendor nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.")
+            if (text.isBlank() && toolCalls.isEmpty()) throw EngineException("$vendor nevrátil text (finish_reason=${finish ?: "?"}). Zkus to znovu nebo sniž úsilí.", billed = true)
             if (finish == "length") text.append("\n\n[Odpověď byla zkrácena limitem tokenů.]")
             return GenResult(text.toString().trim(), reasoning.toString().trim(), servedModel, finish, emptyList(), usageIn, usageOut, System.currentTimeMillis() - started, toolCalls)
         } catch (e: CancelledException) {
@@ -138,7 +143,7 @@ class KimiEngine(
             throw EngineException(
                 if (kind == EngineKind.KIMI_SERVER || kind == EngineKind.NODE) "Server ${baseUrl} neodpovídá: ${e.message}. Je zapnutý a dostupný?"
                 else "Spojení s $vendor selhalo: ${e.message}",
-                retryable = true, cause = e,
+                retryable = true, cause = e, billed = gotResponse,
             )
         } finally {
             conn.disconnect()
@@ -176,6 +181,7 @@ class KimiEngine(
             val o = Json.parseToJsonElement(body).jsonObject
             (o["error"] as? JsonObject)?.str("message") ?: o.str("message")
         }.getOrNull() ?: body.take(300)
+        if (code == 400 && Regex("(?i)API_KEY_INVALID|API key not valid|API key expired").containsMatchIn(body)) return EngineException("$vendor: neplatný API klíč (HTTP 400). $msg")
         return when (code) {
             401, 403 -> EngineException("$vendor: neplatný nebo neoprávněný API klíč (HTTP $code). $msg")
             404 -> EngineException("$vendor: model '$model' nebo adresa nenalezena (HTTP 404). Načti seznam modelů. $msg")

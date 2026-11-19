@@ -142,7 +142,7 @@ object FreeCloud {
             Regex("-pro\\b|-pro-").containsMatchIn(m) -> 2.0
             "flash-lite" in m -> 0.0
             "flash" in m -> 1.0
-            Regex("gemini-\\d+(\\.\\d+)?-[a-z]+$").containsMatchIn(m) -> -1.0 // jiný kódový název – ne automaticky
+            Regex("gemini-\\d+(\\.\\d+)?-[a-z]+$").containsMatchIn(m) -> return -60.0 // jiný kódový název (cena/tarif neznámé) – nikdy automaticky
             else -> 0.5
         }
         if (Regex("preview|exp|latest").containsMatchIn(m)) s -= 0.3
@@ -223,6 +223,8 @@ class FreeCloudEngine(
     private val onModel: (String, String) -> Unit = { _, _ -> },
     /** COST GUARD: placení členové jen s povolením a v rozpočtu (null = testy / bez ochrany) */
     private val guard: CostGuard? = null,
+    /** Skutečná spotřeba úspěšného volání (VEGA: stínové měření bezplatného klíče). */
+    private val onUsage: (provider: String, model: String, inTok: Long?, outTok: Long?) -> Unit = { _, _, _, _ -> },
 ) : LlmEngine {
     init { require(members.isNotEmpty()) { "Cloud: chybí klíč (Cerebras, Groq, OpenRouter, DeepSeek nebo Chutes)." } }
 
@@ -234,8 +236,17 @@ class FreeCloudEngine(
 
     @Volatile private var lastLabel = factory(members.first()).label
 
+    /** Proč který člen řetězu neodpověděl (přísný režim: souhrn pro uživatele i rozhodnutí o schválení). */
+    data class Failure(val provider: String, val name: String, val model: String, val message: String, val budget: Boolean, val rateLimited: Boolean, val estUsd: Double = 0.0)
+
+    /** Všichni členové selhali – [failures] po jednom za člena. */
+    class ChainException(msg: String, val failures: List<Failure>, cause: Throwable?) : EngineException(msg, retryable = true, cause = cause, billed = failures.isEmpty() && (cause as? EngineException)?.billed == true)
+
+    private val strict get() = guard?.strict == true
+
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         var last: Exception? = null
+        val failures = ArrayList<Failure>()
         for ((i, m0) in members.withIndex()) {
             var m = m0
             var healed = false
@@ -249,33 +260,74 @@ class FreeCloudEngine(
                 // PLACENÝ ČLEN: bez povolení / nad rozpočet se přeskočí – nikdy tichý přechod na placený endpoint
                 if (m.provider.paid && guard != null) {
                     val d = guard.check(m.provider.id, m.model, chars, opts.maxTokens)
-                    if (d is CostGuard.Decision.Deny) { last = CostGuard.BudgetException(d.reason); break }
+                    if (d is CostGuard.Decision.Deny) {
+                        val est = guard.estimateUsd(m.provider.id, m.model, chars, opts.maxTokens)
+                        last = CostGuard.BudgetException(d.reason, m.provider.id, m.model, est)
+                        failures += Failure(m.provider.id, m.provider.name, m.model, d.reason, budget = true, rateLimited = false, estUsd = est)
+                        break
+                    }
                 }
+                // PŘÍSNĚ: odhad se zarezervuje předem (strop hlídá i rozběhnuté volání)
+                val reserved = if (strict && m.provider.paid) guard!!.reserve(m.provider.id, m.model, chars, opts.maxTokens) else 0.0
                 try {
                     val r = eng.generate(fitted, opts, cancel) { d -> started = true; onDelta(d) }
                     lastLabel = eng.label
-                    if (m.provider.paid) guard?.record(m.provider.id, m.model, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length)
+                    if (m.provider.paid) {
+                        if (strict) guard!!.settle(m.provider.id, m.model, reserved, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, opts.maxTokens)
+                        else guard?.record(m.provider.id, m.model, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length)
+                    }
+                    onUsage(m.provider.id, m.model, r.inputTokens, r.outputTokens)
                     return r
                 } catch (e: CancelledException) {
-                    throw e
+                    throw e // rezervace zůstává: poskytovatel mohl už účtovat
                 } catch (e: Exception) {
                     last = e
+                    val pre = CostGuard.preResponse(e)
+                    if (reserved > 0 && pre) guard!!.refund(m.provider.id, reserved)
                     if (started) throw e // už psal → nikdy nemíchat dvě odpovědi
+                    // PŘÍSNĚ: zaplacený pokus (odpověď přišla, pak chyba) → neplatit podruhé u dalšího člena
+                    if (strict && m.provider.paid && !pre) throw e
+                    if (strict) failures += Failure(m.provider.id, m.provider.name, m.model, shortReason(e), budget = false, rateLimited = Regex("HTTP 429").containsMatchIn(e.message.orEmpty()))
                     // SAMOOPRAVA: model zmizel z nabídky (free tarify je často mění) → vybrat platný a zkusit znovu
                     // MODEL MIMO TARIF (Gemini: 429 „limit: 0“ / „not available on the free tier“ – Hydrogen zpřístupňovaný
                     // postupně) → jiný model téhož poskytovatele, ne hned jiný poskytovatel
-                    val zeroQuota = Regex("limit: 0\\b|limit\":\\s*0\\b|free[ _-]?tier|not available (for|on|in) (your|the)|not supported for", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())
-                    if (!healed && (zeroQuota || Regex("HTTP 404|model.{0,40}(not found|nenalezen|does not exist|not exist)", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty()))) {
+                    // (běžné vyčerpání denní kvóty „free_tier_requests, limit: 250“ NENÍ důvod měnit model – jen „limit: 0“)
+                    val zeroQuota = Regex("limit: 0\\b|limit\":\\s*0\\b|not available (for|on|in) (your|the) (free )?tier|not available on the free tier|not supported for", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())
+                    val notFound = Regex("HTTP 404|model.{0,40}(not found|nenalezen|does not exist|not exist)", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())
+                    if (!healed && (zeroQuota || notFound)) {
                         healed = true
                         val fixed = runCatching { FreeCloud.pickModel(m.provider, listModels(m.provider, m.key), avoid = setOf(m.model)) }.getOrNull()
-                        if (fixed != null && fixed != m.model) { m = m.copy(model = fixed); onModel(m.provider.id, fixed); continue }
+                        // placený člen: nikdy samovolně na DRAŽŠÍ model (povolení a náhled ceny platily pro původní)
+                        val pricier = fixed != null && m.provider.paid && guard != null &&
+                            guard.priceOf(m.provider.id, fixed).let { n -> guard.priceOf(m.provider.id, m.model).let { o -> n.inPerM > o.inPerM || n.outPerM > o.outPerM } }
+                        if (fixed != null && fixed != m.model && !pricier) {
+                            m = m.copy(model = fixed)
+                            // trvale si zapamatovat jen zmizelý model; kvóta se může změnit (přísně), jinak jako dřív
+                            if (!strict || notFound) onModel(m.provider.id, fixed)
+                            if (strict) failures.removeAt(failures.lastIndex)
+                            continue
+                        }
                     }
                     break
                 }
             }
             if (i < members.lastIndex) onFallback("${m.provider.name}: ${last?.message?.take(80)} → ${members[i + 1].provider.name}")
         }
+        if (strict) throw ChainException(failures.joinToString(" · ") { "${it.name}: ${it.message}" }.ifBlank { last?.message ?: "Cloud neodpověděl." }, failures, last)
         throw (last as? EngineException) ?: EngineException("Cloud: ${last?.message}", retryable = true, cause = last)
+    }
+
+    /** Krátký český důvod (bez syrového JSON): limit, klíč, výpadek, síť. */
+    private fun shortReason(e: Exception): String {
+        val m = e.message.orEmpty()
+        return when {
+            Regex("HTTP 429").containsMatchIn(m) && Regex("(?i)per ?day|daily|PerDay").containsMatchIn(m) -> "denní limit zdarma vyčerpán"
+            Regex("HTTP 429").containsMatchIn(m) -> "limit – zkus za minutu"
+            Regex("HTTP 40[013]").containsMatchIn(m) && Regex("(?i)key|klíč|auth").containsMatchIn(m) -> "neplatný klíč"
+            Regex("HTTP 5\\d\\d").containsMatchIn(m) -> "výpadek serveru"
+            Regex("(?i)Spojení|connect|resolve host|timeout").containsMatchIn(m) -> "bez spojení"
+            else -> m.substringBefore(". {").substringBefore(" [{").take(90)
+        }
     }
 
     /** Ořízne nejstarší historii, aby se dotaz vešel do okna poskytovatele (systém a poslední dotaz zůstanou). */

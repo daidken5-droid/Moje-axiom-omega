@@ -280,3 +280,34 @@ class VegaCoreTest {
         assertEquals(2, Research.candidates(listOf("Wikipedie: Prato", "Web: Operace Prato – článek", "Wikipedie: Prato")).size)
     }
 }
+
+/** Regrese z red teamu (bezpečnost VEGA). */
+class VegaRedTeamTest {
+    @Test fun ndefNonHttpUriIsJustText() {
+        val js = NdefParser.parse(NdefParser.build(listOf(Triple(1, "U", byteArrayOf(0) + "javascript:alert(VEGA.chats())".toByteArray()))))
+        assertIs<Value.Text>(js[0].asValue())
+        val ok = NdefParser.parse(NdefParser.build(listOf(Triple(1, "U", NdefParser.uriPayload("https://example.cz")))))
+        assertIs<Value.Url>(ok[0].asValue())
+    }
+
+    @Test fun secretPathsAreBlockedAfterNormalization() {
+        assertTrue(Workspace.isSecret(".env/") && Workspace.isSecret("cfg\\.env") && Workspace.isSecret("gradle.properties") && Workspace.isSecret("app/google-services.json") && Workspace.isSecret("keys/id_ed25519"))
+        val dir = kotlin.io.path.createTempDirectory("vega").toFile()
+        val ws = Workspace.create(File(dir, "p"), "x", mapOf("a.js" to "x".toByteArray(), ".env" to "API_URL=https://api.x".toByteArray()))
+        val plan = CodeAgent.parse("### UPRAVIT: .env/\n<<<<<<< HLEDAT\nAPI_URL=https://api.x\n=======\nAPI_URL=https://evil\n>>>>>>> NAHRADIT\n")
+        val r = CodeAgent.apply(ws, plan, emptyMap(), "x")
+        assertTrue(r.changes.isEmpty() && r.failed.single().second.contains("klíči"))
+        assertTrue(ws.read(".env").contains("api.x"))
+        // export ZIP bez souborů s klíči
+        val names = java.util.zip.ZipInputStream(ws.exportZip().inputStream()).use { z -> generateSequence { z.nextEntry?.name }.toList() }
+        assertTrue(names.none { it.endsWith(".env") } && names.any { it.endsWith("a.js") })
+        dir.deleteRecursively()
+    }
+
+    @Test fun memoryRejectsProviderKeys() {
+        listOf("gsk_abcdefghijklmnopqrstuvwxyz123456", "csk-abcdefghijklmnop12345678", "ya29.a0AfH6SMBabcdefghijkl", "AIzaSyD-abcdefghijklmnopqrstuvwxyz12345").forEach {
+            assertTrue(Mem.looksSecret("můj klíč $it"), it)
+        }
+        assertTrue(!Mem.looksSecret("Odpovídej stručně a česky"))
+    }
+}
