@@ -1047,7 +1047,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             return true
         }
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
-        if (Regex("(?iU)(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)\\b.{0,40}\\b(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?iU)\\.(js|kt|py|java|ts|json)\\b|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
+        if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
             exportChat(chat, lastResultRun!!); return true
         }
         return false
