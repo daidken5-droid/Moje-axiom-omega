@@ -271,6 +271,8 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun deleteProcedure(id: String) = safe { ops.procedures.delete(id) }
     @JavascriptInterface fun runProcedure(chat: String, id: String, input: String) = safe { ops.runProcedure(chat.takeIf { it != "temp" }, id, JSONObject(input)) }
     @JavascriptInterface fun memory() = safe { ops.memoryJson() }
+    @JavascriptInterface fun improvements() = safe { ops.improvementsJson() }
+    @JavascriptInterface fun improvementAction(id: String, action: String) = safe { ops.improvementAction(id, action)?.let { JSONObject.quote(it) } ?: "true" }
     @JavascriptInterface fun memoryRevert(id: String) = safe { ops.memory.revert(id)?.text?.let { JSONObject.quote(it) } }
     @JavascriptInterface fun memoryForget(id: String) = safe { ops.memory.forget(id).size }
     @JavascriptInterface fun memoryAdd(text: String) = safe {

@@ -64,7 +64,22 @@ Další pravidla:
   - **Připisování:** signál se připíše oblasti, která předchozí zprávu zpracovala (záměr routeru / nástroj / postup).
   - **Soukromí:** klíče, e-maily, URL (zůstane jen doména), IBAN a delší čísla se nahrazují značkou. Věta má max. 160 znaků, bez obsahu souborů. Deník drží 30 dní a nejvýš 400 záznamů denně.
   - **Bezpečnost:** zápis nikdy neshodí práci.
-- [ ] 6. Autonomie krok 2: návrh příkladů routeru z deníku → ověření na held-out sadě → karta „Vylepšení“ s historií a návratem
+- [x] 6. Autonomie krok 2: návrh příkladů routeru z deníku → ověření na held-out sadě → karta „Vylepšení“ s historií a návratem
+  - **Výsledek:** `RouterTuning` + `Router.Learned` + karta Menu → Vylepšení. RouterTuningTest (2 testy) prošel.
+  - **Odkud se pravidlo bere:** z deníku, když zpráva skončila v obecném rozhovoru / rešerši a uživatel ji hned opravil nebo přeformuloval. Navazující zpráva ukáže správnou akci.
+  - **Kdy se zapne:**
+    - samo po 2 dokladech;
+    - jen když nezmění žádný z 41 případů kontrolní sady a své příklady pošle správně;
+    - jinak zůstane jako návrh na klepnutí.
+  - **Bezpečnost:**
+    - pravidlo smí jen nahradit obecný rozhovor / rešerši, pevná pravidla nikdy nepřebije;
+    - vrácené pravidlo se samo znovu nezapne;
+    - každá změna má historii.
+  - **Karta:**
+    - naučená pravidla (stav, výrazy, doklady, historie, Vrátit / Zapnout / Zamítnout);
+    - souhrn slabin za 30 dní;
+    - po samozapnutí přijde oznámení.
+  - **NEOVĚŘENO:** vzhled karty na telefonu (zkontroluje se v bodě 8).
 - [ ] 7. Autonomie krok 3: rozšíření jako JS nástroje v sandboxu (registr, oprávnění, testy, zapnout/vrátit)
 - [ ] 8. UI: dotaz na souhlas vs. jiné listy (už hlídáno), spinner NFC po idle, přístupnost (aria, kontrast), kontrola na 360 px šířky
 - [ ] 9. Výkon: profil `Ops.home()` a vykreslování chatu se 300 zprávami; měření před/po

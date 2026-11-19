@@ -18,11 +18,14 @@ class SelfTune(private val kv: Kv, private val version: String = "", private val
         WRONG_INTENT("špatně pochopený záměr"), SLOW("pomalý krok"), UNVERIFIED("neověřené tvrzení")
     }
     @Serializable data class Signal(val kind: String, val area: String, val excerpt: String = "", val detail: String = "", val prevExcerpt: String = "",
-                                    val version: String = "", val at: Long = 0)
+                                    val version: String = "", val at: Long = 0,
+                                    /** Kam navazující zpráva nakonec patřila (oblast) – podklad pro naučené pravidlo routeru. */
+                                    val resolved: String = "")
     data class Group(val kind: Kind, val area: String, val count: Int, val examples: List<Signal>)
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
     private val lock = Any()
+    @Volatile private var lastSignal: Pair<String, Long>? = null
     private fun dayKey(t: Long) = "selftune/journal/" + java.time.Instant.ofEpochMilli(t).atZone(java.time.ZoneOffset.UTC).toLocalDate() + ".json"
     private fun day(k: String): List<Signal> = kv.read(k)?.let { runCatching { json.decodeFromString(ListSerializer(Signal.serializer()), it) }.getOrNull() } ?: emptyList()
 
@@ -30,6 +33,7 @@ class SelfTune(private val kv: Kv, private val version: String = "", private val
         val now = clock(); val k = dayKey(now)
         val s = Signal(kind.name, area.take(60), anonymize(excerpt), anonymize(detail).take(200), anonymize(prevExcerpt), version, now)
         kv.write(k, json.encodeToString(ListSerializer(Signal.serializer()), (day(k) + s).takeLast(MAX_PER_DAY)))
+        lastSignal = k to now
         val cutoff = dayKey(now - keepDays * 86_400_000L)
         kv.keys("selftune/journal/").filter { it < cutoff }.forEach { kv.delete(it) }
     }
@@ -55,12 +59,21 @@ class SelfTune(private val kv: Kv, private val version: String = "", private val
     fun userTurn(text: String): Kind? {
         val now = clock(); val prev = last
         val k = prev?.let { followUpKind(it.text, text, now - it.at) }
+        last = Turn("?", text, now); lastSignal = null
         if (prev != null && k != null) observe(k, prev.area, text, prevExcerpt = prev.text)
-        last = Turn("?", text, now)
         return k
     }
     /** Jak byla poslední zpráva zpracovaná (záměr / nástroj) – doplní se po rozhodnutí. */
-    fun routed(area: String) { last = last?.copy(area = area) }
+    fun routed(area: String) {
+        last = last?.copy(area = area)
+        // signál z téže zprávy (oprava / přeformulování) doplnit o to, kam zpráva skutečně patřila
+        val ls = lastSignal ?: return; lastSignal = null
+        val at = last?.at ?: return; if (ls.second < at) return
+        synchronized(lock) {
+            val list = day(ls.first); val i = list.indexOfLast { it.at == ls.second }
+            if (i >= 0 && list[i].resolved.isEmpty()) kv.write(ls.first, json.encodeToString(ListSerializer(Signal.serializer()), list.toMutableList().also { it[i] = it[i].copy(resolved = area.take(60)) }))
+        }
+    }
     fun lastArea(): String = last?.area ?: "?"
 
     companion object {

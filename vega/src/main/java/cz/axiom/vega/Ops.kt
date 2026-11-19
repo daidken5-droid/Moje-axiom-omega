@@ -77,11 +77,42 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     @Volatile private var lastUserText: String? = null
     /** Deník slabin (autonomie, krok 1): chyby, opravy od uživatele, Stop, pomalé kroky – jen lokálně, anonymizovaně. */
     val selftune = cz.axiom.vega.core.SelfTune(kv, BuildConfig.VERSION_NAME)
+    /** Naučená pravidla routeru z deníku (vrstva A): zapnou se jen po kontrole, jdou vrátit. */
+    val tuning = cz.axiom.vega.core.RouterTuning(kv)
+    private fun tuneCtx(@Suppress("UNUSED_PARAMETER") example: String) = Router.Ctx(false, null, activeWorkspace() != null, lastResultRun != null, procedures)
+    /** Projde deník a o pravidlech, která se právě sama zapnula, dá vědět (s možností vrátit v Paměť → Vylepšení). */
+    private fun retune() = note {
+        tuning.refresh(selftune.signals(), ::tuneCtx).filter { it.status == "ACTIVE" }.forEach { r ->
+            emit("toast", JSONObject().put("text", "Naučila jsem se: „${r.examples.last()}“ → ${improvementLabel(r.target)}. Vrátit jde v Menu → Vylepšení."))
+        }
+    }
+    fun improvementLabel(target: String) = when {
+        target.startsWith("nástroj:") -> "nástroj " + (Tools.get(target.removePrefix("nástroj:"))?.title ?: target.removePrefix("nástroj:"))
+        target.startsWith("postup:") -> "postup " + target.removePrefix("postup:")
+        else -> mapOf("záměr:BuildStatementTool" to "zpracování výpisu", "záměr:Demand" to "předžalobní výzva", "záměr:Nfc" to "NFC", "záměr:Continue" to "navázání na práci",
+            "záměr:WhatDoYouRemember" to "paměť", "záměr:Hypothesis" to "rozbor hypotézy", "záměr:NewProject" to "nový projekt", "záměr:MakeButton" to "tlačítko z výsledku",
+            "záměr:Code" to "úprava kódu", "záměr:CompareFiles" to "porovnání souborů")[target] ?: target
+    }
+    /** Karta Vylepšení: naučená pravidla, deník slabin (souhrn), stav. */
+    fun improvementsJson(): JSONObject {
+        val rules = JSONArray(); tuning.rules().reversed().forEach { r -> rules.put(JSONObject().put("id", r.id).put("status", r.status).put("target", improvementLabel(r.target))
+            .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason)
+            .put("history", JSONArray(r.history.map { JSONObject().put("at", it.at).put("action", it.action).put("note", it.note) }))) }
+        val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", g.area).put("count", g.count)
+            .put("example", g.examples.lastOrNull()?.let { it.excerpt.ifBlank { it.detail } } ?: "")) }
+        return JSONObject().put("rules", rules).put("weak", weak)
+    }
+    fun improvementAction(id: String, action: String): String? = when (action) {
+        "activate" -> tuning.activate(id, ::tuneCtx)
+        "revert" -> { tuning.revert(id); null }
+        "reject" -> { tuning.reject(id); null }
+        else -> "Neznámá akce."
+    }
 
     init {
         cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
         // úklid úložiště na výkonném vlákně (nesoupeří s běžící úlohou o stejné soubory)
-        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) } }
+        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) }; retune() }
     }
 
     // ------------------------------------------------------------------ infrastruktura
@@ -393,13 +424,14 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Přílohy patří k jedné zprávě – po zpracování se uvolní (další věta nepoužije omylem starý soubor). */
     private fun chat0(chatId: String?, text: String, again: Boolean = false) {
         lastUserText = text
-        if (!again && chatId != null) note { selftune.userTurn(text) }
+        val followUp = if (!again && chatId != null) runCatching { selftune.userTurn(text) }.getOrNull() else null
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
         if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
-        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size))
+        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size, learned = tuning.active()))
         note { selftune.routed(SelfTune.area(intent)) }
+        if (followUp != null) retune()
         when (intent) {
             is Router.Intent.Remember -> rememberCmd(chatId, intent, ws)
             Router.Intent.Continue -> continueWork(chatId)

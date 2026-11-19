@@ -39,7 +39,32 @@ object Router {
 
     enum class CodeKind { CHANGE, EXPLAIN, FIX_FROM_LOG, TEST }
 
-    data class Ctx(val hasAttachment: Boolean, val attachmentName: String?, val activeProject: Boolean, val lastResult: Boolean, val procedures: ProcedureStore?, val attachments: Int = if (hasAttachment) 1 else 0)
+    data class Ctx(val hasAttachment: Boolean, val attachmentName: String?, val activeProject: Boolean, val lastResult: Boolean, val procedures: ProcedureStore?, val attachments: Int = if (hasAttachment) 1 else 0,
+                   /** Naučená pravidla (autonomie, vrstva A) – smí jen změnit obecný rozhovor / rešerši na akci, nikdy přebít pevné pravidlo. */
+                   val learned: List<Learned> = emptyList())
+
+    /** Naučené pravidlo: zpráva obsahuje všechna [tokens] (bez diakritiky) → záměr [target] (štítek jako SelfTune.area). */
+    data class Learned(val id: String, val tokens: Set<String>, val target: String)
+
+    private fun learnedMatch(raw: String, c: Ctx): Intent? {
+        if (c.learned.isEmpty()) return null
+        val words = Text.words(Text.fold(raw)).toSet()
+        return c.learned.firstOrNull { it.tokens.size >= 2 && words.containsAll(it.tokens) }?.let { intentFor(it.target, raw, c) }
+    }
+
+    /** Štítek oblasti → záměr, jen pro záměry, které jdou spustit z pouhého textu (a v daném kontextu dávají smysl). */
+    fun intentFor(target: String, text: String, c: Ctx): Intent? = when {
+        target.startsWith("nástroj:") -> target.removePrefix("nástroj:").takeIf { Tools.get(it) != null }?.let { Intent.Tool(it, emptyMap(), "naučené pravidlo") }
+        target.startsWith("postup:") -> c.procedures?.list()?.firstOrNull { it.name == target.removePrefix("postup:") }?.let { Intent.RunProcedure(it) }
+        else -> when (target.removePrefix("záměr:")) {
+            "BuildStatementTool" -> Intent.BuildStatementTool; "Demand" -> Intent.Demand; "Nfc" -> Intent.Nfc; "Continue" -> Intent.Continue
+            "WhatDoYouRemember" -> Intent.WhatDoYouRemember; "Hypothesis" -> Intent.Hypothesis(text); "NewProject" -> Intent.NewProject(text)
+            "MakeButton" -> if (c.lastResult) Intent.MakeButton else null
+            "Code" -> if (c.activeProject) Intent.Code(text, CodeKind.CHANGE) else null
+            "CompareFiles" -> if (c.attachments >= 2) Intent.CompareFiles(null) else null
+            else -> null
+        }
+    }
 
     /** Oprava zadání běžící / poslední úlohy: index nahrazovaného vstupu (−1 = podle jména), rozsah nebo předpoklad. */
     sealed class Revision {
@@ -141,6 +166,8 @@ object Router {
         val aloud = has(t, "^(premyslim|napada me|co kdyby|mozna bych|hmm|asi bych|zvazuju|nevim jestli)")
         val creative = has(t, "napad|brainstorm|vymysli|navrhni (nazev|jmeno|logo|motto|varianty)|basen|basnick|pribeh|povidk|slogan|kreativ|rymovan|vtip|prani k|pozvank|nazev pro|jak (bych )?(to )?pojmenoval")
         if (aloud || creative) return Intent.Talk(aloud, creative)
+        // --- naučená pravidla (jen místo obecného rozhovoru / rešerše)
+        learnedMatch(text, c)?.let { return it }
         // --- holý název tématu → rešerše
         cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
         return Intent.Talk(false, false)

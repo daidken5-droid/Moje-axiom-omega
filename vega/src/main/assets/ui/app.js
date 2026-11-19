@@ -309,13 +309,14 @@ function drawer() {
       <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
       <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
       <button class="drow" data-act="libTab" data-tab="memory">Paměť</button>
+      <button class="drow" data-act="libTab" data-tab="improve">Vylepšení</button>
       <button class="drow" data-act="settings">Nastavení</button>
     </div></nav>`;
 }
 
 function library(tab) {
   S.libTab = tab || S.libTab;
-  const T = { projects: 'Projekty', procs: 'Moje nástroje', memory: 'Paměť' };
+  const T = { projects: 'Projekty', procs: 'Moje nástroje', memory: 'Paměť', improve: 'Vylepšení' };
   if (!T[S.libTab]) S.libTab = 'projects';
   let body = '';
   if (S.libTab === 'projects') {
@@ -327,6 +328,16 @@ function library(tab) {
     const ps = call('procedures') || [];
     body = ps.length ? `<div class="list">${ps.map(p => `<div class="row"><span class="grow"><b>${esc(p.name)} <span class="pill">v${p.version}</span></b><small>${esc(p.inputDesc || p.inputKind)} → ${esc(p.outputKind)} · ${plural(p.steps.length, 'krok', 'kroky', 'kroků')} · ${p.perms.length ? 'oprávnění: ' + p.perms.map(esc).join(', ') : 'bez oprávnění'}</small></span><button class="btn" data-act="runProc" data-id="${esc(p.id)}">Spustit</button><button class="more" data-act="procMenu" data-p='${esc(JSON.stringify(p))}' aria-label="Podrobnosti">⋯</button></div>`).join('')}</div>`
       : `<p class="lede">Zatím žádný uložený nástroj. Přilož výpis a řekni „udělej z toho nástroj“ – nebo spoj dva nástroje přes „Předat dál“ a ulož.</p>`;
+  } else if (S.libTab === 'improve') {
+    const v = call('improvements') || { rules: [], weak: [] };
+    const st = { ACTIVE: ['zapnuto', 'ok'], PROPOSED: ['návrh', ''], REVERTED: ['vráceno', ''], REJECTED: ['zamítnuto', 'bad'] };
+    body = `<p class="lede">Co jsem se naučila z tvých oprav. Pravidlo se zapne jen tehdy, když nezmění žádný kontrolní případ, a můžeš ho kdykoli vrátit. Deník zůstává jen v telefonu.</p>
+      <h3>Naučená pravidla</h3><div class="list">${v.rules.map(r => `<div class="row"><span class="grow"><b>„${esc(r.examples[r.examples.length - 1] || r.tokens.join(' '))}“ → ${esc(r.target)} <span class="pill ${st[r.status][1]}">${st[r.status][0]}</span></b>
+        <small>výrazy: ${r.tokens.map(esc).join(', ')} · doklady: ${r.evidence}${r.reason ? ' · ' + esc(r.reason) : ''}</small>
+        <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
+        ${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
+        ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
+      <h3>Kde mám slabiny (30 dní)</h3><div class="list">${v.weak.map(w => `<div class="row"><span class="grow"><b>${esc(w.kind)} · ${esc(w.area)} <span class="pill">${w.count}×</span></b><small>${esc(w.example)}</small></span></div>`).join('') || '<div class="row"><span class="grow note">Bez záznamů.</span></div>'}</div>`;
   } else {
     const ms = call('memory') || [];
     body = `<p class="lede">Paměť mění, jak odpovídám. Klíče, hesla ani pokyny z webu si neukládám. Zapomenutí smaže i odvozený index.</p>
@@ -532,6 +543,7 @@ window.vega = {
       case 'idle': S.busy = false; S.stream = ''; render(); break;
       case 'done': S.busy = false; if (d.cancelled) toast('Zastaveno. Hotové kroky zůstaly.'); render(); break;
       case 'error': S.busy = false; S.stream = ''; render(); toast(d.text, 7000); break;
+      case 'toast': toast(d.text, 7000); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { S.busy = true; call('buttonTry', chatId(), ok[0].id); render(); } return; }
@@ -642,6 +654,7 @@ function act(a, d) {
     case 'share': B.share(d.f); break;
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
+    case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast(d.a === 'revert' ? 'Vráceno – pravidlo už neplatí.' : d.a === 'reject' ? 'Zamítnuto.' : 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;
