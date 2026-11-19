@@ -163,11 +163,15 @@ class MainActivity : ComponentActivity() {
             else -> runOnUiThread {
                 a.enableReaderMode(this, { tag -> readTag(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS, Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250) })
                 send("nfc.listening", JSONObject())
+                // čtečka neběží donekonečna: po 60 s ji vypnout a říct to
+                web.postDelayed({ if (nfcChat == chat && nfcActive) { nfcStop(); ops.onNfc(null, "Žádný štítek jsem do minuty nenačetl – zkus to znovu a podrž ho u zadní strany telefonu.", chat) } }, 60_000)
+                nfcActive = true
             }
         }
     }
 
-    fun nfcStop() { runCatching { NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this) } }
+    @Volatile private var nfcActive = false
+    fun nfcStop() { nfcActive = false; runCatching { NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this) } }
 
     private fun readTag(tag: Tag) {
         val ndef = Ndef.get(tag)
@@ -219,7 +223,8 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun home() = safe { ops.home() }
     @JavascriptInterface fun tools() = safe { ops.toolsJson() }
     @JavascriptInterface fun chats() = safe { ops.chats() }
-    @JavascriptInterface fun newChat() = safe { ops.newChat() }
+    // řetězcové výsledky jako JSON (JS je parsuje – holý text by se zahodil)
+    @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }
     @JavascriptInterface fun messages(chat: String) = safe { ops.messages(chat) }
     @JavascriptInterface fun send(chat: String, text: String, ids: String) = safe {
         val f = runCatching { JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } } }.getOrDefault(emptyList())
@@ -227,7 +232,7 @@ class Bridge(private val a: MainActivity) {
     }
     @JavascriptInterface fun ready() = safe { a.ready() }
     @JavascriptInterface fun clearTemp() = safe { ops.clearTemp() }
-    @JavascriptInterface fun stop() = safe { ops.stop() }
+    @JavascriptInterface fun stop() = safe { ops.stop(); a.nfcStop() }
     @JavascriptInterface fun answer(req: String, json: String) = safe { ops.answer(req, JSONObject(json)) }
     @JavascriptInterface fun isBusy() = safe { ops.busy }
     @JavascriptInterface fun pickFiles() = safe { a.pick() }
@@ -239,18 +244,25 @@ class Bridge(private val a: MainActivity) {
         val o = runCatching { JSONObject(fix) }.getOrDefault(JSONObject())
         ops.resume(chat.takeIf { it != "temp" }, id, o.keys().asSequence().associate { k -> k.toInt() to params(o.getJSONObject(k).toString()) })
     }
-    @JavascriptInterface fun export(run: String, step: Int) = safe { ops.exportValue(run, step) }
+    // čísla jako text: most WebView by JS řetězec do Int převedl na 0
+    @JavascriptInterface fun export(run: String, step: String) = safe { ops.exportValue(run, step.toIntOrNull() ?: -1) }
     @JavascriptInterface fun procedures() = safe { JSONArray().apply { ops.procedures.list().forEach { p -> put(JSONObject().put("id", p.id).put("name", p.name).put("version", p.version).put("description", p.description).put("inputDesc", p.inputDesc).put("inputKind", p.inputKind).put("outputKind", p.outputKind).put("perms", JSONArray(p.perms)).put("steps", JSONArray(p.steps.map { it.tool })).put("changelog", JSONArray(p.changelog)).put("uses", p.uses)) } } }
     @JavascriptInterface fun saveProcedure(json: String) = safe { ops.saveProcedure(JSONObject(json)) }
     @JavascriptInterface fun deleteProcedure(id: String) = safe { ops.procedures.delete(id) }
     @JavascriptInterface fun runProcedure(chat: String, id: String, input: String) = safe { ops.runProcedure(chat.takeIf { it != "temp" }, id, JSONObject(input)) }
     @JavascriptInterface fun memory() = safe { ops.memoryJson() }
-    @JavascriptInterface fun memoryRevert(id: String) = safe { ops.memory.revert(id)?.text }
+    @JavascriptInterface fun memoryRevert(id: String) = safe { ops.memory.revert(id)?.text?.let { JSONObject.quote(it) } }
     @JavascriptInterface fun memoryForget(id: String) = safe { ops.memory.forget(id).size }
-    @JavascriptInterface fun memoryAdd(text: String) = safe { ops.memory.remember(text).toString() }
+    @JavascriptInterface fun memoryAdd(text: String) = safe {
+        when (val o = ops.memory.remember(text)) {
+            is cz.axiom.vega.core.Mem.Outcome.Rejected -> JSONObject().put("ok", false).put("reason", o.reason)
+            else -> JSONObject().put("ok", true)
+        }
+    }
     @JavascriptInterface fun projects() = safe { ops.projects() }
     @JavascriptInterface fun project(id: String) = safe { ops.projectInfo(id) }
-    @JavascriptInterface fun newProject(name: String) = safe { ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap()) }
+    @JavascriptInterface fun newProject(name: String) = safe { JSONObject.quote(ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap())) }
+    @JavascriptInterface fun demandSample() = safe { ops.demandSample() }
     @JavascriptInterface fun activate(id: String) = safe { ops.settings.activeProject = id.ifBlank { null } }
     @JavascriptInterface fun file(id: String, path: String) = safe {
         // citlivý soubor: ani obsah, ani otisk (otisk by umožnil přepsat ho zástupným textem)
@@ -261,7 +273,7 @@ class Bridge(private val a: MainActivity) {
         require(!cz.axiom.vega.core.Workspace.isSecret(path)) { "Soubory s klíči v aplikaci neupravuji." }
         ops.workspace(id).write(path, text, hash.ifBlank { null }, "ruční úprava").id
     }
-    @JavascriptInterface fun undo(id: String, change: Int) = safe { ops.workspace(id).undo(change.takeIf { it > 0 }).path }
+    @JavascriptInterface fun undo(id: String, change: String) = safe { JSONObject.quote(ops.workspace(id).undo(change.toIntOrNull()?.takeIf { it > 0 }).path) }
     @JavascriptInterface fun diff(id: String) = safe { JSONArray().apply { ops.workspace(id).diffFromBase().forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3))) } } }
     @JavascriptInterface fun verify(id: String) = safe {
         Thread {
@@ -272,7 +284,7 @@ class Bridge(private val a: MainActivity) {
             } catch (e: Exception) { a.send("error", JSONObject().put("text", "Testy se nepodařilo spustit: ${e.message?.take(160)}")) }
         }.start()
     }
-    @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name }
+    @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); JSONObject.quote(ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name) }
     @JavascriptInterface fun nfc(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }) }
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }
     @JavascriptInterface fun demand(chat: String, json: String) = safe { ops.demand(chat.takeIf { it != "temp" }, JSONObject(json)) }
@@ -302,9 +314,9 @@ class Bridge(private val a: MainActivity) {
             val other = if (provider == "gemini") "geminipro" else "gemini"
             require(ops.vault.read(other) != k) { "Stejný klíč už je ve slotu „${ops.engines.name(other)}“. Klíč z projektu s fakturací patří jen do „Gemini – kredit Pro“." }
         }
-        if (provider == "gemini" && k.isNotEmpty()) ops.settings.geminiFreeConfirmed = true // UI potvrzení „projekt bez fakturace“ proběhlo před uložením
         // klíč nikdy neprojde zpět do WebView; formát: bez mezer, rozumná délka (vložený celý odstavec ≠ klíč)
         require(k.isEmpty() || (k.length in 16..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
+        if (provider == "gemini" && k.isNotEmpty()) ops.settings.geminiFreeConfirmed = true // UI potvrzení „projekt bez fakturace“ proběhlo před uložením
         ops.vault.save(provider, k)
         if (k.isNotEmpty()) Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start()
         true

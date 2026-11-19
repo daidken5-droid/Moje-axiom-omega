@@ -421,7 +421,8 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
         val capKc = est * 1.2 + 0.25 // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
         val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("capKc", capKc).put("calls", calls).put("chars", chars)
             .put("reason", why).put("overCap", cand in overCap).put("noFree", why.startsWith("Bezplatného"))
-            .put("hint", "Trvale: Nastavení → Cloud → ${engines.name(cand)} → Čerpat automaticky do stropu."), 300)
+            .put("hint", if (cand == "geminipro") "Trvale: Nastavení → Mám předplatné Google AI Pro → strop a „Čerpat kredit automaticky“."
+                else "Trvale: Nastavení → Pokročilé → společný strop a „${engines.name(cand)} automaticky“."), 300)
         if (!r.optBoolean("ok")) throw ToolError("Placené volání neschváleno – nic se neutratilo. ${why.take(160)}")
         engines.approveRun(cand, capKc / settings.usdKc)
         return engines.single(cand)
@@ -599,7 +600,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val name = Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
         val id = createProject(name, emptyMap())
         emit("project", JSONObject().put("id", id))
-        code(chat, Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js.", Router.CodeKind.CHANGE), workspace(id))
+        // odpověď patří do prostoru nového projektu (UI se tam přepne), ne do původního chatu
+        code("proj-$id", Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js.", Router.CodeKind.CHANGE), workspace(id))
     }
 
     private fun projectDiffCard(w: Workspace, path: String? = null): JSONObject {
@@ -690,6 +692,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         .put("debtor", i.debtor.name).put("debtorAddr", i.debtor.address).put("debtorId", i.debtor.id).put("invoice", i.invoice.number).put("issued", i.invoice.issued.toString())
         .put("due", i.invoice.due.toString()).put("amount", i.invoice.amount).put("subject", i.invoice.subject).put("payDate", i.payments.firstOrNull()?.date?.toString() ?: "")
         .put("payAmount", i.payments.firstOrNull()?.amount ?: 0.0).put("payDoc", i.payments.firstOrNull()?.doc?.name ?: "").put("asOf", i.asOf.toString()).put("account", i.bankAccount).put("b2b", i.b2b)
+
+    fun demandSample() = demandJson(Demand.sample())
 
     fun demand(chat: String?, o: JSONObject) = submit {
         fun d(k: String) = runCatching { java.time.LocalDate.parse(o.getString(k)) }.getOrElse { throw ToolError("Datum „$k“ chybí nebo nemá tvar RRRR-MM-DD.") }
