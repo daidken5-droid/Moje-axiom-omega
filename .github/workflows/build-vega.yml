@@ -1,0 +1,91 @@
+name: Build VEGA APK
+
+# VEGA = samostatná aplikace vedle AVIORu (cz.axiom.vega). Bez llama.cpp → sestavení za pár minut.
+on:
+  push:
+    branches: ["**"]
+    paths: ["vega/**", "vegacore/**", "core/src/main/**", "build.gradle.kts", "settings.gradle.kts", ".github/workflows/build-vega.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vega-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vega:
+    name: VEGA – testy + podepsané APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Release keystore (volitelné, z GitHub Secrets)
+        env:
+          KEYSTORE_B64: ${{ secrets.OMEGA_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/omega.jks"
+            echo "OMEGA_KEYSTORE_PATH=$RUNNER_TEMP/omega.jks" >> "$GITHUB_ENV"
+          else
+            echo "OMEGA_FALLBACK_SIGNING=1" >> "$GITHUB_ENV"
+          fi
+      - name: Náhradní podpisový klíč (stejná soukromá cache CI jako AVIOR)
+        if: env.OMEGA_FALLBACK_SIGNING == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.avior-signing
+          key: avior-signing-v1
+      - name: Příprava náhradního klíče
+        if: env.OMEGA_FALLBACK_SIGNING == '1'
+        run: |
+          mkdir -p ~/.avior-signing
+          if [ ! -f ~/.avior-signing/key.p12 ]; then
+            openssl rand -hex 24 > ~/.avior-signing/pass
+            keytool -genkeypair -alias avior -keyalg RSA -keysize 2048 -validity 12000 -dname "CN=AVIOR CI, O=AVIOR" \
+              -storetype PKCS12 -keystore ~/.avior-signing/key.p12 -storepass "$(cat ~/.avior-signing/pass)" -keypass "$(cat ~/.avior-signing/pass)"
+          fi
+          echo "OMEGA_KEYSTORE_PATH=$HOME/.avior-signing/key.p12" >> "$GITHUB_ENV"
+      - name: Testy (jádro VEGA + přijímací zkoušky aplikace na JVM)
+        run: ./gradlew :vegacore:test :vega:testDebugUnitTest --no-daemon
+      - name: Výsledky testů
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vega-test-results
+          path: |
+            vegacore/build/reports/tests/test
+            vega/build/reports/tests/testDebugUnitTest
+          retention-days: 7
+      - name: Sestavení APK
+        env:
+          SECRET_STORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.OMEGA_KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.OMEGA_KEY_PASSWORD }}
+        run: |
+          if [ "$OMEGA_FALLBACK_SIGNING" = "1" ]; then
+            P="$(cat ~/.avior-signing/pass)"; echo "::add-mask::$P"
+            export OMEGA_KEYSTORE_PASSWORD="$P" OMEGA_KEY_ALIAS=avior OMEGA_KEY_PASSWORD="$P"
+          else
+            export OMEGA_KEYSTORE_PASSWORD="$SECRET_STORE_PASSWORD" OMEGA_KEY_ALIAS="$SECRET_KEY_ALIAS" OMEGA_KEY_PASSWORD="$SECRET_KEY_PASSWORD"
+          fi
+          ./gradlew :vega:assembleRelease :vega:assembleDebug --no-daemon
+      - name: Pojmenování, otisky, podpis
+        run: |
+          mkdir -p dist
+          cp vega/build/outputs/apk/release/vega-release.apk "dist/VEGA-${GITHUB_SHA::7}.apk"
+          cp vega/build/outputs/apk/debug/vega-debug.apk "dist/VEGA-${GITHUB_SHA::7}-debug-x86_64.apk"
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "dist/VEGA-${GITHUB_SHA::7}.apk" | tee dist/SIGNING.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VEGA-APK
+          path: dist/
+          retention-days: 30

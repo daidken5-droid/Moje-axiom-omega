@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- inkoust, světlý titan, signální korálová (z identity v kitu) -->
+    <color name="ink">#151821</color>
+    <color name="titan">#F1EEE7</color>
+    <color name="coral">#FF735F</color>
+</resources>

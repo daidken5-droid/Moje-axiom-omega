@@ -18,4 +18,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AxiomOmega"
-include(":core", ":app", ":shell")
+include(":core", ":app", ":shell", ":vegacore", ":vega")

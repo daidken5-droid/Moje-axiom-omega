@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- UI nesmí na síť (connect-src 'none'): testy kódu ve Workeru tak nemají přístup k internetu ani k mostu -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'">
+<title>VEGA</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand" data-go="home"><svg viewBox="0 0 108 108" width="28" height="28" aria-hidden="true"><path fill="#F1EEE7" d="M24 35h12l15 28 11-20h12L55 77h-9z"/><path fill="#FF735F" d="M49 32h29l6 10-10 17-6-10 4-7H55z"/></svg><b>VEGA</b></div>
+  <div id="phase" class="phase"></div>
+  <button class="icon" data-go="settings" aria-label="Nastavení">⚙</button>
+</header>
+<main id="view"></main>
+<nav id="nav">
+  <button data-go="home">Domů</button>
+  <button data-go="chat">Chat</button>
+  <button data-go="tools">Nástroje</button>
+  <button data-go="projects">Projekty</button>
+  <button data-go="memory">Paměť</button>
+</nav>
+<div id="sheet" class="sheet hidden"></div>
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
