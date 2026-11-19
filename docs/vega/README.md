@@ -1,3 +1,58 @@
+# VEGA 1.4 – předávací přehled
+
+## Novinky 1.4.0 (noc 19./20. 11. 2026)
+
+**Prostředí:**
+- Všechna měření a testy proběhly na hostiteli: Linux kontejner, JVM + Robolectric, Chromium přes Playwright.
+- **Na Pixelu 9a ani v emulátoru se v této noci nic neměřilo.**
+- Podrobnosti ke každému bodu jsou v `PLAN-NOC.md`.
+
+**Vlastní jádro:** VEGA už nezávisí na `:core` (AVIOR). Vlastní balíčky jsou `cz.axiom.vega.base/net/llm/web/calc/files`.
+
+**Záplata 1.3.1:** pád „Invalid value for match mode flags“ u každé zprávy. Příčinou byl příznak `(?U)`, který Android (ICU) nezná. Dvě hlídací kontroly to teď nepustí zpátky.
+
+### Autonomie – VEGA se učí a rozšiřuje sama
+
+Návrh je v `AUTONOMIE.md`. Stav:
+
+| Vrstva | Co dělá | Pojistky |
+|---|---|---|
+| Deník slabin (`SelfTune`) | **Co zapisuje:** chyby, Stop, kroky nad 45 s, opravy („ne, myslel jsem…“) a přeformulování do 90 s.<br>**Komu:** připíše je oblasti, která zprávu zpracovala. | **Soukromí:** jen v telefonu, anonymizované (klíče, e-maily, URL, IBAN, čísla), bez obsahu souborů.<br>**Rozsah:** 30 dní. |
+| A – naučená pravidla routeru | **Odkud:** z oprav uživatele se naučí „tyto výrazy = tato akce“.<br>**Zapnutí:** samo po 2 dokladech. | **Kontrola:** nesmí změnit žádný z 41 kontrolních případů.<br>**Dosah:** nahrazuje jen obecný rozhovor / rešerši.<br>**Vratnost:** historie, Vrátit. |
+| B – rozšíření (vlastní JS nástroje) | **Vznik:** „napiš rozšíření, které…“ → VEGA napíše `tool.js` + testy → „ulož jako rozšíření“.<br>**Kde ho najdeš:** v nástrojích pod „Rozšíření“. | **Uložení:** jen otisk, který prošel testy.<br>**Kde běží:** izolovaný Worker bez sítě, s limitem času.<br>**Správa:** nové rozšíření je vypnuté, 5 verzí, Vrátit verzi. |
+| C – změna samotné aplikace (větev → CI → APK) | návrh hotový | **Stav:** neimplementováno.<br>**Vyžaduje:** GitHub token omezený na větve `vega/auto-*`.<br>**Instalace:** potvrzuje vždy uživatel (vyžaduje to Android). |
+
+Všechno je v aplikaci pod **Menu → Vylepšení**.
+
+### Hloubkový scan a opravy
+
+**Bezpečnost:**
+- SSRF přes DNS (jméno → 127.0.0.1 / LAN) a přes IPv4 v IPv6;
+- hlavičky se nepřenášejí na přesměrování jinam;
+- atomická rezervace rozpočtu (souběžná placená volání nepřečerpají strop).
+
+**Data:**
+- seznam chatů se ořezával na 50, ale data vypadlých chatů zůstávala navždy;
+- úklid při startu maže i staré mezivýsledky a osiřelé přílohy;
+- chybějící nebo rozbitý seznam chatů = nic se nemaže.
+
+**Správnost:**
+- „dnes je hezky“ už nevrací datum;
+- `\b` vedle češtiny se v telefonu chovalo jinak než v testu („najdi v mých souborech…“).
+
+**Web:** DuckDuckGo – opakovaný pokus, stránka „anomaly“ bez chyby, test parseru na skutečném HTML.
+
+**UI:**
+- karta Vylepšení na 360 px;
+- spinner NFC podle skutečného poslechu;
+- kontrast primárních tlačítek 3,16 → 4,93:1 (WCAG AA).
+
+**Výkon:** chat vykresluje posledních 80 zpráv. Při 300 zprávách trvá vykreslení 15 ms místo 50–70 ms (Chromium, hostitel).
+
+**Testy:** jádro 50, aplikace 21 – vše zelené.
+
+---
+
 # VEGA 1.3 – předávací přehled
 
 VEGA je samostatná aplikace postavená podle zadání „VYKR / Opus Kit“. Je to osobní český parťák a kapesní sada nástrojů pro Pixel 9a.
