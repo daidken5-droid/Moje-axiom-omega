@@ -188,6 +188,17 @@ class MainActivity : ComponentActivity() {
 
     fun openNfcSettings() = startActivity(Intent(AndroidSettings.ACTION_NFC_SETTINGS))
     fun pick() = runOnUiThread { pickFiles.launch(arrayOf("*/*")) }
+    /** Hlasové zadání přes systémové rozpoznávání (čeština); aplikace sama mikrofon nepotřebuje. */
+    private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val t = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        send("voice", JSONObject().put("text", t ?: "").put("ok", t != null))
+    }
+    fun voice() = runOnUiThread {
+        val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ").putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Mluv…")
+        try { speech.launch(i) } catch (e: android.content.ActivityNotFoundException) { send("voice", JSONObject().put("ok", false).put("error", "Rozpoznávání řeči v telefonu není k dispozici.")) }
+    }
     fun pickFolder() = runOnUiThread { pickTree.launch(null) }
 
     fun share(name: String) {
@@ -300,6 +311,11 @@ class Bridge(private val a: MainActivity) {
             "airgap" -> s.airgap = value == "true"
             "claudeModel" -> s.claudeModel = value
             "pinned" -> s.pinned = value.split(',')
+            "ownOnly" -> s.ownOnly = value == "true"
+            "webAllowed" -> s.webAllowed = value == "true"
+            "userName" -> s.userName = value
+            "ownUrl" -> { if (value.isNotBlank()) cz.axiom.omega.core.llm.Http.requireAllowed(value.trim()); s.ownUrl = value }
+            "ownModel" -> { s.ownModel = value; s.setModel("own", value.trim()) }
             else -> when {
                 key.startsWith("allow.") -> s.setAllowed(key.removePrefix("allow."), value == "true")
                 key.startsWith("budget.") -> s.setBudgetKc(key.removePrefix("budget."), value.toIntOrNull() ?: 0)
@@ -307,7 +323,7 @@ class Bridge(private val a: MainActivity) {
         }
     }
     @JavascriptInterface fun saveKey(provider: String, key: String) = safe {
-        require(provider in ops.engines.PROVIDERS) { "Neznámý poskytovatel" }
+        require(provider in ops.engines.PROVIDERS || provider == "own") { "Neznámý poskytovatel" }
         val k = normalizeKey(provider, key)
         // stejný klíč v obou slotech Gemini = „zdarma“ by čerpal placený projekt bez stropu
         if (k.isNotEmpty() && provider.startsWith("gemini")) {
@@ -315,7 +331,7 @@ class Bridge(private val a: MainActivity) {
             require(ops.vault.read(other) != k) { "Stejný klíč už je ve slotu „${ops.engines.name(other)}“. Klíč z projektu s fakturací patří jen do „Gemini – kredit Pro“." }
         }
         // klíč nikdy neprojde zpět do WebView; formát: bez mezer, rozumná délka (vložený celý odstavec ≠ klíč)
-        require(k.isEmpty() || (k.length in 16..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
+        require(k.isEmpty() || (k.length in (if (provider == "own") 1 else 16)..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
         if (provider == "gemini" && k.isNotEmpty()) ops.settings.geminiFreeConfirmed = true // UI potvrzení „projekt bez fakturace“ proběhlo před uložením
         ops.vault.save(provider, k)
         if (k.isNotEmpty()) Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start()
@@ -323,4 +339,15 @@ class Bridge(private val a: MainActivity) {
     }
     @JavascriptInterface fun checkKey(provider: String) = safe { Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
     @JavascriptInterface fun index() = safe { JSONArray(ops.index.list()) }
+    @JavascriptInterface fun retry(chat: String) = safe { ops.retry(chat.takeIf { it != "temp" }) }
+    @JavascriptInterface fun resumeTask(chat: String, project: String) = safe { ops.resumeTask(chat.takeIf { it != "temp" }, project) }
+    @JavascriptInterface fun keepChanges(chat: String, project: String, task: String, keep: String) = safe {
+        fun ids(s: String) = s.split(',').mapNotNull { it.trim().toIntOrNull() }
+        ops.keepChanges(chat.takeIf { it != "temp" }, project, ids(task), ids(keep))
+    }
+    @JavascriptInterface fun buttonTry(chat: String, file: String) = safe { ops.buttonTry(chat.takeIf { it != "temp" }, file) }
+    @JavascriptInterface fun buttonSave(chat: String, name: String) = safe { ops.buttonSave(chat.takeIf { it != "temp" }, name) }
+    @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true") }
+    @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
+    @JavascriptInterface fun voice() = safe { a.voice() }
 }

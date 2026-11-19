@@ -49,6 +49,10 @@ data class Procedure(
     val uses: Int = 0,
     /** Změny mezi verzemi (pro uživatele: co se změnilo). */
     val changelog: List<String> = emptyList(),
+    /** Připnuté tlačítko (zobrazí se nad vstupem). */
+    val pinned: Boolean = false,
+    /** Na kterých souborech byl ověřen (názvy) – druhý soubor = ověřeno mimo původní data. */
+    val verifiedOn: List<String> = emptyList(),
 )
 
 class ProcedureStore(private val kv: Kv) {
@@ -58,7 +62,7 @@ class ProcedureStore(private val kv: Kv) {
     fun get(id: String) = kv.read("proc/$id")?.let { runCatching { json.decodeFromString(Procedure.serializer(), it) }.getOrNull() }
 
     /** Uloží postup; existuje-li se stejným názvem, zvýší verzi a zapíše změnu (předchozí verze zůstane v historii). */
-    fun save(name: String, steps: List<Step>, description: String, inputKind: Kind, inputDesc: String, outputKind: Kind, change: String = "první verze"): Procedure {
+    fun save(name: String, steps: List<Step>, description: String, inputKind: Kind, inputDesc: String, outputKind: Kind, change: String = "první verze", pinned: Boolean = false, verifiedOn: List<String> = emptyList()): Procedure {
         require(steps.isNotEmpty()) { "Postup bez kroků" }
         steps.forEach { require(Tools.get(it.tool) != null) { "Neznámý nástroj ${it.tool}" } }
         val perms = steps.flatMap { Tools.get(it.tool)!!.perms }.distinct().map { it.label }
@@ -66,11 +70,17 @@ class ProcedureStore(private val kv: Kv) {
         val p = if (old != null) {
             kv.write("proc-hist/${old.id}/${old.version}", json.encodeToString(Procedure.serializer(), old))
             old.copy(version = old.version + 1, steps = steps, description = description, inputKind = inputKind.name, inputDesc = inputDesc,
-                outputKind = outputKind.name, perms = perms, updated = System.currentTimeMillis(), changelog = old.changelog + "v${old.version + 1}: $change")
-        } else Procedure(slug(name), name, 1, description, inputKind.name, inputDesc, outputKind.name, perms, steps, changelog = listOf("v1: $change"))
+                outputKind = outputKind.name, perms = perms, updated = System.currentTimeMillis(), changelog = old.changelog + "v${old.version + 1}: $change",
+                pinned = pinned || old.pinned, verifiedOn = (old.verifiedOn + verifiedOn).distinct())
+        } else Procedure(slug(name), name, 1, description, inputKind.name, inputDesc, outputKind.name, perms, steps, changelog = listOf("v1: $change"), pinned = pinned, verifiedOn = verifiedOn)
         kv.write("proc/${p.id}", json.encodeToString(Procedure.serializer(), p))
         return p
     }
+
+    fun setPinned(id: String, v: Boolean) { get(id)?.let { kv.write("proc/$id", json.encodeToString(Procedure.serializer(), it.copy(pinned = v))) } }
+
+    /** Kroky beze změny → žádná nová verze (opakované „ulož“ nevyrábí v2, v3…). */
+    fun sameAs(name: String, steps: List<Step>) = list().firstOrNull { it.name.equals(name, true) }?.steps == steps
 
     fun used(p: Procedure) = kv.write("proc/${p.id}", json.encodeToString(Procedure.serializer(), p.copy(uses = p.uses + 1)))
 

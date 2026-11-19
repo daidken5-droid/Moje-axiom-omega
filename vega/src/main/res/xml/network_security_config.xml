@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HTTPS všude. Nešifrované HTTP je povolené jen kvůli VLASTNÍMU serveru s modelem v LAN (llama.cpp, Ollama…):
+  Android neumí vyjmenovat rozsahy IP, proto to hlídá kód – Http.requireAllowed odmítne http:// mimo privátní síť.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

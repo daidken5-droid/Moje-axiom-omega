@@ -20,6 +20,11 @@ object Statement {
         /** Některé banky mají zvlášť „Příjem“ a „Výdaj“ – pak amountCol = příjem a debitCol = výdaj. */
         val debitCol: Int = -1,
         val headerHash: String = "",
+        /**
+         * Sloupce podle NÁZVU (role → složený název hlavičky: date, amount, debit, currency, desc0…). Uložený postup tak
+         * zpracuje i výpis s PŘEHÁZENÝMI sloupci; pozice výše jsou jen záloha pro soubory bez hlavičky.
+         */
+        val columns: Map<String, String> = emptyMap(),
     ) {
         fun json() = Json.encodeToString(serializer(), this)
         companion object { fun parse(s: String) = Json.decodeFromString(serializer(), s) }
@@ -47,6 +52,10 @@ object Statement {
         // banky často přidávají úvodní řádky (číslo účtu, období) – hlavička je první řádek se známými názvy sloupců
         val lines = text.removePrefix("﻿").lines()
         val headerAt = lines.indexOfFirst { l -> val x = f(l); (dateNames.any { x.contains(f(it)) }) && (amountNames + creditNames + debitNames).any { x.contains(f(it)) } }
+            .takeIf { it >= 0 }
+            // neznámý název částky („Pohyb“): hlavička = řádek s názvem data a ≥ 3 poli, po kterém následuje řádek s datem
+            ?: lines.indices.firstOrNull { i -> val x = f(lines[i]); dateNames.any { x.contains(f(it)) } && Regex("[;,\t|]").findAll(lines[i]).count() >= 2 &&
+                lines.getOrNull(i + 1)?.split(';', ',', '\t', '|')?.any { CzNum.date(it.trim().trim('"')) != null } == true } ?: -1
         val body = if (headerAt > 0) { warnings += "Přeskočeno $headerAt úvodních řádků před hlavičkou."; lines.drop(headerAt).joinToString("\n") } else text
         val p = Csv.read(body)
         if (p.headers.size < 2) return Detection(null, p.headers, warnings + "Nepodařilo se rozpoznat sloupce (oddělovač?).", emptyList())
@@ -59,21 +68,67 @@ object Statement {
         val currencyCol = findCol(p.headers, currencyNames)
         if (dateCol < 0) warnings += "Nenašel jsem sloupec s datem."
         if (amountCol < 0) warnings += "Nenašel jsem sloupec s částkou."
+        // průběžný zůstatek vypadá jako částka (čísla v každém řádku) – výsledek by byl tiše špatně → říct a nabídnout opravu větou
+        if (amountCol >= 0 && Regex("zustatek|balance|stav uctu|stav").containsMatchIn(f(p.headers[amountCol]))) {
+            val alt = p.headers.indices.filter { it != amountCol && it != dateCol && p.rows.take(20).count { r -> CzNum.parse(r.getOrElse(it) { "" }) != null } >= minOf(3, p.rows.size) }.map { p.headers[it] }
+            warnings += "Jako částku jsem vzal sloupec „${p.headers[amountCol]}“, ale to vypadá na průběžný ZŮSTATEK, ne na pohyb." + (alt.firstOrNull()?.let { " Je-li částka jinde, napiš třeba „částka je ve sloupci $it“." } ?: "")
+        }
         val amounts = p.rows.take(200).mapNotNull { it.getOrNull(amountCol) }.filter { it.isNotBlank() }
         val decimalComma = CzNum.usesDecimalComma(amounts)
         if (decimalComma && amounts.any { it.contains(',') }) warnings += "Částky používají českou desetinnou čárku (např. „${amounts.first { it.contains(',') }.trim()}“) – převádím na čísla, ne na text."
         if (p.delimiter == ';') warnings += "Oddělovač je středník (český Excel)."
         if (p.issues.isNotEmpty()) warnings += "${p.issues.size} problémových řádků (např. řádek ${p.issues[0].line}: ${p.issues[0].message})."
         val spec = if (dateCol >= 0 && amountCol >= 0) ParserSpec(p.delimiter.toString(), decimalComma, dateCol, amountCol, descCols, currencyCol, debitCol,
-            headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16)) else null
+            headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16), columns = namesOf(p.headers, dateCol, amountCol, descCols, currencyCol, debitCol)) else null
         return Detection(spec, p.headers, warnings, p.rows.take(5))
     }
 
     data class Result(val table: Value.Table, val ok: Int, val failed: List<Pair<Int, String>>, val income: Double, val expense: Double)
 
     /** Použije parser na celý soubor. Neplatné řádky se nezahodí potichu – jsou v [Result.failed] s číslem řádku. */
-    fun process(text: String, spec: ParserSpec): Result {
-        val lines = text.removePrefix("﻿").lines()
+    private fun namesOf(h: List<String>, date: Int, amount: Int, desc: List<Int>, cur: Int, debit: Int): Map<String, String> = buildMap {
+        fun n(i: Int) = h.getOrNull(i)?.let { f(it) }?.takeIf { it.isNotEmpty() }
+        n(date)?.let { put("date", it) }; n(amount)?.let { put("amount", it) }; n(cur)?.let { put("currency", it) }; n(debit)?.let { put("debit", it) }
+        desc.forEachIndexed { k, i -> n(i)?.let { put("desc$k", it) } }
+    }
+
+    /** Pozice podle názvů v hlavičce tohoto souboru (přeházené sloupce); chybí-li některý název, zůstanou uložené pozice. */
+    fun remap(spec: ParserSpec, headers: List<String>): ParserSpec {
+        if (spec.columns.isEmpty()) return spec
+        val h = headers.map { f(it) }
+        fun idx(role: String, def: Int) = spec.columns[role]?.let { name -> h.indexOf(name).takeIf { it >= 0 } } ?: def
+        val date = spec.columns["date"]?.let { h.indexOf(it) } ?: -1
+        val amount = spec.columns["amount"]?.let { h.indexOf(it) } ?: -1
+        if (date < 0 || amount < 0) return spec // jiný formát hlavičky → nehádat
+        val descs = spec.columns.keys.filter { it.startsWith("desc") }.sorted().mapNotNull { k -> h.indexOf(spec.columns[k]).takeIf { it >= 0 } }
+        return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1))
+    }
+
+    /** Oprava od uživatele („částka je ve sloupci Pohyb“): role → sloupec podle názvu. Null = sloupec neexistuje. */
+    fun withColumn(spec: ParserSpec, headers: List<String>, role: String, column: String): ParserSpec? {
+        val h = headers.map { f(it) }
+        val c = f(column)
+        val i = h.indexOf(c).takeIf { it >= 0 } ?: h.indexOfFirst { it.startsWith(c) || it.contains(c) }.takeIf { it >= 0 } ?: return null
+        val cols = spec.columns.toMutableMap()
+        return when (role) {
+            "date" -> { cols["date"] = h[i]; spec.copy(dateCol = i, columns = cols) }
+            "amount" -> { cols["amount"] = h[i]; cols.remove("debit"); spec.copy(amountCol = i, debitCol = -1, columns = cols) }
+            "currency" -> { cols["currency"] = h[i]; spec.copy(currencyCol = i, columns = cols) }
+            else -> { cols.keys.filter { it.startsWith("desc") }.forEach { cols.remove(it) }; cols["desc0"] = h[i]; spec.copy(descCols = listOf(i), columns = cols) }
+        }
+    }
+
+    /** Hlavička souboru (stejné hledání jako [process]). */
+    fun headersOf(text: String, spec: ParserSpec): List<String> {
+        val lines = text.removePrefix("\uFEFF").lines(); val d = spec.delimiter.first()
+        val known = spec.columns.values.toSet()
+        val i = lines.indexOfFirst { l -> val c = Csv.parse(l, d).firstOrNull() ?: emptyList(); if (known.isNotEmpty()) c.count { f(it) in known } >= 2 else c.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(c[spec.dateCol]) == null }
+        return if (i >= 0) (Csv.parse(lines[i], d).firstOrNull() ?: emptyList()).map { it.trim() } else emptyList()
+    }
+
+    fun process(text: String, spec0: ParserSpec): Result {
+        val lines = text.removePrefix("\uFEFF").lines()
+        val spec = remap(spec0, headersOf(text, spec0))
         val d = spec.delimiter.first()
         // hlavička: řádek se stejným počtem polí a s textem ve sloupci částky
         val p0 = Csv.read(lines.joinToString("\n"), d)
@@ -116,6 +171,31 @@ object Statement {
         val ok = total > 0 && r.ok * 10 >= total * 9
         return ok to "Ověřeno na vzorku: ${r.ok}/$total řádků prošlo" + if (r.failed.isNotEmpty()) " (první chyba: ř. ${r.failed[0].first} ${r.failed[0].second})" else ""
     }
+
+    /**
+     * NEZÁVISLÝ TEST výsledku: má-li výpis sloupec průběžného zůstatku, musí platit zůstatek[i] = zůstatek[i-1] + částka[i].
+     * Vrací (sedí, kontrolováno) nebo null, když zůstatek ve výpisu není (nebo je omylem použit jako částka).
+     */
+    fun reconcile(text: String, spec0: ParserSpec): Pair<Int, Int>? {
+        val spec = remap(spec0, headersOf(text, spec0))
+        val h = headersOf(text, spec).map { f(it) }
+        val bal = h.indexOfFirst { Regex("zustatek|balance").containsMatchIn(it) }.takeIf { it >= 0 && it != spec.amountCol } ?: return null
+        val d = spec.delimiter.first()
+        val lines = text.removePrefix("\uFEFF").lines()
+        val hi = lines.indexOfFirst { l -> (Csv.parse(l, d).firstOrNull() ?: emptyList()).map { f(it) } == h }
+        if (hi < 0) return null
+        val rows = Csv.read(lines.drop(hi).joinToString("\n"), d).rows.filter { r -> r.any { it.isNotBlank() } }
+        var prev: Double? = null; var ok = 0; var n = 0
+        rows.forEach { r ->
+            val b = r.getOrNull(bal)?.let { CzNum.parse(it, spec.decimalComma) }
+            val a = r.getOrNull(spec.amountCol)?.let { CzNum.parse(it, spec.decimalComma) }
+            if (prev != null && b != null && a != null) { n++; if (kotlin.math.abs(prev!! + a - b) < 0.005) ok++ }
+            if (b != null) prev = b
+        }
+        return if (n == 0) null else ok to n
+    }
+
+    fun reconcileText(text: String, spec: ParserSpec): String? = reconcile(text, spec)?.let { (ok, n) -> if (ok == n) "Kontrola proti zůstatku banky: $ok/$n návazností sedí ✓" else "Kontrola proti zůstatku banky NESEDÍ: $ok/$n – částky jsou nejspíš ze špatného sloupce." }
 
     /** Součty po měsících (navazující nástroj). */
     fun byMonth(t: Value.Table): Value.Table {

@@ -8,7 +8,16 @@ import cz.axiom.omega.core.util.TextUtil
  */
 object Router {
     sealed class Intent {
-        data class Remember(val text: String) : Intent()
+        /** [scope]: "project" (tady / v tomhle projektu), "global" (vždy / všude), null = podle kontextu. */
+        data class Remember(val text: String, val scope: String? = null) : Intent()
+        /** „pokračuj tam, kde jsme skončili“ → obnovit poslední projekt a jeho stav. */
+        object Continue : Intent()
+        /** „udělej mi z toho tlačítko“ → znovupoužitelný nástroj z posledního úspěšného výsledku. */
+        object MakeButton : Intent()
+        /** „částka je ve sloupci Pohyb“ → oprava parseru posledního výpisu. */
+        data class FixColumn(val role: String, val column: String) : Intent()
+        /** Neobvyklá hypotéza → nejsilnější opora PRO i alternativní vysvětlení, závěr úměrný podkladům. */
+        data class Hypothesis(val text: String) : Intent()
         data class Forget(val query: String) : Intent()
         object WhatDoYouRemember : Intent()
         data class Tool(val id: String, val params: Map<String, String> = emptyMap(), val why: String) : Intent()
@@ -36,8 +45,27 @@ object Router {
     fun route(raw: String, c: Ctx): Intent {
         val text = raw.trim()
         val t = f(text)
+        // --- navázání na práci (dřív než „pokračuj“ jako pouhé opakování)
+        if (has(t, "kde jsme (skoncili|prestali|minule skoncili)|navaz(at)? na (to,? co jsme delali|minulou praci|minule)|pokracuj(me)? (v (tom )?projektu|v praci|kde jsme)|kde jsme byli")) return Intent.Continue
+        // --- tlačítko z hotové práce
+        if (has(t, "(udelej|vytvor|uloz)( mi)?( z toho| to)? (jako )?(tlacitko|zkratk|nastroj na (jedno|1) klepnuti)|z toho (udelej )?tlacitko")) return Intent.MakeButton
+        // --- oprava sloupce výpisu
+        Regex("^(?:ne,?\\s+)?(castka|datum|popis|mena|zprava|protistrana)\\s+je\\s+(?:ve|v)\\s+sloupci\\s+[„\"']?(.+?)[“\"']?\\s*\\.?$").find(t)?.let { m ->
+            val role = when (m.groupValues[1]) { "castka" -> "amount"; "datum" -> "date"; "mena" -> "currency"; else -> "desc" }
+            val start = text.length - m.groupValues[2].length - (t.length - m.range.last - 1)
+            return Intent.FixColumn(role, text.substring(start.coerceIn(0, text.length), (start + m.groupValues[2].length).coerceAtMost(text.length)).trim().trim('„', '“', '"', '\'', '.'))
+        }
+        // --- pravidlo projektu × globální preference (bez „pamatuj si“: „tady používej středník“)
+        Regex("^(?:a\\s+)?(tady|zde|v tomhle projektu|v tomto projektu|u tohohle projektu|u tohoto projektu|vzdy|vsude|obecne|ve vsech projektech)\\s*,?\\s+(pouzivej|nepouzivej|pis|nepis|davej|nedavej|delej|nedelej|chci|preferuj|formatuj)\\b").find(t)?.let { m ->
+            val scope = if (m.groupValues[1] in setOf("vzdy", "vsude", "obecne", "ve vsech projektech")) "global" else "project"
+            return Intent.Remember(text, scope)
+        }
         // --- paměť (výslovné pokyny mají přednost)
-        Regex("^(?:prosim\\s+)?(?:zapamatuj|pamatuj)\\s+si\\s*(?:,|:)?\\s*(?:ze\\s+)?(.+)$").find(t)?.let { return Intent.Remember(text.substring(text.length - it.groupValues[1].length)) }
+        Regex("^(?:prosim\\s+)?(?:zapamatuj|pamatuj)\\s+si\\s*(?:,|:)?\\s*(?:ze\\s+)?(.+)$").find(t)?.let {
+            val body = text.substring(text.length - it.groupValues[1].length)
+            val scope = when { has(t, "\\b(tady|v tomhle projektu|v tomto projektu|u tohoto projektu|v projektu)\\b") -> "project"; has(t, "\\b(vzdy|vsude|obecne|ve vsech)\\b") -> "global"; else -> null }
+            return Intent.Remember(body, scope)
+        }
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
         if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
         if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to)\\b")) return Intent.Undo
@@ -72,9 +100,12 @@ object Router {
         if (has(t, "^(zaloz|vytvor) (novy )?projekt")) return Intent.NewProject(text)
         // --- navázání na zobrazený výsledek
         if (c.lastResult && has(t, "divn|nesedi|to je spatne|tohle ne|proc (tam|je tam)|chyba v tom|zvlastni")) return Intent.FollowUp(text)
+        // --- neobvyklá hypotéza (spiknutí, „ve skutečnosti“, „je možné, že…“)
+        if (has(t, "^(je mozne|je pravda|myslim|co kdyz|co kdyby|mam teorii|teorie|hypotez)|ve skutecnosti|zatajuj|spiknut|konspirac|nikdo (ti|vam) nerekne|oficialni verze|je (to )?mozne,? ze") &&
+            !has(t, "^(co kdyby(ch)? (jsem|jsme)|co kdyz (to|ten|tu) (udelam|zkusim))")) return Intent.Hypothesis(text)
         // --- přemýšlení nahlas a kreativní zadání = rozhovor (ne akce, ne rešerše)
         val aloud = has(t, "^(premyslim|napada me|co kdyby|mozna bych|hmm|asi bych|zvazuju|nevim jestli)")
-        val creative = has(t, "napad|brainstorm|vymysli|navrhni nazev|basen|pribeh|slogan|kreativ")
+        val creative = has(t, "napad|brainstorm|vymysli|navrhni (nazev|jmeno|logo|motto|varianty)|basen|basnick|pribeh|povidk|slogan|kreativ|rymovan|vtip|prani k|pozvank|nazev pro|jak (bych )?(to )?pojmenoval")
         if (aloud || creative) return Intent.Talk(aloud, creative)
         // --- holý název tématu → rešerše
         cz.axiom.omega.core.agent.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }

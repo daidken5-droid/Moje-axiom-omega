@@ -71,7 +71,8 @@ object Tools {
             val spec = p["spec"]?.takeIf { it.isNotBlank() }?.let { Statement.ParserSpec.parse(it) } ?: Statement.detect(t).let { d ->
                 d.spec ?: throw ToolError("Formát výpisu nepoznám: ${d.warnings.joinToString(" ")}")
             }
-            Statement.process(t, spec).table
+            val tb = Statement.process(t, spec).table
+            Statement.reconcileText(t, spec)?.let { tb.copy(notes = tb.notes + it) } ?: tb
         },
         ToolDef("statement.detect", "Rozpoznat formát výpisu", "Zjistí oddělovač, sloupce, desetinnou čárku a ověří parser na vzorku.",
             setOf(Kind.TEXT, Kind.BYTES), Kind.JSON, group = "Data") { v, _, _ ->

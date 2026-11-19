@@ -249,8 +249,12 @@ class VegaCoreTest {
         val ap = CodeAgent.apply(ws, plan, seen, "test")
         assertTrue(ap.failed.isEmpty(), ap.failed.toString())
         assertTrue(ws.read("a.js").contains("return 2;")); assertEquals("js", CodeAgent.testPlan(ws))
-        // druhé použití stejné úpravy = úsek už nesedí → nahlášeno, nic se nepokazí
-        assertEquals(1, CodeAgent.apply(ws, CodeAgent.parse(reply).copy(edits = plan.edits.take(1)), seen, "x").failed.size)
+        // druhé použití stejné úpravy (obnova po přerušení) = úprava už v souboru je → přeskočit, NEZDVOJIT, nic nepokazit
+        val again = CodeAgent.apply(ws, CodeAgent.parse(reply), seen, "x")
+        assertTrue(again.changes.isEmpty() && again.failed.isEmpty())
+        assertEquals(1, Regex("return 2;").findAll(ws.read("a.js")).count())
+        // jiná úprava, jejíž úsek už v souboru není → nahlášeno, nic se nepřepíše
+        assertEquals(1, CodeAgent.apply(ws, CodeAgent.parse("### UPRAVIT: a.js\n<<<<<<< HLEDAT\n  return 1;\n=======\n  return 3;\n>>>>>>> NAHRADIT\n"), seen, "x").failed.size)
         dir.deleteRecursively()
     }
 

@@ -64,13 +64,18 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
     data class Applied(val changes: List<Workspace.Change>, val failed: List<Pair<Edit, String>>)
 
     /** Aplikuje úpravy; konflikt verze nebo nejednoznačný úsek = úprava se přeskočí a nahlásí (nic se nepřepíše naslepo). */
-    fun apply(ws: Workspace, plan: Plan, seenHashes: Map<String, String>, note: String): Applied {
+    /** [protect] = soubory, které uživatel mezitím RUČNĚ upravil: jen přesné úpravy, celý soubor se nepřepíše. */
+    fun apply(ws: Workspace, plan: Plan, seenHashes: Map<String, String>, note: String, protect: Set<String> = emptySet()): Applied {
         val ok = ArrayList<Workspace.Change>(); val bad = ArrayList<Pair<Edit, String>>()
         for (e in plan.edits) {
             try {
                 // NORMALIZOVANÁ cesta (model může psát „.env/“ nebo „cfg\\.env“)
                 val norm = ws.safe(e.path)
                 if (Workspace.isSecret(norm) || Workspace.isSecret(e.path)) throw Workspace.Conflict("Soubory s klíči neupravuji.")
+                // OBNOVA PO PŘERUŠENÍ: úprava už v souboru je (nahrazený text tam, původní ne) → přeskočit, nezdvojit
+                if (e is Edit.Replace && ws.hash(e.path) != null && e.replace.isNotEmpty() && ws.read(e.path).let { it.contains(e.replace) && !it.contains(e.search) }) continue
+                if (e is Edit.Create && ws.hash(e.path) != null && ws.read(e.path) == e.content) continue
+                if (e is Edit.Create && ws.hash(e.path) != null && norm in protect) throw Workspace.Conflict("Soubor $norm jsi ručně upravil – celý ho nepřepíšu, jen přesnou úpravou.")
                 ok += when (e) {
                     is Edit.Replace -> ws.patch(e.path, e.search, e.replace, seenHashes[ws.safe(e.path)], note)
                     is Edit.Create -> ws.write(e.path, e.content, if (ws.hash(e.path) == null) null else seenHashes[ws.safe(e.path)]

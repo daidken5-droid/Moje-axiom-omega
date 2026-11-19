@@ -54,6 +54,21 @@ class Settings(context: Context) {
     var claudeModel: String get() = p.getString("claudeModel", "claude-sonnet-5-5")!!; set(v) = p.edit().putString("claudeModel", v).apply()
     /** Poskytovatel, kterému uživatel povolil placenou spotřebu v rámci rozpočtu (jinak jen schválení po náhledu). */
     fun allowed(provider: String) = p.getBoolean("allow.$provider", false)
+
+    // ---- VLASTNÍ MODELY (OpenAI-kompatibilní server uživatele: llama.cpp server, Ollama, vLLM…)
+    var ownUrl: String get() = p.getString("ownUrl", "")!!; set(v) = p.edit().putString("ownUrl", v.trim().trimEnd('/')).apply()
+    var ownModel: String get() = p.getString("ownModel", "")!!; set(v) = p.edit().putString("ownModel", v.trim()).apply()
+    /** Režim „Pouze vlastní modely“: žádné komerční modelové API pro celý požadavek (i pomocné kroky a opakování). */
+    var ownOnly: Boolean get() = p.getBoolean("ownOnly", false); set(v) = p.edit().putBoolean("ownOnly", v).apply()
+    /** Veřejný web (rešerše, čtení URL) – samostatná volba, nezávislá na výběru modelů. */
+    var webAllowed: Boolean get() = p.getBoolean("webAllowed", true); set(v) = p.edit().putBoolean("webAllowed", v).apply()
+    /** Jak oslovovat uživatele na úvodní obrazovce (např. „Lukáši“). */
+    var userName: String get() = p.getString("userName", "")!!; set(v) = p.edit().putString("userName", v.trim().take(30)).apply()
+
+    /** Počítadlo požadavků na modelová API (po poskytovatelích) – důkaz „0 komerčních“ v režimu vlastních modelů. */
+    @Synchronized fun countRequest(provider: String) { val k = "req.$provider"; p.edit().putLong(k, p.getLong(k, 0L) + 1).commit() }
+    fun requests(provider: String) = p.getLong("req.$provider", 0L)
+    fun commercialRequests() = p.all.filterKeys { it.startsWith("req.") && it != "req.own" }.values.sumOf { (it as? Long) ?: 0L }
     /** Rozpočet konkrétního poskytovatele (Kč/měsíc); bez vlastního platí společný [budgetKc]. Kredit Pro má vlastní. */
     fun budgetKc(provider: String): Int = if (p.contains("budget.$provider")) p.getInt("budget.$provider", 0) else budgetKc
     fun setBudgetKc(provider: String, kc: Int) = p.edit().putInt("budget.$provider", kc.coerceIn(0, 100_000)).apply()
@@ -82,7 +97,7 @@ class Settings(context: Context) {
 }
 
 /** API klíče: AES-256-GCM s klíčem v Android Keystore; do WebView se nikdy nevrací. */
-class Vault(context: Context) {
+open class Vault(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("vega-vault", Context.MODE_PRIVATE)
 
     private fun key(alias: String): SecretKey {
@@ -94,7 +109,7 @@ class Vault(context: Context) {
         return gen.generateKey()
     }
 
-    fun save(name: String, secret: String) {
+    open fun save(name: String, secret: String) {
         require(name.matches(Regex("[a-z0-9_]{2,32}")))
         if (secret.isBlank()) { remove(name); return }
         val c = Cipher.getInstance("AES/GCM/NoPadding"); c.init(Cipher.ENCRYPT_MODE, key("vega-$name"))
@@ -102,7 +117,7 @@ class Vault(context: Context) {
         prefs.edit().putString("$name.iv", Base64.encodeToString(c.iv, Base64.NO_WRAP)).putString("$name.data", Base64.encodeToString(data, Base64.NO_WRAP)).commit()
     }
 
-    fun read(name: String): String? {
+    open fun read(name: String): String? {
         val data = prefs.getString("$name.data", null) ?: return null
         val iv = prefs.getString("$name.iv", null) ?: return null
         return try {
@@ -112,8 +127,8 @@ class Vault(context: Context) {
         } catch (e: Exception) { remove(name); null }
     }
 
-    fun has(name: String) = prefs.contains("$name.data")
-    fun remove(name: String) { prefs.edit().remove("$name.iv").remove("$name.data").apply() }
+    open fun has(name: String) = prefs.contains("$name.data")
+    open fun remove(name: String) { prefs.edit().remove("$name.iv").remove("$name.data").apply() }
 }
 
 /** Výstupy (CSV, DOCX, PDF, ZIP): Stažené/VEGA + soukromá kopie pro sdílení přes FileProvider. */
