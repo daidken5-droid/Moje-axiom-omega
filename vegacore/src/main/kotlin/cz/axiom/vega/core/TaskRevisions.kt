@@ -32,18 +32,20 @@ class RevTask(private val kv: Kv, val id: String) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val key = "task/$id.json"
-    @Synchronized fun state(): State = kv.read(key)?.let { runCatching { json.decodeFromString(State.serializer(), it) }.getOrNull() } ?: State()
-    @Synchronized private fun save(s: State) = kv.write(key, json.encodeToString(State.serializer(), s.copy(log = s.log.takeLast(500))))
+    /** Jeden zámek na úlohu napříč instancemi (most z UI i výkonné vlákno) – revize se nesmí ztratit při souběhu. */
+    private val lock: Any = LOCKS.computeIfAbsent(id) { Any() }
+    fun state(): State = synchronized(lock) { kv.read(key)?.let { runCatching { json.decodeFromString(State.serializer(), it) }.getOrNull() } ?: State() }
+    private fun save(s: State) = kv.write(key, json.encodeToString(State.serializer(), s.copy(log = s.log.takeLast(500))))
 
-    @Synchronized fun start(inputs: List<Input>, scope: String? = null): Rev {
+    fun start(inputs: List<Input>, scope: String? = null): Rev = synchronized(lock) {
         val s = state(); val r = Rev((s.revs.lastOrNull()?.n ?: 0) + 1, inputs, scope, invalidBefore = s.revs.lastOrNull()?.invalidBefore ?: 1)
-        save(s.copy(revs = s.revs + r)); return r
+        save(s.copy(revs = s.revs + r)); r
     }
     fun current(): Rev? = state().revs.lastOrNull()
     fun isCurrent(rev: Int) = current()?.n == rev
 
     /** Nová revize zadání. Rozsah je známá závislost (jen součet), předpoklad neznámá → zneplatní vše starší. */
-    @Synchronized fun revise(c: Change): Rev {
+    fun revise(c: Change): Rev = synchronized(lock) {
         val s = state(); val cur = s.revs.last()
         val r = when (c) {
             is Change.ReplaceInput -> cur.copy(inputs = cur.inputs.mapIndexed { i, x -> if (i == c.index) c.input else x }, change = "vstup ${c.index + 1}: ${cur.inputs.getOrNull(c.index)?.name} → ${c.input.name}")
@@ -51,21 +53,24 @@ class RevTask(private val kv: Kv, val id: String) {
                                else cur.copy(scope = c.scope, invalidBefore = cur.n + 1, change = "rozsah (neznámá závislost → přepočet všeho): ${c.scope}")
             is Change.Assumption -> cur.copy(assumptions = cur.assumptions + c.text, invalidBefore = cur.n + 1, change = "předpoklad (závislost nejde určit → přepočet všeho): ${c.text}")
         }.copy(n = cur.n + 1, at = System.currentTimeMillis())
-        save(s.copy(revs = s.revs + r)); return r
+        save(s.copy(revs = s.revs + r)); r
     }
 
     /** Platný mezivýsledek kroku nad vstupem (podle otisku) – nebo null, když se musí spočítat. */
-    @Synchronized fun cached(step: String, input: String, rev: Rev): Entry? = state().cache["$step|$input"]?.takeIf { it.rev >= rev.invalidBefore }
-    @Synchronized fun put(step: String, input: String, rev: Rev, data: String) { val s = state(); save(s.copy(cache = s.cache + ("$step|$input" to Entry(step, input, rev.n, data)))) }
-    @Synchronized fun log(rev: Int, step: String, input: String, action: String) { val s = state(); save(s.copy(log = s.log + Log(rev, step, input, action))) }
+    fun cached(step: String, input: String, rev: Rev): Entry? = state().cache["$step|$input"]?.takeIf { it.rev >= rev.invalidBefore }
+    fun put(step: String, input: String, rev: Rev, data: String) = synchronized(lock) { val s = state(); save(s.copy(cache = s.cache + ("$step|$input" to Entry(step, input, rev.n, data)))) }
+    fun log(rev: Int, step: String, input: String, action: String) = synchronized(lock) { val s = state(); save(s.copy(log = s.log + Log(rev, step, input, action))) }
 
     /** Zveřejnit výsledek jen pro aktuální revizi a nikdy starší přes novější. */
-    @Synchronized fun publish(rev: Int): Boolean {
+    fun publish(rev: Int): Boolean = synchronized(lock) {
         val s = state(); if (s.revs.lastOrNull()?.n != rev || rev <= s.published) return false
-        save(s.copy(published = rev)); return true
+        save(s.copy(published = rev)); true
     }
+    /** Je zveřejněná aktuální revize? (false = čeká revize, kterou ještě nikdo nepřepočítal) */
+    fun upToDate(): Boolean = state().let { it.published == (it.revs.lastOrNull()?.n ?: 0) }
 
     companion object {
+        private val LOCKS = java.util.concurrent.ConcurrentHashMap<String, Any>()
         /** Rozsahy, jejichž dopad je známý (mění jen součet, ne zpracování souborů). */
         fun knownScope(s: String): ((List<String>) -> Boolean)? {
             val f = cz.axiom.omega.core.util.TextUtil.fold(s).lowercase()

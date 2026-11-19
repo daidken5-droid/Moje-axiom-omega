@@ -49,11 +49,13 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
         return sb.toString() to hashes
     }
 
-    private val editRx = Regex("###\\s*UPRAVIT:\\s*(\\S+)\\s*\\n<<<<<<< HLEDAT\\n(.*?)\\n=======\\n(.*?)\\n?>>>>>>> NAHRADIT", RegexOption.DOT_MATCHES_ALL)
+    // bez vnořeného líného (.*?) přes celé odpovědi: úseky nesmí přeskočit další značku (jinak kubické zpětné hledání)
+    private val editRx = Regex("###[ \\t]*UPRAVIT:[ \\t]*(\\S+)[ \\t]*\\n<<<<<<< HLEDAT\\n((?:(?!\\n=======\\n|\\n### |<<<<<<< HLEDAT)[\\s\\S])*)\\n=======\\n((?:(?!>>>>>>> NAHRADIT|\\n### |<<<<<<< HLEDAT)[\\s\\S])*?)\\n?>>>>>>> NAHRADIT")
     private val newRx = Regex("###\\s*NOVÝ:\\s*(\\S+)\\s*\\n```[\\w.+-]*\\n(.*?)\\n```", RegexOption.DOT_MATCHES_ALL)
 
     /** Úpravy z odpovědi modelu. Poškozený formát = žádná úprava (nic se nehádá), vysvětlení zůstane. */
-    fun parse(reply: String): Plan {
+    fun parse(reply0: String): Plan {
+        val reply = reply0.take(200_000) // odpověď modelu nad rozumnou velikost se neparsuje celá
         val edits = ArrayList<Pair<Int, Edit>>()
         editRx.findAll(reply).forEach { m -> edits += m.range.first to Edit.Replace(m.groupValues[1].trim('`'), m.groupValues[2], m.groupValues[3]) }
         newRx.findAll(reply).forEach { m -> edits += m.range.first to Edit.Create(m.groupValues[1].trim('`'), m.groupValues[2] + "\n") }
@@ -74,7 +76,10 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
                 if (Workspace.isSecret(norm) || Workspace.isSecret(e.path)) throw Workspace.Conflict("Soubory s klíči neupravuji.")
                 // OBNOVA PO PŘERUŠENÍ: úprava už v souboru je (nahrazený text tam, původní ne) → přeskočit, nezdvojit
                 // jen při OBNOVĚ a jen když je nový úsek v souboru právě jednou (jinak by šlo potichu zahodit potřebnou úpravu)
-                if (resume && e is Edit.Replace && ws.hash(e.path) != null && e.replace.trim().length >= 8 && ws.read(e.path).let { countIn(it, e.replace) == 1 && !it.contains(e.search) }) { skip += e; continue }
+                if (resume && e is Edit.Replace && ws.hash(e.path) != null && ws.read(e.path).let { cur ->
+                        // už aplikováno: nový úsek v souboru je (právě jednou) a hledaný text zbyl jen uvnitř něj; u mazání hledaný text zmizel
+                        if (e.replace.isBlank()) !cur.contains(e.search)
+                        else e.replace.trim().length >= 8 && countIn(cur, e.replace) == 1 && countIn(cur, e.search) == countIn(e.replace, e.search) }) { skip += e; continue }
                 if (e is Edit.Create && ws.hash(e.path) != null && ws.read(e.path) == e.content) { skip += e; continue }
                 if (e is Edit.Create && ws.hash(e.path) != null && norm in protect) throw Workspace.Conflict("Soubor $norm jsi ručně upravil – celý ho nepřepíšu, jen přesnou úpravou.")
                 ok += when (e) {

@@ -31,10 +31,6 @@ a { color: var(--ink); text-decoration-color: var(--signal); text-underline-offs
 
 /* ---------- horní lišta: značka + prostor ---------- */
 .top { display: flex; align-items: center; gap: 10px; padding: 12px 16px 8px; }
-.mark { width: 30px; height: 30px; flex: none; }
-.space { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px 7px 14px; border-radius: 999px; background: var(--sheet); box-shadow: var(--shadow); font-weight: 600; font-size: 15px; max-width: 62vw; }
-.space span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.space .caret { opacity: .5; font-size: 12px; }
 .grow { flex: 1; min-width: 0; }
 .iconbtn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; color: var(--ink2); }
 .iconbtn:active { background: var(--sunk); }
@@ -48,13 +44,6 @@ a { color: var(--ink); text-decoration-color: var(--signal); text-underline-offs
 .hello { padding: 18vh 4px 8px; }
 .hello h1 { font-size: 34px; line-height: 1.12; letter-spacing: -.025em; margin: 0 0 6px; font-weight: 700; }
 .hello p { margin: 0 0 22px; color: var(--muted); font-size: 17px; }
-.starts { display: grid; gap: 8px; }
-.start { text-align: left; padding: 14px 16px; border-radius: 16px; background: var(--sheet); box-shadow: var(--shadow); display: flex; gap: 12px; align-items: center; }
-.start b { display: block; font-weight: 600; }
-.start small { color: var(--muted); font-size: 13px; }
-.start .glyph { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--signal-soft); color: var(--signal); font-weight: 700; }
-.continue { margin-bottom: 14px; padding: 14px 16px; border-radius: 16px; border: 1.5px solid var(--signal); background: var(--sheet); text-align: left; width: 100%; }
-.continue small { color: var(--signal); font-weight: 600; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
 
 .me { margin: 18px 0 6px auto; max-width: 84%; width: fit-content; padding: 10px 14px; border-radius: 18px 18px 6px 18px; background: var(--ink); color: var(--paper); white-space: pre-wrap; word-wrap: break-word; }
 .me .att { display: block; font-size: 12px; opacity: .7; margin-top: 4px; }
@@ -135,9 +124,6 @@ tr:last-child td { border-bottom: 0; }
 .row b { font-weight: 600; display: block; }
 .row small { color: var(--muted); font-size: 13px; display: block; }
 .row .end { color: var(--muted); font-size: 13px; flex: none; }
-.seg { display: flex; background: var(--sunk); border-radius: 14px; padding: 4px; margin: 6px 0 14px; }
-.seg button { flex: 1; padding: 9px 4px; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--muted); }
-.seg button.on { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
 .field { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--sheet); outline: 0; }
 .field:focus { border-color: var(--ink); }
 label.lbl { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
@@ -155,12 +141,9 @@ details[open] > summary::before { content: "－ "; }
 .search { margin: 4px 0 12px; }
 .status { font-size: 13.5px; margin-top: 8px; }
 .toast { position: fixed; left: 16px; right: 16px; top: 12px; z-index: 40; padding: 12px 14px; border-radius: 16px; background: var(--ink); color: var(--paper); font-size: 14px; box-shadow: var(--shadow); animation: up .2s; }
-.hidden { display: none !important; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* ---------- minimalismus (úvod jako Gemini): menu · titul · nový chat; pozdrav; jeden vstup ---------- */
 .top { justify-content: space-between; padding: 8px 8px 4px; }
-.title { flex: 1; text-align: center; font-weight: 600; font-size: 17px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stream { padding-bottom: 8px; }
 .me { background: var(--sunk); color: var(--ink); border-radius: 20px 20px 6px 20px; }
 .res { box-shadow: none; border: 1px solid var(--line); background: transparent; }
@@ -169,7 +152,6 @@ details[open] > summary::before { content: "－ "; }
 .bar textarea { padding: 10px 8px; font-size: 16.5px; }
 .plus { background: none; }
 .go { background: var(--ink); color: var(--paper); }
-.go.empty { visibility: hidden; }
 .chip { box-shadow: none; border: 1px solid var(--line); background: transparent; font-weight: 500; }
 .chip.sig { background: transparent; border-color: var(--signal); }
 .dock { padding-top: 4px; }
@@ -217,10 +199,7 @@ body.chatting::before { opacity: .35; }
 .model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .model small { font-size: 13px; color: var(--muted); font-weight: 400; }
 .model:active { background: var(--sunk); }
-.model .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none; }
-.model .dot.own { background: var(--ok); } .model .dot.off { background: var(--muted); }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #fff; background: linear-gradient(135deg, #3b6cf0, #8b5cf6); margin: 0 4px; flex: none; }
-.title { display: none; }
 
 /* ---------- vstup ---------- */
 .bar { border-radius: 30px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--sheet) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 8px 40px rgba(29, 58, 138, .25); align-items: flex-end; }
@@ -246,8 +225,6 @@ body.focus .bar { border-color: color-mix(in srgb, var(--signal) 45%, var(--line
 .chk:first-child { border-top: 0; }
 .chk input { margin-top: 4px; accent-color: var(--signal); width: 18px; height: 18px; flex: none; }
 .chk small { display: block; color: var(--muted); font-size: 12.5px; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 14px; }
-.kv b { color: var(--muted); font-weight: 500; }
 .steps { margin: 6px 0; padding: 0; list-style: none; }
 .steps li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .steps li:first-child { border-top: 0; }

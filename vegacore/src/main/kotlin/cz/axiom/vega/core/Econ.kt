@@ -12,7 +12,7 @@ import kotlinx.serialization.json.Json
 object Econ {
     private fun f(s: String) = TextUtil.fold(s).lowercase()
     private const val NUM = "(-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d+)?|-?\\d+(?:[,.]\\d+)?)"
-    fun num(s: String): Double? = s.replace(Regex("[  ]"), "").let { t -> if (Regex("^-?\\d{1,3}(\\.\\d{3})+$").matches(t)) t.replace(".", "") else t }.replace(',', '.').toDoubleOrNull()
+    fun num(s: String): Double? = s.replace(Regex("[  ]"), "").let { t -> if (Regex("^-?\\d{1,3}(\\.\\d{3})+$").matches(t)) t.replace(".", "") else t }.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1e12 }
     fun kc(v: Double): String = CzNum.format(v, if (v % 1.0 == 0.0) 0 else 2).replace(' ', ' ') + " Kč"
     fun plainKc(v: Double): String = CzNum.format(v, if (v % 1.0 == 0.0) 0 else 2).replace(' ', ' ')
 
@@ -33,8 +33,9 @@ object Econ {
 
     /** Parametry z věty (jen ty, které v ní opravdu jsou – oprava „fixní náklady jsou 5 000“ změní jen fixní). */
     fun parseUnit(raw: String): Unit {
-        val t = f(raw)
-        val variable = near(t, "variabiln\\w* nakla\\w*|nakla\\w* na (?:kus|jednotku|vyrobek)|jednotkov\\w* nakla\\w*|(?:vyroba|vyrobeni|material|nakup|porizeni|suroviny)(?: na| jednoho| jedne)?(?: kus\\w*| vyrob\\w*| jednotk\\w*)?(?: me| mne| mi)? (?:stoji|vyjde|je|vychazi)(?: na)?|(?:jeden|jedna|jedno) (?:kus\\w* )?(?:me |mne |mi )?(?:stoji|vyjde|vychazi)(?: na)?")
+        // „za 1 kus“, „na 1 měsíc“, „za 12 měsíců“ jsou jednotky/období, ne hodnoty
+        val t = f(raw).replace(Regex("\\b(za|na|pro)\\s+(1|jeden|jednu|jedno)\\s+(kus\\w*|ks|jednotk\\w*|mesic\\w*|rok\\w*)"), " ").replace(Regex("\\b(za|na)\\s+\\d+\\s+(mesic\\w*|let|rok\\w*|dn\\w*)"), " ")
+        val variable = near(t, "variabiln\\w*(?: nakla\\w*)?|nakla\\w* na (?:kus|jednotku|vyrobek)|jednotkov\\w* nakla\\w*|(?:vyroba|vyrobeni|material|nakup|porizeni|suroviny)(?: na| jednoho| jedne)?(?: kus\\w*| vyrob\\w*| jednotk\\w*)?(?: me| mne| mi)? (?:stoji|vyjde|je|vychazi)(?: na)?|(?:jeden|jedna|jedno) (?:kus\\w* )?(?:me |mne |mi )?(?:stoji|vyjde|vychazi)(?: na)?")
         val fixed = near(t, "fixn\\w* nakla\\w*|fixn\\w*|fixy|pevn\\w* nakla\\w*|rezi\\w*")
         val price = near(t, "(?:prodejni |jednotkova )?cen[aeuy]\\w*|prodav\\w*(?: [a-z]+){0,3}? (?:za|po)|prodej\\w* (?:za|po)|(?:za kus|kus) prodavam")
         val qty = Regex("(?:po|pri|prodam|prodal\\w*|vyrobim|za)\\s+$NUM\\s*(?:ks|kus)").find(t)?.let { num(it.groupValues[1]) }
@@ -43,7 +44,7 @@ object Econ {
     }
 
     fun isUnitQuestion(raw: String): Boolean { val u = parseUnit(raw); return listOfNotNull(u.price, u.variable, u.fixed).size >= 2 && (u.variable != null || u.fixed != null) }
-    fun isUnitCorrection(raw: String): Boolean { val u = parseUnit(raw); return (u.price ?: u.variable ?: u.fixed ?: u.qty) != null && Regex("oprav|vlastne|ve skutecnosti|jsou|je |maji byt|spis|ne,|chyba").containsMatchIn(f(raw)) }
+    fun isUnitCorrection(raw: String): Boolean { val u = parseUnit(raw); return (u.price ?: u.variable ?: u.fixed ?: u.qty) != null && Regex("oprav|vlastne|ve skutecnosti|spletl|splet|preklep|maj[ii] byt|ma byt|spravne je|spravne jsou|^ne,|chyba|zmen\\w*|uprav").containsMatchIn(f(raw)) && Regex("cen|nakla|fix|variab|kus|ks\\b|rezi|material").containsMatchIn(f(raw)) }
     /** Naléhání bez nových dat („ale já jsem fakt v plusu“). */
     fun isInsisting(raw: String): Boolean { val t = f(raw); return !Regex("\\d").containsMatchIn(t) && Regex("jsem si jist|urcite|ale ja|fakt jsem|trvam|opravdu jsem|vim, ze|to neni pravda|nesouhlas|mas to spatne|jsem v plusu|vydelavam").containsMatchIn(t) }
     fun claim(raw: String): Int { val t = f(raw); return when { Regex("ve ztrate|prodelav|ztratov").containsMatchIn(t) -> -1; Regex("v plusu|vydelav|v zisku|ziskov|jsem nad vodou").containsMatchIn(t) -> 1; else -> 0 } }
@@ -53,11 +54,12 @@ object Econ {
     fun unitAnswer(u: Unit, claim: Int = 0, insisting: Boolean = false): UnitResult? {
         if (!u.complete) return null
         val price = u.price!!; val variable = u.variable!!; val fixed = u.fixed!!
+        if (price < 0 || variable < 0 || fixed < 0 || (u.qty ?: 0.0) < 0) return UnitResult(Double.NaN, 0.0, null, "Cena, náklady i počet kusů musí být nezáporné – zkontroluj zadání.")
         val c = price - variable
-        val bep = if (c > 0) kotlin.math.ceil(fixed / c - 1e-9) else null
+        val bep = if (c > 0) (if (fixed > 0) maxOf(1.0, kotlin.math.ceil(fixed / c - 1e-9)) else 0.0) else null
         val q = u.qty
         val sb = StringBuilder()
-        val profit = if (q != null) q * c - fixed else Double.NaN
+        val profit = if (q != null) Math.round((q * c - fixed) * 100) / 100.0 else Double.NaN
         if (q != null) {
             val word = when { profit > 0 -> "zisk ${kc(profit)}"; profit < 0 -> "ztrátu ${kc(-profit)}"; else -> "nulový zisk (přesně bod zvratu)" }
             val wrong = claim == 1 && profit < 0 || claim == -1 && profit > 0
@@ -123,9 +125,10 @@ object Econ {
             return if (per < t.monthly) "Roční tarif vychází levněji při jakékoli délce využití: s vrácením poměrné části platíš ${kc(per)} za měsíc místo ${kc(t.monthly)}" + (t.monthlyMin?.let { " (a měsíční má navíc závazek ${plainKc(it)} měsíců)" } ?: "") + "."
             else "Měsíční varianta vychází levněji nebo stejně: roční s vrácením stojí ${kc(per)} za měsíc, měsíční ${kc(t.monthly)}."
         }
+        if (t.monthly <= 0 || t.yearly <= 0) return "Ceny tarifu musí být kladné – napiš roční i měsíční cenu."
         val th = kotlin.math.ceil(t.yearly / t.monthly - 1e-9)
         val minNote = t.monthlyMin?.let { m -> if (m >= th) " Měsíční má ale závazek ${plainKc(m)} měsíců – zaplatíš aspoň ${kc(m * t.monthly)}, takže roční je při tomto závazku vždy levnější nebo stejný." else " Měsíční má závazek ${plainKc(m)} měsíců – kratší využití se nevyplatí ani tak." } ?: ""
-        sb.append("Roční tarif se vyplatí, pokud budeš platit aspoň ${plainKc(th)} měsíců: ${plainKc(th)} × ${plainKc(t.monthly)} = ${kc(th * t.monthly)} > ${kc(t.yearly)} ($cond).")
+        sb.append("Roční tarif se vyplatí, pokud budeš platit aspoň ${plainKc(th)} měsíců: ${plainKc(th)} × ${plainKc(t.monthly)} = ${kc(th * t.monthly)} ${if (th * t.monthly > t.yearly) ">" else "≥"} ${kc(t.yearly)} ($cond).")
         val lo = th - 2; val hi = 12.0
         if (lo > 0) { val d = t.yearly - costMonthly(t, lo); if (d > 0) sb.append(" Při ${plainKc(lo)} měsících vyjde měsíční varianta o ${kc(d)} levněji") }
         val d2 = costMonthly(t, hi) - t.yearly; if (d2 > 0) sb.append(if (lo > 0) ", při ${plainKc(hi)} měsících roční o ${kc(d2)} levněji." else " Při ${plainKc(hi)} měsících vyjde roční o ${kc(d2)} levněji.")

@@ -80,6 +80,59 @@ Podrobnosti jsou v `tools/verifier/PROTOKOL.md`. Shrnutí:
 - **Placený běh na GPU:** neproběhl, plán je v GPU_PLAN.md.
 - **Výchozí stav aplikace:** žádné váhy. Citace se zobrazí jako „nevyhodnoceno“, dokud uživatel nenainstaluje balíček.
 
+### Deep scan a red team (konzilium 3 recenzentů)
+
+Byli to tři nezávislí recenzenti: bezpečnost, správnost/souběh a mrtvý kód. Všechny opravy mají regresní test v `ScanRegressionTest`, nebo je ověřil skript v prohlížeči.
+
+**Opraveno – bezpečnost:**
+
+- Rešerše teď respektuje přepínač „Veřejný web“.
+- Výsledky JS testů nejdou podvrhnout přes přepsání iterace nebo `push` polí; prázdná sada už neprojde.
+- Balíček ověřovače: práh a délka okna mají povolený rozsah, zip má strop velikosti, stará relace modelu se zavře a neznámý balíček je označen „původ neověřen“.
+- Parser úprav kódu měl kubické zpětné hledání regexu (400 bloků trvalo 10 s); teď je to lineární.
+- Pád rendereru WebView už neshodí aplikaci.
+
+**Opraveno – správnost a souběh:**
+
+- Porovnání výpisů: nekonečná smyčka po zveřejnění, ztráta revize při souběhu (zámek pro úlohu napříč instancemi), dopočet revize přišlé na konci běhu, přesné součty i nad 5 000 řádků.
+- UI zůstávalo na „pracuji“ po synchronní odpovědi.
+- Opravy zadání unášely běžné zprávy; teď se týkají jen běžící nebo čerstvé úlohy a celé věty.
+- Export unášel pokyny ke kódu.
+- Kalkulace brala „za 1 kus“ nebo „12 měsíců“ jako hodnotu a vyhodnocovala jako opravu i otázky typu „cena benzínu v roce 2024“.
+- Tarif s cenou 0 dával Infinity.
+- Bod zvratu mohl vyjít 0.
+- Obnova úlohy zdvojovala vkládací úpravy.
+- Dělení odpovědi na tvrzení: citace za tečkou, data, zkratky, domény.
+- Důkazy:
+  - ČTK × Reuters už nejsou jedna linie;
+  - kopie téhož dokladu není dvojí potvrzení;
+  - krátká URL nesloučí zdroje;
+  - neplatné datum se nepočítá.
+- Souběh v paměti, v postupech (`used`) a u nových chatů; testy z panelu projektu jdou přes frontu.
+- „1,234“ v souboru s desetinnou tečkou je 1234.
+- Oddělovač CSV už neberou jako pravidlo věty typu „nepoužívej středník“ ani zmínka o desetinné čárce.
+
+**Odstraněn mrtvý kód:**
+
+- metody mostu `clearFiles` a `index`, nepoužívané klíče nastavení;
+- `start` a `startAct` a mrtvé větve `act`/`chipAct`;
+- nedosažitelná větev knihovny;
+- 13 nepoužitých CSS pravidel;
+- `configured`, `forgetAll`, `TempContext`, `sameAs`, `LocalIndex.remove`;
+- ladicí událost `intent`, parametr `meta`;
+- nečtené `procedures`/`runs`/`pinned` v `home()` (načítaly se při každém vykreslení);
+- 4 kopie čtení kroků postupu sloučené do jedné;
+- `cache-path` ve FileProvideru, barva `titan`.
+
+CSP v `index.html` je teď shodné s HTTP hlavičkou. Připnutý postup jde odepnout.
+
+**Neopraveno (vědomě):**
+
+- přesměrování http v `:core` (sdíleno s AVIORem);
+- velké přílohy v záznamech běhů a růst `taskfile/` a `resume/` bez úklidu podle stáří;
+- zip bomba v `:core` `Extract` (DOCX);
+- `headerHash` ve formátu parseru zůstává kvůli zpětné kompatibilitě uložených postupů.
+
 ### Známé mezery
 
 - Nic neověřeno na Pixelu 9a.

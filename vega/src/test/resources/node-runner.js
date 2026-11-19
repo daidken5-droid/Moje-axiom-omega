@@ -38,5 +38,5 @@ function load(path) {
     for (const [n, f] of tests) { try { await f(); pass++; out.push('✓ ' + s + ' › ' + n); } catch (e) { fail++; out.push('✗ ' + s + ' › ' + n + ': ' + e.message); } }
   }
   out.push(pass + ' prošlo, ' + fail + ' selhalo');
-  process.stdout.write(JSON.stringify({ exitCode: fail || !specs.length ? 1 : 0, output: out.join('\n'), command: specs.join(' ') }));
+  process.stdout.write(JSON.stringify({ exitCode: fail || pass === 0 ? 1 : 0, output: out.join('\n'), command: specs.join(' ') }));
 })();

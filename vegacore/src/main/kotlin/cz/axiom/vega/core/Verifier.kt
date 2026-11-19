@@ -22,17 +22,41 @@ object Grounding {
     data class Claim(val text: String, val cites: List<Int>, val kind: String = "tvrzení")
 
     private val causal = Regex("(?i),?\\s+(protože|neboť|jelikož|aby|kvůli tomu, že|kvůli|z důvodu|za účelem)\\s+")
+    private val ABBR = setOf("např", "tzv", "tj", "č", "str", "resp", "mj", "apod", "atd", "aj", "př", "sv", "ing", "mgr", "dr", "prof", "p", "s", "r", "o", "vč", "cca", "max", "min", "mil", "mld", "tis", "kč", "e", "g", "i", "vs", "jr", "st", "no", "fig", "etc")
+
+    /** Věty: konec jen na . ! ? následované velkým písmenem / koncem; citace [n] hned za tečkou patří k předchozí větě. */
+    fun sentences(text: String): List<String> {
+        val t = text.replace(Regex("\\*\\*|__|`"), "")
+        val out = ArrayList<String>(); var start = 0; var i = 0
+        while (i < t.length) {
+            val ch = t[i]
+            if (ch == '\n') { if (i > start) out += t.substring(start, i); start = i + 1; i++; continue }
+            if (ch == '.' || ch == '!' || ch == '?') {
+                var j = i + 1
+                while (true) { val m = Regex("^\\s*\\[\\d{1,2}]").find(t.substring(j)) ?: break; j += m.value.length }  // [n] za tečkou → patří sem
+                var k = j; while (k < t.length && t[k] == ' ') k++
+                val word = Regex("([\\p{L}\\d]+)$").find(t.substring(start, i))?.groupValues?.get(1).orEmpty()
+                val nextUpper = k >= t.length || t[k] == '\n' || t[k].isUpperCase() || t[k] == '„' || t[k] == '"'
+                val domain = ch == '.' && k == i + 1 && i + 1 < t.length && t[i + 1].isLetterOrDigit()
+                val ordinal = ch == '.' && word.all { it.isDigit() } && word.isNotEmpty() && !(k < t.length && t[k].isUpperCase() && word.length > 2)
+                val abbr = ch == '.' && word.lowercase() in ABBR
+                if (nextUpper && !domain && !ordinal && !abbr) { out += t.substring(start, j); start = k; i = k; continue }
+            }
+            i++
+        }
+        if (start < t.length) out += t.substring(start)
+        return out.map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
     fun claims(answer: String): List<Claim> {
         val out = ArrayList<Claim>()
-        Regex("(?:[^.!?\\n]|[.!?](?=\\s*\\d))+(?:[.!?]|$)").findAll(answer.replace(Regex("\\*\\*|__|`"), "")).forEach { m ->
-            val s = m.value.trim()
+        sentences(answer).forEach { s ->
             val cites = Regex("\\[(\\d{1,2})]").findAll(s).map { it.groupValues[1].toInt() }.distinct().toList()
             if (cites.isEmpty() || s.length < 12) return@forEach
             val clean = s.replace(Regex("\\s*\\[\\d{1,2}]"), "").trim()
             val c = causal.find(clean)
             if (c != null && c.range.first > 8) {
-                val main = clean.substring(0, c.range.first).trim().trimEnd(',') + "."
-                out += Claim(main, cites, "událost")
+                out += Claim(clean.substring(0, c.range.first).trim().trimEnd(',') + ".", cites, "událost")
                 out += Claim(clean.trimEnd('.') + ".", cites, "motiv / důvod")
             } else out += Claim(clean, cites)
         }
@@ -116,12 +140,17 @@ object VerifierBundle {
         val files = (j["files"] as kotlinx.serialization.json.JsonObject).mapValues { (it.value as kotlinx.serialization.json.JsonPrimitive).content }
         require(files.keys.containsAll(listOf("model.onnx", "vocab.tsv"))) { "Balíčku chybí soubory." }
         if (verifyHashes) files.forEach { (f, h) -> val p = File(dir, f); require(p.isFile) { "Chybí $f." }; require(sha256(p) == h) { "Soubor $f je poškozený (otisk nesedí)." } }
-        return Manifest(s("name"), labels, s("max_len").toInt(), s("threshold").toFloat(), files, s("base_repo"), s("base_rev"))
+        val th = s("threshold").toFloat(); val ml = s("max_len").toInt()
+        // práh i délka okna pocházejí z balíčku (ten si otisky ručí sám) → jen rozumný rozsah, jinak odmítnout
+        require(th.isFinite() && th in 0.5f..0.99f) { "Práh v balíčku mimo rozsah 0,5–0,99: $th" }
+        require(ml in 32..1024) { "Délka okna v balíčku mimo rozsah: $ml" }
+        return Manifest(s("name"), labels, ml, th, files, s("base_repo"), s("base_rev"))
     }
 }
 
 /** Ověřovač nad ONNX Runtime (na Androidu onnxruntime-android, v testech na hostiteli onnxruntime – stejné API). */
-class OnnxGrounding(private val dir: File) : Grounding.Checker {
+class OnnxGrounding(private val dir: File) : Grounding.Checker, java.io.Closeable {
+    override fun close() { runCatching { session?.close() }; session = null }
     private var env: ai.onnxruntime.OrtEnvironment? = null
     private var session: ai.onnxruntime.OrtSession? = null
     private var tok: UnigramTokenizer? = null
@@ -157,7 +186,7 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker {
     }
     private fun words(s: String) = Regex("[\\p{L}\\d]{3,}").findAll(s.lowercase()).map { it.value.take(5) }.toSet()
     /** Údaje, bez kterých nejde rozhodnout: čísla a vlastní jména (velké písmeno uprostřed věty). */
-    private fun keyFacts(s: String) = (Regex("\\d+").findAll(s).map { it.value } + Regex("(?<=\\s)\\p{Lu}\\p{L}{2,}").findAll(s).map { it.value.lowercase().take(4) }).toSet()
+    private fun keyFacts(s: String) = (Regex("\\d+").findAll(s).map { it.value } + Regex("(?<=\\s)\\p{Lu}\\p{L}{3,}").findAll(s).map { it.value.lowercase().take(5) }).toSet()
 
     override fun check(claim: String, passage: String): Grounding.Verdict {
         val s = session ?: return Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = status)
@@ -165,12 +194,12 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker {
         return try {
             val (win, ws, we) = window(claim, passage, m.maxLen)
             val (ids, cut) = tok!!.encodePair(win, claim, m.maxLen)
-            if (cut || win.length < passage.length && keyFacts(passage).let { kf -> keyFacts(claim).any { f -> kf.any { it.startsWith(f) || f.startsWith(it) } && !win.lowercase().contains(f) } })
+            if (cut || win.length < passage.length && keyFacts(passage).let { kf -> keyFacts(claim).any { f -> f in kf && !win.lowercase().contains(f) } })
                 return Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = "rozhodující kontext se nevešel do okna modelu (${m.maxLen} tokenů)", windowStart = ws, windowEnd = we)
             val shape = longArrayOf(1, ids.size.toLong())
             val inIds = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(ids.map { it.toLong() }.toLongArray()), shape)
             val inMask = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(LongArray(ids.size) { 1 }), shape)
-            val logits = inIds.use { a -> inMask.use { b -> s.run(mapOf("input_ids" to a, "attention_mask" to b)).use { r -> (r[0].value as Array<FloatArray>)[0] } } }
+            val logits = inIds.use { a -> inMask.use { b -> s.run(mapOf("input_ids" to a, "attention_mask" to b)).use { r -> (r[0].value as? Array<*>)?.firstOrNull() as? FloatArray ?: throw IllegalStateException("neočekávaný výstup modelu") } } }
             val mx = logits.max(); val ex = logits.map { kotlin.math.exp((it - mx).toDouble()) }; val sum = ex.sum()
             val p = FloatArray(3) { (ex[it] / sum).toFloat() }
             val label = when { p[0] >= m.threshold -> Grounding.Label.PODPORUJE; p[1] >= p[2] -> Grounding.Label.NEDOSTACUJE; else -> Grounding.Label.ODPORUJE }

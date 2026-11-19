@@ -99,11 +99,12 @@ object CzNum {
         val lastComma = s.lastIndexOf(','); val lastDot = s.lastIndexOf('.')
         val normalized = when {
             lastComma >= 0 && lastDot >= 0 -> if (lastComma > lastDot) s.replace(".", "").replace(',', '.') else s.replace(",", "")
-            lastComma >= 0 -> if (s.count { it == ',' } > 1) s.replace(",", "") else s.replace(',', '.')
+            // jediná čárka: v souboru s desetinnou TEČKOU je „1,234“ oddělovač tisíců
+            lastComma >= 0 -> if (s.count { it == ',' } > 1 || (!decimalComma && s.length - lastComma - 1 == 3)) s.replace(",", "") else s.replace(',', '.')
             lastDot >= 0 -> if (s.count { it == '.' } > 1 || (decimalComma && s.length - lastDot - 1 == 3)) s.replace(".", "") else s
             else -> s
         }
-        val v = normalized.toDoubleOrNull() ?: return null
+        val v = normalized.toDoubleOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1e15 } ?: return null
         return if (neg) -v else v
     }
 

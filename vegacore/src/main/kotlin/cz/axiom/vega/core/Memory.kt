@@ -93,15 +93,15 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         kv.write("memory/index", idx)
     }
 
-    fun index(): Map<String, List<String>> = kv.read("memory/index")?.lines()?.filter { '\t' in it }?.associate { l -> l.substringBefore('\t') to l.substringAfter('\t').split(',') } ?: emptyMap()
+    @Synchronized fun index(): Map<String, List<String>> = kv.read("memory/index")?.lines()?.filter { '\t' in it }?.associate { l -> l.substringBefore('\t') to l.substringAfter('\t').split(',') } ?: emptyMap()
 
-    fun all(scope: String? = null): List<Mem.Entry> = load().filter { scope == null || it.scope == "global" || it.scope == scope }.sortedByDescending { it.updated }
+    @Synchronized fun all(scope: String? = null): List<Mem.Entry> = load().filter { scope == null || it.scope == "global" || it.scope == scope }.sortedByDescending { it.updated }
 
     /**
      * „Pamatuj si …“ – uloží hned. Stejné téma v témže rozsahu = oprava (stará verze zůstane v historii).
      * [fromWeb] = text pochází z webu/dokumentu → odmítnuto (instrukce z webu do trvalé paměti nepatří).
      */
-    fun remember(text: String, scope: String = "global", kind: Mem.Kind = Mem.Kind.PREFERENCE, origin: Mem.Origin = Mem.Origin.USER_EXPLICIT, fromWeb: Boolean = false): Mem.Outcome {
+    @Synchronized fun remember(text: String, scope: String = "global", kind: Mem.Kind = Mem.Kind.PREFERENCE, origin: Mem.Origin = Mem.Origin.USER_EXPLICIT, fromWeb: Boolean = false): Mem.Outcome {
         val t = text.trim().trimEnd('.').replaceFirstChar { it.uppercaseChar() }
         if (t.length < 3) return Mem.Outcome.Rejected("Není co si zapamatovat.")
         if (fromWeb) return Mem.Outcome.Rejected("Pokyny z webu nebo dokumentů si do trvalé paměti neukládám.")
@@ -126,7 +126,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     }
 
     /** Vrátí poslední opravu záznamu (rozpor vyřešený omylem). */
-    fun revert(id: String): Mem.Entry? {
+    @Synchronized fun revert(id: String): Mem.Entry? {
         val list = load(); val e = list.firstOrNull { it.id == id } ?: return null
         val prev = e.history.lastOrNull() ?: return null
         val back = e.copy(text = prev.text, origin = prev.origin, updated = clock(), history = e.history.dropLast(1), correctedAt = if (e.history.size > 1) e.correctedAt else null)
@@ -135,7 +135,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     }
 
     /** Zapomenout (id nebo hledaný text). Smaže záznam i z indexu a zapíše náhrobek proti návratu ze shrnutí. */
-    fun forget(idOrQuery: String, scope: String? = null): List<Mem.Entry> {
+    @Synchronized fun forget(idOrQuery: String, scope: String? = null): List<Mem.Entry> {
         val list = load()
         val q = TextUtil.fold(idOrQuery).lowercase().trim()
         val hit = list.filter { it.id == idOrQuery } .ifEmpty {
@@ -150,17 +150,11 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         return hit
     }
 
-    fun forgetAll(scope: String? = null): Int {
-        val list = load(); val hit = list.filter { scope == null || it.scope == scope }
-        val ts = tombstones(); hit.forEach { ts += Mem.fingerprint(it.text) }; kv.write("memory/forgotten", ts.joinToString("\n"))
-        list.removeAll(hit.toSet()); persist(); return hit.size
-    }
-
     /**
      * Import ze shrnutí konverzace / zálohy: zapomenuté (náhrobek) se znovu NENAČTE, tajné a webové se odmítne.
      * Vrací, co se opravdu uložilo.
      */
-    fun importFromSummary(lines: List<String>, scope: String = "global"): List<Mem.Entry> {
+    @Synchronized fun importFromSummary(lines: List<String>, scope: String = "global"): List<Mem.Entry> {
         val ts = tombstones()
         return lines.map { it.trim().removePrefix("-").trim() }.filter { it.length >= 3 && Mem.fingerprint(it) !in ts }
             .mapNotNull { (remember(it, scope, origin = Mem.Origin.SUGGESTION_ACCEPTED) as? Mem.Outcome.Saved)?.entry }
@@ -169,7 +163,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     // ------------------------------------------------------------------ návrhy (opakovaný vzorec ≠ hned pravidlo)
 
     /** Zaznamená pozorování (např. uživatel 3× přepsal odpověď na stručnou). Vrátí NÁVRH až od 3 výskytů ve 2+ dnech. */
-    fun observe(pattern: String, scope: String = "global"): Mem.Suggestion? {
+    @Synchronized fun observe(pattern: String, scope: String = "global"): Mem.Suggestion? {
         val key = "memory/obs/" + Mem.fingerprint(pattern + "|" + scope)
         val days = (kv.read(key)?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()) + (clock() / 86_400_000)
         kv.write(key, days.takeLast(20).joinToString(","))
@@ -178,25 +172,21 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         return if (days.size >= 3 && days.distinct().size >= 2) Mem.Suggestion(pattern, Mem.topicOf(pattern), days.size, scope) else null
     }
 
-    fun accept(s: Mem.Suggestion) = remember(s.text, s.scope, origin = Mem.Origin.SUGGESTION_ACCEPTED)
+    @Synchronized fun accept(s: Mem.Suggestion) = remember(s.text, s.scope, origin = Mem.Origin.SUGGESTION_ACCEPTED)
 
     // ------------------------------------------------------------------ použití v odpovědi
 
     /** Pokyn pro model: preference (globální + tohoto projektu) a fakta projektu, s původem. */
-    fun context(scope: String?, limit: Int = 12): String? {
+    @Synchronized fun context(scope: String?, limit: Int = 12): String? {
         val es = all(scope).take(limit)
         if (es.isEmpty()) return null
         return "Co víš o uživateli a projektu (z paměti, uživatel to může kdykoli změnit):\n" + es.joinToString("\n") { "- ${it.text} [${it.kind.label}]" }
     }
 
     /** Přehled „Co si pamatuješ a proč?“. */
-    fun explain(scope: String? = null): String {
+    @Synchronized fun explain(scope: String? = null): String {
         val es = all(scope)
         if (es.isEmpty()) return "Zatím si nic nepamatuji. Řekni „pamatuj si, že …“ a uložím to hned."
         return es.joinToString("\n") { "• ${it.text}\n  ↳ ${it.why()}" }
     }
 }
-
-/** Dočasný chat: nic se neukládá do paměti ani historie. Jen kontext tohoto okna. */
-class TempContext { val turns = ArrayList<Pair<String, String>>() }
-

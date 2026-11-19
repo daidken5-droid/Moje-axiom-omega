@@ -24,10 +24,21 @@ object Evidence {
     fun parse(d: Doc): Parsed {
         val t = f(d.text)
         val origins = LinkedHashSet<String>()
-        urlRx.findAll(d.text).forEach { origins += it.value.lowercase().removeSuffix("/").substringBefore("?").substringAfter("://").removePrefix("www.") }
-        // původ = kmeny slov (prvních 5 písmen), bez interpunkce a čísel: „příspěvku na fóru Kvasar“ = „příspěvek na fóru Kvasar,“
-        citeRx.findAll(t).forEach { m -> origins += m.groupValues[1].replace(Regex("[^a-z ]"), " ").split(Regex("\\s+")).filter { it.length > 3 && it !in STOP }.take(4).joinToString(" ") { it.take(5) } }
-        val dates = Regex("\\b(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})\\b").findAll(d.text).map { "%04d-%02d-%02d".format(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.toSet()
+        // URL = přesný původ (hostitel + cesta), porovnává se jen shodou celé adresy
+        urlRx.findAll(d.text).forEach { origins += "url:" + it.value.lowercase().removeSuffix("/").substringBefore("?").substringAfter("://").removePrefix("www.") }
+        // textový původ = kmeny slov (5 písmen) + zkratky z velkých písmen (ČTK, ČT): „příspěvku na fóru Kvasar“ = „příspěvek na fóru Kvasar,“
+        citeRx.findAll(t).forEach { m ->
+            // jen popis ZDROJE: končí na čárce, číslu nebo slovese/spojce (jinak by se texty „shodly“ na slovech děje)
+            val g = m.groupValues[1].split(',', ';', ':')[0]
+            val cut = g.split(Regex("\\s+")).takeWhile { w -> w !in BREAK && !w.any(Char::isDigit) }.joinToString(" ")
+            val orig = if (t.length == d.text.length) d.text.substring(m.groups[1]!!.range.first, m.groups[1]!!.range.first + cut.length) else ""
+            val acr = Regex("\\b\\p{Lu}{2,6}\\b").findAll(orig).map { f(it.value) }
+            val words = cut.replace(Regex("[^a-z ]"), " ").split(Regex("\\s+")).filter { it.length > 3 && it !in STOP }.take(5).map { it.take(5) }
+            val toks = (words + acr).distinct()
+            if (toks.isNotEmpty()) origins += "txt:" + toks.joinToString(" ")
+        }
+        // jen platná data (31. 2. se nezapočítá)
+        val dates = Regex("\\b(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
         val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")
         val mm = mRx.find(t)
         val motive = mm != null
@@ -40,21 +51,33 @@ object Evidence {
             ?: urlRx.find(d.text)?.value ?: ""
         return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
     }
-    private val STOP = setOf("ktery", "ktera", "ktere", "jako", "tento", "tato", "podle", "uvedl", "uvedla")
+    private val BREAK = setOf("se", "si", "ze", "je", "jsou", "byl", "byla", "bylo", "byli", "doslo", "unikla", "zavreli", "uzavreli", "a", "kdy", "kde", "ktery", "ktera", "ktere", "prej", "uz", "jiz")
+    private val STOP = setOf("ktery", "ktera", "ktere", "jako", "tento", "tato", "podle", "uvedl", "uvedla", "pondeli", "utery", "stredu", "streda", "ctvrtek", "patek", "sobotu", "sobota", "nedeli", "nedele",
+        "ledna", "unora", "brezna", "dubna", "kvetna", "cervna", "cervence", "srpna", "zari", "rijna", "listopadu", "prosince", "doslo", "unikla", "zavreli", "uzavren")
 
-    /** Linie = skupina dokumentů se stejným původem (dokument bez citace je sám sobě původem). */
-    private fun lineOf(p: Parsed, all: List<Parsed>): String {
-        if (p.origins.isEmpty()) return "vlastní:" + p.doc.name
-        // stejný původ i při mírně jiném popisu („příspěvek na fóru X“ × „anonymní příspěvek na fóru X“)
-        val key = p.origins.first()
-        val shared = all.flatMap { it.origins }.firstOrNull { o -> o != key && (o.contains(key) || key.contains(o) || overlap(o, key) >= 2) }
-        return "převzato:" + listOfNotNull(key, shared).minByOrNull { it.length }!!
+    /**
+     * Linie = skupina dokumentů se stejným původem (union-find přes VŠECHNY původy dokumentu): stejná URL, nebo textový
+     * původ se shodou ≥ 2 slov; doslovné kopie téhož textu jsou také jedna linie. Dokument bez citace je sám sobě původem.
+     */
+    private fun lines(ps: List<Parsed>): Map<Parsed, String> {
+        val par = IntArray(ps.size) { it }
+        fun find(i: Int): Int { var x = i; while (par[x] != x) { par[x] = par[par[x]]; x = par[x] }; return x }
+        fun union(a: Int, b: Int) { val ra = find(a); val rb = find(b); if (ra != rb) par[maxOf(ra, rb)] = minOf(ra, rb) }
+        fun toks(o: String) = o.removePrefix("txt:").split(' ').filter { it.length >= 2 }.toSet()
+        fun norm(t: String) = f(t).replace(Regex("[^a-z0-9]+"), " ").trim()
+        for (i in ps.indices) for (j in i + 1 until ps.size) {
+            val a = ps[i]; val b = ps[j]
+            val sameOrigin = a.origins.any { oa -> b.origins.any { ob ->
+                if (oa.startsWith("url:") || ob.startsWith("url:")) oa == ob else (toks(oa) intersect toks(ob)).size >= 2 } }
+            if (sameOrigin || norm(a.doc.text) == norm(b.doc.text)) union(i, j)
+        }
+        return ps.indices.associate { i -> ps[i] to (if (ps[i].origins.isEmpty() && ps.indices.none { j -> j != i && find(j) == find(i) }) "vlastní:" + ps[i].doc.name
+            else (if (ps[find(i)].origins.isEmpty()) "vlastní:" else "převzato:") + ps[find(i)].doc.name) }
     }
-    private fun overlap(a: String, b: String) = a.split(' ').toSet().intersect(b.split(' ').toSet()).count { it.length >= 4 }
 
     fun assess(docs: List<Doc>): Assessment {
         val ps = docs.map { parse(it) }
-        val lines = ps.associateWith { lineOf(it, ps) }
+        val lines = lines(ps)
         val allDates = ps.flatMap { it.dates }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
         val parts = ArrayList<Part>()
         fun grade(label: String, sup: List<Parsed>): Part {

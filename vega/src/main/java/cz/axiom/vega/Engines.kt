@@ -51,7 +51,6 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     /** Konec úkolu (i chyba, zrušení) → schválení zaniká. */
     fun clearRun() = runApprovals.clear()
 
-    fun configured(): List<String> = PROVIDERS.filter { vault.has(it) }
 
     data class Pick(val engine: LlmEngine, val provider: String, val model: String, val paid: Boolean, val chain: List<Pair<String, String>>, val notes: List<String>, val paidIds: List<String>)
 

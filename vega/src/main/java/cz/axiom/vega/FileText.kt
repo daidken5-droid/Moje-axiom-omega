@@ -85,8 +85,6 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
         writableDatabase.insert("docs", null, ContentValues().apply { put("name", name); put("body", text.take(2_000_000)); put("added", System.currentTimeMillis()) })
     }
 
-    fun remove(name: String) = writableDatabase.delete("docs", "name = ?", arrayOf(name))
-
     fun list(): List<String> = readableDatabase.rawQuery("SELECT name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
     fun search(query: String, limit: Int): List<Snippet> {

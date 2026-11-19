@@ -86,7 +86,6 @@ function emptyState() {
     ${noModel ? `<div class="quiet">Rozhovor potřebuje model – <button class="linkbtn" data-act="settings">Gemini zdarma nebo vlastní server</button>. Nástroje fungují i bez něj.</div>` : ''}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
 }
-const start = (g, t, s, act) => `<button class="start" data-act="start" data-v="${esc(act)}"><span class="glyph">${esc(g)}</span><span><b>${esc(t)}</b><small>${esc(s)}</small></span></button>`;
 
 /* ------------------------------------------------------------------ výsledky: nejdřív to podstatné, detail na klepnutí */
 function headline(v) {
@@ -164,7 +163,7 @@ function card(c, isLast) {
     case 'file': return `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="openOut" data-f="${esc(c.name)}">Otevřít ${esc(c.name)}</button><button class="btn" data-act="share" data-f="${esc(c.name)}">Sdílet</button></div>`;
     case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
     case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + c.breakEven + ' ks' : ''}</div></div>`;
-    case 'evidence': return `<div class="res"><div class="res-h">Síla doložení</div><div class="res-body">${c.parts.map(p => `<div class="chk"><span class="pill ${/^potvrzeno|^dvě/.test(p.status) ? 'ok' : 'bad'}">${esc(p.lines)} ${p.lines === 1 ? 'linie' : 'linie'}</span><span><b>${esc(p.label)}</b><small>${esc(p.status)} · ${p.support.map(esc).join(', ')}</small></span></div>`).join('')}</div></div>`;
+    case 'evidence': return `<div class="res"><div class="res-h">Síla doložení</div><div class="res-body">${c.parts.map(p => `<div class="chk"><span class="pill ${/^potvrzeno|^dvě/.test(p.status) ? 'ok' : 'bad'}">${esc(p.lines)} ${p.lines >= 5 || p.lines === 0 ? 'linií' : 'linie'}</span><span><b>${esc(p.label)}</b><small>${esc(p.status)} · ${p.support.map(esc).join(', ')}</small></span></div>`).join('')}</div></div>`;
     case 'revision': return `<span class="pill sig">revize ${c.rev}</span>`;
     case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry" data-req="${esc(c.req || '')}">Pokračovat</button></div></div>` : '';
     case 'project': return c.resumeTask ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit přerušenou úlohu</button></div>` : '';
@@ -235,6 +234,8 @@ function render() { S.home = null; renderStream(); renderTop(); }
 
 /* ------------------------------------------------------------------ listy */
 function sheet(html, full) {
+  // otevřený dotaz (souhlas / schválení ceny) nesmí tiše zmizet pod jiným listem – úloha by čekala 5 minut
+  if (S.req && !html.includes('data-act="answer"')) { toast('Nejdřív odpověz na otevřený dotaz.'); return; }
   closeSheet(true);
   $('#layer').innerHTML = `<div class="scrim" data-act="close"></div><div class="sheet ${full ? 'full' : ''}" role="dialog" aria-modal="true">${full ? `<div class="inline"><span class="grow"></span><button class="iconbtn" data-act="close" aria-label="Zavřít">✕</button></div>` : '<div class="grab"></div>'}${html}</div>`;
 }
@@ -315,13 +316,9 @@ function drawer() {
 function library(tab) {
   S.libTab = tab || S.libTab;
   const T = { projects: 'Projekty', procs: 'Moje nástroje', memory: 'Paměť' };
-  if (S.libTab === 'chats') S.libTab = 'projects';
+  if (!T[S.libTab]) S.libTab = 'projects';
   let body = '';
-  if (S.libTab === 'chats') {
-    const cs = call('chats') || [];
-    body = `<div class="list"><button class="row" data-act="new"><span class="grow"><b>＋ Nová konverzace</b></span></button><button class="row" data-act="temp"><span class="grow"><b>Dočasný chat</b><small>nic se neukládá</small></span></button>
-      ${cs.map(c => `<button class="row" data-act="openChat" data-id="${esc(c.id)}"><span class="grow"><b>${esc(c.title)}</b></span><span class="end">${new Date(c.at).toLocaleDateString('cs-CZ')}</span></button>`).join('')}</div>`;
-  } else if (S.libTab === 'projects') {
+  if (S.libTab === 'projects') {
     const ps = call('projects') || [];
     body = `<div class="inline"><input class="field" id="pname" placeholder="Název nového projektu"><button class="btn primary" data-act="newProject">Založit</button></div>
       <div class="list" style="margin-top:10px"><button class="row" data-act="folder"><span class="grow"><b>Importovat složku…</b><small>VEGA pracuje v kopii</small></span></button>
@@ -436,7 +433,7 @@ function send() {
   const t = text || 'Co s tímhle souborem?';
   if (S.space.kind === 'temp') S.tempMsgs.push({ role: 'user', text: t });
   S.busy = true; S.stream = '';
-  call('send', chatId(), t, S.files.map(f => f.id));
+  if (call('send', chatId(), t, S.files.map(f => f.id)) === null) S.busy = false; // chyba mostu → neviset na „pracuji“
   S.files = []; inp.value = ''; autosize();
   render();
 }
@@ -489,18 +486,22 @@ const expect = a => Freeze({
   toContain: b => { if (!(a && a.includes && a.includes(b))) throw new Error(show(a) + ' neobsahuje ' + show(b)); },
   toThrow: () => { try { a(); } catch (e) { return; } throw new Error('čekána výjimka'); },
 });
-const test = (n, f) => tests.push([n, f]);
+const APush = Function.prototype.call.bind(Array.prototype.push);
+const test = (n, f) => { APush(tests, [n, f]); };
 lock('test', test); lock('it', test); lock('describe', (n, f) => f()); lock('expect', expect);
+const specs = Keys(FILES).filter(f => /\\.test\\.js$/.test(f) || /^test\\/.*\\.js$/.test(f)).sort();
+// kód projektu nesmí přepsat iteraci polí a tím „vyprázdnit“ seznam testů (podvržené „prošlo“)
+try { Freeze(Array.prototype); Freeze(Object.getPrototypeOf([][Symbol.iterator]())); } catch (e) {}
 (async () => {
   let pass = 0, fail = 0;
-  const specs = Keys(FILES).filter(f => /\\.test\\.js$/.test(f) || /^test\\/.*\\.js$/.test(f)).sort();
-  for (const s of specs) {
-    tests = [];
-    try { load(s); } catch (e) { fail++; out.push('✗ ' + s + ': ' + e.message); continue; }
-    for (const [n, f] of tests) { try { await f(); pass++; out.push('✓ ' + s + ' › ' + n); } catch (e) { fail++; out.push('✗ ' + s + ' › ' + n + ': ' + e.message); } }
+  for (let si = 0; si < specs.length; si++) {
+    const s = specs[si]; tests = [];
+    try { load(s); } catch (e) { fail++; APush(out, '✗ ' + s + ': ' + e.message); continue; }
+    const mine = tests; const cnt = mine.length;
+    for (let ti = 0; ti < cnt; ti++) { const n = mine[ti][0], f = mine[ti][1]; try { await f(); pass++; APush(out, '✓ ' + s + ' › ' + n); } catch (e) { fail++; APush(out, '✗ ' + s + ' › ' + n + ': ' + e.message); } }
   }
-  out.push(pass + ' prošlo, ' + fail + ' selhalo');
-  post({ nonce: NONCE, exitCode: fail || !specs.length ? 1 : 0, output: (specs.length ? '' : 'Žádné testy (*.test.js).\\n') + out.join('\\n'), command: specs.join(' ') });
+  APush(out, pass + ' prošlo, ' + fail + ' selhalo');
+  post({ nonce: NONCE, exitCode: fail || pass === 0 ? 1 : 0, output: (specs.length ? '' : 'Žádné testy (*.test.js).\\n') + out.join('\\n'), command: specs.join(' ') });
 })();
 })();`;
     let w;
@@ -585,7 +586,7 @@ function act(a, d) {
     case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
-    case 'retry': if (busyGuard()) return; S.busy = true; call('retry', chatId(), d.req || ''); render(); break;
+    case 'retry': if (busyGuard()) return; S.busy = true; if (call('retry', chatId(), d.req || '') === null) S.busy = false; render(); break;
     case 'resumeTask': if (busyGuard()) return; S.busy = true; call('resumeTask', chatId(), d.p); render(); break;
     case 'keep': { if (busyGuard()) return; const keep = [...document.querySelectorAll('[data-keep]')].filter(x => x.checked).map(x => x.dataset.keep);
       if (!keep.length) { toast('Vyber aspoň jednu změnu – nebo použij Vrátit.'); return; } S.busy = true; call('keepChanges', chatId(), d.p, d.task, keep.join(',')); render(); break; }
@@ -641,7 +642,6 @@ function act(a, d) {
     case 'share': B.share(d.f); break;
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
-    case 'title': if (S.space.kind === 'project') projectPanel(); break;
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;
@@ -651,7 +651,6 @@ function act(a, d) {
     case 'close': closeSheet(); break;
     case 'answer': { const ok = d.ok === '1'; const r = J(B.answer(S.req, JSON.stringify({ ok }))); S.req = null; closeSheet(true); if (r === false) toast('Žádost už vypršela – pošli zprávu znovu.'); break; }
     case 'chip': chipAct(d.v); break;
-    case 'start': startAct(d.v); break;
     case 'dropFile': S.files = S.files.filter(f => f.id !== d.id); renderChips(); break;
     case 'export': { const r = call('export', d.run, -1); if (r) toast('Uloženo do Stažené/VEGA: ' + r.name); break; }
     case 'saveProc': { const r = call('saveProcedure', JSON.parse(d.save)); if (r) { if (d.run) S.savedRuns.add(d.run); S.procs = null; toast(`Nástroj „${r.name}“ uložen (v${r.version}). Nabídnu ho u dalšího souboru.`); closeSheet(true); render(); } break; }
@@ -666,13 +665,14 @@ function act(a, d) {
     case 'showDiff': { const ds = call('diff', d.p) || []; sheet(`<h2>Rozdíl proti importu</h2>${ds.map(f => `<h3>${esc(f.path)} · +${f.added} −${f.removed}</h3>${diffHtml(f.diff)}`).join('') || '<p class="lede">Beze změn.</p>'}`, true); break; }
     case 'showVer': { const v = JSON.parse(d.ver); sheet(`<h2>${v.kind !== 'run' && v.kind !== 'static' ? 'Neověřeno' : v.exitCode === 0 ? 'Prošlo' : 'Neprošlo'}</h2><p class="lede">${esc(v.label)} · revize ${esc(v.revision)}</p><p class="note">${esc(v.command)}</p><pre>${esc(v.output)}</pre>`, true); break; }
     case 'tests': closeSheet(true); if (S.space.kind === 'project') { toast('Spouštím testy…'); B.verify(S.space.id); } break;
-    case 'panel': projectPanel(); break;
     case 'zip': { const n = call('exportProject', d.p); if (n) toast('ZIP ve Stažené/VEGA (bez souborů s klíči): ' + n); break; }
     case 'openFile': { const f = call('file', S.space.id, d.path); if (f && !f.secret) { sheet(`<h2>${esc(d.path)}</h2><textarea class="field" id="fedit" rows="18" style="font-family:var(--mono);font-size:13px">${esc(f.text)}</textarea><button class="btn primary wide" id="fsave" style="margin-top:10px">Uložit (s kontrolou verze)</button>`, true); $('#fsave').onclick = () => { const r = call('saveFile', S.space.id, d.path, $('#fedit').value, f.hash || ''); if (r !== null) { toast('Uloženo jako změna #' + r); closeSheet(true); } }; } break; }
     case 'sources': { const it = JSON.parse(d.src); sheet(`<h2>Zdroje</h2>${it.map(s => `<div class="card"><b>[${s.n}] ${esc(s.title)}</b><div class="note">${link(s.url)} · staženo ${esc(s.fetched)}</div><details><summary>Původní text</summary><p class="note" style="white-space:pre-wrap">${esc(s.text)}</p></details></div>`).join('')}`, true); break; }
     case 'coverage': { const c = JSON.parse(d.cov); sheet(`<h2>Kontrola úplnosti</h2><div class="list">${c.items.map(i => `<div class="row"><span class="pill ${i.ok ? 'ok' : 'bad'}">${i.ok ? '✓' : 'chybí'}</span><span class="grow">${esc(i.q)}</span></div>`).join('')}</div><h3>Citované pasáže</h3>${c.passages.map(p => `<details><summary>${esc(p.id)}</summary><p class="note" style="white-space:pre-wrap">${esc(p.text)}</p></details>`).join('')}`, true); break; }
     case 'runProc': closeSheet(true); if (busyGuard()) return; S.awaitProc = d.id; toast('Vyber soubor – pak nástroj spustím.'); B.pickFiles(); break;
+    case 'pinProc': call('pinProcedure', d.id, d.on); S.procs = null; toast(d.on === 'true' ? 'Připnuto na úvodní obrazovku.' : 'Odepnuto.'); library('procs'); break;
     case 'procMenu': { const p = JSON.parse(d.p); sheet(`<h2>${esc(p.name)} <span class="pill">v${p.version}</span></h2><p class="lede">${esc(p.description || '')}</p>
+        <button class="btn wide" data-act="pinProc" data-id="${esc(p.id)}" data-on="${p.pinned ? 'false' : 'true'}" style="margin:6px 0">${p.pinned ? 'Odepnout z úvodní obrazovky' : 'Připnout na úvodní obrazovku'}</button>
         <div class="card"><div class="note">Vstup: ${esc(p.inputDesc || p.inputKind)}</div><div class="note">Výstup: ${esc(p.outputKind)}</div><div class="note">Kroky: ${p.steps.map(esc).join(' → ')}</div><div class="note">Oprávnění: ${p.perms.length ? p.perms.map(esc).join(', ') : 'žádná'} · použito ${p.uses}×</div></div>
         <h3>Verze</h3>${p.changelog.map(c => `<p class="note">${esc(c)}</p>`).join('')}
         <button class="btn wide" data-act="delProc" data-id="${esc(p.id)}" style="margin-top:14px;color:var(--bad)">Smazat nástroj</button>`); break; }
@@ -724,20 +724,8 @@ function chipAct(v) {
   if (k === 'say') { $('#input').value = arg; send(); }
   else if (k === 'tool') useTool(arg);
   else if (k === 'proc') { if (busyGuard()) return; const f = S.files.pop(); S.busy = true; call('runProcedure', chatId(), arg, { file: f.id }); render(); }
-  else if (k === 'tests') act('tests', {});
   else if (k === 'panel') projectPanel();
   else if (k === 'saveLast' && S.lastCard && S.lastCard.save) act('saveProc', { save: JSON.stringify(S.lastCard.save), run: S.lastCard.run });
-  else if (k === 'passLast' && S.lastCard) passSheet({ run: S.lastCard.run });
-  else if (k === 'resumeLast' && S.lastCard) act('resume', { run: S.lastCard.run });
-}
-function startAct(v) {
-  const [k, ...rest] = v.split(':'); const arg = rest.join(':');
-  if (k === 'pick') { toast(arg === 'statement' ? 'Vyber CSV export z banky.' : 'Vyber log (celý projekt přidáš přes + → Složka).'); B.pickFiles(); }
-  else if (k === 'focus') { const i = $('#input'); i.value = arg; i.focus(); autosize(); }
-  else if (k === 'nfc') act('nfc', {});
-  else if (k === 'say') { $('#input').value = arg; send(); }
-  else if (k === 'tests') act('tests', {});
-  else if (k === 'panel') projectPanel();
 }
 
 document.addEventListener('focusin', e => { if (e.target.id === 'input') document.body.classList.add('focus'); });

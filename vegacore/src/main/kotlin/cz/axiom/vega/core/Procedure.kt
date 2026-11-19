@@ -80,9 +80,8 @@ class ProcedureStore(private val kv: Kv) {
     fun setPinned(id: String, v: Boolean) { get(id)?.let { kv.write("proc/$id", json.encodeToString(Procedure.serializer(), it.copy(pinned = v))) } }
 
     /** Kroky beze změny → žádná nová verze (opakované „ulož“ nevyrábí v2, v3…). */
-    fun sameAs(name: String, steps: List<Step>) = list().firstOrNull { it.name.equals(name, true) }?.steps == steps
 
-    fun used(p: Procedure) = kv.write("proc/${p.id}", json.encodeToString(Procedure.serializer(), p.copy(uses = p.uses + 1)))
+    fun used(p: Procedure) { val cur = get(p.id) ?: return; kv.write("proc/${p.id}", json.encodeToString(Procedure.serializer(), cur.copy(uses = cur.uses + 1))) }
 
     fun delete(id: String) { kv.delete("proc/$id"); kv.keys("proc-hist/$id/").forEach { kv.delete(it) } }
 

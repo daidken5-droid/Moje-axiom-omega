@@ -54,6 +54,8 @@ class MainActivity : ComponentActivity() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 // CSP i jako HTTP hlavička (platí spolehlivě i pro blob: Workery testů): žádná síť, žádné inline skripty
                 loader.shouldInterceptRequest(request.url)?.also { r -> r.responseHeaders = (r.responseHeaders ?: emptyMap()) + mapOf("Content-Security-Policy" to CSP, "X-Content-Type-Options" to "nosniff") }
+            /** Renderer spadl (např. paměťová bomba v testech projektu) → nepadat s celou aplikací, jen znovu načíst UI. */
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean { runOnUiThread { recreate() }; return true }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 if (u.host == "appassets.androidplatform.net" && u.scheme == "https") return false
@@ -256,7 +258,6 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun isBusy() = safe { ops.busy }
     @JavascriptInterface fun pickFiles() = safe { a.pick() }
     @JavascriptInterface fun pickFolder() = safe { a.pickFolder() }
-    @JavascriptInterface fun clearFiles() = safe { ops.clearAttachments() }
     @JavascriptInterface fun runTool(chat: String, tool: String, input: String, p: String) = safe { ops.runTool(chat.takeIf { it != "temp" }, tool, JSONObject(input), params(p)) }
     @JavascriptInterface fun run(id: String) = safe { ops.runJson(id) }
     @JavascriptInterface fun resume(chat: String, id: String, fix: String) = safe {
@@ -265,7 +266,7 @@ class Bridge(private val a: MainActivity) {
     }
     // čísla jako text: most WebView by JS řetězec do Int převedl na 0
     @JavascriptInterface fun export(run: String, step: String) = safe { ops.exportValue(run, step.toIntOrNull() ?: -1) }
-    @JavascriptInterface fun procedures() = safe { JSONArray().apply { ops.procedures.list().forEach { p -> put(JSONObject().put("id", p.id).put("name", p.name).put("version", p.version).put("description", p.description).put("inputDesc", p.inputDesc).put("inputKind", p.inputKind).put("outputKind", p.outputKind).put("perms", JSONArray(p.perms)).put("steps", JSONArray(p.steps.map { it.tool })).put("changelog", JSONArray(p.changelog)).put("uses", p.uses)) } } }
+    @JavascriptInterface fun procedures() = safe { JSONArray().apply { ops.procedures.list().forEach { p -> put(JSONObject().put("id", p.id).put("pinned", p.pinned).put("name", p.name).put("version", p.version).put("description", p.description).put("inputDesc", p.inputDesc).put("inputKind", p.inputKind).put("outputKind", p.outputKind).put("perms", JSONArray(p.perms)).put("steps", JSONArray(p.steps.map { it.tool })).put("changelog", JSONArray(p.changelog)).put("uses", p.uses)) } } }
     @JavascriptInterface fun saveProcedure(json: String) = safe { ops.saveProcedure(JSONObject(json)) }
     @JavascriptInterface fun deleteProcedure(id: String) = safe { ops.procedures.delete(id) }
     @JavascriptInterface fun runProcedure(chat: String, id: String, input: String) = safe { ops.runProcedure(chat.takeIf { it != "temp" }, id, JSONObject(input)) }
@@ -295,13 +296,14 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun undo(id: String, change: String) = safe { JSONObject.quote(ops.workspace(id).undo(change.toIntOrNull()?.takeIf { it > 0 }).path) }
     @JavascriptInterface fun diff(id: String) = safe { JSONArray().apply { ops.workspace(id).diffFromBase().forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3))) } } }
     @JavascriptInterface fun verify(id: String) = safe {
-        Thread {
+        // přes frontu úloh: testy nesmí běžet souběžně s úpravami, které právě aplikuje model
+        ops.submit {
             try {
                 val v = ops.verify(ops.workspace(id))
                 a.send("verified", JSONObject().put("project", id).put("kind", v.kind).put("exitCode", v.exitCode).put("label", v.label).put("output", v.output.take(6000)).put("command", v.command).put("revision", v.revision))
             } catch (e: cz.axiom.omega.core.llm.CancelledException) { a.send("verified", JSONObject().put("project", id).put("kind", "none").put("exitCode", -1).put("label", "zrušeno"))
             } catch (e: Exception) { a.send("error", JSONObject().put("text", "Testy se nepodařilo spustit: ${e.message?.take(160)}")) }
-        }.start()
+        }
     }
     @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); JSONObject.quote(ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name) }
     @JavascriptInterface fun nfc(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }) }
@@ -317,8 +319,6 @@ class Bridge(private val a: MainActivity) {
             "usdKc" -> s.usdKc = (value.replace(',', '.').toFloatOrNull() ?: 23.5f).coerceIn(10f, 60f)
             "initiative" -> s.initiative = value == "true"
             "airgap" -> s.airgap = value == "true"
-            "claudeModel" -> s.claudeModel = value
-            "pinned" -> s.pinned = value.split(',')
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
             "userName" -> s.userName = value
@@ -346,7 +346,6 @@ class Bridge(private val a: MainActivity) {
         true
     }
     @JavascriptInterface fun checkKey(provider: String) = safe { Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
-    @JavascriptInterface fun index() = safe { JSONArray(ops.index.list()) }
     @JavascriptInterface fun retry(chat: String, req: String) = safe { ops.retry(chat.takeIf { it != "temp" }, req.ifBlank { null }) }
     @JavascriptInterface fun resumeTask(chat: String, project: String) = safe { ops.resumeTask(chat.takeIf { it != "temp" }, project) }
     @JavascriptInterface fun keepChanges(chat: String, project: String, task: String, keep: String) = safe {
@@ -355,7 +354,7 @@ class Bridge(private val a: MainActivity) {
     }
     @JavascriptInterface fun buttonTry(chat: String, file: String) = safe { ops.buttonTry(chat.takeIf { it != "temp" }, file) }
     @JavascriptInterface fun buttonSave(chat: String, name: String) = safe { ops.buttonSave(chat.takeIf { it != "temp" }, name) }
-    @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true") }
+    @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true"); true }
     @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
     @JavascriptInterface fun voice() = safe { a.voice() }
     @JavascriptInterface fun verifierInstall() = safe { a.pickVerifierZip() }

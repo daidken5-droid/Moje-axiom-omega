@@ -31,7 +31,6 @@ import cz.axiom.vega.core.Tools
 import cz.axiom.vega.core.Value
 import cz.axiom.vega.core.Workspace
 import cz.axiom.vega.core.pruneRuns
-import cz.axiom.vega.core.runsOf
 import cz.axiom.vega.core.saveRun
 import org.json.JSONArray
 import org.json.JSONObject
@@ -169,7 +168,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun chatKey(id: String) = "chat/$id.json"
     fun chats(): JSONArray = JSONArray(kv.read("chats.json") ?: "[]")
     fun messages(chat: String): JSONArray = JSONArray(kv.read(chatKey(chat)) ?: "[]")
-    fun newChat(): String {
+    @Synchronized fun newChat(): String {
         val id = "c" + System.currentTimeMillis().toString(36)
         val arr = chats(); val n = JSONArray().put(JSONObject().put("id", id).put("title", "Nový chat").put("at", System.currentTimeMillis()))
         for (i in 0 until minOf(arr.length(), 49)) n.put(arr.get(i))
@@ -185,9 +184,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
     }
 
-    private fun reply(chat: String?, text: String, card: JSONObject? = null, meta: JSONObject? = null) {
+    private fun reply(chat: String?, text: String, card: JSONObject? = null) {
         val m = JSONObject().put("role", "vega").put("text", text)
-        card?.let { m.put("card", it) }; meta?.let { m.put("meta", it) }
+        card?.let { m.put("card", it) }
         addMsg(chat, m); emit("message", JSONObject().put("chat", chat ?: "temp").put("msg", m))
     }
 
@@ -213,13 +212,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         return JSONObject().put("id", id).put("name", name).put("size", bytes.size).put("mime", mime ?: "")
     }
     private fun lastAttachment() = msgAtt.lastOrNull()
-    fun clearAttachments() = attachments.clear()
     /** Vezme (a odebere) přílohy patřící k odesílané zprávě. */
     private fun take(ids: List<String>): List<Value.Bytes> = synchronized(attachments) { ids.mapNotNull { attachments.remove(it) } }
 
     // ------------------------------------------------------------------ výsledky (každý je běh – jde otevřít, předat, pokračovat)
 
-    private fun runs() = runsOf(kv)
     fun run(id: String): Run? = kv.read("run/$id")?.let { runCatching { Run.fromJson(kotlinx.serialization.json.Json.parseToJsonElement(it) as kotlinx.serialization.json.JsonObject) }.getOrNull() }
 
     fun valueJson(v: Value, rows: Int = 200): JSONObject {
@@ -287,11 +284,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         reply(chat, if (r.done) "Postup „${p.name}“ (v${p.version}) na „${(input as? Value.Bytes)?.name ?: "text"}“: hotovo." else "Postup se zastavil na kroku ${r.nextIndex + 1}: ${r.results.last().error}. Vstup i hotové kroky zůstaly – můžeš pokračovat.",
             runCard(r).put("procedure", JSONObject().put("id", p.id).put("version", p.version).put("steps", stepsHash(p.steps))))
     }
+    /** Kroky postupu z JSON (návrh tlačítka, uložení postupu) – jedno místo místo čtyř kopií. */
+    private fun stepsOf(a: JSONArray): List<Step> = (0 until a.length()).map { i -> a.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } }
     private fun stepsHash(steps: List<Step>) = sha8(steps.joinToString("\n") { it.tool + "|" + it.params.toSortedMap() }.toByteArray())
 
     fun saveProcedure(o: JSONObject): JSONObject {
-        val steps = (0 until o.getJSONArray("steps").length()).map { i -> val s = o.getJSONArray("steps").getJSONObject(i)
-            Step(s.getString("tool"), s.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) }
+        val steps = stepsOf(o.getJSONArray("steps"))
         val p = procedures.save(o.getString("name"), steps, o.optString("description"), Kind.valueOf(o.optString("inputKind", "BYTES")), o.optString("inputDesc"),
             Kind.valueOf(o.optString("outputKind", "TABLE")), o.optString("change", "první verze"))
         return JSONObject().put("id", p.id).put("version", p.version).put("name", p.name)
@@ -303,7 +301,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      */
     fun csvDelimiter(projectId: String? = settings.activeProject): Char {
         fun of(t: String): Char? { val x = cz.axiom.omega.core.util.TextUtil.fold(t).lowercase()
-            if (!Regex("oddelova|csv|export|stredni|carku|carka|tabulator").containsMatchIn(x)) return null
+            if (!Regex("oddelova|csv|export|stredni|carku|carka|tabulator").containsMatchIn(x) || Regex("nepouziv|\\bne\\s+(strednik|carku)|desetinn").containsMatchIn(x)) return null
             return when { Regex("strednik").containsMatchIn(x) -> ';'; Regex("tabulator").containsMatchIn(x) -> '\t'; Regex("\\bcark[uay]\\b|\\bcarkou\\b").containsMatchIn(x) -> ','; else -> null } }
         val all = memory.all(projectId?.let { "project:$it" })
         return all.filter { projectId != null && it.scope == "project:$projectId" }.firstNotNullOfOrNull { of(it.text) }
@@ -332,7 +330,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val mine = take(ids)
         // OPRAVA ZADÁNÍ běžící / poslední úlohy se zpracuje HNED (ne až za frontou) – běžící úloha si ji vezme mezi kroky
         compareTaskOf(chatId)?.let { id -> val t = cz.axiom.vega.core.RevTask(kv, id)
-            Router.revision(text, mine.isNotEmpty(), t.current()?.inputs?.size ?: 0)?.let { rv -> reviseCompare(chatId, id, text, mine, rv); return } }
+            // oprava zadání se týká jen běžící nebo čerstvé úlohy (30 min) – jinak je to běžná zpráva
+            val fresh = id in runningTasks || System.currentTimeMillis() - (t.state().log.lastOrNull()?.at ?: 0L) < 30 * 60_000L
+            if (fresh) Router.revision(text, mine.isNotEmpty(), t.current()?.inputs?.size ?: 0)?.let { rv -> reviseCompare(chatId, id, text, mine, rv); return } }
         submit { msgAtt = mine; resumable(chatId, "chat", text, mine) { chat0(chatId, text) } }
     }
 
@@ -384,7 +384,6 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
         if (decide(chatId, text, ws)) return
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size))
-        emit("intent", JSONObject().put("intent", intent.javaClass.simpleName))
         when (intent) {
             is Router.Intent.Remember -> rememberCmd(chatId, intent, ws)
             Router.Intent.Continue -> continueWork(chatId)
@@ -483,7 +482,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private class NoEngine : Exception("Pro tuhle úlohu potřebuji model – v Nastavení přidej klíč Gemini (zdarma), případně Groq / Cerebras / OpenRouter. Ruční nástroje fungují i bez něj.")
 
-    private fun sha8(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-256").digest(b).take(4).joinToString("") { "%02x".format(it) }
+    private fun sha8(b: ByteArray) = Workspace.sha(b).take(8)
 
     /**
      * Volání modelu: (1) air-gap/klíč, (2) před odesláním PODKLADŮ ukázat skutečný rozsah, cíl i zálohy a čekat na souhlas
@@ -609,6 +608,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     // ------------------------------------------------------------------ rešerše a dlouhé zadání
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
+        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (model-pill → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         if (settings.airgap) { reply(chat, "Air-gap je zapnutý – rešerši na webu nedělám. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
@@ -823,7 +823,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun saveState(w: Workspace, chat: String?, goal: String?, v: Workspace.Verification?, keepBaseline: Boolean = false, absorbManual: Boolean = true) {
         val old = projectState(w) ?: JSONObject()
         // ruční změny, které uživatel ještě neviděl ověřené v úloze, zůstanou chráněné i po novém snímku
-        val carried = if (absorbManual) emptyList() else userChanges(w).map { it.first } + (old.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
+        val carried = if (absorbManual) emptyList() else userChanges(w).map { it.first }.filter { p -> w.changes().lastOrNull { it.path == p }?.let { c -> w.hash(p) != null && w.read(p) == c.after } != true } + (old.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
         val o = JSONObject().put("project", w.root.name).put("name", w.name).put("goal", goal ?: old.optString("goal")).put("chat", chat ?: old.optString("chat")).put("at", System.currentTimeMillis())
         o.put("lastVerified", v?.takeIf { it.kind != "none" }?.let { JSONObject().put("label", it.label).put("exitCode", it.exitCode).put("revision", it.revision).put("at", it.at) } ?: old.optJSONObject("lastVerified") ?: JSONObject.NULL)
         val files = JSONObject(); val snap = JSONObject()
@@ -922,7 +922,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     private fun buttonCard(d: JSONObject): JSONObject {
         val steps = d.getJSONArray("steps")
-        val st = (0 until steps.length()).map { i -> steps.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } }
+        val st = stepsOf(steps)
         val perms = st.flatMap { Tools.get(it.tool)?.perms ?: emptyList() }.distinct().map { it.label }
         val verified = d.getJSONArray("verifiedOn")
         return JSONObject().put("type", "buttonDraft").put("name", d.getString("name"))
@@ -938,7 +938,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val d = kv.read(draftKey(chat))?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje – napiš znovu „udělej mi z toho tlačítko“.")
         val input = attachments.remove(fileId) ?: throw ToolError("Soubor jsem nedostal – vyber ho znovu.")
         if (sha8(input.asText().toByteArray()) == d.optString("inputHash")) { reply(chat, "To je stejný soubor, na kterém jsme postup ladili – pro ověření potřebuji JINÝ.", buttonCard(d)); return@submit }
-        val steps = d.getJSONArray("steps").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } } }
+        val steps = stepsOf(d.getJSONArray("steps"))
         val r = Runner.start("Ověření: ${d.getString("name")}", steps, input, toolCtx) { saveRun(kv, it) }
         val bad = r.results.mapNotNull { (it.value as? Value.Table)?.notes?.firstOrNull { n -> n.startsWith("Nezpracováno") } } +
             listOfNotNull(steps.firstOrNull { it.tool == "statement.process" }?.params?.get("spec")?.let { Statement.ParserSpec.parse(it) }?.let { Statement.reconcile(input.asText(), it) }?.takeIf { it.first * 2 < it.second }?.let { "zůstatek nesedí (${it.first}/${it.second})" })
@@ -957,7 +957,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val d = kv.read(draftKey(chat))?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje.")
         val verified = d.getJSONArray("verifiedOn").let { a -> (0 until a.length()).map { a.getString(it) } }
         if (verified.size < 2) throw ToolError("Nejdřív tlačítko ověř na jiném souboru.")
-        val steps = d.getJSONArray("steps").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } } }
+        val steps = stepsOf(d.getJSONArray("steps"))
         val nm = name.trim().ifBlank { d.getString("name") }.take(40)
         val ik = Kind.valueOf(d.getString("inputKind"))
         val p = procedures.save(nm, steps, "Uloženo z hotové práce (${java.time.LocalDate.now()}); ověřeno na: ${verified.joinToString(", ")}", ik,
@@ -1025,14 +1025,14 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         // tarif
         val tariff = kv.read(tariffKey(scope))?.let { cz.axiom.vega.core.Econ.Tariff.parse(it) }
-        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariff != null && Regex("(?i)vrát|refund|poměrn|závaz|výpověd|měsíc").containsMatchIn(text) && Regex("(?i)tarif|roční|měsíční|členství|předplatné|když|kdyby|používat|budu|platit").containsMatchIn(text)) {
+        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariff != null && (Regex("(?i)tarif|ročn|předplat|členst|vrát|refund|poměrn|závaz|výpověd").containsMatchIn(text) || Regex("(?i)(používat|platit|potřebovat)\\s+(ho|to|je)?\\s*\\d+\\s*měsíc").containsMatchIn(text))) {
             cz.axiom.vega.core.Econ.parseTariff(text, if (cz.axiom.vega.core.Econ.isTariffQuestion(text) && Regex("\\d").containsMatchIn(text)) null else tariff)?.let { t ->
                 kv.write(tariffKey(scope), t.json()); reply(chat, cz.axiom.vega.core.Econ.tariffAnswer(t)); return true }
         }
         // důkazy: ≥ 2 texty a otázka na pravdivost, nebo další doklad k rozpracovanému hodnocení
         val ev = kv.read(evidenceKey(chat))?.let { runCatching { JSONArray(it) }.getOrNull() }
         val blocks = text.split(Regex("\\n-{3,}\\n")).drop(1).filter { it.isNotBlank() }
-        val newDocs = msgAtt.map { cz.axiom.vega.core.Evidence.Doc(it.name, it.asText().take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
+        val newDocs = msgAtt.filter { !it.name.endsWith(".csv", true) && !it.name.endsWith(".tsv", true) }.map { cz.axiom.vega.core.Evidence.Doc(it.name, it.asText().take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
         val start = newDocs.size >= 2 && cz.axiom.vega.core.Evidence.isQuestion(text)
         val add = ev != null && newDocs.isNotEmpty() && (cz.axiom.vega.core.Evidence.isAddition(text) || cz.axiom.vega.core.Evidence.isQuestion(text))
         if (start || add) {
@@ -1047,7 +1047,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             return true
         }
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
-        if (Regex("(?iU)(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)\\b.{0,40}\\b(csv|soubor|tabulk|excel|export)").containsMatchIn(text) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
+        if (Regex("(?iU)(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)\\b.{0,40}\\b(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?iU)\\.(js|kt|py|java|ts|json)\\b|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
             exportChat(chat, lastResultRun!!); return true
         }
         return false
@@ -1098,6 +1098,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Úlohy, které právě běží (id) – oprava zadání se jim jen zapíše, nespouští se druhý běh. */
     private val runningTasks = ConcurrentHashMap.newKeySet<String>()
     private fun compareKey(chat: String?) = "state/compare/${chat ?: "temp"}"
+    /** Synchronní odpověď mimo frontu: UI po odeslání čeká na „idle“ – když nic neběží, poslat ho hned. */
+    private fun idleIfFree() { if (!busy) emit("idle", JSONObject()) }
     fun compareTaskOf(chat: String?): String? = kv.read(compareKey(chat))?.takeIf { kv.read("task/$it.json") != null }
     private fun keepFile(b: Value.Bytes): cz.axiom.vega.core.RevTask.Input {
         val sha = sha8(b.bytes) + b.bytes.size.toString(16)
@@ -1125,9 +1127,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val t = cz.axiom.vega.core.RevTask(kv, id); val cur = t.current()!!
         val change = when (rv) {
             is Router.Revision.Input -> {
-                val f = att.firstOrNull() ?: run { reply(chat, "Přilož novou verzi souboru – pak ho vyměním."); return }
+                val f = att.firstOrNull() ?: run { reply(chat, "Přilož novou verzi souboru – pak ho vyměním."); idleIfFree(); return }
                 val idx = rv.index.takeIf { it in cur.inputs.indices } ?: nameMatch(cur.inputs.map { it.name }, f.name)
-                    ?: run { reply(chat, "Nevím, který ze souborů ${cur.inputs.joinToString(", ") { it.name }} „${f.name}“ nahrazuje – napiš třeba „nahraď druhý soubor“."); return }
+                    ?: run { reply(chat, "Nevím, který ze souborů ${cur.inputs.joinToString(", ") { it.name }} „${f.name}“ nahrazuje – napiš třeba „nahraď druhý soubor“."); idleIfFree(); return }
                 cz.axiom.vega.core.RevTask.Change.ReplaceInput(idx, keepFile(f))
             }
             is Router.Revision.Scope -> cz.axiom.vega.core.RevTask.Change.Scope(rv.text)
@@ -1139,7 +1141,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val running = id in runningTasks
         reply(chat, "Zaznamenal jsem **revizi ${r.n}** zadání: ${r.change}. " + (if (wide) "Závislost nejde spolehlivě určit – přepočítám všechny soubory." else "Platné mezivýsledky zachovám a zopakuji jen kroky závislé na změně.") +
             if (running) " Rozpracovaná odpověď ke staré revizi se nezobrazí." else "", JSONObject().put("type", "revision").put("rev", r.n).put("change", r.change))
-        if (!running) submit { compareRun(chat, id) }
+        if (!running) { runningTasks += id; submit { compareRun(chat, id) } } else idleIfFree()
     }
 
     /** Který starý soubor nová verze nahrazuje podle jména (bez čísel verzí a slov „oprava/nový“). */
@@ -1153,6 +1155,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun compareRun(chat: String?, id: String) {
         val t = cz.axiom.vega.core.RevTask(kv, id)
         runningTasks += id
+        var clean = false
         try {
             outer@ while (true) {
                 cancel.check()
@@ -1167,6 +1170,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                         val spec = Statement.detect(txt).spec ?: throw ToolError("Formát „${inp.name}“ nepoznám – otevři ho v Inspektoru CSV.")
                         val res = Statement.process(txt, spec)
                         val o = JSONObject().put("name", inp.name).put("income", res.income).put("expense", res.expense).put("rows", JSONArray().apply { res.table.rows.take(5000).forEach { put(JSONArray(it)) } })
+                            .put("sums", JSONObject().apply { listOf("all" to "vše", "in" to "jen příjmy", "out" to "jen výdaje", "nofee" to "bez poplatků").forEach { (k, sc) -> val p = cz.axiom.vega.core.RevTask.knownScope(sc)!!; put(k, res.table.rows.filter(p).sumOf { it[1].toDoubleOrNull() ?: 0.0 }) } })
                             .put("failed", res.failed.size).put("reconcile", Statement.reconcileText(txt, spec) ?: "")
                         t.put("statement", inp.sha, rev, o.toString()); t.log(rev.n, "zpracování souboru", inp.name, "spočítáno")
                         o.put("status", "spočítáno")
@@ -1175,7 +1179,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                     if (!t.isCurrent(rev.n)) { t.log(rev.n, "běh", "*", "přerušeno – přišla revize ${t.current()!!.n}"); continue@outer }
                 }
                 val filter = rev.scope?.let { cz.axiom.vega.core.RevTask.knownScope(it) } ?: { _: List<String> -> true }
-                fun saldoOf(o: JSONObject): Double { val rs = o.getJSONArray("rows"); return (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } }.filter(filter).sumOf { it[1].toDoubleOrNull() ?: 0.0 } }
+                fun saldoOf(o: JSONObject): Double { o.optJSONObject("sums")?.let { su -> scopeKey(rev.scope)?.let { k -> if (su.has(k)) return su.getDouble(k) } }; val rs = o.getJSONArray("rows"); return (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } }.filter(filter).sumOf { it[1].toDoubleOrNull() ?: 0.0 } }
                 val saldos = per.map { saldoOf(it) }; val total = saldos.sum()
                 t.log(rev.n, "součet", "*", "spočítáno (${rev.scope ?: "vše"})")
                 // shrnutí modelem (cloud / vlastní server) – bez průběžného zobrazení, ať stará revize neprosákne do UI
@@ -1187,7 +1191,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 } catch (e: Exception) { if (e is CancelledException) throw e; null.also { t.log(rev.n, "shrnutí modelem", "*", "selhalo: ${human(e).take(80)}") } }
                 if (!t.isCurrent(rev.n)) { t.log(rev.n, "shrnutí modelem", "*", "ZAHOZENO – opožděná odpověď ke staré revizi ${rev.n} (aktuální ${t.current()!!.n})"); continue@outer }
                 summary?.let { t.log(rev.n, "shrnutí modelem", "*", "přijato") }
-                if (!t.publish(rev.n)) { t.log(rev.n, "zveřejnění", "*", "zahozeno – existuje novější výsledek"); continue@outer }
+                if (!t.publish(rev.n)) {
+                    // tato revize už je zveřejněná (jiný běh) → hotovo; jinak mezitím přišla novější → přepočítat
+                    if (t.isCurrent(rev.n)) break
+                    t.log(rev.n, "zveřejnění", "*", "zahozeno – existuje novější výsledek"); continue@outer
+                }
                 // rozdíl proti předchozí revizi (její mezivýsledky jsou v cache podle otisku)
                 val prev = t.state().revs.getOrNull(t.state().revs.size - 2)
                 val prevPer = prev?.inputs?.map { i -> t.state().cache["statement|${i.sha}"]?.let { JSONObject(it.data) } }
@@ -1214,8 +1222,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 reply(chat, text.trim(), JSONObject().put("type", "compare").put("task", id).put("rev", rev.n).put("total", total).put("prevTotal", prevTotal ?: JSONObject.NULL).put("files", files).put("log", log))
                 break
             }
-        } finally { runningTasks -= id }
+            clean = true
+        } finally {
+            runningTasks -= id
+            // revize, která přišla mezi zveřejněním a koncem běhu, se nesmí ztratit (po chybě se neopakuje donekonečna)
+            if (clean && !t.upToDate() && id !in runningTasks) { runningTasks += id; submit { compareRun(chat, id) } }
+        }
     }
+    private fun scopeKey(scope: String?): String? { if (scope == null) return "all"; val f = cz.axiom.omega.core.util.TextUtil.fold(scope).lowercase()
+        return when { Regex("jen (prijm|prichoz)").containsMatchIn(f) -> "in"; Regex("jen (vydaj|odchoz|platb)").containsMatchIn(f) -> "out"; Regex("bez poplatk").containsMatchIn(f) -> "nofee"; Regex("vse|cely|vsechno|bez omezeni").containsMatchIn(f) -> "all"; else -> null } }
     private fun CzNum(v: Double) = cz.axiom.vega.core.CzNum.format(v)
 
     // ------------------------------------------------------------------ neobvyklá hypotéza
@@ -1248,10 +1263,19 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private val verifierDir get() = File(context.filesDir, "vega/verifier")
     @Volatile private var groundingCache: Grounding.Checker? = null
     /** Načte balíček (jednou); bez balíčku nebo s poškozeným = NEVYHODNOCENO s důvodem, chat funguje dál. */
+    private val groundingLock = Any()
     var grounding: Grounding.Checker
-        get() = groundingCache ?: (if (File(verifierDir, "manifest.json").isFile) runCatching { cz.axiom.vega.core.OnnxGrounding(verifierDir) as Grounding.Checker }.getOrElse { Grounding.Missing("NEVYHODNOCENO – ${it.message}") }
-            else Grounding.Missing("ověřovač citací není nainstalovaný (Nastavení → Ověřovač citací)")).also { groundingCache = it }
-        set(v) { groundingCache = v }
+        get() = groundingCache ?: synchronized(groundingLock) {
+            groundingCache ?: (if (File(verifierDir, "manifest.json").isFile) runCatching { cz.axiom.vega.core.OnnxGrounding(verifierDir) as Grounding.Checker }.getOrElse { Grounding.Missing("NEVYHODNOCENO – ${it.message}") }
+                else Grounding.Missing("ověřovač citací není nainstalovaný (Nastavení → Ověřovač citací)")).also { groundingCache = it }
+        }
+        set(v) { synchronized(groundingLock) { (groundingCache as? java.io.Closeable)?.close(); groundingCache = v } }
+    /** Stav pro Nastavení BEZ načítání modelu (to trvá a nesmí blokovat vlákno UI). */
+    fun groundingStatus(): Pair<String, Boolean> = groundingCache?.let { it.status to it.ready }
+        ?: runCatching { cz.axiom.vega.core.VerifierBundle.read(verifierDir, verifyHashes = false).let { m -> "${m.name} (${m.baseRepo}@${m.baseRev.take(7)}), práh ${m.threshold} – načte se při prvním ověření${if (m.files["model.onnx"] in KNOWN_MODELS) "" else " · původ balíčku neověřen (není to známý referenční model)"}" to true } }
+            .getOrElse { (if (File(verifierDir, "manifest.json").isFile) "NEVYHODNOCENO – ${it.message}" else "ověřovač citací není nainstalovaný") to false }
+    /** Otisky známých balíčků (referenční NLI z tools/verifier) – jiný balíček se načte, ale označí jako neověřený původ. */
+    private val KNOWN_MODELS = setOf("9ea907de1e8f0c8947e8a73f78353e0a799692d7af02d1d8da3427a49f377514")
 
     /** Každé atomické tvrzení s citací [n] × původní pasáž zdroje n → vlastní výsledek (rozpory mezi zdroji se nesčítají). */
     fun groundChecks(answer: String, passages: List<String>): JSONArray {
@@ -1271,14 +1295,20 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val allowed = setOf("manifest.json", "model.onnx", "vocab.tsv")
         java.util.zip.ZipInputStream(input.buffered()).use { z ->
             while (true) { val e = z.nextEntry ?: break; val name = e.name.substringAfterLast('/')
-                if (!e.isDirectory && name in allowed) File(tmp, name).outputStream().use { z.copyTo(it) } }
+                if (e.isDirectory || name !in allowed) continue
+                // strop velikosti (zip bomba): manifest 64 kB, slovník 20 MB, model 600 MB
+                val cap = when (name) { "manifest.json" -> 64_000L; "vocab.tsv" -> 20_000_000L; else -> 600_000_000L }
+                File(tmp, name).outputStream().use { o -> val buf = ByteArray(1 shl 16); var total = 0L
+                    while (true) { val n = z.read(buf); if (n < 0) break; total += n; if (total > cap) { tmp.deleteRecursively(); throw ToolError("Soubor $name v balíčku je větší než povolený limit.") }; o.write(buf, 0, n) } } }
         }
         val m = try { cz.axiom.vega.core.VerifierBundle.read(tmp) } catch (e: Exception) { tmp.deleteRecursively(); throw ToolError("Balíček nelze použít: ${e.message}") }
-        verifierDir.deleteRecursively(); if (!tmp.renameTo(verifierDir)) { tmp.copyRecursively(verifierDir, true); tmp.deleteRecursively() }
-        groundingCache = null
+        synchronized(groundingLock) {
+            (groundingCache as? java.io.Closeable)?.close(); groundingCache = null
+            verifierDir.deleteRecursively(); if (!tmp.renameTo(verifierDir)) { tmp.copyRecursively(verifierDir, true); tmp.deleteRecursively() }
+        }
         return "Nainstalováno: ${m.name} (${m.baseRepo}@${m.baseRev.take(7)}, práh ${m.threshold}). ${grounding.status}"
     }
-    fun removeVerifier() { verifierDir.deleteRecursively(); groundingCache = null }
+    fun removeVerifier() { synchronized(groundingLock) { (groundingCache as? java.io.Closeable)?.close(); groundingCache = null; verifierDir.deleteRecursively() } }
 
     /** Ověření: JS testy skutečně spuštěné v izolovaném Workeru WebView (bez sítě, s limitem času), jinak statická kontrola. */
     fun verify(ws: Workspace): Workspace.Verification {
@@ -1358,8 +1388,6 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             .put("userName", settings.userName).put("ownOnly", settings.ownOnly).put("own", engines.ownConfigured()).put("web", settings.webAllowed)
             .put("model", when { settings.airgap -> "Bez sítě"; settings.ownOnly -> if (engines.ownConfigured()) "Vlastní model" else "Vlastní model (nenastaven)"; else -> engines.pick()?.let { engines.name(it.provider).substringBefore(" (") } ?: "Bez modelu" })
             .put("project", ws?.let { JSONObject().put("id", it.root.name).put("name", it.name).put("files", it.files().size).put("next", nextStep(it) ?: JSONObject.NULL) } ?: JSONObject.NULL)
-            .put("procedures", JSONArray().apply { procedures.list().take(6).forEach { put(JSONObject().put("id", it.id).put("name", it.name).put("version", it.version).put("inputDesc", it.inputDesc).put("perms", JSONArray(it.perms)).put("uses", it.uses)) } })
-            .put("runs", JSONArray().apply { runs().take(5).forEach { r -> put(JSONObject().put("id", r.id).put("name", r.name).put("done", r.done).put("failed", r.failed).put("at", r.started)) } })
             .put("engine", engines.pick()?.let { "${it.provider} · ${it.model}" + if (it.paid) " (placený)" else " (zdarma)" } ?: JSONObject.NULL)
             .put("airgap", settings.airgap)
     }
@@ -1376,7 +1404,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         .put("models", JSONObject().apply { engines.PROVIDERS.forEach { p -> settings.model(p)?.let { put(p, it) } } })
         .put("claudeModel", settings.claudeModel).put("indexed", index.list().size)
         .put("ownUrl", settings.ownUrl).put("ownModel", settings.model("own") ?: settings.ownModel).put("ownKey", vault.has("own")).put("ownOnly", settings.ownOnly).put("webAllowed", settings.webAllowed)
-        .put("verifier", grounding.status).put("verifierReady", grounding.ready)
+        .put("verifier", groundingStatus().first).put("verifierReady", groundingStatus().second)
         .put("userName", settings.userName).put("requests", JSONObject().put("own", settings.requests("own")).put("commercial", settings.commercialRequests()))
 
     fun runJson(id: String): JSONObject? = run(id)?.let { r -> runCard(r).put("stepValues", JSONArray().apply { r.results.forEach { put(it.value?.let { v -> valueJson(v, 500) } ?: JSONObject.NULL) } }).put("input", valueJson(r.input, 100)) }

@@ -51,7 +51,7 @@ object Router {
     /** Rozpozná opravu zadání (jen když existuje úloha, ke které se vztahuje – to hlídá volající). */
     fun revision(raw: String, hasAttachment: Boolean, inputs: Int): Revision? {
         val t = f(raw)
-        if (hasAttachment && has(t, "nahrad|vymen|misto|opraven|nova verze|novou verzi|aktualni verz|aktualizovan|spravn[ay] verz|zamen")) {
+        if (hasAttachment && has(t, "nahrad|vymen|misto|opraven|nova verze|novou verzi|aktualni verz|aktualizovan|spravn[ay] verz|zamen") && has(t, "soubor|vypis|verz|csv|tabulk|prvni|druh|tret|prostredni|posledni|tento|tenhle|timto|touto")) {
             val idx = when {
                 has(t, "\\b(prvni|1\\.)") -> 0
                 has(t, "\\b(prostredni)") -> if (inputs >= 3) inputs / 2 else 1
@@ -62,8 +62,8 @@ object Router {
             }
             return Revision.Input(idx)
         }
-        Regex("^(?:a\\s+|ne,?\\s+|oprava:?\\s+)?(?:(?:pocitej|secti|ber)\\s+)?(jen (?:prijmy|prichozi|vydaje|odchozi|platby)|bez poplatku|vse|cele obdobi)\\b").find(t)?.let { return Revision.Scope(raw.trim()) }
-        if (has(t, "^(a\\s+)?(predpokladej|pocitej s tim|ber to tak|uvazuj|beru zpet)")) return Revision.Assumption(raw.trim())
+        Regex("^(?:a\\s+|ne,?\\s+|oprava:?\\s+)?(?:(?:pocitej|secti|ber)\\s+)?(jen (?:prijmy|prichozi|vydaje|odchozi|platby)|bez poplatku|vse|cele obdobi)\\s*[.!]?$").find(t)?.let { return Revision.Scope(raw.trim()) }
+        if (has(t, "^(a\\s+)?(predpokladej|pocitej s tim|ber to tak|uvazuj|beru zpet),? ze\\b") && has(t, "vypis|soubor|platb|poplat|castk|prijm|vydaj|soucet|saldo|polozk")) return Revision.Assumption(raw.trim())
         return null
     }
 
@@ -97,10 +97,10 @@ object Router {
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
         if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
         if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to)\\b")) return Intent.Undo
-        // --- uložený postup podle jména („zpracuj výpis“)
-        c.procedures?.find(text)?.let { p -> if (c.hasAttachment || p.inputKind == "TEXT") return Intent.RunProcedure(p) }
         // --- víc výpisů najednou → porovnání (zadání v revizích)
         if (c.attachments >= 2 && has(t, "porovnej|srovnej|secti|dohromady|celkem|soucet|saldo|bilanc")) return Intent.CompareFiles(null)
+        // --- uložený postup podle jména („zpracuj výpis“)
+        c.procedures?.find(text)?.let { p -> if (c.hasAttachment || p.inputKind == "TEXT") return Intent.RunProcedure(p) }
         // --- výpis → nástroj
         if (has(t, "vypis") && has(t, "nastroj|kazdy tyden|pokazde|zpracuj|zpracovat|parser|z toho")) return Intent.BuildStatementTool
         // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu
