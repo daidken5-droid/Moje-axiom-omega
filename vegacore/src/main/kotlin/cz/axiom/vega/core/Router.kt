@@ -33,11 +33,39 @@ object Router {
         data class FollowUp(val text: String) : Intent()
         data class Talk(val thinkingAloud: Boolean, val creative: Boolean) : Intent()
         object Undo : Intent()
+        /** Porovnat / sečíst víc přiložených výpisů – úloha se zadáním v revizích. */
+        data class CompareFiles(val scope: String?) : Intent()
     }
 
     enum class CodeKind { CHANGE, EXPLAIN, FIX_FROM_LOG, TEST }
 
-    data class Ctx(val hasAttachment: Boolean, val attachmentName: String?, val activeProject: Boolean, val lastResult: Boolean, val procedures: ProcedureStore?)
+    data class Ctx(val hasAttachment: Boolean, val attachmentName: String?, val activeProject: Boolean, val lastResult: Boolean, val procedures: ProcedureStore?, val attachments: Int = if (hasAttachment) 1 else 0)
+
+    /** Oprava zadání běžící / poslední úlohy: index nahrazovaného vstupu (−1 = podle jména), rozsah nebo předpoklad. */
+    sealed class Revision {
+        data class Input(val index: Int) : Revision()
+        data class Scope(val text: String) : Revision()
+        data class Assumption(val text: String) : Revision()
+    }
+
+    /** Rozpozná opravu zadání (jen když existuje úloha, ke které se vztahuje – to hlídá volající). */
+    fun revision(raw: String, hasAttachment: Boolean, inputs: Int): Revision? {
+        val t = f(raw)
+        if (hasAttachment && has(t, "nahrad|vymen|misto|opraven|nova verze|novou verzi|aktualni verz|aktualizovan|spravn[ay] verz|zamen")) {
+            val idx = when {
+                has(t, "\\b(prvni|1\\.)") -> 0
+                has(t, "\\b(prostredni)") -> if (inputs >= 3) inputs / 2 else 1
+                has(t, "\\b(druh[yaeou]|2\\.)") -> 1
+                has(t, "\\b(tret[iy]|3\\.)") -> 2
+                has(t, "\\b(posledni)") -> inputs - 1
+                else -> -1
+            }
+            return Revision.Input(idx)
+        }
+        Regex("^(?:a\\s+|ne,?\\s+|oprava:?\\s+)?(?:(?:pocitej|secti|ber)\\s+)?(jen (?:prijmy|prichozi|vydaje|odchozi|platby)|bez poplatku|vse|cele obdobi)\\b").find(t)?.let { return Revision.Scope(raw.trim()) }
+        if (has(t, "^(a\\s+)?(predpokladej|pocitej s tim|ber to tak|uvazuj|beru zpet|oprava: )")) return Revision.Assumption(raw.trim())
+        return null
+    }
 
     private fun f(s: String) = TextUtil.fold(s).lowercase().trim()
     private fun has(t: String, vararg rx: String) = rx.any { Regex(it).containsMatchIn(t) }
@@ -71,6 +99,8 @@ object Router {
         if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to)\\b")) return Intent.Undo
         // --- uložený postup podle jména („zpracuj výpis“)
         c.procedures?.find(text)?.let { p -> if (c.hasAttachment || p.inputKind == "TEXT") return Intent.RunProcedure(p) }
+        // --- víc výpisů najednou → porovnání (zadání v revizích)
+        if (c.attachments >= 2 && has(t, "porovnej|srovnej|secti|dohromady|celkem|soucet|saldo|bilanc")) return Intent.CompareFiles(null)
         // --- výpis → nástroj
         if (has(t, "vypis") && has(t, "nastroj|kazdy tyden|pokazde|zpracuj|zpracovat|parser|z toho")) return Intent.BuildStatementTool
         // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu

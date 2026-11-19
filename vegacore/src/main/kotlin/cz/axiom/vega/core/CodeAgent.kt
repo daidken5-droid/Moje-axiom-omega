@@ -61,20 +61,21 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
         return Plan(edits.sortedBy { it.first }.map { it.second }, expl, null)
     }
 
-    data class Applied(val changes: List<Workspace.Change>, val failed: List<Pair<Edit, String>>)
+    data class Applied(val changes: List<Workspace.Change>, val failed: List<Pair<Edit, String>>, val skipped: List<Edit> = emptyList())
 
     /** Aplikuje úpravy; konflikt verze nebo nejednoznačný úsek = úprava se přeskočí a nahlásí (nic se nepřepíše naslepo). */
     /** [protect] = soubory, které uživatel mezitím RUČNĚ upravil: jen přesné úpravy, celý soubor se nepřepíše. */
-    fun apply(ws: Workspace, plan: Plan, seenHashes: Map<String, String>, note: String, protect: Set<String> = emptySet()): Applied {
-        val ok = ArrayList<Workspace.Change>(); val bad = ArrayList<Pair<Edit, String>>()
+    fun apply(ws: Workspace, plan: Plan, seenHashes: Map<String, String>, note: String, protect: Set<String> = emptySet(), resume: Boolean = false): Applied {
+        val ok = ArrayList<Workspace.Change>(); val bad = ArrayList<Pair<Edit, String>>(); val skip = ArrayList<Edit>()
         for (e in plan.edits) {
             try {
                 // NORMALIZOVANÁ cesta (model může psát „.env/“ nebo „cfg\\.env“)
                 val norm = ws.safe(e.path)
                 if (Workspace.isSecret(norm) || Workspace.isSecret(e.path)) throw Workspace.Conflict("Soubory s klíči neupravuji.")
                 // OBNOVA PO PŘERUŠENÍ: úprava už v souboru je (nahrazený text tam, původní ne) → přeskočit, nezdvojit
-                if (e is Edit.Replace && ws.hash(e.path) != null && e.replace.isNotEmpty() && ws.read(e.path).let { it.contains(e.replace) && !it.contains(e.search) }) continue
-                if (e is Edit.Create && ws.hash(e.path) != null && ws.read(e.path) == e.content) continue
+                // jen při OBNOVĚ a jen když je nový úsek v souboru právě jednou (jinak by šlo potichu zahodit potřebnou úpravu)
+                if (resume && e is Edit.Replace && ws.hash(e.path) != null && e.replace.trim().length >= 8 && ws.read(e.path).let { countIn(it, e.replace) == 1 && !it.contains(e.search) }) { skip += e; continue }
+                if (e is Edit.Create && ws.hash(e.path) != null && ws.read(e.path) == e.content) { skip += e; continue }
                 if (e is Edit.Create && ws.hash(e.path) != null && norm in protect) throw Workspace.Conflict("Soubor $norm jsi ručně upravil – celý ho nepřepíšu, jen přesnou úpravou.")
                 ok += when (e) {
                     is Edit.Replace -> ws.patch(e.path, e.search, e.replace, seenHashes[ws.safe(e.path)], note)
@@ -83,8 +84,9 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
                 }
             } catch (x: Exception) { bad += e to (x.message ?: "chyba") }
         }
-        return Applied(ok, bad)
+        return Applied(ok, bad, skip)
     }
+    private fun countIn(s: String, sub: String): Int { var i = 0; var n = 0; while (true) { i = s.indexOf(sub, i); if (i < 0) return n; n++; i += sub.length } }
 
     /** Jak projekt otestovat: JS testy (spustitelné v aplikaci), jinak jen statická kontrola. */
     fun testPlan(ws: Workspace): String = when {

@@ -133,12 +133,13 @@ class Workspace(val root: File) {
      */
     fun undo(id: Int? = null): Change {
         val all = changes()
-        val c = (if (id == null) all.lastOrNull { !it.op.startsWith("undo") } else all.firstOrNull { it.id == id }) ?: throw Conflict("Není co vrátit.")
+        val c = (if (id == null) all.lastOrNull { !it.op.startsWith("undo") && all.none { u -> u.op == "undo#${it.id}" } } else all.firstOrNull { it.id == id }) ?: throw Conflict("Není co vrátit.")
+        if (c.op.startsWith("undo") || all.any { it.op == "undo#${c.id}" }) throw Conflict("Změna #${c.id} už je vrácená.")
         val f = file(c.path)
         val cur = if (f.exists()) f.readText() else null
         val restored: String? = when {
             cur == c.after -> c.before
-            c.op == "patch" && cur != null && c.replace != null && c.search != null && countOf(cur, c.replace) == 1 -> cur.replaceFirst(c.replace, c.search)
+            c.op == "patch" && cur != null && c.replace != null && c.search != null && countOf(cur, c.replace) == 1 && !c.search.contains(c.replace) -> cur.replaceFirst(c.replace, c.search)
             else -> throw Conflict("Soubor ${c.path} se od změny #${c.id} upravoval jinde – vrácení by přepsalo cizí změnu. Ukážu rozdíl, rozhodni ručně.")
         }
         if (restored == null) f.delete() else atomicWrite(f, restored)

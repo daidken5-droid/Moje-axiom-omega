@@ -374,4 +374,59 @@ class OpsSpecTest {
         assertTrue(notes, notes.contains("5/5 návazností sedí"))
         assertEquals(0L, o2.settings.commercialRequests())
     }
+
+    // ================================================================= změna zadání během běžící úlohy
+
+    @Test fun revisionDuringRunningCompareReusesUnchangedFilesAndDropsLateAnswer() {
+        val rev1Arrived = java.util.concurrent.CountDownLatch(1)
+        val releaseRev1 = java.util.concurrent.CountDownLatch(1)
+        val llm = MockLlm { req ->
+            val u = req.getJSONArray("messages").let { it.getJSONObject(it.length() - 1).getString("content") }
+            if (u.contains("REVIZE 1")) { rev1Arrived.countDown(); releaseRev1.await(30, java.util.concurrent.TimeUnit.SECONDS); "Shrnutí ke staré revizi: celkem 74 789,70 Kč." }
+            else "Shrnutí aktuální revize: únor se po opravě zlepšil."
+        }.also { servers += it }
+        val r = Rec(); val o = ops(r)
+        o.settings.ownUrl = llm.url; o.settings.ownOnly = true
+        val chat = o.newChat()
+        val ids = listOf("cmp-leden.csv", "cmp-unor.csv", "cmp-brezen.csv").map { o.attach(it, "text/csv", fixture(it)).getString("id") }
+        val n = r.ev.size
+        o.chat(chat, "porovnej tyhle tři výpisy a sečti saldo", ids)
+        // cloudová odpověď ke staré revizi „visí“ – mezitím uživatel vymění prostřední soubor
+        assertTrue("model nedostal dotaz", rev1Arrived.await(20, java.util.concurrent.TimeUnit.SECONDS))
+        o.chat(chat, "nahraď prostřední soubor touto opravenou verzí", listOf(o.attach("cmp-unor-opraveny.csv", "text/csv", fixture("cmp-unor-opraveny.csv")).getString("id")))
+        assertTrue(msgs(r, n).any { it.getString("text").contains("revizi 2") })
+        releaseRev1.countDown() // původní odpověď dorazí až PO opravě
+        awaitMsg(r, n, 30_000)
+        val all = msgs(r, n)
+        val fin = all.last()
+        // konečný součet odpovídá NOVÝM datům a stará odpověď se nikde nezobrazila
+        assertTrue(fin.getString("text"), fin.getString("text").contains("77\u00a0739,70"))
+        assertTrue(fin.getString("text").contains("Shrnutí aktuální revize"))
+        assertTrue(all.none { it.getString("text").contains("Shrnutí ke staré revizi") })
+        assertTrue(r.ev.none { it.first == "delta" && it.second.optString("text").contains("staré revizi") })
+        // uživatel vidí rozdíl
+        assertTrue(fin.getString("text"), fin.getString("text").contains("cmp-unor.csv → cmp-unor-opraveny.csv") && fin.getString("text").contains("74\u00a0789,70 → 77\u00a0739,70"))
+        val card = fin.getJSONObject("card"); assertEquals(2, card.getInt("rev"))
+        val files = card.getJSONArray("files")
+        assertEquals(listOf("znovu použito", "spočítáno", "znovu použito"), (0 until 3).map { files.getJSONObject(it).getString("status") })
+        assertTrue(files.getJSONObject(1).getBoolean("changed"))
+        // záznam běhu: nezměněné soubory zpracovány PRÁVĚ JEDNOU (v revizi 1), stará odpověď zahozena
+        val log = card.getJSONArray("log").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+        fun computed(name: String) = log.count { it.getString("input") == name && it.getString("action") == "spočítáno" }
+        assertEquals(1, computed("cmp-leden.csv")); assertEquals(1, computed("cmp-brezen.csv"))
+        assertEquals(1, computed("cmp-unor.csv")); assertEquals(1, computed("cmp-unor-opraveny.csv"))
+        assertTrue(log.any { it.getInt("rev") == 2 && it.getString("input") == "cmp-leden.csv" && it.getString("action").startsWith("znovu použito") })
+        assertTrue(log.any { it.getInt("rev") == 1 && it.getString("action").startsWith("ZAHOZENO") })
+        // po restartu: další oprava (rozsah) navazuje na uložený stav – žádný soubor se znovu nezpracuje
+        val r2 = Rec(); val o2 = ops(r2); o2.settings.ownUrl = llm.url
+        val n2 = r2.ev.size
+        o2.chat(chat, "jen výdaje")
+        awaitMsg(r2, n2, 30_000)
+        val f2 = msgs(r2, n2).last()
+        assertEquals(3, f2.getJSONObject("card").getInt("rev"))
+        assertTrue(f2.getString("text"), f2.getString("text").contains("−49\u00a0960,30")) // výdaje: 16 810,40 + 17 750 + 16 399,90
+        val log2 = f2.getJSONObject("card").getJSONArray("log").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
+        assertTrue(log2.none { it.getInt("rev") == 3 && it.getString("action") == "spočítáno" && it.getString("step") == "zpracování souboru" })
+        assertEquals(0L, o.settings.commercialRequests())
+    }
 }

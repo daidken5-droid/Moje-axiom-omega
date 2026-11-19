@@ -146,10 +146,18 @@ function card(c, isLast) {
         <div class="res-a">${c.resumeTask ? `<button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit úlohu</button>` : pick ? `<button class="btn primary" data-act="keep" data-p="${esc(c.project)}" data-task="${task.join(',')}">Přijmout vybrané</button>` : !c.title && c.changes && c.changes[0] ? `<button class="btn" data-act="undo" data-p="${esc(c.project)}" data-c="${c.changes[0].id}">Vrátit</button>` : ''}<span class="grow"></span>
         <button class="btn" data-act="cardDiff" data-files='${esc(JSON.stringify(c.files))}'>Rozdíl</button>${v ? `<button class="more" data-act="showVer" data-ver='${esc(JSON.stringify(v))}' aria-label="Výstup testu">⋯</button>` : ''}</div></div>`;
     }
-    case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry">Pokračovat</button></div></div>` : '';
+    case 'compare': {
+      const ch = c.prevTotal != null && c.prevTotal !== c.total;
+      return `<div class="res"><div class="res-h">Porovnání výpisů <span class="pill">revize ${c.rev}</span></div>
+        <div class="res-big">${fmt(c.total)} Kč</div>${ch ? `<div class="res-sub">předtím ${fmt(c.prevTotal)} Kč → rozdíl ${c.total - c.prevTotal > 0 ? '+' : ''}${fmt(c.total - c.prevTotal)} Kč</div>` : ''}
+        <div class="res-body"><div class="tbl"><table><tr><th>#</th><th>Soubor</th><th>Saldo</th><th>Stav</th></tr>${c.files.map(f => `<tr><td>${f.i}</td><td>${esc(f.name)}${f.changed ? `<br><small class="note">místo ${esc(f.prevName)} (${fmt(f.prevSaldo)})</small>` : ''}</td><td>${fmt(f.saldo)}</td><td><span class="pill ${f.status === 'spočítáno' ? 'sig' : ''}">${esc(f.status)}</span></td></tr>`).join('')}</table></div></div>
+        <div class="res-a"><span class="grow"></span><button class="btn" data-act="taskLog" data-log='${esc(JSON.stringify(c.log))}'>Záznam běhu</button></div></div>`;
+    }
+    case 'revision': return `<span class="pill sig">revize ${c.rev}</span>`;
+    case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry" data-req="${esc(c.req || '')}">Pokračovat</button></div></div>` : '';
     case 'project': return c.resumeTask ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit přerušenou úlohu</button></div>` : '';
     case 'memScope': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn" data-act="memGlobal" data-t="${esc(c.text)}">Uložit pro všechno</button><button class="btn ghost" data-act="libTab" data-tab="projects">Otevřít projekt</button></div>` : '';
-    case 'procedure': return `<div class="res-a" style="padding-left:0"><button class="btnchip" data-act="runBtn" data-id="${esc(c.id)}" data-kind="BYTES"><i></i>${esc(c.name)} · v${c.version}</button></div>`;
+    case 'procedure': return `<div class="res-a" style="padding-left:0"><button class="btnchip" data-act="runBtn" data-id="${esc(c.id)}" data-kind="${esc(c.inputKind || 'BYTES')}"><i></i>${esc(c.name)} · v${c.version}</button></div>`;
     case 'buttonDraft': {
       const checks = (c.checks || []).map(k => `<li><span class="pill ${k.ok ? 'ok' : 'bad'}">${k.ok ? 'prošlo' : 'neprošlo'}</span> ${esc(k.file)}<small>${esc(k.note)}</small></li>`).join('');
       return `<div class="res"><div class="res-h">Návrh tlačítka ${c.offline ? '<span class="pill ok">bez sítě</span>' : '<span class="pill">potřebuje síť</span>'}</div>
@@ -560,7 +568,7 @@ function act(a, d) {
     case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
-    case 'retry': if (busyGuard()) return; S.busy = true; call('retry', chatId()); render(); break;
+    case 'retry': if (busyGuard()) return; S.busy = true; call('retry', chatId(), d.req || ''); render(); break;
     case 'resumeTask': if (busyGuard()) return; S.busy = true; call('resumeTask', chatId(), d.p); render(); break;
     case 'keep': { if (busyGuard()) return; const keep = [...document.querySelectorAll('[data-keep]')].filter(x => x.checked).map(x => x.dataset.keep);
       if (!keep.length) { toast('Vyber aspoň jednu změnu – nebo použij Vrátit.'); return; } S.busy = true; call('keepChanges', chatId(), d.p, d.task, keep.join(',')); render(); break; }
@@ -571,6 +579,7 @@ function act(a, d) {
       else { S.awaitProc = d.id; toast('Vyber soubor – tlačítko ho zpracuje.'); B.pickFiles(); } break;
     case 'memGlobal': { const r = call('rememberGlobal', d.t); if (r) toast('Uloženo jako globální preference.'); break; }
     case 'model': modelSheet(); break;
+    case 'taskLog': { const l = JSON.parse(d.log); sheet(`<h2>Záznam běhu</h2><div class="list">${l.map(x => `<div class="row"><span class="pill">r${x.rev}</span><span class="grow"><b>${esc(x.step)}${x.input !== '*' ? ' · ' + esc(x.input) : ''}</b><small>${esc(x.action)}</small></span></div>`).join('')}</div>`, true); break; }
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }

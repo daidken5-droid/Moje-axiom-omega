@@ -186,14 +186,17 @@ object Statement {
         val hi = lines.indexOfFirst { l -> (Csv.parse(l, d).firstOrNull() ?: emptyList()).map { f(it) } == h }
         if (hi < 0) return null
         val rows = Csv.read(lines.drop(hi).joinToString("\n"), d).rows.filter { r -> r.any { it.isNotBlank() } }
-        var prev: Double? = null; var ok = 0; var n = 0
-        rows.forEach { r ->
-            val b = r.getOrNull(bal)?.let { CzNum.parse(it, spec.decimalComma) }
-            val a = r.getOrNull(spec.amountCol)?.let { CzNum.parse(it, spec.decimalComma) }
-            if (prev != null && b != null && a != null) { n++; if (kotlin.math.abs(prev!! + a - b) < 0.005) ok++ }
-            if (b != null) prev = b
+        // částka stejně jako v process (zvlášť příjem/výdaj); pořadí řádků může být od nejstaršího i od nejnovějšího
+        val pts = rows.mapNotNull { r ->
+            val b = r.getOrNull(bal)?.let { CzNum.parse(it, spec.decimalComma) } ?: return@mapNotNull null
+            var a = r.getOrNull(spec.amountCol)?.let { CzNum.parse(it, spec.decimalComma) }
+            if (spec.debitCol >= 0) { val deb = r.getOrNull(spec.debitCol)?.let { CzNum.parse(it, spec.decimalComma) }; a = when { a != null && a != 0.0 -> a; deb != null -> -kotlin.math.abs(deb); else -> a } }
+            a?.let { b to it }
         }
-        return if (n == 0) null else ok to n
+        if (pts.size < 2) return null
+        val asc = (1 until pts.size).count { kotlin.math.abs(pts[it - 1].first + pts[it].second - pts[it].first) < 0.005 }
+        val desc = (1 until pts.size).count { kotlin.math.abs(pts[it].first + pts[it - 1].second - pts[it - 1].first) < 0.005 }
+        return maxOf(asc, desc) to pts.size - 1
     }
 
     fun reconcileText(text: String, spec: ParserSpec): String? = reconcile(text, spec)?.let { (ok, n) -> if (ok == n) "Kontrola proti zůstatku banky: $ok/$n návazností sedí ✓" else "Kontrola proti zůstatku banky NESEDÍ: $ok/$n – částky jsou nejspíš ze špatného sloupce." }

@@ -71,6 +71,7 @@ object Tools {
             val spec = p["spec"]?.takeIf { it.isNotBlank() }?.let { Statement.ParserSpec.parse(it) } ?: Statement.detect(t).let { d ->
                 d.spec ?: throw ToolError("Formát výpisu nepoznám: ${d.warnings.joinToString(" ")}")
             }
+            if (spec.dateCol < 0 || spec.amountCol < 0) throw ToolError("Parser nemá sloupec data nebo částky – rozpoznej formát znovu.")
             val tb = Statement.process(t, spec).table
             Statement.reconcileText(t, spec)?.let { tb.copy(notes = tb.notes + it) } ?: tb
         },

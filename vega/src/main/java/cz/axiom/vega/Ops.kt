@@ -174,7 +174,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         for (i in 0 until minOf(arr.length(), 49)) n.put(arr.get(i))
         kv.write("chats.json", n.toString()); return id
     }
-    private fun addMsg(chat: String?, m: JSONObject) {
+    @Synchronized private fun addMsg(chat: String?, m: JSONObject) {
         if (chat == null) return // dočasný chat: nic se neukládá
         val arr = messages(chat); arr.put(m.put("at", System.currentTimeMillis()))
         val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 300); for (i in from until arr.length()) trimmed.put(arr.get(i))
@@ -192,9 +192,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private fun history(chat: String?, temp: List<Pair<String, String>>, limit: Int = 12): List<ChatMessage> {
         val list = if (chat == null) temp.flatMap { listOf(ChatMessage(Role.USER, it.first), ChatMessage(Role.ASSISTANT, it.second)) }
-        else { val a = messages(chat); (maxOf(0, a.length() - limit - 1) until a.length() - 1).map { a.getJSONObject(it) }.filter { it.optString("text").isNotBlank() }
+        else { val a = messages(chat); (maxOf(0, a.length() - limit - 1) until a.length() - 1).map { a.getJSONObject(it) }.filter { it.optString("text").isNotBlank() && it.optJSONObject("card")?.optString("type") != "resume" }
             .map { ChatMessage(if (it.optString("role") == "user") Role.USER else Role.ASSISTANT, it.optString("text").take(4000)) } }
-        return list.takeLast(limit)
+        // po „Pokračovat“: neopakovat původní zprávu uživatele (přijde znovu jako aktuální dotaz)
+        val l = list.toMutableList(); while (l.lastOrNull()?.let { it.role == Role.USER && it.content == lastUserText } == true) l.removeAt(l.lastIndex)
+        return l.takeLast(limit)
     }
 
     // ------------------------------------------------------------------ přílohy
@@ -325,7 +327,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private val tempTurns = ArrayList<Pair<String, String>>()
 
-    fun chat(chatId: String?, text: String, ids: List<String> = emptyList()) { val mine = take(ids); submit { msgAtt = mine; resumable(chatId, "chat", text, mine) { chat0(chatId, text) } } }
+    fun chat(chatId: String?, text: String, ids: List<String> = emptyList()) {
+        val mine = take(ids)
+        // OPRAVA ZADÁNÍ běžící / poslední úlohy se zpracuje HNED (ne až za frontou) – běžící úloha si ji vezme mezi kroky
+        compareTaskOf(chatId)?.let { id -> val t = cz.axiom.vega.core.RevTask(kv, id)
+            Router.revision(text, mine.isNotEmpty(), t.current()?.inputs?.size ?: 0)?.let { rv -> reviseCompare(chatId, id, text, mine, rv); return } }
+        submit { msgAtt = mine; resumable(chatId, "chat", text, mine) { chat0(chatId, text) } }
+    }
 
     // ------------------------------------------------------------------ obnova po výpadku modelu (vlastní server spadl, cloud nedostupný)
 
@@ -338,30 +346,33 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * Požadavek, který po výpadku modelu NEZMIZÍ: zadání i přílohy se uloží (resume/<chat>.json), uživatel dostane kartu
      * „Pokračovat“. Hotové části (výtahy pasáží, aplikované úpravy) se při opakování nedělají znovu.
      */
-    private fun resumable(chat: String?, kind: String, text: String, att: List<Value.Bytes>, again: Boolean = false, block: () -> Unit) {
-        try { block(); kv.delete(resumeKey(chat)) }
+    private fun resumable(chat: String?, kind: String, text: String, att: List<Value.Bytes>, again: Boolean = false, req: String = "r" + System.nanoTime().toString(36), block: () -> Unit) {
+        try { block(); kv.delete(resumeKey(chat, req)) }
         catch (e: Throwable) {
             if (e is CancelledException || e is Handled || !outage(e)) throw e
             val files = JSONArray(); var size = 0
             att.forEach { a -> if (size + a.bytes.size < 4_000_000) { size += a.bytes.size; files.put(JSONObject().put("name", a.name).put("mime", a.mime ?: "").put("b64", java.util.Base64.getEncoder().encodeToString(a.bytes))) } }
-            kv.write(resumeKey(chat), JSONObject().put("kind", kind).put("text", text).put("files", files).put("at", System.currentTimeMillis()).put("tries", (pendingResume(chat)?.optInt("tries") ?: 0) + 1).toString())
+            kv.write(resumeKey(chat, req), JSONObject().put("kind", kind).put("text", text).put("files", files).put("at", System.currentTimeMillis()).put("tries", (pendingResume(chat, req)?.optInt("tries") ?: 0) + 1).toString())
             val why = if (e is Partial) "Odpověď se přerušila (${human(e.cause ?: e).take(140)})." else human(e)
             reply(chat, "$why\n\nRozpracovaný stav je uložený – nic se neztratilo a na komerční API jsem nic neposlal${if (settings.ownOnly) " (režim Pouze vlastní modely)" else ""}. Až bude model zase dostupný, klepni na **Pokračovat**.",
-                JSONObject().put("type", "resume").put("chat", chat ?: "temp").put("kind", kind).put("text", text.take(200)))
+                JSONObject().put("type", "resume").put("chat", chat ?: "temp").put("req", req).put("kind", kind).put("text", text.take(200)))
             throw Handled()
         }
     }
-    private fun resumeKey(chat: String?) = "resume/${chat ?: "temp"}.json"
-    fun pendingResume(chat: String?): JSONObject? = kv.read(resumeKey(chat))?.let { runCatching { JSONObject(it) }.getOrNull() }
+    /** Jeden záznam na POŽADAVEK (ne na chat): pozdější zpráva ani druhý výpadek nepřepíše rozpracovaný požadavek. */
+    private fun resumeKey(chat: String?, req: String) = "resume/${chat ?: "temp"}/${req.filter { it.isLetterOrDigit() }.take(24)}.json"
+    fun pendingResume(chat: String?, req: String? = null): JSONObject? = (req?.let { resumeKey(chat, it) } ?: kv.keys("resume/${chat ?: "temp"}/").maxOrNull())
+        ?.let { k -> kv.read(k)?.let { runCatching { JSONObject(it).put("req", k.substringAfterLast('/').removeSuffix(".json")) }.getOrNull() } }
 
     /** „Pokračovat“ po výpadku: stejné zadání a přílohy, bez nové zprávy uživatele v historii. */
-    fun retry(chat: String?) {
-        val o = pendingResume(chat) ?: throw ToolError("Není co obnovit – požadavek už doběhl.")
+    fun retry(chat: String?, req: String? = null) {
+        val o = pendingResume(chat, req) ?: throw ToolError("Není co obnovit – požadavek už doběhl.")
+        val rq = o.getString("req")
         val f = o.optJSONArray("files") ?: JSONArray()
         val att = (0 until f.length()).map { f.getJSONObject(it).let { j -> Value.Bytes(j.getString("name"), java.util.Base64.getDecoder().decode(j.getString("b64")), j.optString("mime").ifBlank { null }) } }
         val text = o.getString("text")
-        if (o.optString("kind") == "long") longTask0(chat, text, att, again = true)
-        else submit { msgAtt = att; resumable(chat, "chat", text, att, again = true) { chat0(chat, text, again = true) } }
+        if (o.optString("kind") == "long") longTask0(chat, text, att, again = true, req = rq)
+        else submit { msgAtt = att; resumable(chat, "chat", text, att, again = true, req = rq) { chat0(chat, text, again = true) } }
     }
 
     /** Přílohy patří k jedné zprávě – po zpracování se uvolní (další věta nepoužije omylem starý soubor). */
@@ -369,7 +380,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         lastUserText = text
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
-        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures))
+        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size))
         emit("intent", JSONObject().put("intent", intent.javaClass.simpleName))
         when (intent) {
             is Router.Intent.Remember -> rememberCmd(chatId, intent, ws)
@@ -377,6 +388,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             Router.Intent.MakeButton -> makeButton(chatId)
             is Router.Intent.FixColumn -> fixColumn(chatId, intent)
             is Router.Intent.Hypothesis -> hypothesis(chatId, intent.text)
+            is Router.Intent.CompareFiles -> compareStart(chatId, msgAtt)
             is Router.Intent.Forget -> { val f = memory.forget(intent.query, ws?.let { "project:${it.root.name}" }); reply(chatId, if (f.isEmpty()) "Nic takového si nepamatuji." else "Zapomenuto (i z indexu, ze shrnutí se to nevrátí):\n" + f.joinToString("\n") { "• ${it.text}" }) }
             Router.Intent.WhatDoYouRemember -> reply(chatId, memory.explain(ws?.let { "project:${it.root.name}" }), JSONObject().put("type", "memory"))
             is Router.Intent.Tool -> toolFromChat(chatId, intent, text)
@@ -517,6 +529,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             if (!r.optBoolean("ok")) throw ToolError("Neodesláno – bez tvého souhlasu podklady neopouštějí telefon.")
             consented += need
         }
+        // pojistka: režim „Pouze vlastní modely“ zapnutý během čekání na souhlas → řetěz sestavený dřív nesmí odejít jinam
+        if (settings.ownOnly && pick.provider != "own") throw ToolError("Režim Pouze vlastní modely: tento požadavek by šel na ${pick.provider} – neodesláno.")
         val sb = StringBuilder(); var last = 0L
         val res = try {
             pick.engine.generate(messages, GenOptions(maxTokens = maxTokens, effort = "medium", temperature = 0.4f), cancel) { d ->
@@ -544,8 +558,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
     }
 
-    private fun llmOrNull(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?): String? =
-        if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) null else llm(chat, messages, consent)
+    private fun llmOrNull(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, visible: Boolean = true): String? =
+        if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) null else llm(chat, messages, consent, visible = visible)
 
     /** Bez modelu: jednoduché věci (čas, výpočty, převody) z deterministického jádra AVIORu. */
     private fun offline(text: String): String? = runCatching {
@@ -609,7 +623,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Dlouhý vstup s více požadavky: rozdělení, odpověď na každý zvlášť, kontrola úplnosti, citované pasáže. */
     fun longTask(chat: String?, text: String, ids: List<String> = emptyList()) { val mine = take(ids); longTask0(chat, text, mine) }
 
-    private fun longTask0(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean = false) = submit { msgAtt = att; resumable(chat, "long", text0, att, again) { longTask1(chat, text0, att, again) } }
+    private fun longTask0(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean = false, req: String = "r" + System.nanoTime().toString(36)) = submit { msgAtt = att; resumable(chat, "long", text0, att, again, req) { longTask1(chat, text0, att, again) } }
 
     private fun longTask1(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean) {
         if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
@@ -641,6 +655,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val card = JSONObject().put("type", "coverage").put("items", JSONArray().apply { cov.forEach { put(JSONObject().put("q", it.first).put("ok", it.second)) } })
             .put("passages", JSONArray().apply { passages.forEachIndexed { i, p -> put(JSONObject().put("id", "P${i + 1}").put("text", p)) } })
         reply(chat, answer + "\n\n_Pokryto ${cov.count { it.second }}/${cov.size} požadavků_", card)
+        // výtahy pasází jsou jen pro obnovu po výpadku – po dokončení pryč (obsah dokumentů nenechávat ležet)
+        sha8((text + subs.joinToString("|")).toByteArray()).let { tag -> kv.keys("cache/long/").filter { it.startsWith("cache/long/$tag-") }.forEach { kv.delete(it) } }
     }
 
     // ------------------------------------------------------------------ projekty a kód
@@ -699,14 +715,19 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     private fun code(chat: String?, intent: Router.Intent.Code, wsIn: Workspace?, resume: Boolean = false) {
         val ws = wsIn ?: throw ToolError("Nejdřív otevři nebo založ projekt (Projekty → Nový / Importovat složku).")
-        if (intent.kind == Router.CodeKind.TEST) { val v = verify(ws); saveState(ws, chat, null, v); reply(chat, "Ověření: ${v.label}, návratový kód ${v.exitCode}.", verificationCard(v)); return }
+        if (intent.kind == Router.CodeKind.TEST) { val v = verify(ws); saveState(ws, chat, null, v, absorbManual = false); reply(chat, "Ověření: ${v.label}, návratový kód ${v.exitCode}.", verificationCard(v)); return }
         // RUČNÍ ZÁSAH UŽIVATELE od poslední práce: ukázat rozdíl PŘED další úpravou a chránit ty soubory před přepsáním celého obsahu
-        val manual = userChanges(ws)
+        // přerušená úloha se stejným zadáním (např. „Pokračovat“ po výpadku) = obnova, ne nová práce
+        val prevTask = kv.read("project/${ws.root.name}/task.json")?.let { runCatching { JSONObject(it) }.getOrNull() }?.takeIf { !it.optBoolean("done", true) }
+        val resume = resume || prevTask?.optString("task") == intent.task
+        // vlastní (VEGA) úpravy z přerušené úlohy nejsou „ruční změny uživatele“
+        val since = prevTask?.optLong("at") ?: Long.MAX_VALUE
+        val manual = userChanges(ws).filter { (p, _) -> ws.changes().none { c -> c.path == p && c.at >= since && ws.hash(p) != null && ws.read(p) == c.after } }
         if (manual.isNotEmpty()) {
             reply(chat, "Než začnu: od naší poslední práce ses změnil ${manual.joinToString(", ") { it.first }}. Tvoje úpravy beru jako výchozí stav a nepřepíšu je.", userDiffCard(ws, manual))
             note(ws, "decision", "Ruční změny uživatele: ${manual.joinToString(", ") { it.first }}")
         }
-        val protect = manual.map { it.first }.toSet()
+        val protect = manual.map { it.first }.toSet() + (projectState(ws)?.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
         val log = if (intent.kind == Router.CodeKind.FIX_FROM_LOG) (lastAttachment()?.asText() ?: intent.task).take(12_000) else null
         val crash = log?.let { cz.axiom.vega.core.LogTool.crash(it) }
         val manualNote = if (manual.isNotEmpty()) "\nUživatel mezitím ručně upravil: ${manual.joinToString(", ") { it.first }} – jeho změny zachovej." else ""
@@ -726,7 +747,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         var reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys), ChatMessage(Role.USER, prompt)), consent, maxTokens = 8000, calls = 4, visible = false)
         var plan = CodeAgent.parse(reply)
         if (plan.edits.isEmpty()) { finishTask(ws); reply(chat, plan.explanation.ifBlank { "Model nenavrhl žádnou úpravu." } + "\n\n_(Žádná změna souborů – nic nepřepsáno.)_"); return }
-        var applied = CodeAgent.apply(ws, plan, seen, intent.task.take(80), protect)
+        var applied = CodeAgent.apply(ws, plan, seen, intent.task.take(80), protect, resume)
         var v = try { verify(ws) } catch (e: CancelledException) {
             reply(chat, "Testy jsem zastavil. Změny už jsou v pracovní kopii – můžeš je zkontrolovat, vybrat nebo vrátit.", projectDiffCard(ws, taskIds = applied.changes.map { it.id })); throw Handled()
         }
@@ -741,7 +762,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             plan = CodeAgent.parse(reply)
             if (plan.edits.isEmpty()) break
             val a2 = CodeAgent.apply(ws, plan, seen2, "oprava po testu ($round)", protect)
-            applied = CodeAgent.Applied(applied.changes + a2.changes, applied.failed + a2.failed)
+            applied = CodeAgent.Applied(applied.changes + a2.changes, applied.failed + a2.failed, applied.skipped + a2.skipped)
             v = try { verify(ws) } catch (e: CancelledException) { reply(chat, "Testy jsem zastavil. Opravené změny jsou v pracovní kopii.", projectDiffCard(ws, taskIds = applied.changes.map { it.id })); throw Handled() }
             rounds += roundJson(round, a2, v)
         }
@@ -751,6 +772,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         saveState(ws, chat, goal = intent.task, v = v)
         val text = buildString {
             append(plan.explanation.ifBlank { "Hotovo." }).append("\n\n")
+            if (applied.skipped.isNotEmpty()) append("Už aplikováno z přerušené práce (nezdvojeno): ${applied.skipped.joinToString { it.path }}. ")
             append("Změn: ${applied.changes.size}").append(if (applied.failed.isNotEmpty()) ", ${applied.failed.size} úprav NEaplikováno (" + applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" } + ")" else "").append(". ")
             append(when (v.kind) { "run" -> if (v.exitCode == 0) "Testy prošly (revize ${v.revision}${if (round > 1) ", po $round kolech" else ""})." else "Testy NEprošly ani po $round kolech (kód ${v.exitCode}) – výstup níže."; "none" -> "Testy nedoběhly – výsledek neověřen, spusť je znovu."; else -> "Jen staticky zkontrolováno (pro tento jazyk VEGA testy nespouští)." })
             if (applied.changes.size > 1) append(" Můžeš přijmout jen vybrané změny – ověřím právě tu kombinaci.")
@@ -767,11 +789,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      */
     fun keepChanges(chat: String?, projectId: String, task: List<Int>, keep: List<Int>) = submit {
         val ws = workspace(projectId)
-        val drop = task.filter { it !in keep }.sortedDescending()
+        val all = ws.changes(); val wasUndone = all.filter { it.op.startsWith("undo#") }.map { it.op.removePrefix("undo#").toIntOrNull() }.toSet()
+        // jen změny TÉTO úlohy, které existují a ještě nejsou vrácené (opakované klepnutí nic nepokazí)
+        val valid = task.filter { id -> all.any { it.id == id && !it.op.startsWith("undo") } && id !in wasUndone }
+        if (valid.isEmpty()) throw ToolError("Tyhle změny už jsou vyřízené – není co vybírat.")
+        val drop = valid.filter { it !in keep }.sortedDescending()
         val undone = ArrayList<Int>(); val failed = ArrayList<String>()
         drop.forEach { id -> try { ws.undo(id); undone += id } catch (e: Workspace.Conflict) { failed += "#$id: ${e.message}" } }
         val v = verify(ws)
-        saveState(ws, chat, null, v)
+        saveState(ws, chat, null, v, absorbManual = false)
         note(ws, "decision", "Přijaty změny ${keep.joinToString { "#$it" }}, vráceny ${undone.joinToString { "#$it" }} → ${v.label} (kód ${v.exitCode})")
         reply(chat, "Ponechal jsem ${keep.size} změn, vrátil ${undone.size}${if (failed.isNotEmpty()) " (nevráceno: ${failed.joinToString("; ")})" else ""}. " +
             when (v.kind) { "run" -> if (v.exitCode == 0) "Tato kombinace testy PROŠLA (revize ${v.revision})." else "Tato kombinace testy NEPROŠLA (kód ${v.exitCode}, revize ${v.revision})."; "none" -> "Testy nedoběhly – neověřeno."; else -> "Jen statická kontrola." },
@@ -787,17 +813,23 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * Ke každému projektu: cíl, poslední OVĚŘENÝ výsledek (revize, kód), otisky souborů (revize dotčených souborů),
      * otevřený krok. [keepBaseline] = otisky a snímek se nemění (začátek úlohy – ruční změny už byly ukázány).
      */
-    private fun saveState(w: Workspace, chat: String?, goal: String?, v: Workspace.Verification?, keepBaseline: Boolean = false) {
+    private fun saveState(w: Workspace, chat: String?, goal: String?, v: Workspace.Verification?, keepBaseline: Boolean = false, absorbManual: Boolean = true) {
         val old = projectState(w) ?: JSONObject()
+        // ruční změny, které uživatel ještě neviděl ověřené v úloze, zůstanou chráněné i po novém snímku
+        val carried = if (absorbManual) emptyList() else userChanges(w).map { it.first } + (old.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
         val o = JSONObject().put("project", w.root.name).put("name", w.name).put("goal", goal ?: old.optString("goal")).put("chat", chat ?: old.optString("chat")).put("at", System.currentTimeMillis())
         o.put("lastVerified", v?.takeIf { it.kind != "none" }?.let { JSONObject().put("label", it.label).put("exitCode", it.exitCode).put("revision", it.revision).put("at", it.at) } ?: old.optJSONObject("lastVerified") ?: JSONObject.NULL)
         val files = JSONObject(); val snap = JSONObject()
         if (keepBaseline && old.has("files")) o.put("files", old.getJSONObject("files"))
         else {
-            w.files().filter { !Workspace.isSecret(it) }.forEach { p -> files.put(p, w.hash(p)); if (w.file(p).length() < 200_000) snap.put(p, w.read(p)) }
+            var total = 0L
+            w.files().filter { !Workspace.isSecret(it) }.forEach { p -> files.put(p, w.hash(p))
+                // snímek: jen textové soubory do 200 kB, celkem do 2 MB, a nic, co vypadá jako klíč
+                if (w.file(p).length() < 200_000 && total < 2_000_000) { val t = w.read(p); if (!Mem.looksSecret(t)) { snap.put(p, t); total += t.length } } }
             o.put("files", files); o.put("revision", w.revision())
             kv.write("project/${w.root.name}/snap.json", snap.toString())
         }
+        if (keepBaseline) old.optJSONArray("protect")?.let { o.put("protect", it) } else if (carried.isNotEmpty()) o.put("protect", JSONArray(carried.distinct()))
         o.put("openStep", nextStep(w) ?: JSONObject.NULL)
         kv.write(stateKey(w), o.toString())
         kv.write("state/lastProject", w.root.name)
@@ -816,7 +848,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     }
 
     private fun userDiffCard(w: Workspace, ch: List<Pair<String, Value.DiffV>>) = JSONObject().put("type", "diff").put("project", w.root.name).put("title", "Tvoje ruční změny")
-        .put("files", JSONArray().apply { ch.forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3).take(20_000))) } })
+        .put("files", JSONArray().apply { ch.forEach { (p, d) -> val u = cz.axiom.vega.core.Diff.unified(d.lines, 3); put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", if (Mem.looksSecret(u)) "(obsah vypadá jako klíč – skryto)" else u.take(20_000))) } })
 
     /** „Pokračuj tam, kde jsme skončili“ – i po zabití aplikace: správný projekt, cíl, ověřený výsledek, rozdíl, otevřený krok. */
     private fun continueWork(chat: String?) {
@@ -862,6 +894,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * Z ÚSPĚŠNĚ DOKONČENÉHO výsledku návrh nástroje: pevné kroky (s parametry, např. parser) × proměnný vstup,
      * potřebná oprávnění. Uložit jde až po ověření na DRUHÉM souboru; pak chat i připnuté tlačítko volají [execProcedure].
      */
+    private fun draftKey(chat: String?) = "draft/button/${chat ?: "temp"}.json"
     private fun makeButton(chat: String?) {
         val r = lastResultRun?.let { run(it) }
         if (r == null || !r.done) { reply(chat, if (r == null) "Zatím nemám hotový výsledek, ze kterého bych tlačítko udělal. Nejdřív spolu něco dokončeme (např. zpracování výpisu)." else "Poslední práce neskončila úspěšně (${r.results.lastOrNull()?.error}) – tlačítko z ní nedělám. Opravme ji a pak to zkus znovu."); return }
@@ -871,7 +904,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             .put("inputKind", inputKind.name).put("outputKind", r.last.kind.name)
             .put("verifiedOn", JSONArray().put((r.input as? Value.Bytes)?.name ?: "text"))
             .put("inputHash", sha8(r.input.asText().toByteArray()))
-        kv.write("draft/button.json", draft.toString())
+        kv.write(draftKey(chat), draft.toString())
         reply(chat, "Návrh tlačítka „${draft.getString("name")}“. Pevné kroky se uloží tak, jak jsme je spolu doladili; proměnný je jen vstup. Než ho uložím, ověřím ho na **jiném** souboru – přilož ho v kartě.", buttonCard(draft))
     }
 
@@ -895,26 +928,26 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     /** Ověření návrhu na dalším souboru (stejné kroky). Neprojde-li, uložit nejde – a řeknu proč. */
     fun buttonTry(chat: String?, fileId: String) = submit {
-        val d = kv.read("draft/button.json")?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje – napiš znovu „udělej mi z toho tlačítko“.")
+        val d = kv.read(draftKey(chat))?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje – napiš znovu „udělej mi z toho tlačítko“.")
         val input = attachments.remove(fileId) ?: throw ToolError("Soubor jsem nedostal – vyber ho znovu.")
         if (sha8(input.asText().toByteArray()) == d.optString("inputHash")) { reply(chat, "To je stejný soubor, na kterém jsme postup ladili – pro ověření potřebuji JINÝ.", buttonCard(d)); return@submit }
         val steps = d.getJSONArray("steps").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } } }
         val r = Runner.start("Ověření: ${d.getString("name")}", steps, input, toolCtx) { saveRun(kv, it) }
         val bad = r.results.mapNotNull { (it.value as? Value.Table)?.notes?.firstOrNull { n -> n.startsWith("Nezpracováno") } } +
-            listOfNotNull(steps.firstOrNull { it.tool == "statement.process" }?.params?.get("spec")?.let { Statement.ParserSpec.parse(it) }?.let { Statement.reconcile(input.asText(), it) }?.takeIf { it.first != it.second }?.let { "zůstatek nesedí (${it.first}/${it.second})" })
+            listOfNotNull(steps.firstOrNull { it.tool == "statement.process" }?.params?.get("spec")?.let { Statement.ParserSpec.parse(it) }?.let { Statement.reconcile(input.asText(), it) }?.takeIf { it.first * 2 < it.second }?.let { "zůstatek nesedí (${it.first}/${it.second})" })
         val ok = r.done && bad.isEmpty()
         val checks = d.optJSONArray("checks") ?: JSONArray()
         checks.put(JSONObject().put("file", input.name).put("ok", ok).put("note", if (ok) ((r.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "hotovo") else (r.results.lastOrNull()?.error ?: bad.joinToString("; "))))
         d.put("checks", checks)
         if (ok) d.getJSONArray("verifiedOn").put(input.name)
-        kv.write("draft/button.json", d.toString())
+        kv.write(draftKey(chat), d.toString())
         reply(chat, if (ok) "Na „${input.name}“ to funguje stejně ✓. Můžeš tlačítko uložit a připnout." else "Na „${input.name}“ postup NEprošel: ${checks.getJSONObject(checks.length() - 1).getString("note")}. Neukládám – opravme to (např. „částka je ve sloupci …“).",
             buttonCard(d).put("run", r.id).put("value", valueJson(r.last, 50)))
     }
 
     /** Uložit ověřené tlačítko jako připnutý postup (verze, oprávnění, kde bylo ověřeno). */
     fun buttonSave(chat: String?, name: String): JSONObject {
-        val d = kv.read("draft/button.json")?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje.")
+        val d = kv.read(draftKey(chat))?.let { JSONObject(it) } ?: throw ToolError("Návrh tlačítka už neexistuje.")
         val verified = d.getJSONArray("verifiedOn").let { a -> (0 until a.length()).map { a.getString(it) } }
         if (verified.size < 2) throw ToolError("Nejdřív tlačítko ověř na jiném souboru.")
         val steps = d.getJSONArray("steps").let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { j -> Step(j.getString("tool"), j.optJSONObject("params")?.let { p -> p.keys().asSequence().associateWith { p.getString(it) } } ?: emptyMap()) } } }
@@ -922,9 +955,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val ik = Kind.valueOf(d.getString("inputKind"))
         val p = procedures.save(nm, steps, "Uloženo z hotové práce (${java.time.LocalDate.now()}); ověřeno na: ${verified.joinToString(", ")}", ik,
             describeParams(steps.first()).take(160), Kind.valueOf(d.optString("outputKind", "TABLE")), "tlačítko z hotové práce", pinned = true, verifiedOn = verified)
-        kv.delete("draft/button.json")
-        reply(chat, "Uloženo a připnuto: **${p.name}** (v${p.version}). Spustíš ho klepnutím na úvodní obrazovce nebo větou „${p.name.lowercase()}“ – obojí volá stejný postup. Funguje bez sítě.",
-            JSONObject().put("type", "procedure").put("id", p.id).put("name", p.name).put("version", p.version))
+        kv.delete(draftKey(chat))
+        reply(chat, "Uloženo a připnuto: **${p.name}** (v${p.version}). Spustíš ho klepnutím na úvodní obrazovce nebo větou „${p.name.lowercase()}“ – obojí volá stejný postup. ${if (steps.all { Tools.get(it.tool)?.offline != false }) "Funguje bez sítě." else "Potřebuje síť (${steps.filter { Tools.get(it.tool)?.offline == false }.joinToString { Tools.get(it.tool)!!.title }}) – řídí ji volba Veřejný web."}",
+            JSONObject().put("type", "procedure").put("id", p.id).put("name", p.name).put("version", p.version).put("inputKind", p.inputKind))
         return JSONObject().put("id", p.id).put("version", p.version).put("name", p.name)
     }
 
@@ -953,6 +986,131 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         reply(chat, (rec?.let { "$it\n" } ?: "") + "Opraveno: $label teď beru ze sloupce „${headers.firstOrNull { Statement.headersOf(text, spec).isNotEmpty() && it.equals(intent.column, true) } ?: intent.column}“. $ver${if (ok) " ✓" else ""}\n" +
             ((r2.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "") + "\n\nPokud to sedí, můžeš napsat „udělej mi z toho tlačítko“.", card)
     }
+
+    // ------------------------------------------------------------------ porovnání více výpisů: zadání v revizích
+
+    /** Úlohy, které právě běží (id) – oprava zadání se jim jen zapíše, nespouští se druhý běh. */
+    private val runningTasks = ConcurrentHashMap.newKeySet<String>()
+    private fun compareKey(chat: String?) = "state/compare/${chat ?: "temp"}"
+    fun compareTaskOf(chat: String?): String? = kv.read(compareKey(chat))?.takeIf { kv.read("task/$it.json") != null }
+    private fun keepFile(b: Value.Bytes): cz.axiom.vega.core.RevTask.Input {
+        val sha = sha8(b.bytes) + b.bytes.size.toString(16)
+        if (kv.read("taskfile/$sha") == null && b.bytes.size < 3_000_000) kv.write("taskfile/$sha", java.util.Base64.getEncoder().encodeToString(b.bytes))
+        return cz.axiom.vega.core.RevTask.Input(b.name, sha)
+    }
+    private fun fileOf(i: cz.axiom.vega.core.RevTask.Input) = kv.read("taskfile/${i.sha}")?.let { Value.Bytes(i.name, java.util.Base64.getDecoder().decode(it), "text/csv") }
+        ?: throw ToolError("Soubor ${i.name} už není uložený – přilož ho znovu.")
+
+    private fun compareStart(chat: String?, att: List<Value.Bytes>) {
+        val id = "cmp" + System.currentTimeMillis().toString(36)
+        val t = cz.axiom.vega.core.RevTask(kv, id)
+        val r = t.start(att.map { keepFile(it) })
+        kv.write(compareKey(chat), id)
+        t.log(r.n, "zadání", "*", "revize 1: ${att.size} souborů")
+        compareRun(chat, id)
+    }
+
+    /**
+     * Oprava zadání (vstup / rozsah / předpoklad) → nová revize. Běží-li úloha, vezme si revizi mezi kroky; jinak se
+     * spustí znovu nad uloženým stavem (platné mezivýsledky se znovu použijí).
+     */
+    private fun reviseCompare(chat: String?, id: String, text: String, att: List<Value.Bytes>, rv: Router.Revision) {
+        addMsg(chat, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(att.map { it.name })))
+        val t = cz.axiom.vega.core.RevTask(kv, id); val cur = t.current()!!
+        val change = when (rv) {
+            is Router.Revision.Input -> {
+                val f = att.firstOrNull() ?: run { reply(chat, "Přilož novou verzi souboru – pak ho vyměním."); return }
+                val idx = rv.index.takeIf { it in cur.inputs.indices } ?: nameMatch(cur.inputs.map { it.name }, f.name)
+                    ?: run { reply(chat, "Nevím, který ze souborů ${cur.inputs.joinToString(", ") { it.name }} „${f.name}“ nahrazuje – napiš třeba „nahraď druhý soubor“."); return }
+                cz.axiom.vega.core.RevTask.Change.ReplaceInput(idx, keepFile(f))
+            }
+            is Router.Revision.Scope -> cz.axiom.vega.core.RevTask.Change.Scope(rv.text)
+            is Router.Revision.Assumption -> cz.axiom.vega.core.RevTask.Change.Assumption(rv.text)
+        }
+        val r = t.revise(change)
+        t.log(r.n, "zadání", "*", "revize ${r.n}: ${r.change}")
+        val wide = r.invalidBefore == r.n
+        val running = id in runningTasks
+        reply(chat, "Zaznamenal jsem **revizi ${r.n}** zadání: ${r.change}. " + (if (wide) "Závislost nejde spolehlivě určit – přepočítám všechny soubory." else "Platné mezivýsledky zachovám a zopakuji jen kroky závislé na změně.") +
+            if (running) " Rozpracovaná odpověď ke staré revizi se nezobrazí." else "", JSONObject().put("type", "revision").put("rev", r.n).put("change", r.change))
+        if (!running) submit { compareRun(chat, id) }
+    }
+
+    /** Který starý soubor nová verze nahrazuje podle jména (bez čísel verzí a slov „oprava/nový“). */
+    private fun nameMatch(old: List<String>, new: String): Int? {
+        fun core(n: String) = cz.axiom.omega.core.util.TextUtil.fold(n.substringBeforeLast('.')).lowercase().replace(Regex("(oprav\\w*|nov\\w*|v\\d+|final\\w*|[-_ ()0-9])"), "")
+        val c = core(new); val hits = old.indices.filter { core(old[it]) == c && c.isNotBlank() }
+        return hits.singleOrNull()
+    }
+
+    /** Běh úlohy: per soubor (podle otisku, znovu použitelné) → součet (rozsah) → shrnutí modelem; zveřejnit jen aktuální revizi. */
+    private fun compareRun(chat: String?, id: String) {
+        val t = cz.axiom.vega.core.RevTask(kv, id)
+        runningTasks += id
+        try {
+            outer@ while (true) {
+                cancel.check()
+                val rev = t.current()!!
+                val per = ArrayList<JSONObject>()
+                for (inp in rev.inputs) {
+                    val hit = t.cached("statement", inp.sha, rev)
+                    val data = if (hit != null) { t.log(rev.n, "zpracování souboru", inp.name, "znovu použito (revize ${hit.rev})"); JSONObject(hit.data).put("status", "znovu použito") }
+                    else {
+                        emit("phase", JSONObject().put("text", "Zpracovávám ${inp.name}…"))
+                        val txt = fileOf(inp).asText()
+                        val spec = Statement.detect(txt).spec ?: throw ToolError("Formát „${inp.name}“ nepoznám – otevři ho v Inspektoru CSV.")
+                        val res = Statement.process(txt, spec)
+                        val o = JSONObject().put("name", inp.name).put("income", res.income).put("expense", res.expense).put("rows", JSONArray().apply { res.table.rows.take(5000).forEach { put(JSONArray(it)) } })
+                            .put("failed", res.failed.size).put("reconcile", Statement.reconcileText(txt, spec) ?: "")
+                        t.put("statement", inp.sha, rev, o.toString()); t.log(rev.n, "zpracování souboru", inp.name, "spočítáno")
+                        o.put("status", "spočítáno")
+                    }
+                    per += data.put("sha", inp.sha)
+                    if (!t.isCurrent(rev.n)) { t.log(rev.n, "běh", "*", "přerušeno – přišla revize ${t.current()!!.n}"); continue@outer }
+                }
+                val filter = rev.scope?.let { cz.axiom.vega.core.RevTask.knownScope(it) } ?: { _: List<String> -> true }
+                fun saldoOf(o: JSONObject): Double { val rs = o.getJSONArray("rows"); return (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } }.filter(filter).sumOf { it[1].toDoubleOrNull() ?: 0.0 } }
+                val saldos = per.map { saldoOf(it) }; val total = saldos.sum()
+                t.log(rev.n, "součet", "*", "spočítáno (${rev.scope ?: "vše"})")
+                // shrnutí modelem (cloud / vlastní server) – bez průběžného zobrazení, ať stará revize neprosákne do UI
+                val facts = per.mapIndexed { i, o -> "${i + 1}. ${o.getString("name")}: saldo ${CzNum(saldos[i])}" }.joinToString("\n") + "\nCELKEM: ${CzNum(total)}" + (rev.scope?.let { "\nRozsah: $it" } ?: "") +
+                    rev.assumptions.joinToString("") { "\nPředpoklad uživatele: $it" }
+                val summary = try {
+                    llmOrNull(chat, listOf(ChatMessage(Role.SYSTEM, SYSTEM_TALK + "\nShrň porovnání výpisů ve 2–3 větách. Čísla ber JEN z podkladů, nic nepočítej znovu."),
+                        ChatMessage(Role.USER, "REVIZE ${rev.n}\n$facts")), consent = "cmp:$id:${rev.n}" to listOf("součty ${per.size} výpisů (bez jednotlivých plateb)"), visible = false)
+                } catch (e: Exception) { if (e is CancelledException) throw e; null.also { t.log(rev.n, "shrnutí modelem", "*", "selhalo: ${human(e).take(80)}") } }
+                if (!t.isCurrent(rev.n)) { t.log(rev.n, "shrnutí modelem", "*", "ZAHOZENO – opožděná odpověď ke staré revizi ${rev.n} (aktuální ${t.current()!!.n})"); continue@outer }
+                summary?.let { t.log(rev.n, "shrnutí modelem", "*", "přijato") }
+                if (!t.publish(rev.n)) { t.log(rev.n, "zveřejnění", "*", "zahozeno – existuje novější výsledek"); continue@outer }
+                // rozdíl proti předchozí revizi (její mezivýsledky jsou v cache podle otisku)
+                val prev = t.state().revs.getOrNull(t.state().revs.size - 2)
+                val prevPer = prev?.inputs?.map { i -> t.state().cache["statement|${i.sha}"]?.let { JSONObject(it.data) } }
+                val prevTotal = prevPer?.takeIf { l -> l.all { it != null } }?.sumOf { val pf = prev.scope?.let { s -> cz.axiom.vega.core.RevTask.knownScope(s) } ?: { _: List<String> -> true }
+                    val rs = it!!.getJSONArray("rows"); (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } }.filter(pf).sumOf { r -> r[1].toDoubleOrNull() ?: 0.0 } }
+                val files = JSONArray(); per.forEachIndexed { i, o ->
+                    val p = prev?.inputs?.getOrNull(i)
+                    files.put(JSONObject().put("i", i + 1).put("name", o.getString("name")).put("saldo", saldos[i]).put("status", o.getString("status")).put("reconcile", o.optString("reconcile"))
+                        .put("changed", p != null && p.sha != o.getString("sha")).put("prevName", p?.name ?: "").put("prevSaldo", prevPer?.getOrNull(i)?.let { saldoOf(it) } ?: JSONObject.NULL))
+                }
+                val log = JSONArray().apply { t.state().log.forEach { put(JSONObject().put("rev", it.rev).put("step", it.step).put("input", it.input).put("action", it.action)) } }
+                val reused = per.count { it.getString("status") == "znovu použito" }
+                val text = buildString {
+                    append("Porovnání ${per.size} výpisů (revize ${rev.n}${rev.scope?.let { ", rozsah: $it" } ?: ""}): celkové saldo **${CzNum(total)} Kč**.\n")
+                    per.forEachIndexed { i, o -> append("• ${o.getString("name")}: ${CzNum(saldos[i])} Kč\n") }
+                    if (prev != null && prevTotal != null) {
+                        append("\nZměna oproti revizi ${prev.n} (${rev.change}): ")
+                        (0 until files.length()).map { files.getJSONObject(it) }.filter { it.getBoolean("changed") }.forEach { f -> append("${f.getString("prevName")} → ${f.getString("name")}: ${CzNum(f.optDouble("prevSaldo"))} → ${CzNum(f.getDouble("saldo"))} Kč; ") }
+                        append("celkem ${CzNum(prevTotal)} → ${CzNum(total)} Kč.\n")
+                    }
+                    if (rev.n > 1) append("Znovu použito $reused z ${per.size} souborů, přepočítáno ${per.size - reused}.\n")
+                    summary?.let { append("\n").append(it) } ?: append("\n_(bez shrnutí modelem – čísla spočítal nástroj v telefonu)_")
+                }
+                reply(chat, text.trim(), JSONObject().put("type", "compare").put("task", id).put("rev", rev.n).put("total", total).put("prevTotal", prevTotal ?: JSONObject.NULL).put("files", files).put("log", log))
+                break
+            }
+        } finally { runningTasks -= id }
+    }
+    private fun CzNum(v: Double) = cz.axiom.vega.core.CzNum.format(v)
 
     // ------------------------------------------------------------------ neobvyklá hypotéza
 

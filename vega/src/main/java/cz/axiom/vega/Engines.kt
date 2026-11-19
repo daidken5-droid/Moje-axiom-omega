@@ -104,6 +104,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
 
     /** Jen jeden konkrétní poskytovatel (schválený placený běh). */
     fun single(id: String): Pick? {
+        if (settings.ownOnly && id != "own") return null // režim Pouze vlastní modely: žádná komerční cesta
         if (id == "claude") {
             val k = vault.read("claude") ?: return null; val m = settings.claudeModel
             val g = GuardedEngine(ClaudeEngine(k, m), "claude", m, guard)
@@ -144,6 +145,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
             KeyCheck(true, "Vlastní server odpovídá · model $m (${list.size} v nabídce).", m, list.size)
         } catch (e: Exception) { KeyCheck(false, "Server neodpovídá: ${e.message?.substringBefore(" [{")?.take(140)}", null, 0) }
         val key = vault.read(provider) ?: return KeyCheck(false, "Klíč není uložený.", null, 0)
+        settings.countRequest(provider) // i výpis modelů je požadavek na API poskytovatele (počítadlo musí sedět)
         return try {
             if (provider == "claude") { val l = ClaudeEngine.listModels(key); return KeyCheck(true, "Claude funguje · ${l.size} modelů.", settings.claudeModel, l.size) }
             val p = FreeCloud.provider(provider) ?: return KeyCheck(false, "Neznámý poskytovatel.", null, 0)
