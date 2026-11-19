@@ -337,6 +337,11 @@ function library(tab) {
         <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         ${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
         ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
+      <h3>Rozšíření (nástroje, které jsem napsala)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
+        <small>${esc(e.description)} · bez sítě · ${esc(e.tests || 'testy prošly')}</small><small>${e.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
+        <button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
+        ${e.canRollback ? `<button class="btn" data-act="impr" data-id="${esc(e.id)}" data-a="extBack">Vrátit verzi</button>` : ''}
+        <button class="btn ghost" data-act="impr" data-id="${esc(e.id)}" data-a="extDel">Smazat</button></div>`).join('') || '<div class="row"><span class="grow note">Zatím žádné. Řekni třeba „napiš rozšíření, které z výpisu vytáhne IBANy“ – napíšu ho s testy, a když projdou, „ulož jako rozšíření“.</span></div>'}</div>
       <h3>Kde mám slabiny (30 dní)</h3><div class="list">${v.weak.map(w => `<div class="row"><span class="grow"><b>${esc(w.kind)} · ${esc(w.area)} <span class="pill">${w.count}×</span></b><small>${esc(w.example)}</small></span></div>`).join('') || '<div class="row"><span class="grow note">Bez záznamů.</span></div>'}</div>`;
   } else {
     const ms = call('memory') || [];
@@ -528,6 +533,31 @@ try { Freeze(Array.prototype); Freeze(Object.getPrototypeOf([][Symbol.iterator](
   });
 }
 
+/* ------------------------------------------------------------------ rozšíření (vrstva B): stejná izolace jako testy.
+ * Kód rozšíření dostane jen vstup a parametry; síť, úložiště a import skriptů jsou uzamčené, CSP navíc connect-src 'none'. */
+function runExtension(code, input, params, timeoutMs) {
+  return new Promise(resolve => {
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+    const src = `(() => { 'use strict';
+const post = self.postMessage.bind(self); const NONCE = ${JSON.stringify(nonce)};
+try { Object.defineProperty(self, 'postMessage', { value: () => {}, writable: false, configurable: false }); } catch (e) {}
+for (const k of ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts', 'indexedDB', 'caches', 'BroadcastChannel']) { try { Object.defineProperty(self, k, { value: undefined, writable: false, configurable: false }); } catch (e) {} }
+const module = { exports: {} };
+try {
+  new Function('module', 'exports', 'require', ${JSON.stringify(code)})(module, module.exports, () => { throw new Error('require není v rozšíření dostupné'); });
+  if (typeof module.exports.run !== 'function') throw new Error('tool.js neexportuje run(input, params)');
+  Promise.resolve(module.exports.run(${JSON.stringify(input)}, Object.freeze(${JSON.stringify(params || {})})))
+    .then(v => post({ nonce: NONCE, ok: true, output: typeof v === 'string' ? v : JSON.stringify(v, null, 2) }), e => post({ nonce: NONCE, ok: false, error: String(e && e.message || e) }));
+} catch (e) { post({ nonce: NONCE, ok: false, error: String(e && e.message || e) }); }
+})();`;
+    let w;
+    try { w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); } catch (e) { resolve({ ok: false, error: 'Worker nejde spustit: ' + e.message }); return; }
+    const t = setTimeout(() => { w.terminate(); resolve({ ok: false, error: 'Překročen časový limit ' + timeoutMs + ' ms.' }); }, timeoutMs);
+    w.onmessage = e => { const r = e.data || {}; if (r.nonce !== nonce) return; clearTimeout(t); w.terminate(); resolve({ ok: !!r.ok, output: String(r.output || '').slice(0, 200000), error: r.error }); };
+    w.onerror = e => { clearTimeout(t); w.terminate(); resolve({ ok: false, error: String(e.message || e) }); e.preventDefault(); };
+  });
+}
+
 /* ------------------------------------------------------------------ události z Kotlinu */
 window.vega = {
   on(type, d) {
@@ -574,6 +604,7 @@ window.vega = {
           <div class="inline" style="margin-top:12px"><button class="btn grow" data-act="answer" data-ok="0">Ne</button><button class="btn signal grow" data-act="answer" data-ok="1">Použít</button></div>`);
         S.req = d.req; break;
       case 'jstest': runJsTests(d.files, d.timeoutMs || 10000).then(r => B.answer(d.req, JSON.stringify(r))); break;
+      case 'extrun': runExtension(d.code, d.input, d.params, d.timeoutMs || 8000).then(r => B.answer(d.req, JSON.stringify(r))); break;
       case 'verified': toast(d.kind === 'none' ? 'Testy nedoběhly – výsledek neplatí, zkus znovu.' : d.exitCode === 0 ? 'Testy prošly.' : 'Testy neprošly – výstup v panelu projektu.', 5000); if (S.space.kind === 'project' && panelOpen()) projectPanel(); break;
       case 'verifier': toast(d.message, 7000); if ($('#kc-verifier')) settingsSheet(); break;
       case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}`; else toast(d.message, 6000); break; }
@@ -654,7 +685,7 @@ function act(a, d) {
     case 'share': B.share(d.f); break;
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
-    case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast(d.a === 'revert' ? 'Vráceno – pravidlo už neplatí.' : d.a === 'reject' ? 'Zamítnuto.' : 'Zapnuto.'); library('improve'); break; }
+    case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;

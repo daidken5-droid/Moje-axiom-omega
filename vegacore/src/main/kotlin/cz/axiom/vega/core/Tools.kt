@@ -157,6 +157,7 @@ object Tools {
     private val extra = LinkedHashMap<String, ToolDef>()
     /** Aplikace přidá nástroje závislé na Androidu (OCR, PDF) – se stejnou registrací. */
     fun register(t: ToolDef) { extra[t.id] = t }
+    fun unregister(id: String) { extra.remove(id) }
     fun all(): List<ToolDef> = BUILTIN + extra.values
     fun get(id: String) = all().firstOrNull { it.id == id }
     /** Nástroje, které umí navázat na [v] (nabídka „Předat dál“). */

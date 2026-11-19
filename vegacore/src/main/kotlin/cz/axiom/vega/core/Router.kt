@@ -148,7 +148,7 @@ object Router {
         if (has(t, "\\bjson\\b") && (c.hasAttachment || text.trimStart().startsWith("{") || text.trimStart().startsWith("["))) return Intent.Tool("json.inspect", emptyMap(), "JSON")
         if (has(t, "najdi v (mych )?souborech|v mych souborech|v dokumentech najdi")) return Intent.Tool("index.search", emptyMap(), "lokální index")
         // --- programování
-        if (has(t, "^(zaloz|vytvor|udelej|napis)\\b.*\\b(projekt|program|skript|aplikaci|nastroj|parser|kalkulack)") && !c.activeProject) return Intent.NewProject(text)
+        if (has(t, "^(zaloz|vytvor|udelej|napis)\\b.*\\b(projekt|program|skript|aplikaci|nastroj|parser|kalkulack|rozsireni)") && !c.activeProject) return Intent.NewProject(text)
         if (c.activeProject) {
             if (has(t, "^(vysvetli|co dela|jak funguje|popis)\\b")) return Intent.Code(text, CodeKind.EXPLAIN)
             if (has(t, "^(spust|pust|otestuj)\\b.*\\btest|^testy$|^spust testy")) return Intent.Code(text, CodeKind.TEST)

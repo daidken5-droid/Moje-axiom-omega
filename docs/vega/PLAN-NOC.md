@@ -80,7 +80,21 @@ Další pravidla:
     - souhrn slabin za 30 dní;
     - po samozapnutí přijde oznámení.
   - **NEOVĚŘENO:** vzhled karty na telefonu (zkontroluje se v bodě 8).
-- [ ] 7. Autonomie krok 3: rozšíření jako JS nástroje v sandboxu (registr, oprávnění, testy, zapnout/vrátit)
+- [x] 7. Autonomie krok 3: rozšíření jako JS nástroje v sandboxu (registr, oprávnění, testy, zapnout/vrátit)
+  - **Výsledek:** `core/Extensions.kt` + `runExtension` ve Workeru + karta Vylepšení → Rozšíření.
+  - **Postup:**
+    1. Uživatel napíše „napiš rozšíření, které…“.
+    2. VEGA založí projekt s pevným tvarem: `tool.js` bez require + `tool.test.js`.
+    3. Na „ulož jako rozšíření“ proběhnou testy ve Workeru nad PŘESNĚ těmito soubory.
+    4. Nová verze se uloží jen s otiskem, který testy prošel.
+    5. Rozšíření se objeví v nástrojích pod „Rozšíření“.
+  - **Správa verzí:** nové rozšíření je vypnuté. Zapnout jde jen otestovaný otisk, předchozích 5 verzí jde vrátit, vše má historii.
+  - **Sandbox (ověřeno v Chromiu na hostiteli, NE v telefonu):**
+    - `fetch`, `XHR` a `importScripts` jsou nedostupné;
+    - `require` zablokovaný;
+    - nekonečná smyčka skončí na limitu;
+    - podvržený výsledek z kódu rozšíření se ignoruje (nonce).
+  - **Testy:** ExtensionsTest (2 testy) prošel.
 - [ ] 8. UI: dotaz na souhlas vs. jiné listy (už hlídáno), spinner NFC po idle, přístupnost (aria, kontrast), kontrola na 360 px šířky
 - [ ] 9. Výkon: profil `Ops.home()` a vykreslování chatu se 300 zprávami; měření před/po
 - [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`

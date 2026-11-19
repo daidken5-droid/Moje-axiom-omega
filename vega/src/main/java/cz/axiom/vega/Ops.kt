@@ -79,6 +79,37 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     val selftune = cz.axiom.vega.core.SelfTune(kv, BuildConfig.VERSION_NAME)
     /** Naučená pravidla routeru z deníku (vrstva A): zapnou se jen po kontrole, jdou vrátit. */
     val tuning = cz.axiom.vega.core.RouterTuning(kv)
+    /** Rozšíření (vrstva B): JS nástroje, které VEGA napsala; běží jen v izolovaném Workeru bez sítě. */
+    val extensions = cz.axiom.vega.core.Extensions(kv)
+
+    private fun registerExtensions() {
+        Tools.all().filter { it.id.startsWith("ext.") }.forEach { Tools.unregister(it.id) }
+        extensions.list().filter { it.enabled }.forEach { e -> Tools.register(cz.axiom.vega.core.ToolDef("ext.${e.id}", e.name, e.description + " (rozšíření v${e.current}, bez sítě)",
+            setOf(Kind.TEXT), Kind.TEXT, errors = listOf("chyba rozšíření", "překročen čas"), group = "Rozšíření") { v, p, _ ->
+            val cur = extensions.get(e.id)?.takeIf { it.enabled }?.cur() ?: throw ToolError("Rozšíření ${e.name} je vypnuté.")
+            val r = ask("extrun", JSONObject().put("code", cur.code).put("input", v.asText()).put("params", JSONObject(p)).put("timeoutMs", 8_000), 20, throwOnTimeout = false)
+            if (!r.optBoolean("ok")) { note { selftune.observe(SelfTune.Kind.ERROR, "nástroj:ext.${e.id}", detail = r.optString("error").take(200)) }; throw ToolError("Rozšíření ${e.name}: ${r.optString("error", "neodpovědělo").take(300)}") }
+            Value.Text(r.optString("output").take(200_000), e.name)
+        }) }
+    }
+
+    /** „Ulož projekt jako rozšíření“: tool.js (bez require) + *.test.js → testy ve Workeru nad PŘESNĚ těmito soubory → nová verze. */
+    private fun saveExtension(chat: String?, ws: Workspace) {
+        val tool = ws.files().firstOrNull { it == "tool.js" } ?: throw ToolError("Rozšíření potřebuje soubor tool.js s funkcí module.exports.run = (input, params) => text.")
+        val code = ws.read(tool)
+        if (Regex("require\\s*\\(").containsMatchIn(code)) throw ToolError("tool.js nesmí načítat jiné moduly (require) – rozšíření musí být jeden soubor.")
+        val tests = ws.files().filter { it.endsWith(".test.js") && !Workspace.isSecret(it) }.associateWith { ws.read(it) }
+        if (tests.isEmpty()) throw ToolError("Rozšíření bez testů neuložím – přidej tool.test.js.")
+        val files = JSONObject().put("tool.js", code); tests.forEach { (k, v) -> files.put(k, v) }
+        val r = ask("jstest", JSONObject().put("files", files).put("timeoutMs", 10_000), 25, throwOnTimeout = false)
+        if (!r.has("exitCode")) throw ToolError("Testy nedoběhly (obrazovka se zavřela) – nic se neuložilo.")
+        val name = ws.name.ifBlank { "Rozšíření" }
+        val e = try { extensions.saveVersion(name, (ws.config()["description"] ?: "Nástroj z projektu ${ws.name}"), code, tests, r.getInt("exitCode"), r.optString("output"),
+            cz.axiom.vega.core.Extensions.shaOf(code, tests), origin = "projekt ${ws.root.name}") } catch (x: IllegalArgumentException) { throw ToolError(x.message ?: "Neuloženo.") }
+        registerExtensions()
+        reply(chat, "Rozšíření „${e.name}“ uloženo jako v${e.current} – testy prošly ve Workeru bez sítě.\n${r.optString("output").lines().takeLast(4).joinToString("\n")}\n" +
+            (if (e.enabled) "Je zapnuté (nová verze platí hned; předchozí vrátíš v Menu → Vylepšení)." else "Zapneš ho v Menu → Vylepšení – pak je v nástrojích pod „Rozšíření“."))
+    }
     private fun tuneCtx(@Suppress("UNUSED_PARAMETER") example: String) = Router.Ctx(false, null, activeWorkspace() != null, lastResultRun != null, procedures)
     /** Projde deník a o pravidlech, která se právě sama zapnula, dá vědět (s možností vrátit v Paměť → Vylepšení). */
     private fun retune() = note {
@@ -100,9 +131,17 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             .put("history", JSONArray(r.history.map { JSONObject().put("at", it.at).put("action", it.action).put("note", it.note) }))) }
         val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", g.area).put("count", g.count)
             .put("example", g.examples.lastOrNull()?.let { it.excerpt.ifBlank { it.detail } } ?: "")) }
-        return JSONObject().put("rules", rules).put("weak", weak)
+        val ext = JSONArray(); extensions.list().forEach { e -> ext.put(JSONObject().put("id", e.id).put("name", e.name).put("description", e.description).put("enabled", e.enabled)
+            .put("version", e.current).put("versions", e.versions.size).put("canRollback", e.versions.any { it.v < e.current }).put("origin", e.origin)
+            .put("tests", e.cur().testOutput.lines().lastOrNull { it.contains("prošlo") } ?: "")
+            .put("history", JSONArray(e.history.takeLast(6).map { JSONObject().put("at", it.at).put("action", it.action) }))) }
+        return JSONObject().put("rules", rules).put("weak", weak).put("extensions", ext)
     }
     fun improvementAction(id: String, action: String): String? = when (action) {
+        "extOn" -> runCatching { extensions.setEnabled(id, true); registerExtensions(); null }.getOrElse { it.message }
+        "extOff" -> { extensions.setEnabled(id, false); registerExtensions(); null }
+        "extBack" -> if (extensions.rollback(id) == null) "Není starší verze." else { registerExtensions(); null }
+        "extDel" -> { extensions.delete(id); registerExtensions(); null }
         "activate" -> tuning.activate(id, ::tuneCtx)
         "revert" -> { tuning.revert(id); null }
         "reject" -> { tuning.reject(id); null }
@@ -113,6 +152,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
         // úklid úložiště na výkonném vlákně (nesoupeří s běžící úlohou o stejné soubory)
         exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) }; retune() }
+        runCatching { registerExtensions() }
     }
 
     // ------------------------------------------------------------------ infrastruktura
@@ -754,11 +794,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     }
 
     private fun newProject(chat: String?, spec: String) {
-        val name = Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
+        val name = Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|rozšíření|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
         val id = createProject(name, emptyMap())
         emit("project", JSONObject().put("id", id))
         // odpověď patří do prostoru nového projektu (UI se tam přepne), ne do původního chatu
-        code("proj-$id", Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js.", Router.CodeKind.CHANGE), workspace(id))
+        val ext = Regex("(?i)rozšířen").containsMatchIn(spec)
+        code("proj-$id", Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js." +
+            (if (ext) "\nJDE O ROZŠÍŘENÍ VEGY: hlavní soubor MUSÍ být tool.js bez require(), s funkcí module.exports.run = (input, params) => výsledný text (input je text). " +
+                "Žádná síť, žádné soubory. Testy v tool.test.js s require('./tool') na reálných příkladech vstupu. Až testy projdou, uživatel napíše „ulož jako rozšíření“." else ""),
+            Router.CodeKind.CHANGE), workspace(id))
     }
 
     private fun projectDiffCard(w: Workspace, path: String? = null, taskIds: List<Int> = emptyList()): JSONObject {
@@ -1052,6 +1096,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** true = vyřízeno bez modelu. Parametry se drží v rozsahu projektu (jiný projekt má vlastní). */
     private fun decide(chat: String?, text: String, ws: Workspace?): Boolean {
         val scope = scopeOf(ws)
+        if (ws != null && Regex("(?i)(ulož|uložit|udělej|vytvoř|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
         cz.axiom.vega.core.Econ.simpleProduct(text)?.let { reply(chat, it); return true }
         // bod zvratu
         val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
