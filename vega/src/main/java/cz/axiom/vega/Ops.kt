@@ -29,6 +29,7 @@ import cz.axiom.vega.core.ToolError
 import cz.axiom.vega.core.Tools
 import cz.axiom.vega.core.Value
 import cz.axiom.vega.core.Workspace
+import cz.axiom.vega.core.SelfTune
 import cz.axiom.vega.core.pruneRuns
 import cz.axiom.vega.core.saveRun
 import org.json.JSONArray
@@ -74,6 +75,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val pending = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
+    /** Deník slabin (autonomie, krok 1): chyby, opravy od uživatele, Stop, pomalé kroky – jen lokálně, anonymizovaně. */
+    val selftune = cz.axiom.vega.core.SelfTune(kv, BuildConfig.VERSION_NAME)
 
     init {
         cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
@@ -106,21 +109,29 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun submit(block: () -> Unit) {
         val c = CancelToken(); activeTokens += c
         exec.execute {
-            cancel = c; busy = true
-            try { c.check(); block() }
+            cancel = c; busy = true; val t0 = System.currentTimeMillis()
+            try { c.check(); block(); (System.currentTimeMillis() - t0).let { if (it > SLOW_MS) note { selftune.observe(SelfTune.Kind.SLOW, selftune.lastArea(), detail = "${it / 1000} s") } } }
             catch (e: Handled) {}
-            catch (e: Partial) {}
+            catch (e: Partial) { note { selftune.observe(SelfTune.Kind.ERROR, "model", detail = human(e.cause ?: e)) } }
             catch (e: CancelledException) { emit("done", JSONObject().put("cancelled", true)) }
-            catch (e: Throwable) { emit("error", JSONObject().put("text", human(e))) }
+            catch (e: Throwable) {
+                note { selftune.observe(SelfTune.Kind.ERROR, if (e is cz.axiom.vega.llm.ChainEngine.ChainException || e is CostGuard.BudgetException) "model" else selftune.lastArea(), detail = "${e.javaClass.simpleName}: ${human(e)}") }
+                emit("error", JSONObject().put("text", human(e)))
+            }
             finally { engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
         }
     }
 
     /** Stop: zruší běžící i čekající úlohy a zavře otevřené dotazy (jako „ne“). */
     fun stop() {
+        if (activeTokens.isNotEmpty()) note { selftune.observe(SelfTune.Kind.STOP, selftune.lastArea()) }
         activeTokens.forEach { it.cancel() }
         pending.forEach { (id, f) -> f.complete(JSONObject().put("ok", false).put("cancelled", true)); emit("ask.closed", JSONObject().put("req", id)) }
     }
+
+    /** Zápis do deníku slabin nesmí nikdy shodit hlavní práci. */
+    private inline fun note(block: () -> Unit) { runCatching(block) }
+    private val SLOW_MS = 45_000L
 
     private fun human(e: Throwable): String {
         val chain = generateSequence(e) { it.cause }.toList()
@@ -382,11 +393,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Přílohy patří k jedné zprávě – po zpracování se uvolní (další věta nepoužije omylem starý soubor). */
     private fun chat0(chatId: String?, text: String, again: Boolean = false) {
         lastUserText = text
+        if (!again && chatId != null) note { selftune.userTurn(text) }
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
-        if (decide(chatId, text, ws)) return
+        if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size))
+        note { selftune.routed(SelfTune.area(intent)) }
         when (intent) {
             is Router.Intent.Remember -> rememberCmd(chatId, intent, ws)
             Router.Intent.Continue -> continueWork(chatId)

@@ -53,7 +53,17 @@ Další pravidla:
     - AndroidRegexTest hlídá `\b` vedle českého písmene, i přes skupiny `(…|souborů)\b`. Sám detektor má vlastní test.
     - Ostatní nálezy jsou `\b` jen u ASCII písmen, tedy v pořádku. CANON_EQ, COMMENTS ani neomezený lookbehind se nepoužívají.
     - Testy: 44 + 21 zelených.
-- [ ] 5. Autonomie krok 1: `SelfTune` deník signálů slabin (chyby, opravy uživatele, Stop, špatný záměr, pomalé kroky) + test
+- [x] 5. Autonomie krok 1: `SelfTune` deník signálů slabin (chyby, opravy uživatele, Stop, špatný záměr, pomalé kroky) + test
+  - **Výsledek:** `core/SelfTune.kt`. SelfTuneTest (2 testy) prošel.
+  - **Signály se zapisují do deníku po dnech:**
+    - chyba (výpadky modelu zvlášť jako oblast „model“);
+    - Stop během práce;
+    - krok delší než 45 s;
+    - oprava od uživatele („ne, myslel jsem…“);
+    - přeformulování téhož dotazu do 90 s.
+  - **Připisování:** signál se připíše oblasti, která předchozí zprávu zpracovala (záměr routeru / nástroj / postup).
+  - **Soukromí:** klíče, e-maily, URL (zůstane jen doména), IBAN a delší čísla se nahrazují značkou. Věta má max. 160 znaků, bez obsahu souborů. Deník drží 30 dní a nejvýš 400 záznamů denně.
+  - **Bezpečnost:** zápis nikdy neshodí práci.
 - [ ] 6. Autonomie krok 2: návrh příkladů routeru z deníku → ověření na held-out sadě → karta „Vylepšení“ s historií a návratem
 - [ ] 7. Autonomie krok 3: rozšíření jako JS nástroje v sandboxu (registr, oprávnění, testy, zapnout/vrátit)
 - [ ] 8. UI: dotaz na souhlas vs. jiné listy (už hlídáno), spinner NFC po idle, přístupnost (aria, kontrast), kontrola na 360 px šířky

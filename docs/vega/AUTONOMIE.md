@@ -81,7 +81,7 @@ Rozšíření běží jen v sandboxu Workeru: bez sítě a bez přístupu k apli
 | CodeAgent: úpravy, testy, opravná kola, výběr změn | ✓ hotovo |
 | postupy s verzemi a historií | ✓ hotovo |
 | CI: testy, podepsané APK, otisky | ✓ hotovo |
-| deník signálů slabin (`SelfTune.observe`) | ☐ krok 1 – noční práce |
+| deník signálů slabin (`SelfTune.observe`) | ✓ hotovo (1.4.0) |
 | vrstva A: návrh a ověření příkladů routeru, karta „Vylepšení“ s historií a návratem | ☐ krok 2 |
 | vrstva B: rozšíření jako JS nástroje v sandboxu + registr | ☐ krok 3 |
 | vrstva C: zadání změny → větev → CI → nabídka aktualizace + návrat | ☐ krok 4 (vyžaduje token od uživatele) |
