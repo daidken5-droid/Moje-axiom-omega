@@ -41,6 +41,23 @@ class VegaCostTest {
         assertTrue(!e.autoAllowed("geminipro"))
     }
 
+    @Test fun runApprovalIsCeilingForWholeTaskAndOwnBudgetDoesNotEatSharedCap() {
+        val s = Settings(ctx); s.usdKc = 23.5f
+        val e = Engines(s, Vault(ctx))
+        e.approveRun("geminipro", 0.02) // celý úkol nejvýš 0,02 USD
+        assertTrue(e.guard.check("geminipro", "gemini-4-hydrogen", 1000, 1000) is cz.axiom.omega.core.llm.CostGuard.Decision.Allow) // ~0,008
+        e.guard.reserve("geminipro", "gemini-4-hydrogen", 1000, 1000)
+        e.guard.reserve("geminipro", "gemini-4-hydrogen", 1000, 1000)
+        // třetí volání téhož úkolu by strop překročilo → zamítnuto (dřív se strop počítal pro každé volání zvlášť)
+        assertTrue(e.guard.check("geminipro", "gemini-4-hydrogen", 1000, 1000) is cz.axiom.omega.core.llm.CostGuard.Decision.Deny)
+        e.clearRun()
+        // kredit Pro s vlastním stropem neujídá společný strop ostatních placených
+        s.setBudgetKc("geminipro", 235); s.setAllowed("geminipro", true)
+        s.addSpent("geminipro", 9.0)
+        s.budgetKc = 47; s.setAllowed("claude", true) // 2 USD společně
+        assertTrue(e.guard.check("claude", "claude-sonnet-5-5", 2_500, 1_000) is cz.axiom.omega.core.llm.CostGuard.Decision.Allow)
+    }
+
     @Test fun spendIsExactMicroUsdAndUtcMonth() {
         val s = Settings(ctx)
         repeat(1000) { s.addSpent("geminipro", 0.000123) }

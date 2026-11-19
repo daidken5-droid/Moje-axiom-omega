@@ -133,7 +133,10 @@ class GuardedEngine(private val inner: LlmEngine, private val provider: String, 
         val reserved = guard.reserve(provider, model, chars, options.maxTokens)
         val r = try { inner.generate(messages, options, cancel, onDelta) } catch (e: CancelledException) { throw e } catch (e: Exception) {
             // jiný SDK (Claude): HTTP chyby před odpovědí poznáme podle kódu v textu → vrátit; jinak konzervativně ponechat
-            if (CostGuard.preResponse(e) && !(e as EngineException).billed || Regex("HTTP 4\\d\\d|\\b(401|403|429)\\b|overloaded|invalid", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) guard.refund(provider, reserved)
+            // vrátit JEN chybu, která jasně přišla před odpovědí (HTTP kód / přetížení); vše ostatní (výpadek streamu,
+            // prázdná odpověď, odmítnutí) mohlo být naúčtováno → rezervace zůstává
+            val pre = e is EngineException && !e.billed && Regex("HTTP [45]\\d\\d|\\b(400|401|403|404|413|429|500|502|503|529)\\b|overloaded_error|rate_limit_error|authentication_error|permission_error", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())
+            if (pre) guard.refund(provider, reserved)
             throw e
         }
         guard.settle(provider, model, reserved, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, options.maxTokens)

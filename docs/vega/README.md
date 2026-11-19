@@ -1,4 +1,4 @@
-# VEGA 1.0 – předávací přehled
+# VEGA 1.2 – předávací přehled
 
 VEGA je samostatná aplikace postavená podle zadání „VYKR / Opus Kit“. Je to osobní český parťák a kapesní sada nástrojů pro Pixel 9a.
 
@@ -14,6 +14,54 @@ Zadání nabízelo značku VYKR, ale uživatel chtěl zkusit lepší jméno. Zvo
 - znak z kitu (V s korálovou stopou) k němu sedí beze změny.
 
 Jméno je jen v `vega/src/main/res/values/strings.xml` (`app_name`) a v UI (`index.html`). Přejmenování zpět na VYKR jsou dvě řádky.
+
+## Novinky 1.1 – 1.2
+
+### Nové UI („papír a signál“)
+
+Rozhraní je navržené od nuly a s AVIORem nemá nic společného. Opírá se o principy [Shape of AI](https://www.shapeof.ai/), postupného odhalování a viditelných stavů.
+
+- **Barvy.** Světlé, papírové pozadí, inkoustové písmo a jediná korálová signální barva. Tmavý režim se zapne podle systému.
+- **Jedna plocha a jeden plovoucí vstup s „+“.** Přidání souboru, nástroje, NFC, složky jako projektu a předžalobní výzvy. Žádné spodní záložky.
+- **Návrhy podle kontextu.** Pod vstupem jsou nejvýš 4 tlačítka, která dávají smysl právě teď.
+  - Po CSV: uložený nástroj, Zpracovat výpis, Najít chyby.
+  - V projektu: Spustit testy, Rozdíl a návrat.
+  - Po výsledku: Uložit jako nástroj, Předat dál, Tohle je divné.
+- **Výsledek nejdřív, detail na „⋯“.** Kroky, mezivýsledky, export a předání jsou až v nabídce.
+- **Knihovna za tlačítkem nahoře.** Konverzace, Projekty, Nástroje, Paměť a Nastavení.
+- **Nastavení na jednu obrazovku.** Gemini zdarma, kredit Pro na rozbalení, ostatní poskytovatelé pod „Pokročilé“.
+- **Stálý vstup.** Psaný text nesmaže příchod odpovědi ani výběr souboru.
+- **Systémové Zpět** nejdřív zavře list (u dotazu znamená „ne“), teprve pak schová aplikaci.
+
+### Gemini
+
+- **Zdarma.** Klíč z projektu bez fakturace. Před uložením se aplikace zeptá, jestli projekt opravdu fakturaci nemá.
+  - Model se volí podle nabídky klíče, protože Gemini 4 Hydrogen Google zpřístupňuje postupně.
+  - Ověření klíče hned po uložení ukáže, který model bude odpovídat.
+- **Kredit Google AI Pro.** Předplatné samo API klíč nedává, obsahuje kredit asi 10 USD měsíčně, který se aktivuje v AI Studiu.
+  - Klíč z placeného projektu patří do vlastního slotu s vlastním stropem v Kč.
+  - Bez povolení se aplikace ptá u každého úkolu a ukáže strop celého úkolu.
+- **Řetězec poskytovatelů.** Nejdřív všechno zdarma, placené až potom. Přihlášení předplatným bez API klíče neexistuje (Google ho třetím aplikacím nenabízí).
+
+### Red team (2 kola, 3 + 2 nezávislí auditoři)
+
+Auditoři se dívali ze tří stran: bezpečnost, náklady a reálný uživatel. Opravy:
+- **NFC.** Odkaz `javascript:` ze štítku se nevykreslí jako odkaz.
+- **CSP.** Posílá se jako HTTP hlavička a bez `unsafe-inline`.
+- **Tajné soubory** se kontrolují po normalizaci cesty, takže se nedostanou do modelu, testů, ZIP exportu ani rozdílu.
+- **Přísné hlídání nákladů.**
+  - Odhad se rezervuje před voláním; zrušené nebo přerušené volání se započítá.
+  - Po zaplaceném pokusu se u záložního poskytovatele neplatí znovu.
+  - Strop schváleného úkolu platí pro celý úkol.
+  - Společný strop placených poskytovatelů je skutečně společný.
+- **Výsledky testů** v izolovaném Workeru nejde podvrhnout: nonce i zamčené `expect` a `test`.
+- **Přílohy** patří jen ke své zprávě.
+- **Žádné ztracené události.** Sdílení při studeném startu ani otevřený dotaz po obnovení stránky se neztratí.
+- **Nedoběhlý test** se nezapíše jako selhání a nespustí placené „opravné“ kolo.
+
+**Regresní testy:** GeminiTest, GeminiStrictTest, VegaRedTeamTest, VegaCostTest.
+
+**Hranice:** testy kódu projektu jsou odolné proti podvrhu, ale ne neprolomitelné. Vlastní testy projektu mohou být napsané tak, aby lhaly.
 
 ## Výchozí revize AVIORu
 

@@ -114,8 +114,11 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
     private fun human(e: Throwable): String {
         val chain = generateSequence(e) { it.cause }.toList()
         return when {
-            e is cz.axiom.omega.core.llm.FreeCloudEngine.ChainException -> "Cloud teď neodpověděl – ${e.message}. Zkus to za chvíli" +
-                (if (engines.pendingPaid().isNotEmpty()) ", nebo v Nastavení povol kredit Pro." else ".")
+            e is cz.axiom.omega.core.llm.FreeCloudEngine.ChainException -> {
+                val daily = e.failures.any { it.message.contains("denní limit") }
+                (if (daily) "Bezplatný denní limit je vyčerpaný (obnoví se zítra) – ${e.message}." else "Cloud teď neodpověděl – ${e.message}. Zkus to za chvíli.") +
+                    (engines.pendingPaid().firstOrNull()?.let { " Můžeš povolit ${engines.name(it)} v Nastavení." } ?: "")
+            }
             e is CostGuard.BudgetException -> e.message ?: "Placené volání zastaveno."
             chain.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení k internetu. Ruční nástroje fungují dál."
             chain.any { it is java.net.SocketTimeoutException } -> "Server neodpověděl včas – zkus to znovu (vstup zůstal zachovaný)."
@@ -127,14 +130,18 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
      * Čeká na rozhodnutí uživatele v UI (souhlas, schválení ceny, výsledek testů z WebView). Zavření dialogu = „ne“;
      * vypršení → UI dostane „ask.closed“ (zavře dialog); Stop → CancelledException.
      */
-    private fun ask(type: String, data: JSONObject, timeoutS: Long): JSONObject {
+    private fun ask(type: String, data: JSONObject, timeoutS: Long, throwOnTimeout: Boolean = true): JSONObject {
         val id = "q" + System.nanoTime().toString(36)
         val f = CompletableFuture<JSONObject>(); pending[id] = f
         data.put("req", id); pendingPayload[id] = type to data
         emit(type, data)
         return try {
-            val r = try { f.get(timeoutS, TimeUnit.SECONDS) } catch (e: java.util.concurrent.TimeoutException) { emit("ask.closed", JSONObject().put("req", id).put("expired", true)); JSONObject().put("ok", false).put("timeout", true) }
-            if (r.optBoolean("cancelled") || cancel.cancelled) throw CancelledException()
+            val r = try { f.get(timeoutS, TimeUnit.SECONDS) } catch (e: java.util.concurrent.TimeoutException) {
+                emit("ask.closed", JSONObject().put("req", id).put("expired", true))
+                if (throwOnTimeout) throw ToolError("Žádost vypršela – nic se neodeslalo ani neutratilo. Pošli zprávu znovu.")
+                JSONObject().put("ok", false).put("timeout", true)
+            }
+            if (r.optBoolean("cancelled")) throw CancelledException()
             r
         } finally { pending.remove(id); pendingPayload.remove(id) }
     }
@@ -143,9 +150,9 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
     fun answer(req: String, data: JSONObject): Boolean = pending[req]?.complete(data) == true
 
     /** Nová stránka (obnova WebView, studený start): znovu ukázat otevřené dotazy a stav „pracuji“. */
-    fun replay() {
+    fun replay(skip: Set<String> = emptySet()) {
         if (busy) emit("busy", JSONObject())
-        pendingPayload.values.forEach { (t, d) -> if (t != "jstest") emit(t, d) }
+        pendingPayload.forEach { (id, td) -> if (td.first != "jstest" && id !in skip) emit(td.first, td.second) }
     }
 
     // ------------------------------------------------------------------ chaty
@@ -391,19 +398,19 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
      * k dispozici placený klíč, náhled ceny CELÉHO úkolu ([calls] volání) a schválení jen pro tento úkol,
      * (4) streamování; přerušená odpověď se uloží s poznámkou.
      */
-    private fun llm(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, maxTokens: Int = 4096, calls: Int = 1): String {
+    private fun llm(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, maxTokens: Int = 4096, calls: Int = 1, visible: Boolean = true): String {
         if (settings.airgap) throw ToolError("Air-gap je zapnutý – model v cloudu nevolám. Ruční nástroje fungují.")
         val chars = messages.sumOf { it.content.length }
         val pick = engines.pick() ?: approvePaid(chars, maxTokens, calls, "Bezplatného poskytovatele nemáš nastaveného.") ?: throw NoEngine()
         return try {
-            run(chat, pick, messages, consent, chars, maxTokens)
+            run(chat, pick, messages, consent, chars, maxTokens, visible)
         } catch (e: cz.axiom.omega.core.llm.FreeCloudEngine.ChainException) {
             if (e.billed) throw e
             val alt = approvePaid(chars, maxTokens, calls, e.message ?: "", e.failures.filter { it.budget }.map { it.provider }) ?: throw e
-            run(chat, alt, messages, consent, chars, maxTokens)
+            run(chat, alt, messages, consent, chars, maxTokens, visible)
         } catch (e: CostGuard.BudgetException) {
             val alt = approvePaid(chars, maxTokens, calls, e.message ?: "", listOfNotNull(e.provider)) ?: throw e
-            run(chat, alt, messages, consent, chars, maxTokens)
+            run(chat, alt, messages, consent, chars, maxTokens, visible)
         }
     }
 
@@ -411,33 +418,34 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
     private fun approvePaid(chars: Int, maxTokens: Int, calls: Int, why: String, overCap: List<String> = emptyList()): Engines.Pick? {
         val cand = (overCap + engines.pendingPaid()).distinct().firstOrNull() ?: return null
         val est = engines.estimateKc(cand, chars, maxTokens) * calls.coerceAtLeast(1)
-        val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("calls", calls).put("chars", chars)
-            .put("reason", why).put("overCap", cand in overCap)
+        val capKc = est * 1.2 + 0.25 // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
+        val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("capKc", capKc).put("calls", calls).put("chars", chars)
+            .put("reason", why).put("overCap", cand in overCap).put("noFree", why.startsWith("Bezplatného"))
             .put("hint", "Trvale: Nastavení → Cloud → ${engines.name(cand)} → Čerpat automaticky do stropu."), 300)
         if (!r.optBoolean("ok")) throw ToolError("Placené volání neschváleno – nic se neutratilo. ${why.take(160)}")
-        engines.approveRun(cand, est / settings.usdKc * 1.5 + 0.01)
+        engines.approveRun(cand, capKc / settings.usdKc)
         return engines.single(cand)
     }
 
-    private fun run(chat: String?, pick: Engines.Pick, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, chars: Int, maxTokens: Int): String {
+    private fun run(chat: String?, pick: Engines.Pick, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, chars: Int, maxTokens: Int, visible: Boolean = true): String {
         // souhlas platí pro CELÝ řetěz (při limitu může odpověď převzít záloha) a pro tento obsah
-        val chainKey = "${consent?.first}|" + pick.chain.joinToString(",") { it.first }
-        if (consent != null && !consented.contains(chainKey)) {
+        val need = pick.chain.map { "${consent?.first}|${it.first}" }.filter { it !in consented }
+        if (consent != null && need.isNotEmpty()) {
             val r = ask("consent", JSONObject().put("target", pick.chain.first().let { "${it.first} · ${it.second}" })
                 .put("fallback", JSONArray(pick.chain.drop(1).map { it.first })).put("notes", JSONArray(pick.notes))
                 .put("chars", chars).put("items", JSONArray(consent.second))
                 .put("paid", pick.paid).put("estimateKc", engines.worstKc(pick, chars, maxTokens)), 300)
             if (!r.optBoolean("ok")) throw ToolError("Neodesláno – bez tvého souhlasu podklady neopouštějí telefon.")
-            consented += chainKey
+            consented += need
         }
         val sb = StringBuilder(); var last = 0L
         val res = try {
             pick.engine.generate(messages, GenOptions(maxTokens = maxTokens, effort = "medium", temperature = 0.4f), cancel) { d ->
-                if (!d.reasoning) { sb.append(d.text); val now = System.currentTimeMillis(); if (now - last > 90) { last = now; emit("delta", JSONObject().put("chat", chat ?: "temp").put("text", sb.toString())) } }
+                if (!d.reasoning) { sb.append(d.text); val now = System.currentTimeMillis(); if (visible && now - last > 90) { last = now; emit("delta", JSONObject().put("chat", chat ?: "temp").put("text", sb.toString())) } }
             }
         } catch (e: Exception) {
             // rozepsaná odpověď se neztratí: uložit s poznámkou (zastaveno / výpadek)
-            if (sb.isNotBlank()) {
+            if (visible && sb.isNotBlank()) {
                 reply(chat, sb.toString().trim() + "\n\n_(" + (if (e is CancelledException) "zastaveno" else "odpověď se přerušila: ${human(e).take(120)}") + ")_")
                 if (e is CancelledException) throw e else throw Handled()
             }
@@ -458,7 +466,7 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
     }
 
     private fun llmOrNull(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?): String? =
-        if (settings.airgap || engines.pick() == null) null else llm(chat, messages, consent)
+        if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) null else llm(chat, messages, consent)
 
     /** Bez modelu: jednoduché věci (čas, výpočty, převody) z deterministického jádra AVIORu. */
     private fun offline(text: String): String? = runCatching {
@@ -476,7 +484,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val att = lastAttachment()
         val user = if (att != null && intent.thinkingAloud.not()) "$text\n\n[Příloha ${att.name}:]\n${att.asText().take(20_000)}" else text
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
-        if (settings.airgap || engines.pick() == null) {
+        if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             reply(chat, offline(text) ?: if (settings.airgap) "Air-gap je zapnutý – na tohle potřebuji model v cloudu. Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!)
             return
         }
@@ -516,10 +524,13 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     }
 
     /** Dlouhý vstup s více požadavky: rozdělení, odpověď na každý zvlášť, kontrola úplnosti, citované pasáže. */
-    fun longTask(chat: String?, text: String, ids: List<String> = emptyList()) { take(ids); longTask0(chat, text) }
+    fun longTask(chat: String?, text: String, ids: List<String> = emptyList()) { val mine = take(ids); longTask0(chat, text, mine) }
 
-    private fun longTask0(chat: String?, text: String) = submit {
-        addMsg(chat, JSONObject().put("role", "user").put("text", text.take(2000) + if (text.length > 2000) "\n…(${text.length} znaků)" else ""))
+    private fun longTask0(chat: String?, text0: String, att: List<Value.Bytes>) = submit {
+        msgAtt = att
+        addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
+        // přílohy jsou součást zadání (data, ne pokyny)
+        val text = text0 + att.joinToString("") { "\n\n[Příloha ${it.name}:]\n" + it.asText().take(60_000) }
         val subs = LongInput.subQuestions(text).take(20)
         if (engines.pick() == null && engines.pendingPaid().isEmpty()) throw NoEngine()
         val limit = 24_000
@@ -528,7 +539,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             // nad limit: z každé části výtah s odkazem na pasáž [P#], pak syntéza (žádná otázka se neztratí – seznam jde celý)
             passages.mapIndexed { i, p ->
                 emit("phase", JSONObject().put("text", "Čtu část ${i + 1}/${passages.size}…"))
-                "[P${i + 1}] " + llm(chat, listOf(ChatMessage(Role.SYSTEM, "Vypiš z pasáže fakta relevantní k požadavkům. Stručně, česky. Nic nevymýšlej."), ChatMessage(Role.USER, "POŽADAVKY:\n${subs.joinToString("\n") { "- $it" }}\n\nPASÁŽ P${i + 1}:\n$p")), consent = "long:${sha8(text.toByteArray())}" to listOf("dlouhé zadání (${text.length} znaků) po částech"), maxTokens = 900, calls = passages.size + 2)
+                "[P${i + 1}] " + llm(chat, listOf(ChatMessage(Role.SYSTEM, "Vypiš z pasáže fakta relevantní k požadavkům. Stručně, česky. Nic nevymýšlej."), ChatMessage(Role.USER, "POŽADAVKY:\n${subs.joinToString("\n") { "- $it" }}\n\nPASÁŽ P${i + 1}:\n$p")), consent = "long:${sha8(text.toByteArray())}" to listOf("dlouhé zadání (${text.length} znaků) po částech"), maxTokens = 900, calls = passages.size + 2, visible = false)
             }.joinToString("\n\n")
         }
         val numbered = subs.mapIndexed { i, q -> "${i + 1}. $q" }.joinToString("\n")
@@ -609,27 +620,29 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             reply(chat, a); note(ws, "decision", "Vysvětleno: ${intent.task}"); return
         }
         emit("phase", JSONObject().put("text", "Navrhuji úpravu…"))
-        var reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, CodeAgent.SYSTEM + (memory.context("project:${ws.root.name}")?.let { "\n\n$it" } ?: "")), ChatMessage(Role.USER, prompt)), consent, maxTokens = 8000, calls = 2)
+        var reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, CodeAgent.SYSTEM + (memory.context("project:${ws.root.name}")?.let { "\n\n$it" } ?: "")), ChatMessage(Role.USER, prompt)), consent, maxTokens = 8000, calls = 2, visible = false)
         var plan = CodeAgent.parse(reply)
         if (plan.edits.isEmpty()) { reply(chat, plan.explanation.ifBlank { "Model nenavrhl žádnou úpravu." } + "\n\n_(Žádná změna souborů – nic nepřepsáno.)_"); return }
         var applied = CodeAgent.apply(ws, plan, seen, intent.task.take(80))
-        var v = verify(ws)
-        // jedno kolo opravy, když test spadne (ne nekonečná smyčka)
-        if (v.kind == "run" && v.exitCode != 0 && applied.changes.isNotEmpty()) {
+        var v = try { verify(ws) } catch (e: CancelledException) {
+            reply(chat, "Testy jsem zastavil. Změny už jsou v projektu – můžeš je zkontrolovat nebo vrátit.", projectDiffCard(ws)); throw Handled()
+        }
+        // jedno kolo opravy, jen když test OPRAVDU proběhl a selhal (nedoběhlý test ≠ chyba kódu, žádné zbytečné placené volání)
+        if (v.kind == "run" && v.exitCode != 0 && v.exitCode != 124 && applied.changes.isNotEmpty()) {
             emit("phase", JSONObject().put("text", "Test neprošel – zkouším jednu opravu…"))
             val (p2, seen2) = CodeAgent.prompt(ws, "Testy po tvé změně selhaly. Oprav kód (ne testy, pokud test odpovídá zadání).\nVÝSTUP TESTŮ:\n${v.output.take(4000)}", null)
-            reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, CodeAgent.SYSTEM), ChatMessage(Role.USER, p2)), consent, maxTokens = 8000, calls = 2)
+            reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, CodeAgent.SYSTEM), ChatMessage(Role.USER, p2)), consent, maxTokens = 8000, calls = 2, visible = false)
             plan = CodeAgent.parse(reply)
             val a2 = CodeAgent.apply(ws, plan, seen2, "oprava po testu")
             applied = CodeAgent.Applied(applied.changes + a2.changes, applied.failed + a2.failed)
-            v = verify(ws)
+            v = try { verify(ws) } catch (e: CancelledException) { reply(chat, "Testy jsem zastavil. Opravené změny jsou v projektu.", projectDiffCard(ws)); throw Handled() }
         }
         note(ws, "decision", "${intent.task} → ${applied.changes.size} změn, ${v.label} (kód ${v.exitCode})")
-        if (v.exitCode != 0) note(ws, "question", "Ověření selhalo po: ${intent.task}")
+        if (v.kind != "none" && v.exitCode != 0) note(ws, "question", "Ověření selhalo po: ${intent.task}")
         val text = buildString {
             append(plan.explanation.ifBlank { "Hotovo." }).append("\n\n")
             append("Změněno ${applied.changes.size} souborů").append(if (applied.failed.isNotEmpty()) ", ${applied.failed.size} úprav NEaplikováno (" + applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" } + ")" else "").append(". ")
-            append(if (v.kind == "run") "Testy spuštěny: návratový kód ${v.exitCode}." else "Jen staticky zkontrolováno (pro tento jazyk VEGA testy nespouští).")
+            append(when (v.kind) { "run" -> "Testy spuštěny: návratový kód ${v.exitCode}."; "none" -> "Testy nedoběhly – výsledek neověřen, spusť je znovu."; else -> "Jen staticky zkontrolováno (pro tento jazyk VEGA testy nespouští)." })
         }
         reply(chat, text, projectDiffCard(ws).put("verification", verificationJson(v)))
     }
@@ -639,10 +652,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (CodeAgent.testPlan(ws) != "js") return ws.staticCheck()
         // soubory s klíči do testů nejdou (test by je mohl vypsat do výstupu, který čte model)
         val js = JSONObject(); ws.files().filter { (it.endsWith(".js") || it.endsWith(".json")) && !Workspace.isSecret(it) }.forEach { js.put(it, ws.read(it)) }
-        val r = ask("jstest", JSONObject().put("files", js).put("timeoutMs", 10_000), 25) // Stop → CancelledException, nic se nezapíše
+        val r = ask("jstest", JSONObject().put("files", js).put("timeoutMs", 10_000), 25, throwOnTimeout = false) // Stop → CancelledException, nic se nezapíše
         val out = r.optString("output").take(20_000).let { o -> Mem.looksSecret(o).let { if (it) o.replace(Regex("(?i)(gsk_|csk-|sk-|AIza|ghp_|xai-|ya29\\.)[A-Za-z0-9_.-]{8,}"), "[skryto]") else o } }
         val v = if (r.has("exitCode")) Workspace.Verification("run", "vega-test (WebView Worker, bez sítě, limit 10 s): " + r.optString("command", "*.test.js"), r.getInt("exitCode"), out, ws.revision())
-        else Workspace.Verification("run", "vega-test", 124, "Testy nedoběhly (časový limit nebo zavřená obrazovka).", ws.revision())
+        // stránka neodpověděla (zavřená obrazovka, obnova) → NEOVĚŘENO, nezapisovat jako selhání
+        else return Workspace.Verification("none", "vega-test", -1, "Testy nedoběhly (obrazovka byla zavřená nebo se obnovila) – nic se nezapsalo.", ws.revision())
         ws.record(v); return v
     }
 
@@ -678,7 +692,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         .put("payAmount", i.payments.firstOrNull()?.amount ?: 0.0).put("payDoc", i.payments.firstOrNull()?.doc?.name ?: "").put("asOf", i.asOf.toString()).put("account", i.bankAccount).put("b2b", i.b2b)
 
     fun demand(chat: String?, o: JSONObject) = submit {
-        fun d(k: String) = java.time.LocalDate.parse(o.getString(k))
+        fun d(k: String) = runCatching { java.time.LocalDate.parse(o.getString(k)) }.getOrElse { throw ToolError("Datum „$k“ chybí nebo nemá tvar RRRR-MM-DD.") }
         val inv = Demand.Invoice(o.getString("invoice"), d("issued"), d("due"), o.getDouble("amount"), o.getString("subject"), Demand.Doc("Faktura ${o.getString("invoice")}", d("issued")))
         val pays = if (o.optString("payDate").isNotBlank() && o.optDouble("payAmount", 0.0) > 0) listOf(Demand.Payment(d("payDate"), o.getDouble("payAmount"), Demand.Doc(o.optString("payDoc").ifBlank { "Doklad o úhradě" }, d("payDate")))) else emptyList()
         val input = Demand.Input(Demand.Party(o.getString("creditor"), o.getString("creditorAddr"), o.optString("creditorId")), Demand.Party(o.getString("debtor"), o.getString("debtorAddr"), o.optString("debtorId")),

@@ -23,7 +23,7 @@ class Workspace(val root: File) {
     @Serializable
     data class Verification(val kind: String, val command: String, val exitCode: Int, val output: String, val revision: String, val at: Long = System.currentTimeMillis()) {
         /** „run“ = skutečně spuštěno; „static“ = jen statická kontrola (výslovně označeno). */
-        val label get() = if (kind == "run") "spuštěno" else "jen staticky zkontrolováno"
+        val label get() = when (kind) { "run" -> "spuštěno"; "static" -> "jen staticky zkontrolováno"; else -> "neověřeno (testy nedoběhly)" }
     }
 
     data class Symbol(val name: String, val kind: String, val path: String, val line: Int)
@@ -151,7 +151,8 @@ class Workspace(val root: File) {
         return paths.mapNotNull { path ->
             val a = File(base, path).takeIf { it.exists() }?.readText() ?: ""
             val b = File(work, path).takeIf { it.exists() }?.readText() ?: ""
-            if (a == b) null else path to Diff.lines(a, b)
+            // soubory s klíči do rozdílu (UI, historie chatu) nepatří
+            if (a == b || isSecret(path)) null else path to Diff.lines(a, b)
         }
     }
 

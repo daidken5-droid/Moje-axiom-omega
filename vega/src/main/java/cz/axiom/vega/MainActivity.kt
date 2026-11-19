@@ -63,6 +63,12 @@ class MainActivity : ComponentActivity() {
             }
         }
         web.addJavascriptInterface(Bridge(this), "VEGA")
+        // Zpět: nejdřív zavřít list / režim nástroje v UI; jinak aplikaci jen schovat (úlohy a dotazy běží dál, nic se neztratí)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                web.evaluateJavascript("(window.vega && vega.back && vega.back()) ? 'y' : 'n'") { r -> if (!r.contains("y")) moveTaskToBack(true) }
+            }
+        })
         web.loadUrl("https://appassets.androidplatform.net/assets/ui/index.html")
         handleShare(intent)
     }
@@ -80,17 +86,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Události jdou na UI vlákno POD zámkem → pořadí zůstane i kolem ready() (žádné předbíhání fronty). */
     fun send(type: String, data: JSONObject) {
         val js = "window.vega && vega.on(${JSONObject.quote(type)}, ${data})"
-        synchronized(early) { if (!pageReady) { early += js; if (early.size > 200) early.removeAt(0); return } }
-        runOnUiThread { if (!isFinishing) web.evaluateJavascript(js, null) }
+        synchronized(early) {
+            if (!pageReady) { early += js; if (early.size > 300) early.removeAt(0); return }
+            runOnUiThread { if (!isFinishing) web.evaluateJavascript(js, null) }
+        }
     }
 
-    /** Stránka načtena (volá JS) → poslat odložené události a znovu ukázat otevřené dotazy. */
+    /** Stránka načtena (volá JS) → poslat odložené události a znovu ukázat otevřené dotazy (bez duplicit). */
     fun ready() {
-        val q = synchronized(early) { pageReady = true; early.toList().also { early.clear() } }
-        runOnUiThread { q.forEach { web.evaluateJavascript(it, null) } }
-        ops.replay()
+        val skip = HashSet<String>()
+        synchronized(early) {
+            early.forEach { js -> Regex("\"req\":\"(q[0-9a-z]+)\"").findAll(js).forEach { skip += it.groupValues[1] } }
+            val q = early.toList(); early.clear(); pageReady = true
+            runOnUiThread { q.forEach { web.evaluateJavascript(it, null) } }
+        }
+        ops.replay(skip)
     }
 
     override fun onDestroy() { synchronized(early) { pageReady = false }; super.onDestroy() }
@@ -239,11 +252,26 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun project(id: String) = safe { ops.projectInfo(id) }
     @JavascriptInterface fun newProject(name: String) = safe { ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap()) }
     @JavascriptInterface fun activate(id: String) = safe { ops.settings.activeProject = id.ifBlank { null } }
-    @JavascriptInterface fun file(id: String, path: String) = safe { JSONObject().put("text", ops.workspace(id).let { if (cz.axiom.vega.core.Workspace.isSecret(path)) "(citlivý soubor – nezobrazuji)" else it.read(path).take(200_000) }).put("hash", ops.workspace(id).hash(path)) }
-    @JavascriptInterface fun saveFile(id: String, path: String, text: String, hash: String) = safe { ops.workspace(id).write(path, text, hash.ifBlank { null }, "ruční úprava").id }
+    @JavascriptInterface fun file(id: String, path: String) = safe {
+        // citlivý soubor: ani obsah, ani otisk (otisk by umožnil přepsat ho zástupným textem)
+        if (cz.axiom.vega.core.Workspace.isSecret(path)) JSONObject().put("secret", true)
+        else ops.workspace(id).let { JSONObject().put("text", it.read(path).take(200_000)).put("hash", it.hash(path)) }
+    }
+    @JavascriptInterface fun saveFile(id: String, path: String, text: String, hash: String) = safe {
+        require(!cz.axiom.vega.core.Workspace.isSecret(path)) { "Soubory s klíči v aplikaci neupravuji." }
+        ops.workspace(id).write(path, text, hash.ifBlank { null }, "ruční úprava").id
+    }
     @JavascriptInterface fun undo(id: String, change: Int) = safe { ops.workspace(id).undo(change.takeIf { it > 0 }).path }
     @JavascriptInterface fun diff(id: String) = safe { JSONArray().apply { ops.workspace(id).diffFromBase().forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3))) } } }
-    @JavascriptInterface fun verify(id: String) = safe { Thread { val v = ops.verify(ops.workspace(id)); a.send("verified", JSONObject().put("project", id).put("exitCode", v.exitCode).put("label", v.label).put("output", v.output.take(6000)).put("command", v.command).put("revision", v.revision)) }.start() }
+    @JavascriptInterface fun verify(id: String) = safe {
+        Thread {
+            try {
+                val v = ops.verify(ops.workspace(id))
+                a.send("verified", JSONObject().put("project", id).put("kind", v.kind).put("exitCode", v.exitCode).put("label", v.label).put("output", v.output.take(6000)).put("command", v.command).put("revision", v.revision))
+            } catch (e: cz.axiom.omega.core.llm.CancelledException) { a.send("verified", JSONObject().put("project", id).put("kind", "none").put("exitCode", -1).put("label", "zrušeno"))
+            } catch (e: Exception) { a.send("error", JSONObject().put("text", "Testy se nepodařilo spustit: ${e.message?.take(160)}")) }
+        }.start()
+    }
     @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name }
     @JavascriptInterface fun nfc(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }) }
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }

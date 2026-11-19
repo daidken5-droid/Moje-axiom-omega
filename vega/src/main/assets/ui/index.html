@@ -2,28 +2,33 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- UI nesmí na síť (connect-src 'none'): testy kódu ve Workeru tak nemají přístup k internetu ani k mostu -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<!-- UI nesmí na síť (connect-src 'none'); žádné inline skripty. Stejná politika jde i jako HTTP hlavička. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111319" media="(prefers-color-scheme: dark)">
 <title>VEGA</title>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header id="top">
-  <div class="brand" data-go="home"><svg viewBox="0 0 108 108" width="28" height="28" aria-hidden="true"><path fill="#F1EEE7" d="M24 35h12l15 28 11-20h12L55 77h-9z"/><path fill="#FF735F" d="M49 32h29l6 10-10 17-6-10 4-7H55z"/></svg><b>VEGA</b></div>
-  <div id="phase" class="phase"></div>
-  <button class="icon" data-go="settings" aria-label="Nastavení">⚙</button>
+<header class="top">
+  <svg class="mark" viewBox="0 0 108 108" aria-label="VEGA"><path fill="currentColor" d="M24 35h12l15 28 11-20h12L55 77h-9z"/><path fill="#FF735F" d="M49 32h29l6 10-10 17-6-10 4-7H55z"/></svg>
+  <button class="space" id="space" data-act="library" aria-label="Knihovna"><span id="spaceName">Konverzace</span><b class="caret">▼</b></button>
+  <div class="grow"></div>
+  <button class="iconbtn" data-act="new" aria-label="Nová konverzace">✎</button>
 </header>
-<main id="view"></main>
-<nav id="nav">
-  <button data-go="home">Domů</button>
-  <button data-go="chat">Chat</button>
-  <button data-go="tools">Nástroje</button>
-  <button data-go="projects">Projekty</button>
-  <button data-go="memory">Paměť</button>
-</nav>
-<div id="sheet" class="sheet hidden"></div>
-<div id="toast" class="toast hidden"></div>
+<main class="stream" id="stream" aria-live="polite"></main>
+<footer class="dock">
+  <div class="chips" id="chips"></div>
+  <div id="mode"></div>
+  <div class="files" id="files"></div>
+  <div class="bar">
+    <button class="round plus" data-act="plus" aria-label="Přidat">+</button>
+    <textarea id="input" rows="1" placeholder="Napiš, nebo přilož soubor…" maxlength="120000" aria-label="Zpráva"></textarea>
+    <button class="round go" id="go" data-act="send" aria-label="Odeslat">↑</button>
+  </div>
+</footer>
+<div id="layer"></div>
 <script src="app.js"></script>
 </body>
 </html>

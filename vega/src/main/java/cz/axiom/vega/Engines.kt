@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
  * JEDEN úkol (běh) a po něm se smaže.
  */
 class Engines(private val settings: Settings, private val vault: Vault) {
-    /** Schválení placeného poskytovatele pro právě běžící úkol: poskytovatel → povolená částka (USD). */
+    /** Schválení placeného poskytovatele pro právě běžící úkol: poskytovatel → STROP útraty celého úkolu (USD, absolutně). */
     private val runApprovals = ConcurrentHashMap<String, Double>()
 
     val NAMES = linkedMapOf("gemini" to "Gemini (zdarma)", "groq" to "Groq", "cerebras" to "Cerebras", "openrouter" to "OpenRouter",
@@ -28,16 +28,17 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     val PAID = setOf("geminipro", "deepseek", "claude")
     fun name(id: String) = NAMES[id] ?: id
 
-    private fun totalSpentUsd() = PAID.sumOf { settings.spentUsd(it) }
+    /** Útrata poskytovatelů BEZ vlastního stropu (kredit Pro má svůj – nesmí ujídat společný). */
+    private fun sharedSpentUsd() = PAID.filter { !settings.hasOwnBudget(it) }.sumOf { settings.spentUsd(it) }
 
     val guard = CostGuard(object : CostGuard.Store {
         override fun allowed(provider: String) = runApprovals.containsKey(provider) || autoAllowed(provider)
         override fun budgetUsd(provider: String): Double {
-            runApprovals[provider]?.let { return settings.spentUsd(provider) + it }
+            runApprovals[provider]?.let { return it }
             val usdKc = settings.usdKc.toDouble()
             // vlastní strop poskytovatele, jinak SPOLEČNÝ strop pro všechny placené dohromady (ne „500 Kč každému“)
             return if (settings.hasOwnBudget(provider)) settings.budgetKc(provider) / usdKc
-            else settings.budgetKc / usdKc - (totalSpentUsd() - settings.spentUsd(provider))
+            else settings.budgetKc / usdKc - (sharedSpentUsd() - settings.spentUsd(provider))
         }
         override fun spentUsd(provider: String) = settings.spentUsd(provider)
         override fun addSpent(provider: String, usd: Double) = settings.addSpent(provider, usd)
@@ -45,7 +46,8 @@ class Engines(private val settings: Settings, private val vault: Vault) {
 
     fun autoAllowed(p: String) = settings.allowed(p) && settings.budgetKc(p) > 0
 
-    fun approveRun(provider: String, usd: Double) { runApprovals[provider] = usd.coerceIn(0.0, 5.0) }
+    /** Schválí úkol: strop = dosavadní útrata + [usd] (celý úkol, ne každé volání zvlášť). */
+    fun approveRun(provider: String, usd: Double) { runApprovals[provider] = settings.spentUsd(provider) + usd.coerceIn(0.0, 5.0) }
     /** Konec úkolu (i chyba, zrušení) → schválení zaniká. */
     fun clearRun() = runApprovals.clear()
 
