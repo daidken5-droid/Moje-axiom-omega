@@ -66,6 +66,9 @@ class CostGuard(private val store: Store, private val price: (provider: String, 
             return when (provider) {
                 "claude" -> when { "opus" in m -> Price(15.0, 75.0); "haiku" in m -> Price(1.0, 5.0); else -> Price(3.0, 15.0) }
                 "kimi" -> Price(1.0, 4.0)
+                // Gemini API placený projekt (kredit Google AI Pro): Hydrogen 1,50/7,50 USD za 1M (ceník Google 11/2026),
+                // ostatní horním odhadem; myšlenkové tokeny se účtují jako výstup (KimiEngine je bere z total_tokens)
+                "geminipro" -> when { "hydrogen" in m -> Price(1.5, 7.5); Regex("-pro\\b|-pro-").containsMatchIn(m) -> Price(4.0, 18.0); "flash" in m -> Price(1.0, 4.0); else -> Price(3.0, 15.0) }
                 "deepseek" -> Price(0.7, 2.5)
                 "chutes" -> Price(1.0, 4.0)
                 "nanogpt", "ollama", "synthetic" -> Price(0.0, 0.0, flat = true)

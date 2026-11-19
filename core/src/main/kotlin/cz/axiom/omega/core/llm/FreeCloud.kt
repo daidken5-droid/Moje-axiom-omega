@@ -39,7 +39,17 @@ object FreeCloud {
         val maxOut: Int = 4096,
         /** Kolik znaků historie a podkladů poslat (free tarify mají malé okno a limit tokenů za minutu). */
         val contextChars: Int = 20_000,
+        /** Vlastní pořadí síly modelů, když nic z preferencí není v nabídce (null = podle velikosti v názvu). */
+        val rank: ((String) -> Double)? = null,
+        /** Modely, které nejsou obecný chat (obrázky, řeč, embeddingy…) – nikdy je nevybírat. */
+        val exclude: Regex? = null,
+        /** Poslat stream_options.include_usage → skutečný počet tokenů (přesná útrata kreditu místo odhadu). */
+        val usageInStream: Boolean = false,
+        /** Co poskytovatel dělá s daty (ukáže se před odesláním podkladů). */
+        val dataNote: String = "",
     )
+
+    val GEMINI_EXCLUDE = Regex("embed|tts|image|imagen|veo|live|native-audio|audio|computer-use|robotics|aqa|learnlm|gemma|vision")
 
     val PROVIDERS = listOf(
         Provider(
@@ -59,6 +69,30 @@ object FreeCloud {
             preferred = listOf("openai/gpt-oss-120b:free", "deepseek/deepseek-chat-v3.1:free", "qwen/qwen3-235b-a22b:free", "meta-llama/llama-3.3-70b-instruct:free"),
             signup = "openrouter.ai/keys",
             anyFree = { it.endsWith(":free") },
+        ),
+        // ---- GOOGLE GEMINI (OpenAI-kompatibilní endpoint Gemini API, klíč z aistudio.google.com/apikey)
+        // Bezplatná kvóta: klíč z projektu BEZ fakturace. Model se vybírá z nabídky klíče – Gemini 4 Hydrogen Google
+        // zpřístupňuje postupně, takže když ho klíč ještě nemá, odpovídá nejsilnější dostupný Gemini.
+        Provider(
+            "gemini", "Gemini", GEMINI_BASE,
+            preferred = listOf("gemini-4-hydrogen"),
+            fast = listOf("gemini-4-hydrogen"),
+            signup = "aistudio.google.com/apikey", maxOut = 8192, contextChars = 120_000,
+            rank = ::geminiRank, exclude = GEMINI_EXCLUDE, usageInStream = true,
+            dataNote = "Gemini API – bezplatná kvóta. Podle podmínek Google platí v EHP (vč. Česka), Švýcarsku a UK i pro bezplatnou kvótu " +
+                "podmínky placených služeb (obsah se nepoužívá ke zlepšování produktů). Mimo tyto oblasti ho Google může použít ke zlepšování " +
+                "a mohou ho číst lidé – citlivé údaje neposílej.",
+        ),
+        // Kredit z předplatného Google AI Pro (měsíční kredit na Gemini API po aktivaci v AI Studiu). Je to PLACENÝ projekt:
+        // čerpá kredit, po jeho vyčerpání Google účtuje kartu v Cloud Billing → hlídá ho CostGuard (povolení + rozpočet).
+        Provider(
+            "geminipro", "Gemini (kredit Pro)", GEMINI_BASE,
+            preferred = listOf("gemini-4-hydrogen"),
+            fast = listOf("gemini-4-hydrogen"),
+            signup = "aistudio.google.com (Google AI Pro → kredity)", paid = true, maxOut = 16_384, contextChars = 400_000,
+            rank = ::geminiRank, exclude = GEMINI_EXCLUDE, usageInStream = true,
+            dataNote = "Gemini API – placený projekt (kredit Google AI Pro): obsah se podle podmínek Google nepoužívá ke zlepšování produktů. " +
+                "Po vyčerpání kreditu účtuje Google kartu v Cloud Billing – nastav si tam rozpočet.",
         ),
         // ---- LEVNÉ PLACENÉ (jednotky dolarů měsíčně při běžném používání)
         Provider(
@@ -93,6 +127,28 @@ object FreeCloud {
         ),
     )
 
+    const val GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+    /**
+     * Síla modelu Gemini z názvu (nabídka se mění): vyšší verze > Hydrogen > Pro > Flash > Flash-Lite; náhledy mírně níž.
+     * Neznámé kódové názvy (Argon…) se nevolí samy – můžou být bez bezplatné kvóty; uživatel je může zvolit ručně.
+     */
+    fun geminiRank(id: String): Double {
+        val m = id.removePrefix("models/").lowercase()
+        if (!m.startsWith("gemini")) return -100.0
+        var s = Regex("gemini-(\\d+(?:\\.\\d+)?)").find(m)?.groupValues?.get(1)?.toDoubleOrNull() ?: 1.0
+        s += when {
+            "hydrogen" in m -> 3.0
+            Regex("-pro\\b|-pro-").containsMatchIn(m) -> 2.0
+            "flash-lite" in m -> 0.0
+            "flash" in m -> 1.0
+            Regex("gemini-\\d+(\\.\\d+)?-[a-z]+$").containsMatchIn(m) -> -1.0 // jiný kódový název – ne automaticky
+            else -> 0.5
+        }
+        if (Regex("preview|exp|latest").containsMatchIn(m)) s -= 0.3
+        return s
+    }
+
     /** Pořadí členů: „rychlost“ = nejdřív nejrychlejší servery zdarma, „kvalita“ = nejdřív placené silné modely. */
     fun order(quality: Boolean, primary: String? = null): List<Provider> {
         val base = if (quality) PROVIDERS.sortedByDescending { it.paid } else PROVIDERS
@@ -114,15 +170,17 @@ object FreeCloud {
      * Vybere model: první z [wanted], který je v [available] (bez ohledu na „models/“ prefix a velikost písmen);
      * když seznam neznáme (prázdný), vezme první preferovaný.
      */
-    fun pickModel(p: Provider, available: List<String>, fast: Boolean = false): String {
-        val wanted = if (fast && p.fast.isNotEmpty()) p.fast + p.preferred else p.preferred
-        if (available.isEmpty()) return wanted.first()
-        val norm = available.associateBy { it.removePrefix("models/").lowercase() }
+    fun pickModel(p: Provider, available: List<String>, fast: Boolean = false, avoid: Set<String> = emptySet()): String {
+        val wanted = (if (fast && p.fast.isNotEmpty()) p.fast + p.preferred else p.preferred).filter { w -> avoid.none { it.removePrefix("models/").equals(w, true) } }
+        val avail = available.map { it.removePrefix("models/") }.filter { a -> avoid.none { it.removePrefix("models/").equals(a, true) } }
+        if (avail.isEmpty()) return wanted.firstOrNull() ?: p.preferred.first()
+        val norm = avail.associateBy { it.lowercase() }
         wanted.firstOrNull { it.lowercase() in norm }?.let { return norm.getValue(it.lowercase()) }
         // nic z preferencí → nejsilnější obecný model z nabídky (dřív první v abecedě – i malý model na kód)
-        val usable = available.filter { !Regex("embed|whisper|tts|guard|vision|image|audio|rerank|moderat").containsMatchIn(it.lowercase()) }
+        val usable = avail.filter { !Regex("embed|whisper|tts|guard|vision|image|audio|rerank|moderat").containsMatchIn(it.lowercase()) && p.exclude?.containsMatchIn(it.lowercase()) != true }
         val pool = usable.filter(p.anyFree).ifEmpty { usable }
-        return pool.maxByOrNull { modelScore(it) } ?: wanted.first()
+        val score = p.rank ?: ::modelScore
+        return pool.filter { score(it) > -50 }.maxByOrNull { score(it) } ?: wanted.firstOrNull() ?: p.preferred.first()
     }
 
     /** Odhad síly obecného chatovacího modelu z názvu: velikost (B), bez specializací (kód, mini, vision). */
@@ -137,7 +195,8 @@ object FreeCloud {
 
     /** gpt-oss a Qwen 3 přijímají reasoning_effort low|medium|high; ostatní ho ignorují nebo odmítnou → neposílat. */
     fun effortFor(model: String): ((String) -> String?)? =
-        if (Regex("gpt-oss").containsMatchIn(model)) { e -> when (e.lowercase()) { "low" -> "low"; "high", "xhigh", "max" -> "high"; else -> "medium" } } else null
+        // Gemini (OpenAI-kompatibilní vrstva) mapuje reasoning_effort na úroveň přemýšlení; u novějších modelů ho nejde vypnout
+        if (Regex("gpt-oss|^(models/)?gemini").containsMatchIn(model)) { e -> when (e.lowercase()) { "low" -> "low"; "high", "xhigh", "max" -> "high"; else -> "medium" } } else null
 
     data class Member(val provider: Provider, val key: String, val model: String)
 
@@ -146,6 +205,7 @@ object FreeCloud {
         m.provider.base, m.key, m.model, EngineKind.FREE,
         effortMapper = effortFor(m.model), vendor = m.provider.name,
         labelOverride = "${m.provider.name} (${m.model.substringAfterLast('/').removeSuffix(":free")})",
+        streamUsage = m.provider.usageInStream,
     )
 }
 
@@ -202,9 +262,12 @@ class FreeCloudEngine(
                     last = e
                     if (started) throw e // už psal → nikdy nemíchat dvě odpovědi
                     // SAMOOPRAVA: model zmizel z nabídky (free tarify je často mění) → vybrat platný a zkusit znovu
-                    if (!healed && Regex("HTTP 404|model.{0,40}(not found|nenalezen|does not exist|not exist)", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())) {
+                    // MODEL MIMO TARIF (Gemini: 429 „limit: 0“ / „not available on the free tier“ – Hydrogen zpřístupňovaný
+                    // postupně) → jiný model téhož poskytovatele, ne hned jiný poskytovatel
+                    val zeroQuota = Regex("limit: 0\\b|limit\":\\s*0\\b|free[ _-]?tier|not available (for|on|in) (your|the)|not supported for", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty())
+                    if (!healed && (zeroQuota || Regex("HTTP 404|model.{0,40}(not found|nenalezen|does not exist|not exist)", RegexOption.IGNORE_CASE).containsMatchIn(e.message.orEmpty()))) {
                         healed = true
-                        val fixed = runCatching { FreeCloud.pickModel(m.provider, listModels(m.provider, m.key)) }.getOrNull()
+                        val fixed = runCatching { FreeCloud.pickModel(m.provider, listModels(m.provider, m.key), avoid = setOf(m.model)) }.getOrNull()
                         if (fixed != null && fixed != m.model) { m = m.copy(model = fixed); onModel(m.provider.id, fixed); continue }
                     }
                     break

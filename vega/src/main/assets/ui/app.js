@@ -183,17 +183,32 @@ function memory() {
 }
 
 function settings() {
-  const s = call('settings') || { keys: {}, allowed: {} };
-  const names = { groq: 'Groq (zdarma)', cerebras: 'Cerebras (zdarma)', openrouter: 'OpenRouter (zdarma modely)', deepseek: 'DeepSeek (placený)', claude: 'Claude (placený)' };
+  const s = call('settings') || { keys: {}, allowed: {}, budgets: {}, spent: {}, models: {} };
+  const P = [
+    ['gemini', 'Gemini – zdarma', 'Bezplatná kvóta Gemini API (model Gemini 4 Hydrogen, pokud ho tvůj klíč už má – Google ho zpřístupňuje postupně). Klíč vytvoř na aistudio.google.com/apikey v projektu <b>bez fakturace</b>. V EHP (Česko) platí i pro bezplatnou kvótu podmínky placených služeb – obsah se nepoužívá k tréninku.'],
+    ['geminipro', 'Gemini – kredit Google AI Pro', 'Předplatné Pro samo API klíč nedává; obsahuje měsíční kredit na Gemini API. V AI Studiu ho aktivuj (Google Developer Program + Cloud Billing), v tom placeném projektu vytvoř klíč a vlož ho sem. Použije se, až dojde bezplatná kvóta – jen když níže povolíš čerpání a strop. Po vyčerpání kreditu účtuje Google kartu: v Cloud Billing si nastav rozpočet.'],
+    ['groq', 'Groq – zdarma', 'Záloha, když Gemini narazí na limit.'],
+    ['cerebras', 'Cerebras – zdarma', 'Záloha.'],
+    ['openrouter', 'OpenRouter – zdarma modely', 'Záloha.'],
+    ['deepseek', 'DeepSeek – placený', 'Kredit; servery v Číně – citlivé podklady raději ne.'],
+    ['claude', 'Claude – placený', 'Anthropic API.'],
+  ];
+  const paid = id => ['geminipro', 'deepseek', 'claude'].includes(id);
   return `<h1>Nastavení</h1>
-    <h2>Cloud</h2>${Object.keys(names).map(k => `<label>${names[k]} ${s.keys[k] ? '<span class="chip ok">uloženo</span>' : ''}</label><div class="row"><input type="password" id="key-${k}" class="grow" placeholder="${s.keys[k] ? 'Uloženo – nový klíč přepíše' : 'API klíč'}" autocomplete="off"><button class="btn sm" data-savekey="${k}">Uložit</button></div>`).join('')}
-    <h2>Náklady</h2><label>Měsíční rozpočet na automatickou placenou spotřebu (Kč)</label><input type="number" id="budget" value="${s.budgetKc}" min="0">
-    <div class="dim">Výchozí 0 Kč: placené volání projde jen po náhledu a tvém schválení konkrétního běhu. Tento měsíc utraceno ${fmt(s.spentKc)} Kč.</div>
-    ${['claude', 'deepseek'].map(p => `<div class="toggle"><span>Povolit ${p} automaticky v rámci rozpočtu</span><input type="checkbox" data-set="allow.${p}" ${s.allowed[p] ? 'checked' : ''}></div>`).join('')}
+    <h2>Cloud</h2><p class="dim">Pořadí: Gemini zdarma → kredit Pro (jen povolený) → Groq → Cerebras → OpenRouter → placené. Klíče jsou šifrované v trezoru telefonu a do aplikace se nikdy nevracejí.</p>
+    ${P.map(([k, n, d]) => `<div class="card"><div class="row"><b class="grow">${n}</b>${s.keys[k] ? '<span class="chip ok">uloženo</span>' : ''}</div><div class="dim">${d}</div>
+      <div class="row" style="margin-top:6px"><input type="password" id="key-${k}" class="grow" placeholder="${s.keys[k] ? 'Uloženo – nový klíč přepíše' : 'API klíč'}" autocomplete="off"><button class="btn sm" data-savekey="${k}">Uložit</button>${s.keys[k] ? `<button class="btn sm" data-checkkey="${k}">Ověřit</button>` : ''}</div>
+      <div class="small muted" id="kc-${k}">${s.models[k] ? 'Model: ' + esc(s.models[k]) : ''}</div>
+      ${paid(k) && s.keys[k] ? `<div class="toggle"><span>Čerpat automaticky do stropu</span><input type="checkbox" data-set="allow.${k}" ${s.allowed[k] ? 'checked' : ''}></div>
+        <label>Strop ${k === 'geminipro' ? 'kreditu Pro' : ''} (Kč / měsíc) · utraceno ${fmt(s.spent[k] || 0)} Kč</label><input type="number" min="0" data-budget="${k}" value="${s.budgets[k] || (k === 'geminipro' ? 235 : 0)}">
+        <div class="dim">${k === 'geminipro' ? 'Kredit Pro je zhruba 10 USD ≈ 235 Kč měsíčně. VEGA počítá skutečné tokeny (i myšlenkové) a nad strop nepustí; bez povolení se ptá u každého běhu.' : 'Bez povolení se VEGA zeptá u každého placeného běhu.'}</div>` : ''}
+    </div>`).join('')}
+    <h2>Ostatní placené</h2><label>Společný měsíční strop pro placené bez vlastního stropu (Kč)</label><input type="number" id="budget" value="${s.budgetKc}" min="0">
+    <div class="dim">Výchozí 0 Kč. Tento měsíc celkem ${fmt(s.spentKc)} Kč.</div>
     <h2>Chování</h2>
     <div class="toggle"><span>Iniciativa a připomínky (další krok u projektu)</span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></div>
     <div class="toggle"><span>Air-gap – žádná síť</span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></div>
-    <p class="dim">Lokální index: ${s.indexed} souborů. VEGA 1.0 · samostatná aplikace vedle AVIORu (vlastní úložiště).</p>`;
+    <p class="dim">Lokální index: ${s.indexed} souborů. VEGA 1.1 · samostatná aplikace vedle AVIORu (vlastní úložiště).</p>`;
 }
 
 function demandForm(s) {
@@ -287,7 +302,8 @@ window.vega = {
       case 'shared': S.view = 'chat'; render(); $('#input').value = d.text; break;
       case 'project': S.project = d.id; if (d.imported !== undefined) { toast('Importováno ' + d.imported + ' souborů (kopie).'); go('project', d.id); } break;
       case 'consent':
-        sheet(`<b>Odeslat podklady do cloudu?</b><p>Cíl: <b>${esc(d.target)}</b><br>Rozsah: ${d.chars.toLocaleString('cs-CZ')} znaků</p><div class="small">${d.items.map(i => '• ' + esc(i)).join('<br>')}</div>
+        sheet(`<b>Odeslat podklady do cloudu?</b><p>Cíl: <b>${esc(d.target)}</b>${(d.fallback || []).length ? `<br><span class="small">Při limitu může převzít: ${d.fallback.map(esc).join(', ')}</span>` : ''}<br>Rozsah: ${d.chars.toLocaleString('cs-CZ')} znaků</p><div class="small">${d.items.map(i => '• ' + esc(i)).join('<br>')}</div>
+          ${(d.notes || []).map(n => `<div class="dim" style="margin-top:6px">${esc(n)}</div>`).join('')}
           ${d.paid ? `<p class="small">Placený poskytovatel – odhad ${fmt(d.estimateKc)} Kč.</p>` : '<p class="small">Poskytovatel zdarma.</p>'}
           <div class="row"><button class="btn grow" data-answer="${d.req}:0">Neposílat</button><button class="btn primary grow" data-answer="${d.req}:1">Odeslat</button></div>`); break;
       case 'approve':
@@ -295,6 +311,7 @@ window.vega = {
           <div class="row"><button class="btn grow" data-answer="${d.req}:0">Ne</button><button class="btn primary grow" data-answer="${d.req}:1">Schválit tento běh</button></div>`); break;
       case 'jstest':
         runJsTests(d.files, d.timeoutMs || 10000).then(r => B.answer(d.req, JSON.stringify(r))); break;
+      case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="chip ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}`; toast(d.message, 6000); break; }
       case 'verified': { const el = $('#pout'); if (el) el.innerHTML = `<div class="card">${verHtml(d)}</div>`; toast('Testy: kód ' + d.exitCode); break; }
       case 'nfc.start': B.nfc(S.temp ? 'temp' : S.chat || ''); break;
       case 'nfc.listening': phase('NFC: přilož štítek…'); break;
@@ -315,7 +332,7 @@ function send(text) {
 }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-go],[data-send],[data-homesend],[data-pick],[data-pickfolder],[data-stop],[data-tool],[data-runtool],[data-export],[data-pass],[data-passto],[data-resume],[data-save],[data-step],[data-showrun],[data-runproc],[data-delproc],[data-chatmode],[data-newchat],[data-clearfiles],[data-clearinput],[data-newproject],[data-openproject],[data-openfile],[data-verify],[data-pdiff],[data-pexport],[data-undo],[data-memadd],[data-memrevert],[data-memforget],[data-savekey],[data-answer],[data-nfc],[data-nfcsettings],[data-ndef],[data-demand],[data-demandform],[data-open],[data-share],[data-closesheet],[data-sym]');
+  const t = e.target.closest('[data-go],[data-send],[data-homesend],[data-pick],[data-pickfolder],[data-stop],[data-tool],[data-runtool],[data-export],[data-pass],[data-passto],[data-resume],[data-save],[data-step],[data-showrun],[data-runproc],[data-delproc],[data-chatmode],[data-newchat],[data-clearfiles],[data-clearinput],[data-newproject],[data-openproject],[data-openfile],[data-verify],[data-pdiff],[data-pexport],[data-undo],[data-memadd],[data-memrevert],[data-memforget],[data-savekey],[data-checkkey],[data-answer],[data-nfc],[data-nfcsettings],[data-ndef],[data-demand],[data-demandform],[data-open],[data-share],[data-closesheet],[data-sym]');
   if (!t) return;
   const d = t.dataset;
   if (d.go !== undefined) { closeSheet(); go(d.go); }
@@ -355,7 +372,8 @@ document.addEventListener('click', e => {
   else if (d.memadd !== undefined) { call('memoryAdd', $('#memText').value); render(); }
   else if (d.memrevert !== undefined) { const r = call('memoryRevert', d.memrevert); toast(r ? 'Vráceno na: ' + r : 'Není co vrátit'); render(); }
   else if (d.memforget !== undefined) { call('memoryForget', d.memforget); toast('Zapomenuto (i z indexu).'); render(); }
-  else if (d.savekey !== undefined) { const r = call('saveKey', d.savekey, $('#key-' + d.savekey).value); if (r) { toast('Klíč uložen v trezoru telefonu.'); render(); } }
+  else if (d.savekey !== undefined) { const v = $('#key-' + d.savekey).value; if (!v.trim()) { toast('Vlož klíč.'); return; } const r = call('saveKey', d.savekey, v); if (r) { toast('Klíč uložen v trezoru telefonu – ověřuji…'); render(); const el = $('#kc-' + d.savekey); if (el) el.textContent = 'Ověřuji…'; } }
+  else if (d.checkkey !== undefined) { B.checkKey(d.checkkey); const el = $('#kc-' + d.checkkey); if (el) el.textContent = 'Ověřuji…'; }
   else if (d.answer !== undefined) { const [req, ok] = d.answer.split(':'); B.answer(req, JSON.stringify({ ok: ok === '1' })); closeSheet(); }
   else if (d.nfc !== undefined) { S.view = 'chat'; render(); B.nfc(S.temp ? 'temp' : S.chat || ''); }
   else if (d.nfcsettings !== undefined) { B.nfcSettings(); closeSheet(); }
@@ -371,6 +389,8 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.set) call('setSetting', t.dataset.set, String(t.checked));
   if (t.id === 'budget') call('setSetting', 'budgetKc', t.value);
+  if (t.dataset.budget) call('setSetting', 'budget.' + t.dataset.budget, t.value);
+  if (t.dataset.set && t.dataset.set.startsWith('allow.') && t.checked) { const b = document.querySelector(`[data-budget="${t.dataset.set.slice(6)}"]`); if (b) call('setSetting', 'budget.' + b.dataset.budget, b.value); }
 });
 document.addEventListener('input', e => { if (e.target.id === 'symq') { const q = e.target.value.toLowerCase(); document.querySelectorAll('#symlist [data-sym]').forEach(x => x.style.display = x.dataset.sym.toLowerCase().includes(q) ? '' : 'none'); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'input') { e.preventDefault(); send(e.target.value); } });

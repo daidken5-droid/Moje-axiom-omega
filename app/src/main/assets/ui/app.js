@@ -843,11 +843,13 @@ const FREE = [
   ['cerebras', 'Cerebras', 'Nejrychlejší výstup (gpt-oss-120b, Qwen 3)', 'https://cloud.cerebras.ai'],
   ['groq', 'Groq', 'Nejnižší latence (gpt-oss-120b, Kimi K2, Llama 70B)', 'https://console.groq.com/keys'],
   ['openrouter', 'OpenRouter', 'Desítky modelů „:free“ – široká záloha', 'https://openrouter.ai/keys'],
+  ['gemini', 'Gemini (Google)', 'Bezplatná kvóta Gemini API, model Gemini 4 Hydrogen (Google ho zpřístupňuje postupně – jinak nejsilnější dostupný Gemini; po „Ověřit“ uvidíš, který). Klíč vytvoř v AI Studiu v projektu BEZ fakturace. V EHP (Česko) platí i pro bezplatnou kvótu podmínky placených služeb – obsah se nepoužívá k tréninku.', 'https://aistudio.google.com/apikey'],
 ];
 /** LEVNÉ PLACENÉ: jednotky dolarů měsíčně, silnější modely a vyšší limity. */
 const PAID = [
   ['deepseek', 'DeepSeek', 'Platíš jen spotřebu (kredit od 2 $). DeepSeek V3/V4 – špičková čeština, logika i kód za zlomek ceny. Servery v Číně: citlivá data jen s DLP štítem.', 'https://platform.deepseek.com/api_keys'],
   ['chutes', 'Chutes', 'Kredit (platíš spotřebu). Modely Kimi, GLM, DeepSeek.', 'https://chutes.ai/app/api'],
+  ['geminipro', 'Gemini – kredit Google AI Pro', 'Předplatné Pro samo API klíč nedává: obsahuje měsíční kredit na Gemini API. V AI Studiu ho aktivuj (Google Developer Program + Cloud Billing), vytvoř klíč v tomto placeném projektu a vlož ho sem. Vyšší limity než zdarma, obsah se nepoužívá k tréninku. Po vyčerpání kreditu Google účtuje kartu – v Cloud Billing si nastav rozpočet; AVIOR hlídá vlastní strop níže.', 'https://aistudio.google.com/apikey'],
 ];
 /** PAUŠÁL: pevná měsíční cena za výkonné open-source modely (Kimi K2, GLM, DeepSeek, Qwen) – jeden klíč. Ceny ověř na webu. */
 const FLAT = [

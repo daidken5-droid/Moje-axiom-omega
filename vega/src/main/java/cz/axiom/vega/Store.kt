@@ -54,12 +54,19 @@ class Settings(context: Context) {
     var claudeModel: String get() = p.getString("claudeModel", "claude-sonnet-5-5")!!; set(v) = p.edit().putString("claudeModel", v).apply()
     /** Poskytovatel, kterému uživatel povolil placenou spotřebu v rámci rozpočtu (jinak jen schválení po náhledu). */
     fun allowed(provider: String) = p.getBoolean("allow.$provider", false)
+    /** Rozpočet konkrétního poskytovatele (Kč/měsíc); bez vlastního platí společný [budgetKc]. Kredit Pro má vlastní. */
+    fun budgetKc(provider: String): Int = if (p.contains("budget.$provider")) p.getInt("budget.$provider", 0) else budgetKc
+    fun setBudgetKc(provider: String, kc: Int) = p.edit().putInt("budget.$provider", kc.coerceIn(0, 100_000)).apply()
+    fun hasOwnBudget(provider: String) = p.contains("budget.$provider")
+    /** Ověřený model poskytovatele (z „Ověřit“ nebo ze samoopravy) – příště bez zbytečného pokusu o nedostupný model. */
+    fun model(provider: String): String? = p.getString("model.$provider", null)
+    fun setModel(provider: String, model: String) = p.edit().putString("model.$provider", model).apply()
     fun setAllowed(provider: String, v: Boolean) = p.edit().putBoolean("allow.$provider", v).apply()
 
     private fun month() = java.time.YearMonth.now().toString()
     fun spentUsd(provider: String) = p.getFloat("spent.${month()}.$provider", 0f).toDouble()
     fun addSpent(provider: String, usd: Double) = p.edit().putFloat("spent.${month()}.$provider", (spentUsd(provider) + usd).toFloat()).apply()
-    fun spentKcTotal() = listOf("claude", "kimi", "deepseek", "chutes", "nanogpt", "ollama", "synthetic").sumOf { spentUsd(it) } * usdKc
+    fun spentKcTotal() = listOf("claude", "kimi", "deepseek", "chutes", "nanogpt", "ollama", "synthetic", "geminipro").sumOf { spentUsd(it) } * usdKc
 }
 
 /** API klíče: AES-256-GCM s klíčem v Android Keystore; do WebView se nikdy nevrací. */

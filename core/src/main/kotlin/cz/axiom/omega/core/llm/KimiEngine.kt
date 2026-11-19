@@ -38,7 +38,10 @@ class KimiEngine(
     private val labelOverride: String? = null,
     /** Strop výstupu – poskytovatelé s menším limitem jinak vrátí HTTP 400 (HF Inference Providers ~8k). */
     private val maxOut: Int = if (kind == EngineKind.HF) 8192 else Int.MAX_VALUE,
+    /** stream_options.include_usage – přesná spotřeba tokenů (placené kredity); server, který ho nezná, se zkusí znovu bez něj. */
+    private val streamUsage: Boolean = false,
 ) : LlmEngine {
+    @Volatile private var usageSupported = streamUsage
 
     override val id = "kimi:$model@${baseUrl.trimEnd('/')}"
     override val label = labelOverride ?: when (kind) {
@@ -50,7 +53,12 @@ class KimiEngine(
     override val contextBudgetChars = if (kind == EngineKind.HF) 60_000 else 400_000
 
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult = try {
-        generateOnce(messages, options, cancel, onDelta)
+        try { generateOnce(messages, options, cancel, onDelta) } catch (e: EngineException) {
+            // server nezná stream_options (HTTP 400) → bez něj; útrata se pak odhadne z délky textu
+            if (usageSupported && e.message.orEmpty().let { it.contains("HTTP 400") && Regex("(?i)stream_options|include_usage|unknown name|unrecognized").containsMatchIn(it) }) {
+                usageSupported = false; generateOnce(messages, options, cancel, onDelta)
+            } else throw e
+        }
     } catch (e: EngineException) {
         // poskytovatel nativní nástroje nezná (HTTP 400 „tools“ / „function“) → stejný dotaz bez nich (textový protokol agenta)
         if (options.tools.isNotEmpty() && e.message.orEmpty().let { it.contains("HTTP 400") && Regex("(?i)tool|function").containsMatchIn(it) }) {
@@ -106,6 +114,10 @@ class KimiEngine(
                 usage?.let {
                     usageIn = (it["prompt_tokens"] as? JsonPrimitive)?.longOrNull
                     usageOut = (it["completion_tokens"] as? JsonPrimitive)?.longOrNull
+                    // myšlenkové tokeny (Gemini, o-série) bývají jen v total_tokens – účtují se jako výstup
+                    val total = (it["total_tokens"] as? JsonPrimitive)?.longOrNull
+                    val pin = usageIn
+                    if (total != null && pin != null && total > pin + (usageOut ?: 0)) usageOut = total - pin
                 }
                 true
             }
@@ -136,6 +148,7 @@ class KimiEngine(
     internal fun buildRequest(messages: List<ChatMessage>, options: GenOptions): JsonObject = buildJsonObject {
         put("model", model)
         put("stream", true)
+        if (usageSupported) put("stream_options", buildJsonObject { put("include_usage", true) })
         put("max_tokens", options.maxTokens.coerceAtMost(maxOut))
         if (kind != EngineKind.KIMI_CLOUD) put("temperature", options.temperature.toDouble())
         effortMapper?.invoke(options.effort)?.let { put("reasoning_effort", it) }

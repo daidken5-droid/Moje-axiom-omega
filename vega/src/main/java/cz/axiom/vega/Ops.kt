@@ -339,11 +339,15 @@ class Ops(private val context: Context, val emit: (String, JSONObject) -> Unit) 
         if (settings.airgap) throw ToolError("Air-gap je zapnutý – model v cloudu nevolám. Ruční nástroje fungují.")
         val pick = engines.pick() ?: throw NoEngine()
         val chars = messages.sumOf { it.content.length }
-        if (consent != null && !consented.contains("${consent.first}|${pick.provider}")) {
-            val r = ask("consent", JSONObject().put("target", "${pick.provider} · ${pick.model}").put("chars", chars).put("items", JSONArray(consent.second))
+        // souhlas platí pro CELÝ řetěz (při limitu může odpověď převzít záloha) – změní-li se řetěz, ptám se znovu
+        val chainKey = "${consent?.first}|" + pick.chain.joinToString(",") { it.first }
+        if (consent != null && !consented.contains(chainKey)) {
+            val r = ask("consent", JSONObject().put("target", pick.chain.first().let { "${it.first} · ${it.second}" })
+                .put("fallback", JSONArray(pick.chain.drop(1).map { it.first })).put("notes", JSONArray(pick.notes))
+                .put("chars", chars).put("items", JSONArray(consent.second))
                 .put("paid", pick.paid).put("estimateKc", engines.estimateKc(pick, chars, maxTokens)), 300)
             if (!r.optBoolean("ok")) throw ToolError("Neodesláno – bez tvého souhlasu podklady neopouštějí telefon.")
-            consented += "${consent.first}|${pick.provider}"
+            consented += chainKey
         }
         val sb = StringBuilder(); var last = 0L
         val res = try {
@@ -613,7 +617,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun memoryJson(): JSONArray = JSONArray().apply { memory.all().forEach { e -> put(JSONObject().put("id", e.id).put("text", e.text).put("kind", e.kind.label).put("scope", e.scope).put("why", e.why()).put("canRevert", e.history.isNotEmpty())) } }
 
     fun settingsJson(): JSONObject = JSONObject().put("budgetKc", settings.budgetKc).put("spentKc", settings.spentKcTotal()).put("initiative", settings.initiative).put("airgap", settings.airgap)
-        .put("keys", JSONObject().apply { engines.PROVIDERS.forEach { put(it, vault.has(it)) } }).put("allowed", JSONObject().apply { listOf("claude", "deepseek").forEach { put(it, settings.allowed(it)) } })
+        .put("keys", JSONObject().apply { engines.PROVIDERS.forEach { put(it, vault.has(it)) } }).put("allowed", JSONObject().apply { engines.PAID.forEach { put(it, settings.allowed(it)) } })
+        .put("budgets", JSONObject().apply { engines.PAID.forEach { put(it, settings.budgetKc(it)) } })
+        .put("spent", JSONObject().apply { engines.PAID.forEach { put(it, settings.spentUsd(it) * settings.usdKc) } })
+        .put("models", JSONObject().apply { engines.PROVIDERS.forEach { p -> settings.model(p)?.let { put(p, it) } } })
         .put("claudeModel", settings.claudeModel).put("indexed", index.list().size)
 
     fun runJson(id: String): JSONObject? = run(id)?.let { r -> runCard(r).put("stepValues", JSONArray().apply { r.results.forEach { put(it.value?.let { v -> valueJson(v, 500) } ?: JSONObject.NULL) } }).put("input", valueJson(r.input, 100)) }

@@ -220,9 +220,21 @@ class Bridge(private val a: MainActivity) {
             "airgap" -> s.airgap = value == "true"
             "claudeModel" -> s.claudeModel = value
             "pinned" -> s.pinned = value.split(',')
-            else -> if (key.startsWith("allow.")) s.setAllowed(key.removePrefix("allow."), value == "true")
+            else -> when {
+                key.startsWith("allow.") -> s.setAllowed(key.removePrefix("allow."), value == "true")
+                key.startsWith("budget.") -> s.setBudgetKc(key.removePrefix("budget."), value.toIntOrNull() ?: 0)
+            }
         }
     }
-    @JavascriptInterface fun saveKey(provider: String, key: String) = safe { require(provider in ops.engines.PROVIDERS); ops.vault.save(provider, key); true }
+    @JavascriptInterface fun saveKey(provider: String, key: String) = safe {
+        require(provider in ops.engines.PROVIDERS) { "Neznámý poskytovatel" }
+        val k = key.trim()
+        // klíč nikdy neprojde zpět do WebView; formát: bez mezer, rozumná délka (vložený celý odstavec ≠ klíč)
+        require(k.isEmpty() || (k.length in 16..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
+        ops.vault.save(provider, k)
+        if (k.isNotEmpty()) Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start()
+        true
+    }
+    @JavascriptInterface fun checkKey(provider: String) = safe { Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
     @JavascriptInterface fun index() = safe { JSONArray(ops.index.list()) }
 }
