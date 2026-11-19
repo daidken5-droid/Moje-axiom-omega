@@ -28,7 +28,17 @@ Další pravidla:
     - „dnes“ v počtu dní bere čas z parametru.
   - **Mrtvý kód:** nic, všechny veřejné funkce jádra se používají.
   - **Zbývá:** DNS rebinding (překlad ověřený zvlášť před spojením) jde plně řešit jen vlastním resolverem. Je to zapsané v Problémech.
-- [ ] 2. Úklid úložiště podle stáří a velikosti: `resume/`, `taskfile/`, `cache/long`, `evidence/`, staré `run/` (velké přílohy uložit jednou podle otisku)
+- [x] 2. Úklid úložiště podle stáří a velikosti: `resume/`, `taskfile/`, `cache/long`, `evidence/`, staré `run/` (velké přílohy uložit jednou podle otisku)
+  - **Výsledek:** `Housekeeping` běží při startu na výkonném vlákně. HousekeepingTest (2 testy) prošel.
+  - **Nalezený únik:** seznam chatů se ořezával na 50, ale zprávy, podklady, návrhy, rozpracované dotazy a porovnání vypadlých chatů zůstávaly navždy. Teď se mažou.
+  - **Mazání podle stáří:**
+    - dočasný chat po 1 dni;
+    - „Pokračovat“ po 7 dnech;
+    - mezivýsledky dlouhých zadání po 3 dnech;
+    - úlohy bez odkazu po 30 dnech;
+    - osiřelé přílohy úloh (ukládají se jednou podle otisku).
+  - **Bezpečnost úklidu:** chybějící nebo rozbitý seznam chatů = nic se nemaže.
+  - `Kv.modified()` je nová funkce. Verze 1.4.0 (versionCode 6).
 - [ ] 3. Web: proč DuckDuckGo z kontejneru nic nevrací; záložní vyhledávání (Wikipedie search už je); test parseru na uloženém HTML
 - [ ] 4. Kontrola všech regexů na Android (ICU): u každého `Regex("…")` ve VEGA ověřit konstrukce; rozšířit AndroidRegexTest o `\b` za ne-ASCII
 - [ ] 5. Autonomie krok 1: `SelfTune` deník signálů slabin (chyby, opravy uživatele, Stop, špatný záměr, pomalé kroky) + test

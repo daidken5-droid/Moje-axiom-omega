@@ -75,7 +75,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
 
-    init { cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool()) }
+    init {
+        cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
+        // úklid úložiště na výkonném vlákně (nesoupeří s běžící úlohou o stejné soubory)
+        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) } }
+    }
 
     // ------------------------------------------------------------------ infrastruktura
 

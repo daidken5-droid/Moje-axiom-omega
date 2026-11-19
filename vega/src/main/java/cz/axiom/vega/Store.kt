@@ -32,6 +32,7 @@ class FileKv(private val root: File) : Kv {
         if (!tmp.renameTo(t)) { t.writeText(value); tmp.delete() }
     }
     @Synchronized override fun delete(key: String) { f(key).delete() }
+    override fun modified(key: String) = f(key).lastModified()
     @Synchronized override fun keys(prefix: String): List<String> {
         val dir = f(prefix).let { if (prefix.endsWith("/")) it else it.parentFile } ?: return emptyList()
         return dir.walkTopDown().filter { it.isFile && !it.name.startsWith(".") }.map { it.relativeTo(root).path.replace('\\', '/') }.filter { it.startsWith(prefix) }.toList()

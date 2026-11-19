@@ -16,13 +16,17 @@ interface Kv {
     fun write(key: String, value: String)
     fun delete(key: String)
     fun keys(prefix: String): List<String>
+    /** Čas poslední změny (ms), 0 = neznámý (úklid podle stáří ho pak nechá být). */
+    fun modified(key: String): Long = 0L
 }
 
-class MemKv : Kv {
+class MemKv(private val clock: () -> Long = System::currentTimeMillis) : Kv {
     val map = LinkedHashMap<String, String>()
+    val times = HashMap<String, Long>()
     override fun read(key: String) = map[key]
-    override fun write(key: String, value: String) { map[key] = value }
-    override fun delete(key: String) { map.remove(key) }
+    override fun write(key: String, value: String) { map[key] = value; times[key] = clock() }
+    override fun delete(key: String) { map.remove(key); times.remove(key) }
+    override fun modified(key: String) = times[key] ?: 0L
     override fun keys(prefix: String) = map.keys.filter { it.startsWith(prefix) }
 }
 
