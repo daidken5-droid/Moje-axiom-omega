@@ -41,8 +41,8 @@ function hello() {
 const GREETS = [n => `${hello()}${n ? ', ' + n : ''}. Co dnes vyřešíme?`, n => `Na čem budeme pracovat${n ? ', ' + n : ''}?`, n => `Jak ti můžu pomoct${n ? ', ' + n : ''}?`,
   n => `Co tě dnes zajímá${n ? ', ' + n : ''}?`, n => `Pošli soubor, otázku nebo nápad${n ? ', ' + n : ''}.`];
 let greetI = Math.floor(Math.random() * GREETS.length);
-const STAR = `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="vg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fb2ff"/><stop offset=".55" stop-color="#5b8cff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
-  <path d="M32 2c2.2 15.6 14.4 27.8 30 30-15.6 2.2-27.8 14.4-30 30-2.2-15.6-14.4-27.8-30-30C17.6 29.8 29.8 17.6 32 2z" fill="url(#vg)"/></svg>`;
+/** Vlastní znak VEGA (stejné „V“ s modrou stopou jako ikona aplikace). */
+const STAR = `<svg viewBox="18 26 72 56" aria-hidden="true"><path class="v-body" fill="#F1EEE7" d="M24,35h12l15,28 11,-20h12L55,77h-9z"/><path class="v-trail" fill="#5B8CFF" d="M49,32h29l6,10 -10,17 -6,-10 4,-7H55z"/></svg>`;
 const VOICE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"/></svg>`;
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const procs = () => (S.procs = S.procs || call('procedures') || []);
@@ -82,7 +82,7 @@ function emptyState() {
   const btns = (h.buttons || []).slice(0, 6).map(b => `<button class="btnchip" data-act="runBtn" data-id="${esc(b.id)}" data-kind="${esc(b.inputKind)}"><i></i>${esc(b.name)}</button>`);
   if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
   const noModel = !h.engine && !h.own;
-  return `<div class="hello"><button class="star" data-act="star" aria-label="Jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
+  return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
     ${noModel ? `<div class="quiet">Rozhovor potřebuje model – <button class="linkbtn" data-act="settings">Gemini zdarma nebo vlastní server</button>. Nástroje fungují i bez něj.</div>` : ''}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
 }
