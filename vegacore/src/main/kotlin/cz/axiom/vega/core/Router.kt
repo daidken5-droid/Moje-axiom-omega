@@ -73,6 +73,8 @@ object Router {
         c.procedures?.find(text)?.let { p -> if (c.hasAttachment || p.inputKind == "TEXT") return Intent.RunProcedure(p) }
         // --- výpis → nástroj
         if (has(t, "vypis") && has(t, "nastroj|kazdy tyden|pokazde|zpracuj|zpracovat|parser|z toho")) return Intent.BuildStatementTool
+        // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu
+        if (c.hasAttachment && has(t, "vypis|csv|export") && has(t, "spocitej|secti|kolik|prijm|vydaj|saldo|soucet|bilanc")) return Intent.BuildStatementTool
         // --- NFC
         if (has(t, "\\bnfc\\b|stitek|ndef|\\btag\\b")) return Intent.Nfc
         // --- předžalobní výzva

@@ -37,6 +37,13 @@ function hello() {
   const h = new Date().getHours();
   return h < 5 ? 'Dobrou noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Ahoj' : 'Dobrý večer';
 }
+/** Pozdravy na úvodní obrazovce – střídají se klepnutím na hvězdu (oslovení podle Nastavení). */
+const GREETS = [n => `${hello()}${n ? ', ' + n : ''}. Co dnes vyřešíme?`, n => `Na čem budeme pracovat${n ? ', ' + n : ''}?`, n => `Jak ti můžu pomoct${n ? ', ' + n : ''}?`,
+  n => `Co tě dnes zajímá${n ? ', ' + n : ''}?`, n => `Pošli soubor, otázku nebo nápad${n ? ', ' + n : ''}.`];
+let greetI = Math.floor(Math.random() * GREETS.length);
+const STAR = `<svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="vg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fb2ff"/><stop offset=".55" stop-color="#5b8cff"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+  <path d="M32 2c2.2 15.6 14.4 27.8 30 30-15.6 2.2-27.8 14.4-30 30-2.2-15.6-14.4-27.8-30-30C17.6 29.8 29.8 17.6 32 2z" fill="url(#vg)"/></svg>`;
+const VOICE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"/></svg>`;
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const procs = () => (S.procs = S.procs || call('procedures') || []);
 const chatId = () => S.space.kind === 'temp' ? 'temp' : S.space.kind === 'project' ? 'proj-' + S.space.id : S.space.id;
@@ -53,6 +60,7 @@ let msgsCount = 0;
 function renderStream() {
   const list = msgs(); msgsCount = list.length;
   const el = $('#stream');
+  document.body.classList.toggle('chatting', !!list.length || S.busy);
   if (!list.length && !S.busy) { el.innerHTML = emptyState(); S.lastCard = null; renderChips(); return; }
   el.innerHTML = list.map(m => m.role === 'user'
     ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
@@ -70,9 +78,13 @@ function emptyState() {
     const p = call('project', S.space.id) || {};
     return `<div class="hello"><h1>${esc(p.name || 'Projekt')}</h1><p>${p.next ? esc(p.next) : 'Co se má udělat?'}</p></div>`;
   }
-  const h = call('home') || {};
-  return `<div class="hello"><h1>${hello()}</h1><p>Jak ti můžu pomoct?</p>
-    ${h.engine ? '' : `<div class="quiet">Pro rozhovor přidej klíč Gemini – <button data-act="settings">Nastavení</button></div>`}</div>`;
+  const h = S.home = call('home') || {};
+  const btns = (h.buttons || []).slice(0, 6).map(b => `<button class="btnchip" data-act="runBtn" data-id="${esc(b.id)}" data-kind="${esc(b.inputKind)}"><i></i>${esc(b.name)}</button>`);
+  if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
+  const noModel = !h.engine && !h.own;
+  return `<div class="hello"><button class="star" data-act="star" aria-label="Jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
+    ${noModel ? `<div class="quiet">Rozhovor potřebuje model – <button class="linkbtn" data-act="settings">Gemini zdarma nebo vlastní server</button>. Nástroje fungují i bez něj.</div>` : ''}
+    ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
 }
 const start = (g, t, s, act) => `<button class="start" data-act="start" data-v="${esc(act)}"><span class="glyph">${esc(g)}</span><span><b>${esc(t)}</b><small>${esc(s)}</small></span></button>`;
 
@@ -125,10 +137,28 @@ function card(c, isLast) {
     case 'diff': {
       const add = c.files.reduce((a, f) => a + f.added, 0), rem = c.files.reduce((a, f) => a + f.removed, 0), v = c.verification;
       const vp = v ? (v.kind === 'run' ? `<span class="pill ${v.exitCode === 0 ? 'ok' : 'bad'}">${v.exitCode === 0 ? 'testy prošly' : 'testy neprošly'}</span>` : `<span class="pill">${esc(v.label)}</span>`) : '';
-      return `<div class="res"><div class="res-h">Změny v projektu ${vp}</div>
-        <div class="res-big">+${add} −${rem}</div><div class="res-sub">${plural(c.files.length, 'soubor', 'soubory', 'souborů')}: ${c.files.slice(0, 3).map(f => esc(f.path)).join(', ')}</div>
-        <div class="res-a">${c.changes[0] ? `<button class="btn primary" data-act="undo" data-p="${esc(c.project)}" data-c="${c.changes[0].id}">Vrátit</button>` : ''}<span class="grow"></span>
-        <button class="btn" data-act="showDiff" data-p="${esc(c.project)}">Rozdíl</button>${v ? `<button class="more" data-act="showVer" data-ver='${esc(JSON.stringify(v))}' aria-label="Výstup ověření">⋯</button>` : ''}</div></div>`;
+      const task = (c.task || []), mine = (c.changes || []).filter(x => task.includes(x.id));
+      // výběr změn: jen u poslední karty a když úloha udělala víc změn
+      const pick = isLast && mine.length > 1 ? `<div class="res-body">${mine.slice().reverse().map(x => `<label class="chk"><input type="checkbox" data-keep="${x.id}" checked><span><b>#${x.id} ${esc(x.path)}</b><small>${esc(x.note || x.op)}</small></span></label>`).join('')}</div>` : '';
+      const rounds = (c.rounds || []).length > 1 ? ` · ${c.rounds.length} kola (${c.rounds.map(r => r.exitCode === 0 ? '✓' : '✗').join(' ')})` : '';
+      return `<div class="res"><div class="res-h">${esc(c.title || 'Změny v projektu')} ${vp}</div>
+        <div class="res-big">+${add} −${rem}</div><div class="res-sub">${plural(c.files.length, 'soubor', 'soubory', 'souborů')}: ${c.files.slice(0, 3).map(f => esc(f.path)).join(', ')}${c.revision ? ` · revize ${esc(c.revision)}` : ''}${rounds}</div>${pick}
+        <div class="res-a">${c.resumeTask ? `<button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit úlohu</button>` : pick ? `<button class="btn primary" data-act="keep" data-p="${esc(c.project)}" data-task="${task.join(',')}">Přijmout vybrané</button>` : !c.title && c.changes && c.changes[0] ? `<button class="btn" data-act="undo" data-p="${esc(c.project)}" data-c="${c.changes[0].id}">Vrátit</button>` : ''}<span class="grow"></span>
+        <button class="btn" data-act="cardDiff" data-files='${esc(JSON.stringify(c.files))}'>Rozdíl</button>${v ? `<button class="more" data-act="showVer" data-ver='${esc(JSON.stringify(v))}' aria-label="Výstup testu">⋯</button>` : ''}</div></div>`;
+    }
+    case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry">Pokračovat</button></div></div>` : '';
+    case 'project': return c.resumeTask ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit přerušenou úlohu</button></div>` : '';
+    case 'memScope': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn" data-act="memGlobal" data-t="${esc(c.text)}">Uložit pro všechno</button><button class="btn ghost" data-act="libTab" data-tab="projects">Otevřít projekt</button></div>` : '';
+    case 'procedure': return `<div class="res-a" style="padding-left:0"><button class="btnchip" data-act="runBtn" data-id="${esc(c.id)}" data-kind="BYTES"><i></i>${esc(c.name)} · v${c.version}</button></div>`;
+    case 'buttonDraft': {
+      const checks = (c.checks || []).map(k => `<li><span class="pill ${k.ok ? 'ok' : 'bad'}">${k.ok ? 'prošlo' : 'neprošlo'}</span> ${esc(k.file)}<small>${esc(k.note)}</small></li>`).join('');
+      return `<div class="res"><div class="res-h">Návrh tlačítka ${c.offline ? '<span class="pill ok">bez sítě</span>' : '<span class="pill">potřebuje síť</span>'}</div>
+        <div class="res-body"><input class="field" id="btnName" value="${esc(c.name)}" aria-label="Název tlačítka">
+        <h4 class="note" style="margin:12px 0 2px">Pevné kroky</h4><ul class="steps">${c.fixed.map(f => `<li>${esc(f.title)}<small>${esc(f.detail)}</small></li>`).join('')}</ul>
+        <h4 class="note" style="margin:8px 0 2px">Proměnné při spuštění</h4><ul class="steps">${c.variable.map(v => `<li>${esc(v.detail)}</li>`).join('')}</ul>
+        <h4 class="note" style="margin:8px 0 2px">Oprávnění</h4><p class="note">${c.perms.map(esc).join(', ')}</p>
+        <h4 class="note" style="margin:8px 0 2px">Ověřeno na</h4><ul class="steps">${c.verifiedOn.map(f => `<li>${esc(f)}</li>`).join('')}${checks}</ul></div>
+        ${isLast ? `<div class="res-a"><button class="btn ${c.canSave ? '' : 'primary'}" data-act="btnTry">Vyzkoušet na jiném souboru</button><span class="grow"></span><button class="btn ${c.canSave ? 'primary' : ''}" data-act="btnSave" ${c.canSave ? '' : 'disabled style="opacity:.45"'}>Uložit a připnout</button></div>` : ''}</div>` + (c.value ? `<div class="res"><div class="res-body" style="padding-bottom:12px">${valueHtml(c.value, 4)}</div></div>` : '');
     }
     case 'verification': { const v = c.verification; return `<div class="res"><div class="res-h">Ověření</div><div class="res-big">${v.kind !== 'run' && v.kind !== 'static' ? 'Neověřeno' : v.exitCode === 0 ? 'Prošlo' : 'Neprošlo'}</div><div class="res-sub">${esc(v.label)} · rev ${esc(v.revision)}</div><div class="res-a"><span class="grow"></span><button class="btn" data-act="showVer" data-ver='${esc(JSON.stringify(v))}'>Výstup</button></div></div>`; }
     case 'sources': return `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${c.candidates.length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
@@ -168,12 +198,20 @@ function renderChips() {
   $('#files').innerHTML = S.files.map(f => `<span class="file">📎 ${esc(f.name)}<button data-act="dropFile" data-id="${esc(f.id)}" aria-label="Odebrat">×</button></span>`).join('');
   $('#mode').innerHTML = S.tool ? `<span class="mode">${esc(S.tool.title)}${S.toolInput ? ' · na předchozí výsledek' : ''}<button data-act="exitTool" aria-label="Zrušit nástroj">×</button></span>` : '';
   const go = $('#go'); const empty = !S.busy && !$('#input').value.trim() && !S.files.length && !S.tool;
-  go.className = 'round ' + (S.busy ? 'stop' : 'go') + (empty ? ' empty' : ''); go.textContent = S.busy ? '■' : '↑'; go.dataset.act = S.busy ? 'stop' : 'send';
-  go.setAttribute('aria-label', S.busy ? 'Zastavit' : 'Odeslat');
+  // prázdné pole = hlas (jako u moderních asistentů), s textem = odeslat, při práci = zastavit
+  go.className = 'round ' + (S.busy ? 'stop' : empty ? 'go voice' : 'go');
+  if (S.busy) go.textContent = '■'; else if (empty) go.innerHTML = VOICE; else go.textContent = '↑';
+  go.dataset.act = S.busy ? 'stop' : empty ? 'voice' : 'send';
+  go.setAttribute('aria-label', S.busy ? 'Zastavit' : empty ? 'Mluvit' : 'Odeslat');
   $('#input').placeholder = S.tool ? ((S.tool.input || []).includes('URL') ? 'Vlož adresu…' : 'Vlož text nebo přilož soubor…') : S.space.kind === 'project' ? 'Co se má v projektu udělat?' : 'Zeptej se VEGA';
 }
-function renderTop() { $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name + ' ▾' : 'VEGA'; }
-function render() { renderTop(); renderStream(); }
+function renderTop() {
+  const h = S.home || call('home') || {};
+  $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name : 'VEGA';
+  $('#modelName').textContent = h.model ? '· ' + h.model : '';
+  $('#avatar').textContent = (h.userName || 'V').trim().charAt(0).toUpperCase() || 'V';
+}
+function render() { S.home = null; renderStream(); renderTop(); }
 
 /* ------------------------------------------------------------------ listy */
 function sheet(html, full) {
@@ -299,7 +337,17 @@ function settingsSheet() {
     <div class="inline" style="margin-top:8px"><input class="field" type="password" id="key-${k}" placeholder="${s.keys[k] ? 'Nový klíč přepíše uložený' : 'Vlož API klíč'}" autocomplete="off"><button class="btn primary" data-act="saveKey" data-k="${k}">Uložit</button></div>
     <div class="status" id="kc-${k}">${s.models[k] ? 'Odpovídá: ' + esc(s.models[k]) : ''}${s.keys[k] ? ` <button class="btn ghost" data-act="checkKey" data-k="${k}" style="min-height:0;padding:0 6px">Ověřit</button>` : ''}</div></div>`;
   sheet(`<h2>Nastavení</h2>
-    <h3>Model</h3>
+    <h3>Ty</h3>
+    <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>
+    <h3>Vlastní model</h3>
+    <div class="card"><div class="note">Server s otevřeným modelem (llama.cpp server, Ollama, vLLM…) s OpenAI API. Doma v síti stačí <b>http://192.168.x.x:8080/v1</b>, přes internet jen https.</div>
+      <label class="lbl">Adresa serveru</label><input class="field" id="ownUrl" value="${esc(s.ownUrl || '')}" placeholder="http://192.168.1.20:8080/v1" inputmode="url" autocomplete="off">
+      <label class="lbl">Model (prázdné = první, který server nabízí)</label><input class="field" id="ownModel" value="${esc(s.ownModel || '')}" placeholder="např. qwen2.5-7b-instruct" autocomplete="off">
+      <label class="lbl">Klíč serveru (nepovinné)</label><input class="field" type="password" id="ownKey" placeholder="${s.ownKey ? 'uloženo – nový přepíše' : 'jen když ho server vyžaduje'}" autocomplete="off">
+      <button class="btn primary wide" data-act="saveOwn" style="margin-top:10px">Uložit a ověřit</button><div class="status" id="kc-own"></div></div>
+    <label class="switch"><span><b>Pouze vlastní modely</b><small>celý požadavek jen na tvém serveru – žádné komerční API ani při výpadku</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
+    <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}</p>
+    <h3>Model v cloudu</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> v projektu bez fakturace. Model Gemini 4 Hydrogen, pokud ho tvůj klíč už má. V Česku se data z bezplatné kvóty nepoužívají k tréninku.')}
     <details ${s.keys.geminipro ? 'open' : ''}><summary>Mám předplatné Google AI Pro</summary>
       ${keyRow('geminipro', 'Gemini – kredit Pro', 'Pro samo klíč nedává, obsahuje měsíční kredit (~10 USD). Aktivuj ho v AI Studiu, v tom placeném projektu vytvoř klíč a vlož ho sem. Použije se, až dojde bezplatná kvóta.')}
@@ -308,6 +356,7 @@ function settingsSheet() {
         <p class="note">Doporučuji strop pod kreditem. Počítám skutečné tokeny včetně přemýšlení a rezervuji odhad předem. Útratu mimo VEGA (AI Studio, jiné aplikace) nevidím – v Cloud Billing si nastav rozpočet i u Google. Bez povolení se zeptám u každého úkolu.</p>` : ''}
     </details>
     <h3>Soukromí a chování</h3>
+    <label class="switch"><span><b>Veřejný web</b><small>rešerše a čtení odkazů – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
     <label class="switch"><span><b>Air-gap</b><small>žádná síť – fungují jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
     <label class="switch"><span><b>Iniciativa</b><small>navrhnu další krok u projektu</small></span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></label>
     <details><summary>Pokročilé</summary>
@@ -321,7 +370,27 @@ function settingsSheet() {
       <label class="lbl">Kurz USD → Kč</label><input class="field" type="number" step="0.1" min="10" max="60" data-usdkc value="${s.usdKc || 23.5}">
       <p class="note">Tento měsíc utraceno celkem ${fmt(s.spentKc)} Kč. Lokální index: ${s.indexed} souborů.</p>
     </details>
-    <p class="note" style="margin-top:24px">VEGA 1.2 · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
+    <p class="note" style="margin-top:24px">VEGA 1.3 · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
+}
+
+/** Rychlá volba z model-pillu: kdo odpovídá a kam smí data. Stejné přepínače jako v Nastavení. */
+function modelSheet() {
+  const s = call('settings') || {}; const h = call('home') || {};
+  sheet(`<h2>Kdo odpovídá</h2><p class="lede">Teď: <b>${esc(h.model || 'bez modelu')}</b></p>
+    <label class="switch"><span><b>Pouze vlastní modely</b><small>${s.ownUrl ? esc(s.ownUrl) : 'server zatím není nastavený'}</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Veřejný web</b><small>rešerše, zdroje, odkazy</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Bez sítě (air-gap)</b><small>jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
+    <div class="list" style="margin-top:12px"><button class="row" data-act="settings"><span class="grow"><b>Vlastní server a klíče…</b><small>adresa, model, Gemini zdarma, kredit Pro</small></span><span class="end">›</span></button>
+    <button class="row" data-act="temp"><span class="grow"><b>Dočasný chat</b><small>nic se neukládá</small></span></button></div>`);
+}
+function saveOwn() {
+  const url = ($('#ownUrl') || {}).value.trim(), model = ($('#ownModel') || {}).value.trim(), key = ($('#ownKey') || {}).value.trim();
+  if (call('setSetting', 'ownUrl', url) === null) return;
+  call('setSetting', 'ownModel', model);
+  if (key) call('saveKey', 'own', key);
+  const st = $('#kc-own'); if (st) st.textContent = url ? 'Ověřuji server…' : 'Vlastní server odebrán.';
+  if (url) B.checkKey('own');
+  S.home = null; renderTop();
 }
 
 function demandSheet(s) {
@@ -440,6 +509,7 @@ window.vega = {
       case 'error': S.busy = false; S.stream = ''; render(); toast(d.text, 7000); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
+        if (S.awaitTry) { S.awaitTry = false; if (ok.length) { S.busy = true; call('buttonTry', chatId(), ok[0].id); render(); } return; }
         if (S.awaitProc) { // soubor vybraný pro uložený nástroj patří jen jemu
           const id = S.awaitProc; S.awaitProc = null;
           if (ok.length) { S.busy = true; call('runProcedure', chatId(), id, { file: ok[0].id }); render(); if (ok.length > 1) toast('Nástroj jsem spustil na prvním souboru.'); }
@@ -448,7 +518,8 @@ window.vega = {
         S.files = S.files.concat(ok); renderChips(); break;
       }
       case 'shared': { const i = $('#input'); i.value = d.text; autosize(); toast('Sdílený text je v poli – zkontroluj a odešli.'); break; }
-      case 'project': if (d.id) { const p = call('project', d.id); setSpace({ kind: 'project', id: d.id, name: p ? p.name : 'Projekt' }); if (d.imported !== undefined) toast(`Importováno ${d.imported} souborů (kopie).`); } break;
+      case 'voice': { const g = $('#go'); if (g) g.classList.remove('listen'); if (d.ok && d.text) { const i = $('#input'); i.value = (i.value ? i.value + ' ' : '') + d.text; autosize(); renderChips(); i.focus(); } else if (d.error) toast(d.error); break; }
+      case 'project': if (d.silent) { S.home = null; renderTop(); break; } if (d.id) { const p = call('project', d.id); setSpace({ kind: 'project', id: d.id, name: p ? p.name : 'Projekt' }); if (d.imported !== undefined) toast(`Importováno ${d.imported} souborů (kopie).`); } break;
       case 'ask.closed': if (S.req === d.req) { S.req = null; closeSheet(true); } break;
       case 'consent':
         if (S.req === d.req) break;
@@ -486,6 +557,23 @@ window.vega = {
 function act(a, d) {
   switch (a) {
     case 'send': send(); break;
+    case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(); } break;
+    case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
+    case 'say': $('#input').value = d.v; send(); break;
+    case 'retry': if (busyGuard()) return; S.busy = true; call('retry', chatId()); render(); break;
+    case 'resumeTask': if (busyGuard()) return; S.busy = true; call('resumeTask', chatId(), d.p); render(); break;
+    case 'keep': { if (busyGuard()) return; const keep = [...document.querySelectorAll('[data-keep]')].filter(x => x.checked).map(x => x.dataset.keep);
+      if (!keep.length) { toast('Vyber aspoň jednu změnu – nebo použij Vrátit.'); return; } S.busy = true; call('keepChanges', chatId(), d.p, d.task, keep.join(',')); render(); break; }
+    case 'cardDiff': { const fs = JSON.parse(d.files); sheet(`<h2>Rozdíl</h2>${fs.map(f => `<h3>${esc(f.path)} · +${f.added} −${f.removed}</h3>${diffHtml(f.diff)}`).join('')}`, true); break; }
+    case 'btnTry': if (busyGuard()) return; S.awaitTry = true; toast('Vyber JINÝ soubor stejného typu – ověřím na něm stejné kroky.'); B.pickFiles(); break;
+    case 'btnSave': { const n = ($('#btnName') || {}).value || ''; const r = call('buttonSave', chatId(), n); if (r) { S.procs = null; toast(`Připnuto: ${r.name} (v${r.version})`); render(); } break; }
+    case 'runBtn': if (busyGuard()) return; if (d.kind === 'TEXT') { const t = $('#input').value.trim(); if (!t) { toast('Napiš text, na který tlačítko použiju.'); return; } S.busy = true; call('runProcedure', chatId(), d.id, { text: t }); $('#input').value = ''; render(); }
+      else { S.awaitProc = d.id; toast('Vyber soubor – tlačítko ho zpracuje.'); B.pickFiles(); } break;
+    case 'memGlobal': { const r = call('rememberGlobal', d.t); if (r) toast('Uloženo jako globální preference.'); break; }
+    case 'model': modelSheet(); break;
+    case 'profile': settingsSheet(); break;
+    case 'saveOwn': saveOwn(); break;
+    case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
     case 'stop': B.stop(); break;
     case 'plus': plusSheet(); break;
     case 'pick': closeSheet(true); if (S.space.kind === 'temp') { toast('Dočasný chat soubory nepoužívá – otevři běžnou konverzaci.'); return; } B.pickFiles(); break;
@@ -619,6 +707,8 @@ function startAct(v) {
   else if (k === 'panel') projectPanel();
 }
 
+document.addEventListener('focusin', e => { if (e.target.id === 'input') document.body.classList.add('focus'); });
+document.addEventListener('focusout', e => { if (e.target.id === 'input') document.body.classList.remove('focus'); });
 document.addEventListener('click', e => { const t = e.target.closest('[data-act]'); if (!t) return; act(t.dataset.act, t.dataset); });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -631,13 +721,15 @@ document.addEventListener('change', e => {
       if (own) call('setSetting', 'budget.' + own.dataset.budget, own.value);
     }
     call('setSetting', t.dataset.set, String(t.checked));
+    if (t.dataset.set === 'ownOnly' && t.checked && !(call('settings') || {}).ownUrl) toast('Režim je zapnutý, ale vlastní server zatím není nastavený – do té doby model neodpoví (nástroje fungují).', 6000);
+    S.home = null; renderTop();
   }
   if (t.dataset.budget) call('setSetting', 'budget.' + t.dataset.budget, t.value);
   if (t.dataset.budgetall !== undefined) call('setSetting', 'budgetKc', t.value);
   if (t.dataset.usdkc !== undefined) call('setSetting', 'usdKc', t.value);
 });
 document.addEventListener('input', e => {
-  if (e.target.id === 'input') { autosize(); renderChips(); }
+  if (e.target.id === 'input') { autosize(); renderChips(); document.body.classList.add('typing'); clearTimeout(S.typingT); S.typingT = setTimeout(() => document.body.classList.remove('typing'), 900); }
   if (e.target.id === 'toolq') { const q = e.target.value.toLowerCase(); const ts = (S.tools || []).filter(t => (t.title + ' ' + t.description).toLowerCase().includes(q)); $('#toollist').innerHTML = toolList(ts, [...new Set(ts.map(t => t.group))]); }
 });
 document.addEventListener('keydown', e => {

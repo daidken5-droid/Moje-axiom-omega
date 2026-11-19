@@ -562,6 +562,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val sys = SYSTEM_TALK + style + (memory.context(scope)?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val att = lastAttachment()
         val user = if (att != null && intent.thinkingAloud.not()) "$text\n\n[Příloha ${att.name}:]\n${att.asText().take(20_000)}" else text
+        // čistý výpočet („kolik je 48 × 37“): přesně a bez modelu – model se v aritmetice plete, jádro ne
+        if (att == null && Regex("\\d\\s*[-+*/×·:^x]\\s*\\d|(?i)\\b(odmocnin|procent|kolik dní|převeď)").containsMatchIn(text) && text.length < 160) {
+            offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
+        }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             reply(chat, offline(text) ?: if (settings.airgap) "Air-gap je zapnutý – na tohle potřebuji model v cloudu. Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!)

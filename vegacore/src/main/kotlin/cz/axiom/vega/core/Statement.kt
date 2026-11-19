@@ -120,7 +120,8 @@ object Statement {
 
     /** Hlavička souboru (stejné hledání jako [process]). */
     fun headersOf(text: String, spec: ParserSpec): List<String> {
-        val lines = text.removePrefix("\uFEFF").lines(); val d = spec.delimiter.first()
+        // hlavička bývá v prvních řádcích (úvod banky) – neprocházet celý soubor
+        val lines = text.removePrefix("\uFEFF").lineSequence().take(60).toList(); val d = spec.delimiter.first()
         val known = spec.columns.values.toSet()
         val i = lines.indexOfFirst { l -> val c = Csv.parse(l, d).firstOrNull() ?: emptyList(); if (known.isNotEmpty()) c.count { f(it) in known } >= 2 else c.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(c[spec.dateCol]) == null }
         return if (i >= 0) (Csv.parse(lines[i], d).firstOrNull() ?: emptyList()).map { it.trim() } else emptyList()

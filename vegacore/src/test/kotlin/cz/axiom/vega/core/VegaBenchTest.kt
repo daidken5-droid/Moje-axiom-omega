@@ -8,11 +8,15 @@ import kotlin.test.assertTrue
 class VegaBenchTest {
     private val ctx = object : ToolCtx { override val cancel = CancelToken() }
 
+    private val mx = java.lang.management.ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
     private fun bench(name: String, n: Int, block: () -> Unit): Pair<Double, Double> {
         repeat(5) { block() }
+        val tid = Thread.currentThread().id
+        val a0 = mx.getThreadAllocatedBytes(tid)
         val t = (1..n).map { val s = System.nanoTime(); block(); (System.nanoTime() - s) / 1e6 }.sorted()
+        val alloc = (mx.getThreadAllocatedBytes(tid) - a0) / n / 1024.0 / 1024.0
         val p50 = t[t.size / 2]; val p95 = t[(t.size * 95) / 100 - 1]
-        println("VEGA-BENCH $name: p50 ${"%.2f".format(p50)} ms · p95 ${"%.2f".format(p95)} ms")
+        println("VEGA-BENCH $name: p50 ${"%.2f".format(p50)} ms · p95 ${"%.2f".format(p95)} ms · alokace ${"%.2f".format(alloc)} MB/běh")
         return p50 to p95
     }
 

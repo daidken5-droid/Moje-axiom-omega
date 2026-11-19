@@ -1,32 +1,26 @@
 /* VEGA — „papír a signál“. Světlé, typografické, jedna signální barva. Tmavý režim podle systému. */
 :root {
-  --paper: #f4f1ea;
-  --sheet: #ffffff;
-  --sunk: #ebe7de;
-  --line: #e2ddd2;
-  --ink: #151821;
-  --ink2: #3b3f4a;
-  --muted: #6e6c67;
-  --signal: #ff735f;
-  --signal-ink: #3a130c;
-  --signal-soft: #ffe6e0;
-  --ok: #1f7a4d;
-  --ok-soft: #dff1e6;
-  --bad: #b3261e;
-  --shadow: 0 1px 2px rgba(21, 24, 33, .06), 0 8px 24px rgba(21, 24, 33, .08);
+  /* „noční obloha“: tmavé, klidné, jedna signální modrá; záře u vstupu jako u moderních asistentů */
+  --paper: #0b0d12;
+  --sheet: #161a22;
+  --sunk: #1e232d;
+  --line: #2a303c;
+  --ink: #eef0f5;
+  --ink2: #c9cdd8;
+  --muted: #8d93a3;
+  --signal: #5b8cff;
+  --signal2: #7fb2ff;
+  --signal-ink: #ffffff;
+  --signal-soft: #1a2747;
+  --ok: #6fd39b;
+  --ok-soft: #14301f;
+  --bad: #ff8a80;
+  --glow: #1d3a8a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
   --r: 20px;
   --font: "Google Sans Text", "Google Sans", "Roboto Flex", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Google Sans Mono", "Roboto Mono", ui-monospace, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #111319; --sheet: #191c24; --sunk: #0c0e13; --line: #2a2e39;
-    --ink: #f1eee7; --ink2: #d4d1ca; --muted: #9a98a0;
-    --signal-soft: #3a1d18; --ok: #6fcf97; --ok-soft: #16301f; --bad: #ff8a80;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
@@ -88,7 +82,7 @@ pre { font-family: var(--mono); font-size: 13px; background: var(--sunk); border
 .pill.ok { background: var(--ok-soft); color: var(--ok); }
 .pill.bad { background: var(--signal-soft); color: var(--bad); }
 .pill.sig { background: var(--signal-soft); color: var(--signal-ink); }
-@media (prefers-color-scheme: dark) { .pill.sig { color: var(--signal); } }
+.pill.sig { color: var(--signal2); }
 .btn { min-height: 44px; padding: 10px 16px; border-radius: 14px; background: var(--sunk); font-weight: 600; font-size: 15px; }
 .btn.primary { background: var(--ink); color: var(--paper); }
 .btn.signal { background: var(--signal); color: var(--signal-ink); }
@@ -111,7 +105,7 @@ tr:last-child td { border-bottom: 0; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { flex: none; padding: 9px 14px; border-radius: 999px; background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .chip.sig { background: var(--signal-soft); color: var(--signal-ink); box-shadow: none; }
-@media (prefers-color-scheme: dark) { .chip.sig { color: var(--signal); } }
+.chip.sig { color: var(--signal2); }
 .files { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 6px 8px; }
 .file { display: inline-flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: 12px; background: var(--sheet); font-size: 13px; box-shadow: var(--shadow); }
 .file button { width: 22px; height: 22px; border-radius: 50%; background: var(--sunk); font-size: 13px; }
@@ -167,12 +161,6 @@ details[open] > summary::before { content: "－ "; }
 /* ---------- minimalismus (úvod jako Gemini): menu · titul · nový chat; pozdrav; jeden vstup ---------- */
 .top { justify-content: space-between; padding: 8px 8px 4px; }
 .title { flex: 1; text-align: center; font-weight: 600; font-size: 17px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hello { padding: 0 8px; min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
-.hello h1 { font-size: 40px; line-height: 1.1; letter-spacing: -.03em; font-weight: 600; margin: 0 0 8px;
-  background: linear-gradient(100deg, var(--signal) 0%, #c85a8c 45%, var(--ink) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hello p { font-size: 22px; color: var(--muted); margin: 0; letter-spacing: -.01em; }
-.hello .quiet { margin-top: 28px; font-size: 14px; color: var(--muted); }
-.hello .quiet button { color: var(--ink); text-decoration: underline; text-decoration-color: var(--signal); text-underline-offset: 3px; font-size: 14px; }
 .stream { padding-bottom: 8px; }
 .me { background: var(--sunk); color: var(--ink); border-radius: 20px 20px 6px 20px; }
 .res { box-shadow: none; border: 1px solid var(--line); background: transparent; }
@@ -196,3 +184,70 @@ details[open] > summary::before { content: "－ "; }
 .dscroll { flex: 1; overflow-y: auto; }
 .dnote { padding: 8px 14px; color: var(--muted); font-size: 14px; }
 .dfoot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+
+/* ---------- úvod: hvězda, pozdrav, záře (interaktivní) ---------- */
+body::before { content: ""; position: fixed; left: -30%; right: -30%; bottom: -30vh; height: 62vh; z-index: 0; pointer-events: none;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(37, 78, 190, .55) 0%, rgba(29, 58, 138, .28) 45%, transparent 75%); opacity: .8; transition: opacity .5s ease, transform .6s ease; }
+.top, .stream, .dock { position: relative; z-index: 1; }
+#layer { position: relative; z-index: 5; }
+body.focus::before { opacity: 1; transform: translateY(-3vh); }
+body.typing::before { animation: breathe 1.6s ease-in-out infinite; }
+body.chatting::before { opacity: .35; }
+@keyframes breathe { 0%, 100% { opacity: .85; } 50% { opacity: 1; transform: translateY(-5vh) scale(1.04); } }
+.hello { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 12px 6vh; }
+.star { width: 64px; height: 64px; margin-bottom: 22px; border-radius: 50%; display: grid; place-items: center; animation: float 6s ease-in-out infinite; }
+.star svg { width: 56px; height: 56px; filter: drop-shadow(0 0 18px rgba(91, 140, 255, .45)); transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
+.star.spin svg { transform: rotate(180deg) scale(1.08); }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.hello h1 { font-size: 30px; line-height: 1.2; letter-spacing: -.02em; font-weight: 500; margin: 0; color: var(--ink); max-width: 18ch; transition: opacity .35s ease; }
+.hello h1.fade { opacity: 0; }
+.hello p { font-size: 15px; color: var(--muted); margin: 10px 0 0; }
+.hello .quiet { margin-top: 22px; font-size: 14px; color: var(--muted); }
+.hello .quiet button, .linkbtn { color: var(--signal2); font-size: 14px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 26px; max-width: 520px; }
+.btnchip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: var(--sheet); border: 1px solid var(--line); font-size: 14px; font-weight: 500; }
+.btnchip i { font-style: normal; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 10px var(--signal); }
+.btnchip.cont { border-color: color-mix(in srgb, var(--signal) 55%, var(--line)); }
+@media (prefers-reduced-motion: reduce) { .star, body::before { animation: none !important; } }
+
+/* ---------- horní lišta: menu · model · nový chat · avatar ---------- */
+.top { display: flex; align-items: center; gap: 4px; padding: calc(6px + env(safe-area-inset-top)) 8px 4px; }
+.model { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; font-size: 17px; font-weight: 500; color: var(--ink); max-width: 56vw; }
+.model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.model:active { background: var(--sunk); }
+.model .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--signal); flex: none; }
+.model .dot.own { background: var(--ok); } .model .dot.off { background: var(--muted); }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #fff; background: linear-gradient(135deg, #3b6cf0, #8b5cf6); margin: 0 4px; flex: none; }
+.title { display: none; }
+
+/* ---------- vstup ---------- */
+.bar { border-radius: 30px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--sheet) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 8px 40px rgba(29, 58, 138, .25); align-items: flex-end; }
+body.focus .bar { border-color: color-mix(in srgb, var(--signal) 45%, var(--line)); }
+.plus { background: none; color: var(--ink2); font-size: 26px; font-weight: 300; }
+.go { background: var(--signal); color: #fff; box-shadow: 0 0 0 0 rgba(91, 140, 255, .5); transition: transform .15s; }
+.go:active { transform: scale(.94); }
+.go.voice svg { width: 22px; height: 22px; }
+.go.listen { animation: ping 1.2s infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(91, 140, 255, .55); } 100% { box-shadow: 0 0 0 16px rgba(91, 140, 255, 0); } }
+.stop { background: var(--ink); color: var(--paper); }
+.me { background: var(--sunk); color: var(--ink); }
+.btn.primary { background: var(--signal); color: #fff; }
+.res-a .btn.primary { background: var(--signal); color: #fff; }
+.btn.signal { background: var(--signal); color: #fff; }
+.switch input:checked { background: var(--signal); }
+.toast { background: var(--sunk); color: var(--ink); border: 1px solid var(--line); }
+.field:focus { border-color: var(--signal); }
+.scrim { background: rgba(0, 0, 0, .5); }
+
+/* ---------- karty nových funkcí ---------- */
+.chk { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.chk:first-child { border-top: 0; }
+.chk input { margin-top: 4px; accent-color: var(--signal); width: 18px; height: 18px; flex: none; }
+.chk small { display: block; color: var(--muted); font-size: 12.5px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 14px; }
+.kv b { color: var(--muted); font-weight: 500; }
+.steps { margin: 6px 0; padding: 0; list-style: none; }
+.steps li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.steps li:first-child { border-top: 0; }
+.steps small { display: block; color: var(--muted); font-size: 12.5px; }
