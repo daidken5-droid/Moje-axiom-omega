@@ -1,7 +1,7 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.agent.Snippet
-import cz.axiom.omega.core.llm.CancelToken
+import cz.axiom.vega.web.Snippet
+import cz.axiom.vega.llm.CancelToken
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject

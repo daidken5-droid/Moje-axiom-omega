@@ -301,7 +301,7 @@ class Bridge(private val a: MainActivity) {
             try {
                 val v = ops.verify(ops.workspace(id))
                 a.send("verified", JSONObject().put("project", id).put("kind", v.kind).put("exitCode", v.exitCode).put("label", v.label).put("output", v.output.take(6000)).put("command", v.command).put("revision", v.revision))
-            } catch (e: cz.axiom.omega.core.llm.CancelledException) { a.send("verified", JSONObject().put("project", id).put("kind", "none").put("exitCode", -1).put("label", "zrušeno"))
+            } catch (e: cz.axiom.vega.llm.CancelledException) { a.send("verified", JSONObject().put("project", id).put("kind", "none").put("exitCode", -1).put("label", "zrušeno"))
             } catch (e: Exception) { a.send("error", JSONObject().put("text", "Testy se nepodařilo spustit: ${e.message?.take(160)}")) }
         }
     }
@@ -322,7 +322,7 @@ class Bridge(private val a: MainActivity) {
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
             "userName" -> s.userName = value
-            "ownUrl" -> { if (value.isNotBlank()) cz.axiom.omega.core.llm.Http.requireAllowed(value.trim()); s.ownUrl = value }
+            "ownUrl" -> { if (value.isNotBlank()) cz.axiom.vega.net.Http.requireAllowed(value.trim()); s.ownUrl = value }
             "ownModel" -> { s.ownModel = value; s.setModel("own", value.trim()) }
             else -> when {
                 key.startsWith("allow.") -> s.setAllowed(key.removePrefix("allow."), value == "true")

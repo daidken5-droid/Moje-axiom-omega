@@ -39,7 +39,7 @@ object Statement {
     private val descNames = listOf("popis", "zpráva", "zprava", "poznámka", "protistrana", "název protiúčtu", "nazev", "obchodník", "description", "counterparty", "message", "účel", "typ")
     private val currencyNames = listOf("měna", "mena", "currency")
 
-    private fun f(s: String) = cz.axiom.omega.core.util.TextUtil.fold(s).lowercase().trim()
+    private fun f(s: String) = cz.axiom.vega.base.Text.fold(s).lowercase().trim()
     private fun findCol(headers: List<String>, names: List<String>): Int {
         val h = headers.map { f(it) }
         names.forEach { n -> h.indexOfFirst { it == f(n) }.takeIf { it >= 0 }?.let { return it } }

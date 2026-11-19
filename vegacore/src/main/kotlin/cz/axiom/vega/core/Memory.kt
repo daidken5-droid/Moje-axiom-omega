@@ -1,6 +1,6 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.vega.base.Text
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -69,9 +69,9 @@ object Mem {
     private val polarity = setOf("strucne", "podrobne", "kratce", "dlouze", "formalne", "neformalne", "anglicky", "cesky", "ano", "ne", "vzdy", "nikdy", "vic", "min", "tykej", "vykej")
 
     /** Téma preference: obsahová slova bez slov polarity („stručně/podrobně“) – aby se protichůdné verze potkaly. */
-    fun topicOf(text: String): String = TextUtil.words(TextUtil.fold(text).lowercase(), 2).filter { it !in STOP && it !in polarity }.take(3).map { it.take(6) }.joinToString(" ")
+    fun topicOf(text: String): String = Text.words(Text.fold(text).lowercase(), 2).filter { it !in STOP && it !in polarity }.take(3).map { it.take(6) }.joinToString(" ")
 
-    fun fingerprint(text: String) = TextUtil.fold(text).lowercase().replace(Regex("[^a-z0-9]+"), " ").trim().hashCode().toString(16)
+    fun fingerprint(text: String) = Text.fold(text).lowercase().replace(Regex("[^a-z0-9]+"), " ").trim().hashCode().toString(16)
 
     private fun fmt(t: Long) = java.time.Instant.ofEpochMilli(t).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime().let { "%d. %d. %d %02d:%02d".format(it.dayOfMonth, it.monthValue, it.year, it.hour, it.minute) }
 }
@@ -88,7 +88,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
 
     /** ODVOZENÝ INDEX (slovo → id) – po zapomenutí se přestaví, takže zapomenuté se nenajde ani hledáním. */
     private fun rebuildIndex() {
-        val idx = load().flatMap { e -> TextUtil.words(TextUtil.fold(e.text).lowercase(), 3).distinct().map { it.take(6) to e.id } }
+        val idx = load().flatMap { e -> Text.words(Text.fold(e.text).lowercase(), 3).distinct().map { it.take(6) to e.id } }
             .groupBy({ it.first }, { it.second }).entries.joinToString("\n") { (w, ids) -> "$w\t${ids.distinct().joinToString(",")}" }
         kv.write("memory/index", idx)
     }
@@ -137,10 +137,10 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     /** Zapomenout (id nebo hledaný text). Smaže záznam i z indexu a zapíše náhrobek proti návratu ze shrnutí. */
     @Synchronized fun forget(idOrQuery: String, scope: String? = null): List<Mem.Entry> {
         val list = load()
-        val q = TextUtil.fold(idOrQuery).lowercase().trim()
+        val q = Text.fold(idOrQuery).lowercase().trim()
         val hit = list.filter { it.id == idOrQuery } .ifEmpty {
-            val words = TextUtil.words(q, 3).map { it.take(6) }
-            list.filter { e -> (scope == null || e.scope == scope || e.scope == "global") && words.isNotEmpty() && words.all { w -> TextUtil.fold(e.text).lowercase().contains(w) } }
+            val words = Text.words(q, 3).map { it.take(6) }
+            list.filter { e -> (scope == null || e.scope == scope || e.scope == "global") && words.isNotEmpty() && words.all { w -> Text.fold(e.text).lowercase().contains(w) } }
         }
         if (hit.isEmpty()) return emptyList()
         val ts = tombstones()

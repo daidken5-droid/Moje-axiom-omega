@@ -198,7 +198,7 @@ class Workspace(val root: File) {
 
     /** Soubory relevantní k zadání (jména symbolů/souborů ve větě) – pro kontext modelu, v limitu znaků. */
     fun relevant(task: String, maxChars: Int = 24_000): List<String> {
-        val words = cz.axiom.omega.core.util.TextUtil.words(task, 3).map { it.lowercase() }.toSet()
+        val words = cz.axiom.vega.base.Text.words(task, 3).map { it.lowercase() }.toSet()
         val syms = symbols()
         val scored = files().filter { !isSecret(it) && it.substringAfterLast('.').lowercase() in TEXT_EXT }.map { p ->
             val n = p.lowercase()

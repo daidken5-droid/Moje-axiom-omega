@@ -1,12 +1,12 @@
 package cz.axiom.vega
 
-import cz.axiom.omega.core.llm.ClaudeEngine
-import cz.axiom.omega.core.llm.CostGuard
-import cz.axiom.omega.core.llm.FreeCloud
-import cz.axiom.omega.core.llm.FreeCloudEngine
-import cz.axiom.omega.core.llm.GuardedEngine
-import cz.axiom.omega.core.llm.KimiEngine
-import cz.axiom.omega.core.llm.LlmEngine
+import cz.axiom.vega.llm.AnthropicEngine
+import cz.axiom.vega.llm.CostGuard
+import cz.axiom.vega.llm.Providers
+import cz.axiom.vega.llm.ChainEngine
+import cz.axiom.vega.llm.GuardedEngine
+import cz.axiom.vega.llm.OpenAiEngine
+import cz.axiom.vega.llm.LlmEngine
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -55,32 +55,32 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     data class Pick(val engine: LlmEngine, val provider: String, val model: String, val paid: Boolean, val chain: List<Pair<String, String>>, val notes: List<String>, val paidIds: List<String>)
 
     /** Vlastní server uživatele (model s otevřenými vahami). Nekomerční – data jdou jen na jeho server. */
-    private fun ownProvider() = FreeCloud.Provider("own", "Vlastní model", settings.ownUrl, preferred = listOf(settings.ownModel.ifBlank { "default" }),
+    private fun ownProvider() = Providers.Provider("own", "Vlastní model", settings.ownUrl, preferred = listOf(settings.ownModel.ifBlank { "default" }),
         signup = "", maxOut = 4096, contextChars = 24_000, dataNote = "Vlastní server (${settings.ownUrl}) – podklady jdou jen tam, žádné komerční API.")
 
     fun ownConfigured() = settings.ownUrl.isNotBlank()
 
-    private fun member(id: String): FreeCloud.Member? {
-        if (id == "own") return if (ownConfigured()) FreeCloud.Member(ownProvider(), vault.read("own") ?: "", settings.model("own") ?: settings.ownModel.ifBlank { "default" }) else null
-        val p = FreeCloud.provider(id) ?: return null
+    private fun member(id: String): Providers.Member? {
+        if (id == "own") return if (ownConfigured()) Providers.Member(ownProvider(), vault.read("own") ?: "", settings.model("own") ?: settings.ownModel.ifBlank { "default" }) else null
+        val p = Providers.provider(id) ?: return null
         val key = vault.read(id)?.takeIf { it.isNotBlank() } ?: return null
-        return FreeCloud.Member(p, key, settings.model(id) ?: FreeCloud.pickModel(p, emptyList()))
+        return Providers.Member(p, key, settings.model(id) ?: Providers.pickModel(p, emptyList()))
     }
 
-    private fun usable(m: FreeCloud.Member) = !m.provider.paid || runApprovals.containsKey(m.provider.id) || autoAllowed(m.provider.id)
+    private fun usable(m: Providers.Member) = !m.provider.paid || runApprovals.containsKey(m.provider.id) || autoAllowed(m.provider.id)
 
     /** Každý pokus o volání modelu se započítá po poskytovatelích (komerční × vlastní). */
-    private fun counted(m: FreeCloud.Member): cz.axiom.omega.core.llm.LlmEngine {
-        val inner = FreeCloud.engine(m)
-        return object : cz.axiom.omega.core.llm.LlmEngine by inner {
-            override fun generate(messages: List<cz.axiom.omega.core.llm.ChatMessage>, options: cz.axiom.omega.core.llm.GenOptions, cancel: cz.axiom.omega.core.llm.CancelToken, onDelta: (cz.axiom.omega.core.llm.Delta) -> Unit): cz.axiom.omega.core.llm.GenResult {
+    private fun counted(m: Providers.Member): cz.axiom.vega.llm.LlmEngine {
+        val inner = Providers.engine(m)
+        return object : cz.axiom.vega.llm.LlmEngine by inner {
+            override fun generate(messages: List<cz.axiom.vega.llm.ChatMessage>, options: cz.axiom.vega.llm.GenOptions, cancel: cz.axiom.vega.llm.CancelToken, onDelta: (cz.axiom.vega.llm.Delta) -> Unit): cz.axiom.vega.llm.GenResult {
                 settings.countRequest(m.provider.id); return inner.generate(messages, options, cancel, onDelta)
             }
         }
     }
 
-    private fun engineOf(chain: List<FreeCloud.Member>) = FreeCloudEngine(chain, factory = ::counted, guard = guard,
-        listModels = { p, k -> KimiEngine.listModels(p.base, k) },
+    private fun engineOf(chain: List<Providers.Member>) = ChainEngine(chain, factory = ::counted, guard = guard,
+        listModels = { p, k -> OpenAiEngine.listModels(p.base, k) },
         onModel = { id, model -> settings.setModel(id, model) },
         onUsage = { id, model, inT, outT ->
             // stínové měření: bezplatný klíč počítat, jako by byl placený (odhalí omylem vložený klíč s fakturací)
@@ -106,9 +106,9 @@ class Engines(private val settings: Settings, private val vault: Vault) {
         if (settings.ownOnly && id != "own") return null // režim Pouze vlastní modely: žádná komerční cesta
         if (id == "claude") {
             val k = vault.read("claude") ?: return null; val m = settings.claudeModel
-            val g = GuardedEngine(ClaudeEngine(k, m), "claude", m, guard)
-            val counted = object : cz.axiom.omega.core.llm.LlmEngine by g {
-                override fun generate(messages: List<cz.axiom.omega.core.llm.ChatMessage>, options: cz.axiom.omega.core.llm.GenOptions, cancel: cz.axiom.omega.core.llm.CancelToken, onDelta: (cz.axiom.omega.core.llm.Delta) -> Unit) =
+            val g = GuardedEngine(AnthropicEngine(k, m), "claude", m, guard)
+            val counted = object : cz.axiom.vega.llm.LlmEngine by g {
+                override fun generate(messages: List<cz.axiom.vega.llm.ChatMessage>, options: cz.axiom.vega.llm.GenOptions, cancel: cz.axiom.vega.llm.CancelToken, onDelta: (cz.axiom.vega.llm.Delta) -> Unit) =
                     g.generate(messages, options, cancel, onDelta).also { settings.countRequest("claude") }
             }
             return Pick(counted, "claude", m, true, listOf("Claude" to m), listOf("Anthropic API: obsah se ve výchozím stavu nepoužívá k tréninku."), listOf("claude"))
@@ -122,7 +122,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
 
     /** Odhad v Kč pro jedno volání konkrétního poskytovatele (u Gemini podle uloženého modelu). */
     fun estimateKc(provider: String, inputChars: Int, maxOut: Int = 4096): Double {
-        val model = if (provider == "claude") settings.claudeModel else settings.model(provider) ?: FreeCloud.provider(provider)?.let { FreeCloud.pickModel(it, emptyList()) } ?: ""
+        val model = if (provider == "claude") settings.claudeModel else settings.model(provider) ?: Providers.provider(provider)?.let { Providers.pickModel(it, emptyList()) } ?: ""
         return guard.estimateUsd(provider, model, inputChars, maxOut) * settings.usdKc
     }
 
@@ -138,7 +138,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     fun check(provider: String): KeyCheck {
         if (provider == "own") return try {
             require(ownConfigured()) { "Nejdřív zadej adresu serveru." }
-            val list = KimiEngine.listModels(settings.ownUrl, vault.read("own"))
+            val list = OpenAiEngine.listModels(settings.ownUrl, vault.read("own"))
             val m = settings.ownModel.takeIf { it.isNotBlank() && list.any { x -> x.equals(it, true) } } ?: list.firstOrNull() ?: settings.ownModel
             settings.setModel("own", m)
             KeyCheck(true, "Vlastní server odpovídá · model $m (${list.size} v nabídce).", m, list.size)
@@ -146,10 +146,10 @@ class Engines(private val settings: Settings, private val vault: Vault) {
         val key = vault.read(provider) ?: return KeyCheck(false, "Klíč není uložený.", null, 0)
         settings.countRequest(provider) // i výpis modelů je požadavek na API poskytovatele (počítadlo musí sedět)
         return try {
-            if (provider == "claude") { val l = ClaudeEngine.listModels(key); return KeyCheck(true, "Claude funguje · ${l.size} modelů.", settings.claudeModel, l.size) }
-            val p = FreeCloud.provider(provider) ?: return KeyCheck(false, "Neznámý poskytovatel.", null, 0)
-            val list = KimiEngine.listModels(p.base, key)
-            val best = FreeCloud.pickModel(p, list)
+            if (provider == "claude") { val l = AnthropicEngine.listModels(key); return KeyCheck(true, "Claude funguje · ${l.size} modelů.", settings.claudeModel, l.size) }
+            val p = Providers.provider(provider) ?: return KeyCheck(false, "Neznámý poskytovatel.", null, 0)
+            val list = OpenAiEngine.listModels(p.base, key)
+            val best = Providers.pickModel(p, list)
             settings.setModel(provider, best)
             val hydrogen = list.any { it.contains("hydrogen", true) }
             val gem = if (provider.startsWith("gemini")) (if (hydrogen) " Gemini 4 Hydrogen je pro tvůj klíč dostupný." else " Gemini 4 Hydrogen pro tvůj klíč zatím není v nabídce (Google ho zpřístupňuje postupně) – odpovídá nejsilnější dostupný model.") else ""

@@ -1,6 +1,6 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.vega.base.Text
 
 /**
  * ROUTER CHATU: rozliší akci od přemýšlení nahlas a pošle zprávu na STEJNOU implementaci, kterou má ruční
@@ -67,7 +67,7 @@ object Router {
         return null
     }
 
-    private fun f(s: String) = TextUtil.fold(s).lowercase().trim()
+    private fun f(s: String) = Text.fold(s).lowercase().trim()
     private fun has(t: String, vararg rx: String) = rx.any { Regex(it).containsMatchIn(t) }
 
     fun route(raw: String, c: Ctx): Intent {
@@ -142,7 +142,7 @@ object Router {
         val creative = has(t, "napad|brainstorm|vymysli|navrhni (nazev|jmeno|logo|motto|varianty)|basen|basnick|pribeh|povidk|slogan|kreativ|rymovan|vtip|prani k|pozvank|nazev pro|jak (bych )?(to )?pojmenoval")
         if (aloud || creative) return Intent.Talk(aloud, creative)
         // --- holý název tématu → rešerše
-        cz.axiom.omega.core.agent.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
+        cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
         return Intent.Talk(false, false)
     }
 }
@@ -156,16 +156,16 @@ object Research {
         out += t
         out += t.split(' ').joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }
         val words = t.split(' ')
-        val first = TextUtil.fold(words.first()).lowercase()
+        val first = Text.fold(words.first()).lowercase()
         val swaps = mapOf("operation" to listOf("operace", "operazione", "operación"), "operace" to listOf("operation"), "projekt" to listOf("project"), "project" to listOf("projekt"),
             "battle" to listOf("bitva"), "bitva" to listOf("battle"), "case" to listOf("kauza", "případ"), "kauza" to listOf("case", "affair"))
         swaps[first]?.forEach { s -> out += (listOf(s.replaceFirstChar { it.uppercaseChar() }) + words.drop(1)).joinToString(" ") }
-        out += TextUtil.fold(t)
+        out += Text.fold(t)
         return out.toList().take(6)
     }
 
     /** Různé identity v nalezených titulcích → ukázat možnosti místo tichého výběru jedné. */
-    fun candidates(titles: List<String>): List<String> = titles.map { it.substringAfter(": ").substringBefore(" – ").trim() }.filter { it.isNotBlank() }.distinctBy { TextUtil.fold(it).lowercase() }.take(5)
+    fun candidates(titles: List<String>): List<String> = titles.map { it.substringAfter(": ").substringBefore(" – ").trim() }.filter { it.isNotBlank() }.distinctBy { Text.fold(it).lowercase() }.take(5)
 
     const val SYSTEM = """Jsi VEGA, český rešeršní parťák. Tykej. Pracuj jen s podklady [n] (zdroj, datum). Každé tvrzení označ [n].
 Když identifikace tématu není jistá, napiš možnosti a co je odlišuje. U neobvyklé hypotézy dej nejlepší důkaz PRO a nejlepší důkaz PROTI a závěr úměrný podkladům.
@@ -173,9 +173,9 @@ Nevymýšlej zdroje ani data. Když podklady nestačí, řekni to."""
 
     /** Kontrola úplnosti dlouhého zadání: každá dílčí otázka musí mít v odpovědi vlastní část. */
     fun coverage(subQuestions: List<String>, answer: String): List<Pair<String, Boolean>> {
-        val a = TextUtil.fold(answer).lowercase()
+        val a = Text.fold(answer).lowercase()
         return subQuestions.map { q ->
-            val keys = TextUtil.words(TextUtil.fold(q).lowercase(), 4).filter { it !in setOf("jake", "ktere", "proc", "kolik", "jaky", "jaka", "muze", "bude", "jsou") }.map { it.take(6) }.distinct()
+            val keys = Text.words(Text.fold(q).lowercase(), 4).filter { it !in setOf("jake", "ktere", "proc", "kolik", "jaky", "jaka", "muze", "bude", "jsou") }.map { it.take(6) }.distinct()
             val hit = keys.isEmpty() || keys.count { a.contains(it) } * 2 >= keys.size
             q to hit
         }

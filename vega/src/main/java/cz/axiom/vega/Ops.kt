@@ -1,16 +1,15 @@
 package cz.axiom.vega
 
 import android.content.Context
-import cz.axiom.omega.core.agent.LongInput
-import cz.axiom.omega.core.agent.Snippet
-import cz.axiom.omega.core.hub.Web
-import cz.axiom.omega.core.hub.WebGround
-import cz.axiom.omega.core.llm.CancelToken
-import cz.axiom.omega.core.llm.CancelledException
-import cz.axiom.omega.core.llm.ChatMessage
-import cz.axiom.omega.core.llm.CostGuard
-import cz.axiom.omega.core.llm.GenOptions
-import cz.axiom.omega.core.llm.Role
+import cz.axiom.vega.calc.LongText
+import cz.axiom.vega.web.Snippet
+import cz.axiom.vega.web.Web
+import cz.axiom.vega.llm.CancelToken
+import cz.axiom.vega.llm.CancelledException
+import cz.axiom.vega.llm.ChatMessage
+import cz.axiom.vega.llm.CostGuard
+import cz.axiom.vega.llm.GenOptions
+import cz.axiom.vega.llm.Role
 import cz.axiom.vega.core.CodeAgent
 import cz.axiom.vega.core.Demand
 import cz.axiom.vega.core.Docx
@@ -76,7 +75,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
 
-    init { cz.axiom.omega.core.llm.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool()) }
+    init { cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool()) }
 
     // ------------------------------------------------------------------ infrastruktura
 
@@ -122,7 +121,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun human(e: Throwable): String {
         val chain = generateSequence(e) { it.cause }.toList()
         return when {
-            e is cz.axiom.omega.core.llm.FreeCloudEngine.ChainException -> {
+            e is cz.axiom.vega.llm.ChainEngine.ChainException -> {
                 val daily = e.failures.any { it.message.contains("denní limit") }
                 (if (daily) "Bezplatný denní limit je vyčerpaný (obnoví se zítra) – ${e.message}." else "Cloud teď neodpověděl – ${e.message}. Zkus to za chvíli.") +
                     (engines.pendingPaid().firstOrNull()?.let { " Můžeš povolit ${engines.name(it)} v Nastavení." } ?: "")
@@ -300,7 +299,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * („vždy používej čárku“), jinak středník (český Excel). Pravidlo jednoho projektu do jiného nepronikne.
      */
     fun csvDelimiter(projectId: String? = settings.activeProject): Char {
-        fun of(t: String): Char? { val x = cz.axiom.omega.core.util.TextUtil.fold(t).lowercase()
+        fun of(t: String): Char? { val x = cz.axiom.vega.base.Text.fold(t).lowercase()
             if (!Regex("oddelova|csv|export|stredni|carku|carka|tabulator").containsMatchIn(x) || Regex("nepouziv|\\bne\\s+(strednik|carku)|desetinn").containsMatchIn(x)) return null
             return when { Regex("strednik").containsMatchIn(x) -> ';'; Regex("tabulator").containsMatchIn(x) -> '\t'; Regex("\\bcark[uay]\\b|\\bcarkou\\b").containsMatchIn(x) -> ','; else -> null } }
         val all = memory.all(projectId?.let { "project:$it" })
@@ -339,7 +338,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     // ------------------------------------------------------------------ obnova po výpadku modelu (vlastní server spadl, cloud nedostupný)
 
     /** Výpadek modelu (ne chyba vstupu): server neodpovídá, řetěz selhal, odpověď se přerušila. */
-    private fun outage(e: Throwable): Boolean = e is Partial || e is cz.axiom.omega.core.llm.FreeCloudEngine.ChainException && !e.billed ||
+    private fun outage(e: Throwable): Boolean = e is Partial || e is cz.axiom.vega.llm.ChainEngine.ChainException && !e.billed ||
         generateSequence(e) { it.cause }.any { it is java.net.ConnectException || it is java.net.SocketTimeoutException || it is java.net.UnknownHostException || it is java.io.IOException && it.message.orEmpty().contains("closed", true) } ||
         e.message.orEmpty().let { Regex("HTTP 5\\d\\d|HTTP 429").containsMatchIn(it) }
 
@@ -496,7 +495,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val pick = engines.pick() ?: approvePaid(chars, maxTokens, calls, "Bezplatného poskytovatele nemáš nastaveného.") ?: throw NoEngine()
         return try {
             run(chat, pick, messages, consent, chars, maxTokens, visible)
-        } catch (e: cz.axiom.omega.core.llm.FreeCloudEngine.ChainException) {
+        } catch (e: cz.axiom.vega.llm.ChainEngine.ChainException) {
             if (e.billed) throw e
             val alt = approvePaid(chars, maxTokens, calls, e.message ?: "", e.failures.filter { it.budget }.map { it.provider }) ?: throw e
             run(chat, alt, messages, consent, chars, maxTokens, visible)
@@ -565,7 +564,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Bez modelu: jednoduché věci (čas, výpočty, převody) z deterministického jádra AVIORu. */
     private fun offline(text: String): String? = runCatching {
-        cz.axiom.omega.core.agent.Reflex.answer(text, cz.axiom.omega.core.agent.Reflex.Ctx(cz.axiom.omega.core.agent.Instant.Ctx(), threshold = 80))?.text
+        cz.axiom.vega.calc.Quick.answer(text)
     }.getOrNull()
 
     private val SYSTEM_TALK = """Jsi VEGA – osobní český parťák a kapesní sada nástrojů. Tykej, piš přirozeně a věcně.
@@ -612,7 +611,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (settings.airgap) { reply(chat, "Air-gap je zapnutý – rešerši na webu nedělám. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
-        for (v in variants.take(4)) { cancel.check(); runCatching { WebGround.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }
+        for (v in variants.take(4)) { cancel.check(); runCatching { Web.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }
         val src = snips.values.take(8).toList()
         if (src.isEmpty()) { reply(chat, "K „$topic“ jsem nenašel nic veřejného (zkoušel jsem: ${variants.joinToString(", ")}). Zkus jiný pravopis nebo souvislost (rok, země, obor)."); return }
         val cands = Research.candidates(src.map { it.title })
@@ -636,10 +635,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
         // přílohy jsou součást zadání (data, ne pokyny)
         val text = text0 + att.joinToString("") { "\n\n[Příloha ${it.name}:]\n" + it.asText().take(60_000) }
-        val subs = LongInput.subQuestions(text).take(20)
+        val subs = LongText.subQuestions(text).take(20)
         if (engines.pick() == null && engines.pendingPaid().isEmpty()) throw NoEngine()
         val limit = 24_000
-        val passages = LongInput.chunks(text, 6_000)
+        val passages = LongText.chunks(text, 6_000)
         val material = if (text.length <= limit) text else {
             // nad limit: z každé části výtah s odkazem na pasáž [P#], pak syntéza (žádná otázka se neztratí – seznam jde celý)
             val tag = sha8((text + subs.joinToString("|")).toByteArray())
@@ -1146,7 +1145,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     /** Který starý soubor nová verze nahrazuje podle jména (bez čísel verzí a slov „oprava/nový“). */
     private fun nameMatch(old: List<String>, new: String): Int? {
-        fun core(n: String) = cz.axiom.omega.core.util.TextUtil.fold(n.substringBeforeLast('.')).lowercase().replace(Regex("(oprav\\w*|nov\\w*|v\\d+|final\\w*|[-_ ()0-9])"), "")
+        fun core(n: String) = cz.axiom.vega.base.Text.fold(n.substringBeforeLast('.')).lowercase().replace(Regex("(oprav\\w*|nov\\w*|v\\d+|final\\w*|[-_ ()0-9])"), "")
         val c = core(new); val hits = old.indices.filter { core(old[it]) == c && c.isNotBlank() }
         return hits.singleOrNull()
     }
@@ -1229,7 +1228,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             if (clean && !t.upToDate() && id !in runningTasks) { runningTasks += id; submit { compareRun(chat, id) } }
         }
     }
-    private fun scopeKey(scope: String?): String? { if (scope == null) return "all"; val f = cz.axiom.omega.core.util.TextUtil.fold(scope).lowercase()
+    private fun scopeKey(scope: String?): String? { if (scope == null) return "all"; val f = cz.axiom.vega.base.Text.fold(scope).lowercase()
         return when { Regex("jen (prijm|prichoz)").containsMatchIn(f) -> "in"; Regex("jen (vydaj|odchoz|platb)").containsMatchIn(f) -> "out"; Regex("bez poplatk").containsMatchIn(f) -> "nofee"; Regex("vse|cely|vsechno|bez omezeni").containsMatchIn(f) -> "all"; else -> null } }
     private fun CzNum(v: Double) = cz.axiom.vega.core.CzNum.format(v)
 
@@ -1247,7 +1246,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (web) {
             emit("phase", JSONObject().put("text", "Hledám podklady pro i proti…"))
             val q = text.replace(Regex("(?i)^(je možné,? že|je pravda,? že|myslím,? že|co když|mám teorii,? že)\\s*"), "").take(160)
-            src = runCatching { WebGround.gather(q, 5).snippets }.getOrDefault(emptyList()).take(6)
+            src = runCatching { Web.gather(q, 5).snippets }.getOrDefault(emptyList()).take(6)
         }
         val card = if (src.isNotEmpty()) JSONObject().put("type", "sources").put("items", JSONArray().apply { src.forEachIndexed { i, s -> put(JSONObject().put("n", i + 1).put("title", s.title).put("url", s.source).put("text", s.text.take(4000)).put("fetched", java.time.LocalDate.now().toString())) } }) else null
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {

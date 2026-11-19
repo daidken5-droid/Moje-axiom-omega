@@ -73,7 +73,7 @@ class RevTask(private val kv: Kv, val id: String) {
         private val LOCKS = java.util.concurrent.ConcurrentHashMap<String, Any>()
         /** Rozsahy, jejichž dopad je známý (mění jen součet, ne zpracování souborů). */
         fun knownScope(s: String): ((List<String>) -> Boolean)? {
-            val f = cz.axiom.omega.core.util.TextUtil.fold(s).lowercase()
+            val f = cz.axiom.vega.base.Text.fold(s).lowercase()
             return when {
                 Regex("jen (prijm|prichoz)").containsMatchIn(f) -> { r -> (r[1].toDoubleOrNull() ?: 0.0) > 0 }
                 Regex("jen (vydaj|odchoz|platb)").containsMatchIn(f) -> { r -> (r[1].toDoubleOrNull() ?: 0.0) < 0 }

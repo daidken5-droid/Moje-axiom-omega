@@ -46,7 +46,7 @@ class Settings(context: Context) {
     var usdKc: Float get() = p.getFloat("usdKc", 23.5f); set(v) = p.edit().putFloat("usdKc", v).apply()
     /** Iniciativa a připomínky (návrh dalšího kroku u projektu, návrhy preferencí). */
     var initiative: Boolean get() = p.getBoolean("initiative", true); set(v) = p.edit().putBoolean("initiative", v).apply()
-    var airgap: Boolean get() = p.getBoolean("airgap", false); set(v) { p.edit().putBoolean("airgap", v).apply(); cz.axiom.omega.core.llm.Http.airgap = v }
+    var airgap: Boolean get() = p.getBoolean("airgap", false); set(v) { p.edit().putBoolean("airgap", v).apply(); cz.axiom.vega.net.Http.airgap = v }
     var activeProject: String? get() = p.getString("activeProject", null); set(v) = p.edit().putString("activeProject", v).apply()
     var pinned: List<String>
         get() = p.getString("pinned", null)?.split(',')?.filter { it.isNotBlank() } ?: listOf("statement.process", "csv.inspect", "text.diff", "hash", "log.crash", "json.inspect")

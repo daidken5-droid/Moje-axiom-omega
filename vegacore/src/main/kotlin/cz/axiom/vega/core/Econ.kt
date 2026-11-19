@@ -1,6 +1,6 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.vega.base.Text
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
  * a doloží rozhodujícím výpočtem. Parametry se ukládají k projektu (rozsah platnosti) a opravují se jednotlivě.
  */
 object Econ {
-    private fun f(s: String) = TextUtil.fold(s).lowercase()
+    private fun f(s: String) = Text.fold(s).lowercase()
     private const val NUM = "(-?\\d{1,3}(?:[  .]\\d{3})+(?:,\\d+)?|-?\\d+(?:[,.]\\d+)?)"
     fun num(s: String): Double? = s.replace(Regex("[  ]"), "").let { t -> if (Regex("^-?\\d{1,3}(\\.\\d{3})+$").matches(t)) t.replace(".", "") else t }.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && kotlin.math.abs(it) < 1e12 }
     fun kc(v: Double): String = CzNum.format(v, if (v % 1.0 == 0.0) 0 else 2).replace(' ', ' ') + " Kč"

@@ -4,7 +4,7 @@ name: Build VEGA APK
 on:
   push:
     branches: ["**"]
-    paths: ["vega/**", "vegacore/**", "core/src/main/**", "build.gradle.kts", "settings.gradle.kts", ".github/workflows/build-vega.yml"]
+    paths: ["vega/**", "vegacore/**", "build.gradle.kts", "settings.gradle.kts", ".github/workflows/build-vega.yml"]
   workflow_dispatch:
 
 permissions:

@@ -1,6 +1,6 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.llm.CancelToken
+import cz.axiom.vega.llm.CancelToken
 import org.junit.Test
 import kotlin.test.assertTrue
 

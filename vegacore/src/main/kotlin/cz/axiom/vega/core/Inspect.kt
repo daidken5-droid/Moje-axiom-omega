@@ -64,14 +64,14 @@ object TableFilter {
         if (expr.isBlank()) return t
         val m = rx.find(expr) ?: throw IllegalArgumentException("Filtr ve tvaru „sloupec > 100“ nebo „Popis ~ nájem“")
         val (col, op, raw) = m.destructured
-        val ci = t.headers.indexOfFirst { cz.axiom.omega.core.util.TextUtil.fold(it).equals(cz.axiom.omega.core.util.TextUtil.fold(col), true) }
+        val ci = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).equals(cz.axiom.vega.base.Text.fold(col), true) }
         require(ci >= 0) { "Sloupec „$col“ neexistuje (máš: ${t.headers.joinToString()})" }
         val num = CzNum.parse(raw)
         val rows = t.rows.filter { r ->
             val v = r.getOrElse(ci) { "" }
             val n = CzNum.parse(v, true) ?: v.toDoubleOrNull()
             when (op) {
-                "~" -> cz.axiom.omega.core.util.TextUtil.fold(v).contains(cz.axiom.omega.core.util.TextUtil.fold(raw), true)
+                "~" -> cz.axiom.vega.base.Text.fold(v).contains(cz.axiom.vega.base.Text.fold(raw), true)
                 "=" -> if (num != null && n != null) n == num else v.equals(raw, true)
                 "!=" -> if (num != null && n != null) n != num else !v.equals(raw, true)
                 else -> if (num == null || n == null) false else when (op) { ">" -> n > num; "<" -> n < num; ">=" -> n >= num; else -> n <= num }

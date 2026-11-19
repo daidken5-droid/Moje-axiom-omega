@@ -87,9 +87,9 @@ class ProcedureStore(private val kv: Kv) {
 
     /** Postup podle slov v chatu („zpracuj výpis“ → „Zpracovat výpis“). */
     fun find(text: String): Procedure? {
-        val f = cz.axiom.omega.core.util.TextUtil.fold(text).lowercase()
+        val f = cz.axiom.vega.base.Text.fold(text).lowercase()
         return list().firstOrNull { p ->
-            val words = cz.axiom.omega.core.util.TextUtil.fold(p.name).lowercase().split(' ').filter { it.length >= 3 }
+            val words = cz.axiom.vega.base.Text.fold(p.name).lowercase().split(' ').filter { it.length >= 3 }
             words.isNotEmpty() && words.all { w -> f.contains(w.take(minOf(w.length, maxOf(4, w.length - 4)))) }
         }
     }
@@ -147,7 +147,7 @@ object Runner {
             val res = try {
                 tool ?: throw ToolError("Nástroj ${s.tool} neexistuje")
                 StepResult(i, s.tool, tool.run(cur.last, s.params, ctx), null, (System.nanoTime() - t0) / 1_000_000)
-            } catch (e: cz.axiom.omega.core.llm.CancelledException) {
+            } catch (e: cz.axiom.vega.llm.CancelledException) {
                 StepResult(i, s.tool, null, "Zrušeno – pokračuj od kroku ${i + 1}", (System.nanoTime() - t0) / 1_000_000)
             } catch (e: Exception) {
                 StepResult(i, s.tool, null, e.message ?: e.javaClass.simpleName, (System.nanoTime() - t0) / 1_000_000)

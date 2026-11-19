@@ -1,6 +1,6 @@
 package cz.axiom.vega.core
 
-import cz.axiom.omega.core.util.TextUtil
+import cz.axiom.vega.base.Text
 
 /**
  * PRÁCE S DŮKAZY: kolik NEZÁVISLÝCH linií doložení má každá část tvrzení (datum, událost, motiv).
@@ -17,7 +17,7 @@ object Evidence {
     data class Part(val label: String, val status: String, val lines: Int, val support: List<String>)
     data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
 
-    private fun f(s: String) = TextUtil.fold(s).lowercase()
+    private fun f(s: String) = Text.fold(s).lowercase()
     private val citeRx = Regex("(?:podle|cituje|odkazuje na|prevzato z|zdroj(?:em)?:?|jak uvedl[ao]?|informoval[ao]?)\\s+(?:anonymni(?:ho)?\\s+)?((?:prispev\\w*|zprav\\w*|clan\\w*|tweet\\w*|video\\w*|post\\w*|blog\\w*|svedect\\w*|vypoved\\w*)[^.;\\n]{0,60})")
     private val urlRx = Regex("https?://[^\\s)\"'>]+")
 

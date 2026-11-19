@@ -73,7 +73,7 @@ class OpsSpecTest {
     }
 
     private val servers = ArrayList<MockLlm>()
-    @After fun down() { servers.forEach { it.stop() }; cz.axiom.omega.core.llm.Http.airgap = false }
+    @After fun down() { servers.forEach { it.stop() }; cz.axiom.vega.net.Http.airgap = false }
 
     private class Rec { val ev = CopyOnWriteArrayList<Pair<String, JSONObject>>() }
 

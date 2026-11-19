@@ -16,8 +16,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
-import cz.axiom.omega.core.agent.Snippet
-import cz.axiom.omega.core.files.Extract
+import cz.axiom.vega.web.Snippet
+import cz.axiom.vega.files.Extract
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -88,7 +88,7 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
     fun list(): List<String> = readableDatabase.rawQuery("SELECT name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
     fun search(query: String, limit: Int): List<Snippet> {
-        val words = cz.axiom.omega.core.util.TextUtil.words(query, 2).distinct().take(8)
+        val words = cz.axiom.vega.base.Text.words(query, 2).distinct().take(8)
         if (words.isEmpty()) return emptyList()
         val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
         fun run(q: String) = runCatching {
