@@ -106,7 +106,8 @@ Další pravidla:
     - Plné vykreslení chatu: 50–70 ms → 14–15 ms, uzly 5 558 → 1 489. Vykresluje se posledních 80 zpráv, starší jsou na tlačítku „Zobrazit starší“.
     - Stream 600 průběžných částí: 0,99 s → 0,83 s celkem (už předtím rychlá cesta přes `#live`).
   - **NEOVĚŘENO:** `Ops.home()` na telefonu. Bez zařízení nejde změřit pravdivě, odhad z hostitele by byl zavádějící.
-- [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
+- [x] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
+  - **Výsledek:** APK `VEGA-b2e0b4a.apk` (1.4.0, versionCode 6), SHA-256 `0cde2a3a45ae1db8896cdd3865ed1b70f31d21be51e7fed8b55c8a060a452b46`. Certifikát `4557a2ce…cdb4` je stejný jako dřív, APK jde nainstalovat přes 1.3.1. Doručeno uživateli.
 - [x] 11. Red-team konzilium nad nočním diffem. Opraveno:
   - Placené volání přerušené Stopem nebo selhané po zaúčtování se nezapsalo do útraty (opakovaným Stop + restart šlo přečerpat strop). Teď se zapíše odhad podle přijatého textu.
   - Naučené pravidlo routeru mohlo pohltit běžný rozhovor (stačila 2 slova kdekoli). Nově musí jít o krátkou zprávu (≤ 10 slov) nebo větu podobnou příkladu. Doklad = jiný den. Akce s vedlejšími účinky (projekt, kód, výzva, NFC, rozšíření, postup) se nikdy nezapínají samy.
@@ -117,6 +118,12 @@ Další pravidla:
   - `\w` → `\p{L}` (ICU vs. JVM).
   - Spinner NFC se vypne po Stop / chybě.
   - **Ponecháno (zapsáno v Problémech):** DNS rebinding.
+
+## Další kolo (pro další probuzení)
+- [ ] 12. Hloubková kontrola `Ops.kt` (přes 1 400 řádků): mrtvé větve, duplicity, chyby v souběhu (`@Volatile` vs. složené operace), rozdělení na menší soubory bez změny chování + testy
+- [ ] 13. DNS rebinding: připojit se na ověřenou IP. Buď vlastní `SocketFactory` + SNI / `HostnameVerifier`, nebo zdokumentovaný důvod, proč ne. Test s lokálním serverem.
+- [ ] 14. Vylepšení → u opakované chyby nástroje nabídnout „Navrhnout rozšíření“ (zadání z anonymizovaných příkladů → nový projekt). Jen na klepnutí.
+- [ ] 15. Red-team kolo 2 nad body 12–14
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
