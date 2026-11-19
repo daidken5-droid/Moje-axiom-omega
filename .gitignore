@@ -11,3 +11,4 @@ captures/
 tools/ui-preview/out/
 tools/native-test/build/
 dist/
+.kotlin/
