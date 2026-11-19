@@ -34,9 +34,9 @@ object Econ {
     /** Parametry z věty (jen ty, které v ní opravdu jsou – oprava „fixní náklady jsou 5 000“ změní jen fixní). */
     fun parseUnit(raw: String): Unit {
         val t = f(raw)
-        val variable = near(t, "variabiln\\w* nakla\\w*|nakla\\w* na (?:kus|jednotku)|jednotkov\\w* nakla\\w*")
-        val fixed = near(t, "fixn\\w* nakla\\w*|fixn\\w*")
-        val price = near(t, "(?:prodejni |jednotkova )?cen[aeuy]\\w*|prodavam (?:za|po)")
+        val variable = near(t, "variabiln\\w* nakla\\w*|nakla\\w* na (?:kus|jednotku|vyrobek)|jednotkov\\w* nakla\\w*|(?:vyroba|vyrobeni|material|nakup|porizeni|suroviny)(?: na| jednoho| jedne)?(?: kus\\w*| vyrob\\w*| jednotk\\w*)?(?: me| mne| mi)? (?:stoji|vyjde|je|vychazi)(?: na)?|(?:jeden|jedna|jedno) (?:kus\\w* )?(?:me |mne |mi )?(?:stoji|vyjde|vychazi)(?: na)?")
+        val fixed = near(t, "fixn\\w* nakla\\w*|fixn\\w*|fixy|pevn\\w* nakla\\w*|rezi\\w*")
+        val price = near(t, "(?:prodejni |jednotkova )?cen[aeuy]\\w*|prodav\\w*(?: [a-z]+){0,3}? (?:za|po)|prodej\\w* (?:za|po)|(?:za kus|kus) prodavam")
         val qty = Regex("(?:po|pri|prodam|prodal\\w*|vyrobim|za)\\s+$NUM\\s*(?:ks|kus)").find(t)?.let { num(it.groupValues[1]) }
             ?: Regex("$NUM\\s*(?:ks|kus\\w*)").find(t)?.let { num(it.groupValues[1]) }
         return Unit(price, variable, fixed, qty)
