@@ -11,7 +11,9 @@ import cz.axiom.omega.core.util.TextUtil
  */
 object Evidence {
     data class Doc(val name: String, val text: String)
-    data class Parsed(val doc: Doc, val origins: Set<String>, val dates: Set<String>, val motive: Boolean, val primary: Boolean, val anonymousOrigin: Boolean, val label: String = "")
+    data class Parsed(val doc: Doc, val origins: Set<String>, val dates: Set<String>, val motive: Boolean, val primary: Boolean, val anonymousOrigin: Boolean, val label: String = "",
+                      /** Kmeny slov uvedeného důvodu („zakrýt chybu v projektu“) – motiv podporuje jen doklad se SHODNÝM důvodem. */
+                      val reason: Set<String> = emptySet(), val reasonText: String = "")
     data class Part(val label: String, val status: String, val lines: Int, val support: List<String>)
     data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
 
@@ -26,13 +28,17 @@ object Evidence {
         // původ = kmeny slov (prvních 5 písmen), bez interpunkce a čísel: „příspěvku na fóru Kvasar“ = „příspěvek na fóru Kvasar,“
         citeRx.findAll(t).forEach { m -> origins += m.groupValues[1].replace(Regex("[^a-z ]"), " ").split(Regex("\\s+")).filter { it.length > 3 && it !in STOP }.take(4).joinToString(" ") { it.take(5) } }
         val dates = Regex("\\b(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})\\b").findAll(d.text).map { "%04d-%02d-%02d".format(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.toSet()
-        val motive = Regex("motiv|kvuli|protoze|aby |z duvodu|pricin|chteli|zamer").containsMatchIn(t)
+        val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")
+        val mm = mRx.find(t)
+        val motive = mm != null
+        val reason = mm?.groupValues?.get(1)?.replace(Regex("[^a-z ]"), " ")?.split(Regex("\\s+"))?.filter { it.length > 3 && it !in STOP && it !in setOf("prej", "tim", "tomu", "firma", "spravce") }?.map { it.take(5) }?.toSet() ?: emptySet()
+        val reasonText = mm?.let { if (t.length == d.text.length) d.text.substring(it.groups[1]!!.range).trim() else it.groupValues[1] } ?: ""
         val anon = Regex("anonymn|nepodepsan|neznam\\w* autor").containsMatchIn(t)
         // prvotní doklad: vlastní datovaný záznam bez převzetí od jiného zdroje (úřední záznam, protokol, výpis, fotka s datem)
         val primary = origins.isEmpty() && dates.isNotEmpty() && Regex("zaznam|protokol|vypis|zapis|potvrzen|faktur|smlouv|rozhodnut|fotografi|snimek|registr|uredni|evidenc").containsMatchIn(t)
         val label = citeRx.find(t)?.let { m -> if (t.length == d.text.length) d.text.substring(m.groups[1]!!.range).trim().trimEnd(',', ' ') else m.groupValues[1] }
             ?: urlRx.find(d.text)?.value ?: ""
-        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
+        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
     }
     private val STOP = setOf("ktery", "ktera", "ktere", "jako", "tento", "tato", "podle", "uvedl", "uvedla")
 
@@ -64,7 +70,12 @@ object Evidence {
             return Part(label, status, ls.size.coerceAtLeast(if (sup.isEmpty()) 0 else 1).let { if (indep > it) indep else it }, sup.map { it.doc.name })
         }
         allDates.firstOrNull()?.let { d -> parts += grade("datum události (${d.split('-').let { "${it[2].toInt()}. ${it[1].toInt()}. ${it[0]}" }})", ps.filter { d in it.dates }) }
-        parts += grade("motiv / důvod", ps.filter { it.motive })
+        // tvrzený důvod = nejčastější (první text, který ho uvádí); doklad s JINÝM důvodem motiv nepodporuje – je to alternativa
+        val claimed = ps.firstOrNull { it.motive }?.reason ?: emptySet()
+        fun same(p: Parsed) = p.motive && p.reason.intersect(claimed).size >= minOf(2, claimed.size).coerceAtLeast(1)
+        val alt = ps.filter { it.motive && !same(it) }
+        val mp = grade("motiv / důvod", ps.filter { same(it) })
+        parts += if (alt.isNotEmpty()) mp.copy(status = mp.status + "; jiný doklad uvádí jiný důvod (${alt.joinToString { "${it.doc.name}: „${it.reasonText.take(60)}“" }})") else mp
         val spread = ps.filter { it.origins.isNotEmpty() }.map { lines[it]!! }
         val oneLine = spread.size >= 2 && spread.distinct().size == 1
         val direct = buildList {
