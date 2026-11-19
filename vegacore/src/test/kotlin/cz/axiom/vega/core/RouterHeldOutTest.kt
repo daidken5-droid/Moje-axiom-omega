@@ -35,7 +35,7 @@ class RouterHeldOutTest {
         // jednoznačný pracovní pokyn → nástroj
         Triple("spočítej sha256 tohohle souboru", none, "tool"), Triple("porovnej tyhle dvě verze smlouvy", none, "tool"),
         Triple("najdi v mých souborech fakturu od Alzy", none, "tool"), Triple("přidej do projektu export do CSV", proj, "tool"),
-        Triple("spusť testy", proj, "tool"), Triple("založ projekt kalkulačka hypotéky", none, "tool"),
+        Triple("spusť testy", proj, "tool"), Triple("Průměr vychází špatně, oprav to prosím", proj, "tool"), Triple("Export dat nefunguje správně", proj, "tool"), Triple("založ projekt kalkulačka hypotéky", none, "tool"),
         Triple("pošli dlužníkovi předžalobní výzvu", none, "tool"), Triple("přečti https://example.org/clanek a shrň ho", none, "tool"),
         // navázání, tlačítko, oprava sloupce, pravidla
         Triple("navaž na minulou práci", none, "continue"), Triple("pokračujme v projektu", none, "continue"),

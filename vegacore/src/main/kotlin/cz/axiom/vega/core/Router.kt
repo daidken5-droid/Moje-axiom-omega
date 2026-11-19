@@ -128,6 +128,8 @@ object Router {
             if (has(t, "^(vysvetli|co dela|jak funguje|popis)\\b")) return Intent.Code(text, CodeKind.EXPLAIN)
             if (has(t, "^(spust|pust|otestuj)\\b.*\\btest|^testy$|^spust testy")) return Intent.Code(text, CodeKind.TEST)
             if (has(t, "^(pridej|oprav|uprav|zmen|prepis|refaktor|implementuj|dopln|odstran|smaz|prejmenuj|napis test|vytvor funkci|udelej)\\b")) return Intent.Code(text, CodeKind.CHANGE)
+            // pokyn k opravě kdekoli ve větě („Sleva se počítá špatně, oprav to.“) nebo popis chyby výsledku
+            if (has(t, "\\b(oprav|uprav|sprav)(te)?( to| ho| ji| je| mi to)?\\b|(pocita|vraci|vychazi|scita|zaokrouhluje) (se )?spatne|nefunguje spravne|dava spatn\\w* vysled")) return Intent.Code(text, CodeKind.CHANGE)
         }
         if (has(t, "^(zaloz|vytvor) (novy )?projekt")) return Intent.NewProject(text)
         // --- navázání na zobrazený výsledek
