@@ -380,6 +380,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         lastUserText = text
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
+        // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
+        if (decide(chatId, text, ws)) return
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size))
         emit("intent", JSONObject().put("intent", intent.javaClass.simpleName))
         when (intent) {
@@ -567,7 +569,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }.getOrNull()
 
     private val SYSTEM_TALK = """Jsi VEGA – osobní český parťák a kapesní sada nástrojů. Tykej, piš přirozeně a věcně.
-Osobnost ukazuj postřehem a úsudkem; nepředstírej pocity ani činnosti na pozadí. Když nesouhlasíš, řekni proč.
+Začni výsledkem. Bez úvodních pochval, hraných emocí a automatických otázek na konci. Odděl cíl uživatele od jeho předpokladu:
+když chybný předpoklad mění výsledek, pojmenuj ho v první větě, ukaž rozhodující výpočet nebo důkaz a pokračuj opravenou variantou.
+Naléhání bez nových dat závěr nemění; nový důkaz ano. U sporného tvrzení odděl, co podklad přímo dokládá, co odvozuješ a co je otevřené;
+procenta uváděj jen s vysvětlitelným základem. Chybí-li rozhodující údaj, polož 1–2 konkrétní otázky a mezitím dodej použitelnou část.
+Nepředstírej pocity ani činnosti na pozadí. Hotovo hlas jen podle skutečného výsledku operace.
 Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje VEGA (Zpracovat výpis, Inspektor CSV/JSON, Rozdíl, Kontrolní součty, Log, URL, NFC, projekty s kódem) spouští uživatel tlačítkem nebo větou – nevymýšlej jejich výsledky."""
 
     private fun talk(chat: String?, text: String, intent: Router.Intent.Talk, ws: Workspace?) {
@@ -986,6 +992,105 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         reply(chat, (rec?.let { "$it\n" } ?: "") + "Opraveno: $label teď beru ze sloupce „${headers.firstOrNull { Statement.headersOf(text, spec).isNotEmpty() && it.equals(intent.column, true) } ?: intent.column}“. $ver${if (ok) " ✓" else ""}\n" +
             ((r2.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "") + "\n\nPokud to sedí, můžeš napsat „udělej mi z toho tlačítko“.", card)
     }
+
+    // ------------------------------------------------------------------ rozhodující výpočty, důkazy a pravdivý export
+
+    private fun scopeOf(ws: Workspace?) = ws?.let { "project:${it.root.name}" } ?: "global"
+    private fun econKey(scope: String) = "econ/${scope.replace(':', '_')}.json"
+    private fun tariffKey(scope: String) = "tariff/${scope.replace(':', '_')}.json"
+    private fun evidenceKey(chat: String?) = "evidence/${chat ?: "temp"}.json"
+
+    /** true = vyřízeno bez modelu. Parametry se drží v rozsahu projektu (jiný projekt má vlastní). */
+    private fun decide(chat: String?, text: String, ws: Workspace?): Boolean {
+        val scope = scopeOf(ws)
+        cz.axiom.vega.core.Econ.simpleProduct(text)?.let { reply(chat, it); return true }
+        // bod zvratu
+        val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
+        if (cz.axiom.vega.core.Econ.isUnitQuestion(text) && !(econ != null && cz.axiom.vega.core.Econ.isUnitCorrection(text) && cz.axiom.vega.core.Econ.parseUnit(text).let { listOfNotNull(it.price, it.variable, it.fixed).size < 2 })) {
+            val u = cz.axiom.vega.core.Econ.parseUnit(text)
+            val res = cz.axiom.vega.core.Econ.unitAnswer(u, cz.axiom.vega.core.Econ.claim(text)) ?: run { reply(chat, "Chybí mi ${listOfNotNull("cena".takeIf { u.price == null }, "variabilní náklad na kus".takeIf { u.variable == null }, "fixní náklady".takeIf { u.fixed == null }).joinToString(" a ")} – napiš ${if (u.price == null && u.variable == null) "je" else "ho"} a spočítám zisk i bod zvratu."); kv.write(econKey(scope), u.json()); return true }
+            saveEcon(scope, u); reply(chat, res.text, econCard(u, res)); return true
+        }
+        if (econ != null) {
+            if (cz.axiom.vega.core.Econ.isTableRequest(text)) { econCsv(chat, scope, econ, cz.axiom.vega.core.Econ.qtyList(text), ws); return true }
+            if (cz.axiom.vega.core.Econ.isUnitCorrection(text)) {
+                val u = econ.merge(cz.axiom.vega.core.Econ.parseUnit(text)); saveEcon(scope, u)
+                val res = cz.axiom.vega.core.Econ.unitAnswer(u) ?: run { reply(chat, "Uloženo; ještě chybí údaj pro výpočet."); return true }
+                reply(chat, "Přepočteno s opravou (${diffUnit(econ, u)}${if (scope != "global") ", platí pro tento projekt" else ""}). " + res.text, econCard(u, res)); return true
+            }
+            if (cz.axiom.vega.core.Econ.isInsisting(text) && cz.axiom.vega.core.Econ.claim(text) != 0 || cz.axiom.vega.core.Econ.isInsisting(text) && Regex("(?i)plus|zisk|vyděl|ztrát").containsMatchIn(text)) {
+                cz.axiom.vega.core.Econ.unitAnswer(econ, cz.axiom.vega.core.Econ.claim(text).takeIf { it != 0 } ?: 1, insisting = true)?.let { reply(chat, it.text, econCard(econ, it)); return true }
+            }
+        }
+        // tarif
+        val tariff = kv.read(tariffKey(scope))?.let { cz.axiom.vega.core.Econ.Tariff.parse(it) }
+        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariff != null && Regex("(?i)vrát|refund|poměrn|závaz|výpověd|měsíc").containsMatchIn(text) && Regex("(?i)tarif|roční|měsíční|členství|předplatné|když|kdyby|používat|budu|platit").containsMatchIn(text)) {
+            cz.axiom.vega.core.Econ.parseTariff(text, if (cz.axiom.vega.core.Econ.isTariffQuestion(text) && Regex("\\d").containsMatchIn(text)) null else tariff)?.let { t ->
+                kv.write(tariffKey(scope), t.json()); reply(chat, cz.axiom.vega.core.Econ.tariffAnswer(t)); return true }
+        }
+        // důkazy: ≥ 2 texty a otázka na pravdivost, nebo další doklad k rozpracovanému hodnocení
+        val ev = kv.read(evidenceKey(chat))?.let { runCatching { JSONArray(it) }.getOrNull() }
+        val blocks = text.split(Regex("\\n-{3,}\\n")).drop(1).filter { it.isNotBlank() }
+        val newDocs = msgAtt.map { cz.axiom.vega.core.Evidence.Doc(it.name, it.asText().take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
+        val start = newDocs.size >= 2 && cz.axiom.vega.core.Evidence.isQuestion(text)
+        val add = ev != null && newDocs.isNotEmpty() && (cz.axiom.vega.core.Evidence.isAddition(text) || cz.axiom.vega.core.Evidence.isQuestion(text))
+        if (start || add) {
+            val prev = if (start) null else ev
+            val docs = (prev?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { j -> cz.axiom.vega.core.Evidence.Doc(j.getString("name"), j.getString("text")) } } } ?: emptyList()) + newDocs
+            kv.write(evidenceKey(chat), JSONArray().apply { docs.forEach { put(JSONObject().put("name", it.name).put("text", it.text)) } }.toString())
+            val before = prev?.let { cz.axiom.vega.core.Evidence.assess(docs.dropLast(newDocs.size)) }
+            val a = cz.axiom.vega.core.Evidence.assess(docs)
+            val change = before?.let { b -> a.parts.mapNotNull { p -> b.parts.firstOrNull { it.label.substringBefore(" (") == p.label.substringBefore(" (") }?.takeIf { it.status != p.status }?.let { "${p.label}: ${it.status} → ${p.status}" } } }.orEmpty()
+            reply(chat, (if (change.isNotEmpty()) "Změna hodnocení po novém dokladu – " + change.joinToString("; ") + ".\n\n" else "") + cz.axiom.vega.core.Evidence.render(a),
+                JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support))) } }))
+            return true
+        }
+        // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
+        if (Regex("(?iU)(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)\\b.{0,40}\\b(csv|soubor|tabulk|excel|export)").containsMatchIn(text) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
+            exportChat(chat, lastResultRun!!); return true
+        }
+        return false
+    }
+
+    private fun saveEcon(scope: String, u: cz.axiom.vega.core.Econ.Unit) {
+        kv.write(econKey(scope), u.json())
+        // zrcadlo v paměti (Paměť ukáže, z čeho počítám); oprava nahradí předchozí záznam ve STEJNÉM rozsahu
+        kv.read(econKey(scope) + ".mem")?.let { memory.forget(it) }
+        (memory.remember("Kalkulace: cena ${u.price?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"}, variabilní náklad ${u.variable?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"} na kus, fixní náklady ${u.fixed?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"}",
+            scope, if (scope == "global") Mem.Kind.PREFERENCE else Mem.Kind.PROJECT_FACT) as? Mem.Outcome.Saved)?.let { kv.write(econKey(scope) + ".mem", it.entry.id) }
+    }
+    private fun diffUnit(a: cz.axiom.vega.core.Econ.Unit, b: cz.axiom.vega.core.Econ.Unit) = listOfNotNull(
+        ("cena" to (a.price to b.price)), ("variabilní náklad" to (a.variable to b.variable)), ("fixní náklady" to (a.fixed to b.fixed)), ("kusy" to (a.qty to b.qty)))
+        .filter { it.second.first != it.second.second }.joinToString(", ") { (k, v) -> "$k ${v.first?.let { cz.axiom.vega.core.Econ.plainKc(it) } ?: "?"} → ${v.second?.let { cz.axiom.vega.core.Econ.plainKc(it) } ?: "?"}" }
+    private fun econCard(u: cz.axiom.vega.core.Econ.Unit, r: cz.axiom.vega.core.Econ.UnitResult) = JSONObject().put("type", "econ").put("price", u.price).put("variable", u.variable).put("fixed", u.fixed).put("qty", u.qty ?: JSONObject.NULL)
+        .put("profit", if (r.profit.isNaN()) JSONObject.NULL else r.profit).put("breakEven", r.breakEven ?: JSONObject.NULL)
+
+    /** České CSV zisku pro zadané počty kusů; hotovo až po zpětném přečtení uloženého souboru. */
+    private fun econCsv(chat: String?, scope: String, u: cz.axiom.vega.core.Econ.Unit, qtys: List<Double>, ws: Workspace?) {
+        if (!u.complete) { reply(chat, "Pro tabulku chybí cena, variabilní nebo fixní náklady – doplň je."); return }
+        val t = cz.axiom.vega.core.Econ.unitTable(u, qtys)
+        val run = Run("r" + System.currentTimeMillis().toString(36), "Zisk podle počtu kusů", listOf(Step("econ.table")), Value.Text(qtys.joinToString()), listOf(cz.axiom.vega.core.StepResult(0, "econ.table", t, null, 0)))
+        saveRun(kv, run); lastResultRun = run.id
+        exportChat(chat, run.id, intro = "Tabulka pro ${qtys.joinToString(", ") { cz.axiom.vega.core.Econ.plainKc(it) }} kusů (${if (scope != "global") "náklady projektu ${ws?.name}" else "uložené náklady"}): zisk ${t.rows.joinToString(", ") { it[4] + " Kč" }}.")
+    }
+
+    /** Export s pravdivým stavem: chyba zápisu = neúspěch nahlášen, řádky zůstanou v běhu; úspěch ověřen zpětným čtením. */
+    private fun exportChat(chat: String?, runId: String, intro: String = "") {
+        val rows = (run(runId)?.last as? Value.Table)?.rows?.size ?: 0
+        try {
+            val r = exportValue(runId, -1)
+            val f = out.file(r.getString("name")) ?: throw java.io.IOException("uložený soubor nejde najít")
+            val back = cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(f.readBytes()))
+            if (back.rows.size != rows) throw java.io.IOException("zpětně přečteno ${back.rows.size} z $rows řádků")
+            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Uloženo: **${r.getString("name")}** ($rows řádků, ověřeno zpětným přečtením)${if (r.optBoolean("public")) " – najdeš ho ve Stažené/VEGA" else ""}.",
+                JSONObject().put("type", "file").put("name", r.getString("name")).put("rows", rows))
+        } catch (e: Exception) {
+            if (e is CancelledException) throw e
+            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Export se NEPODAŘIL: ${e.message?.take(160)}. Spočítané řádky ($rows) zůstaly – až bude zápis možný, klepni na Zkusit znovu nebo napiš „zkus export znovu“.",
+                JSONObject().put("type", "exportRetry").put("run", runId))
+        }
+    }
+    fun exportRetry(chat: String?, runId: String) = submit { exportChat(chat, runId) }
 
     // ------------------------------------------------------------------ porovnání více výpisů: zadání v revizích
 

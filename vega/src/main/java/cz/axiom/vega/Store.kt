@@ -133,13 +133,22 @@ open class Vault(context: Context) {
 
 /** Výstupy (CSV, DOCX, PDF, ZIP): Stažené/VEGA + soukromá kopie pro sdílení přes FileProvider. */
 class Out(private val context: Context) {
-    private val dir = File(context.filesDir, "vega/out").apply { mkdirs() }
+    /** Složka výstupů (testy ji můžou přesměrovat, aby vyvolaly skutečnou chybu zápisu). */
+    var dir: File = File(context.filesDir, "vega/out").apply { mkdirs() }
 
     data class Saved(val name: String, val mime: String, val local: File, val public: Uri?)
 
     fun save(name: String, mime: String, bytes: ByteArray): Saved {
         val safe = name.replace(Regex("[\\\\/:*?\"<>|]"), "_").take(80)
-        val local = File(dir, safe).apply { writeBytes(bytes) }
+        // ATOMICKY: dočasný soubor → přejmenování; při chybě nezůstane rozepsaný soubor a chyba se nahlásí
+        dir.mkdirs()
+        val local = File(dir, safe)
+        val tmp = File(dir, ".$safe.part")
+        try {
+            tmp.writeBytes(bytes)
+            if (tmp.length() != bytes.size.toLong()) throw java.io.IOException("zapsáno ${tmp.length()} z ${bytes.size} B")
+            if (!tmp.renameTo(local)) { local.delete(); if (!tmp.renameTo(local)) throw java.io.IOException("soubor nejde dokončit (přejmenování selhalo)") }
+        } catch (e: Exception) { runCatching { tmp.delete() }; throw java.io.IOException("Zápis „$safe“ selhal: ${e.message ?: e.javaClass.simpleName}", e) }
         val pub = runCatching {
             if (Build.VERSION.SDK_INT >= 29) {
                 val cr = context.contentResolver

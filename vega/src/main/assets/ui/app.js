@@ -153,6 +153,10 @@ function card(c, isLast) {
         <div class="res-body"><div class="tbl"><table><tr><th>#</th><th>Soubor</th><th>Saldo</th><th>Stav</th></tr>${c.files.map(f => `<tr><td>${f.i}</td><td>${esc(f.name)}${f.changed ? `<br><small class="note">místo ${esc(f.prevName)} (${fmt(f.prevSaldo)})</small>` : ''}</td><td>${fmt(f.saldo)}</td><td><span class="pill ${f.status === 'spočítáno' ? 'sig' : ''}">${esc(f.status)}</span></td></tr>`).join('')}</table></div></div>
         <div class="res-a"><span class="grow"></span><button class="btn" data-act="taskLog" data-log='${esc(JSON.stringify(c.log))}'>Záznam běhu</button></div></div>`;
     }
+    case 'file': return `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="openOut" data-f="${esc(c.name)}">Otevřít ${esc(c.name)}</button><button class="btn" data-act="share" data-f="${esc(c.name)}">Sdílet</button></div>`;
+    case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
+    case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + c.breakEven + ' ks' : ''}</div></div>`;
+    case 'evidence': return `<div class="res"><div class="res-h">Síla doložení</div><div class="res-body">${c.parts.map(p => `<div class="chk"><span class="pill ${/^potvrzeno|^dvě/.test(p.status) ? 'ok' : 'bad'}">${esc(p.lines)} ${p.lines === 1 ? 'linie' : 'linie'}</span><span><b>${esc(p.label)}</b><small>${esc(p.status)} · ${p.support.map(esc).join(', ')}</small></span></div>`).join('')}</div></div>`;
     case 'revision': return `<span class="pill sig">revize ${c.rev}</span>`;
     case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry" data-req="${esc(c.req || '')}">Pokračovat</button></div></div>` : '';
     case 'project': return c.resumeTask ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit přerušenou úlohu</button></div>` : '';
@@ -579,6 +583,7 @@ function act(a, d) {
       else { S.awaitProc = d.id; toast('Vyber soubor – tlačítko ho zpracuje.'); B.pickFiles(); } break;
     case 'memGlobal': { const r = call('rememberGlobal', d.t); if (r) toast('Uloženo jako globální preference.'); break; }
     case 'model': modelSheet(); break;
+    case 'exportRetry': if (busyGuard()) return; S.busy = true; call('exportRetry', chatId(), d.run); render(); break;
     case 'taskLog': { const l = JSON.parse(d.log); sheet(`<h2>Záznam běhu</h2><div class="list">${l.map(x => `<div class="row"><span class="pill">r${x.rev}</span><span class="grow"><b>${esc(x.step)}${x.input !== '*' ? ' · ' + esc(x.input) : ''}</b><small>${esc(x.action)}</small></span></div>`).join('')}</div>`, true); break; }
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;

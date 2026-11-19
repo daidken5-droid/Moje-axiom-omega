@@ -63,7 +63,7 @@ object Router {
             return Revision.Input(idx)
         }
         Regex("^(?:a\\s+|ne,?\\s+|oprava:?\\s+)?(?:(?:pocitej|secti|ber)\\s+)?(jen (?:prijmy|prichozi|vydaje|odchozi|platby)|bez poplatku|vse|cele obdobi)\\b").find(t)?.let { return Revision.Scope(raw.trim()) }
-        if (has(t, "^(a\\s+)?(predpokladej|pocitej s tim|ber to tak|uvazuj|beru zpet|oprava: )")) return Revision.Assumption(raw.trim())
+        if (has(t, "^(a\\s+)?(predpokladej|pocitej s tim|ber to tak|uvazuj|beru zpet)")) return Revision.Assumption(raw.trim())
         return null
     }
 

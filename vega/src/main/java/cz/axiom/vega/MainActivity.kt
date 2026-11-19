@@ -350,4 +350,5 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true") }
     @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
     @JavascriptInterface fun voice() = safe { a.voice() }
+    @JavascriptInterface fun exportRetry(chat: String, run: String) = safe { ops.exportRetry(chat.takeIf { it != "temp" }, run) }
 }
