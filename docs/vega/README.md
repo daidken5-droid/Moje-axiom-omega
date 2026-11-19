@@ -1,4 +1,4 @@
-# VEGA 1.2 – předávací přehled
+# VEGA 1.3 – předávací přehled
 
 VEGA je samostatná aplikace postavená podle zadání „VYKR / Opus Kit“. Je to osobní český parťák a kapesní sada nástrojů pro Pixel 9a.
 
@@ -14,6 +14,87 @@ Zadání nabízelo značku VYKR, ale uživatel chtěl zkusit lepší jméno. Zvo
 - znak z kitu (V s korálovou stopou) k němu sedí beze změny.
 
 Jméno je jen v `vega/src/main/res/values/strings.xml` (`app_name`) a v UI (`index.html`). Přejmenování zpět na VYKR jsou dvě řádky.
+
+## Novinky 1.3 (tento blok zadání)
+
+Revize a prostředí:
+
+- **Poslední revize kódu:** `01a45a1`.
+- **APK z CI:** běh pro `055a7cd`. Následuje běh pro `01a45a1`, který přidává opravu routeru.
+- **Prostředí všech měření:** hostitel (Linux kontejner, 4 CPU), JVM + Robolectric. Model Qwen2.5-1.5B-Instruct Q4_K_M běží v llama.cpp serveru na CPU.
+- **Na Pixelu 9a ani v emulátoru se neměřilo nic.**
+
+### 1. Vlastní modely, navázání, tlačítko, programování, záměr, měření
+
+| Schopnost | Stav před změnou | Zásah v kódu | Ověření a výsledek |
+|---|---|---|---|
+| Pouze vlastní modely | chybělo | `Engines.pick/single`, pojistka v `Ops.run`, počítadlo požadavků | OpsSpecTest: úloha dokončena; při výpadku uložen stav a nabídnuto pokračování; 0 komerčních požadavků |
+| Navázání na projekt | chybělo | `saveState`, `continueWork`, `userChanges` | Po restartu správný projekt, diff ručních změn, pravidlo projektu neproniklo jinam |
+| „Udělej mi z toho tlačítko“ | chybělo | `makeButton`, `buttonTry`, `buttonSave`, parser podle názvů sloupců | Hlavní souvislý průchod: oprava parseru → kontrola zůstatku 4/4 → tlačítko → restart offline → přeházené sloupce, hodnoty = očekávaný výsledek |
+| Cyklus programování | 1 kolo, bez výběru změn | až 3 kola se skutečným výstupem testu, `keepChanges`, checkpoint | Zástupný model: projde. Skutečný model 1,5B: 3 kola, test dál selhává (nesplněno) |
+| Záměr | částečně | Hypothesis, CompareFiles, oprava kdekoli ve větě | Held-out 34/34; 2 příklady přidané až po měření |
+| Změna zadání za běhu | chybělo | `RevTask` (revize, mezivýsledky podle otisku, zahození opožděné odpovědi) | Test přes chat: výměna prostředního CSV, nezměněné soubory zpracovány jen jednou |
+
+Měření „model sám × tentýž model ve VEGA“ (kritéria v `vega/src/test/resources/eval/cases.json` byla commitnutá před během):
+
+| Případ | Model sám | Model ve VEGA | Pozn. |
+|---|---|---|---|
+| výpočet 48 × 37 | ✗ | ✓ (0,1 s) | Deterministické jádro |
+| vysvětlení inflace | ✓ | ✓ | |
+| dlouhé zadání, 34 000 znaků | ✗ (nevešlo se do kontextu) | ✓ (161 s, pokryto 3/3) | |
+| rešerše | ✗ (bez webu) | ✓ (539 s, 2 stažené zdroje) | Malý model se zacyklil až do limitu tokenů |
+| oprava programu | ✗ | ✗ | Po opravě routeru 3 kola, model chybu neopravil |
+| data z výpisu | ✗ | ✓ (1,8 s, zůstatek 11/11) | |
+| předžalobní výzva | ✗ | NEOVĚŘENO | PDF v Robolectricu „document is closed“ – omezení prostředí |
+| návrat k projektu | ✗ | ✓ (po opravě routeru) | |
+
+Další údaje k měření:
+
+- Cena 0 Kč, komerční požadavky 0.
+- Komerční asistent neměřen: bez klíče a bez schváleného rozpočtu.
+- Výkon proti výchozí revizi 7128ce3 (stejné funkce, medián ze 3 běhů): výpis 10 000 řádků 36,9 → 39,5 ms (v šumu), alokace 47,5 → 47,1 MB. Router a ostatní nástroje beze změny.
+
+### 2. Oponentura, důkazy, hloubka, pravdivý export
+
+Výchozí revize byla `69b6c0c`. Závěrečné vstupy: `VegaEval2Test`, se stejným modelem a stejnými oprávněními.
+
+| Schopnost | Stav před změnou | Zásah | Závěrečné kroky (výchozí → upravená) |
+|---|---|---|---|
+| Oponentura a oprava závěru | model počítal „zisk 8 400 Kč“ | `Econ` (bod zvratu), parametry v rozsahu projektu, CSV se zpětným čtením | 0/5 → 5/5 |
+| Práce s důkazy | procenta bez základu | `Evidence` (linie podle původu, prvotní doklad, stejná kritéria) | 0/4 → 4/4 (před poslední opravou motivu 2/4) |
+| Přiměřená hloubka | model se spletl u tarifu | součin s jednotkou, `Econ.tariff` (hranice, podmínky) | 0/3 → 3/3 |
+| Pravdivý stav exportu | chat neexportoval, zápis nebyl atomický | atomický `Out.save`, „Export se NEPODAŘIL“ + Zkusit znovu | 0/2 → 2/2 |
+
+Výchozí revize v kroku „15 × 320“ odpověděla věcně správně („4800 Kč“), ale předem stanovené kritérium vyžadovalo zápis „4 800 Kč“. Oprava důkazů (motiv podporuje jen doklad se shodným důvodem) vznikla až po pohledu na závěrečný výsledek. Výsledky jsou v `docs/vega/mereni/`.
+
+### 3. Ověřovač opory ve zdroji
+
+Podrobnosti jsou v `tools/verifier/PROTOKOL.md`. Shrnutí:
+
+- **Model:** referenční NLI `MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli@0a71e92` (MIT).
+- **Mobilní balíček:** 141 MB (int8 jen tabulka embeddingů), shoda po exportu 59/59.
+- **Tokenizer v Kotlinu:** shoda 40/40.
+- **Rychlost na hostiteli:** p50 8 ms na dvojici.
+- **Dotrénovaný pilot** (CPU, 115 dvojic) nesplnil předem dané pravidlo nasazení, proto se nenasazuje.
+- **Data:** štítky jsou jen návrhy modelu, takže měření jsou předběžná.
+- **Placený běh na GPU:** neproběhl, plán je v GPU_PLAN.md.
+- **Výchozí stav aplikace:** žádné váhy. Citace se zobrazí jako „nevyhodnoceno“, dokud uživatel nenainstaluje balíček.
+
+### Známé mezery
+
+- Nic neověřeno na Pixelu 9a.
+- Oprava programu malým vlastním modelem neuspěla.
+- Výzva s PDF neověřena v Robolectricu.
+- Ověřovač má slabinu „plán vs. uskutečnění“ a data bez lidské kontroly.
+- Red team: přesměrování http v jádře (`Http.open`, sdílené s AVIOR) není ošetřené, protože AVIOR jsem neměnil.
+
+### Reprodukce
+
+```
+./gradlew :vegacore:test :vega:testDebugUnitTest
+echo http://127.0.0.1:8091/v1 > ~/.vega-eval-url && ./gradlew :vega:testDebugUnitTest --tests '*VegaEval2Test*'
+cd tools/verifier && pip install -r requirements.txt && python validate_data.py && python smoke_cpu.py
+```
 
 ## Novinky 1.1 – 1.2
 
