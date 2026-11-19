@@ -447,7 +447,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val input: Value = lastAttachment()?.takeIf { tool.accepts(it) } ?: when (intent.id) {
             "url.read" -> Value.Url(Regex("https?://\\S+").find(text)!!.value)
             // hledat jen výraz, ne celý příkaz („najdi v mých souborech Netflix“ → „Netflix“)
-            "index.search" -> Value.Text(text.replace(Regex("(?i)^.*?\\b(souborech|dokumentech|souborů|dokumentů)\\b\\s*[:,]?\\s*"), "").trim().trim('„', '“', '"').ifBlank { text })
+            "index.search" -> Value.Text(text.replace(Regex("(?i)^.*?(?<!\\p{L})(souborech|dokumentech|souborů|dokumentů)(?!\\p{L})\\s*[:,]?\\s*"), "").trim().trim('„', '“', '"').ifBlank { text })
             "text.diff" -> { val parts = text.split(Regex("\\n-{3,}\\n|\\n={3,}\\n")); if (parts.size >= 2) Value.Text(parts[0].substringAfter('\n', parts[0])) else throw ToolError("Pro porovnání vlož dva texty oddělené řádkem ---, nebo použij nástroj Rozdíl ručně.") }
             else -> lastResultRun?.let { run(it)?.last }?.takeIf { tool.accepts(it) } ?: Value.Text(text)
         }

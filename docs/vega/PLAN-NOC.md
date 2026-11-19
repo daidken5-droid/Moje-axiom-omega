@@ -47,7 +47,12 @@ Další pravidla:
     - `duckParse` je oddělený kvůli testu.
   - **Test:** WebParseTest na uloženém vzorku skutečného HTML (3 výsledky, dekódování uddg, odstranění `<b>`).
   - **NEOVĚŘENO:** lite.duckduckgo.com z kontejneru neodpověděl, takže parser pro něj jsem nenapsal naslepo.
-- [ ] 4. Kontrola všech regexů na Android (ICU): u každého `Regex("…")` ve VEGA ověřit konstrukce; rozšířit AndroidRegexTest o `\b` za ne-ASCII
+- [x] 4. Kontrola všech regexů na Android (ICU): u každého `Regex("…")` ve VEGA ověřit konstrukce; rozšířit AndroidRegexTest o `\b` za ne-ASCII
+  - **Výsledek:**
+    - `Ops.kt` „najdi v mých souborech/souborů X“: `souborů)\b` se na telefonu a v testu chovalo různě. Opraveno na `(?!\p{L})`.
+    - AndroidRegexTest hlídá `\b` vedle českého písmene, i přes skupiny `(…|souborů)\b`. Sám detektor má vlastní test.
+    - Ostatní nálezy jsou `\b` jen u ASCII písmen, tedy v pořádku. CANON_EQ, COMMENTS ani neomezený lookbehind se nepoužívají.
+    - Testy: 44 + 21 zelených.
 - [ ] 5. Autonomie krok 1: `SelfTune` deník signálů slabin (chyby, opravy uživatele, Stop, špatný záměr, pomalé kroky) + test
 - [ ] 6. Autonomie krok 2: návrh příkladů routeru z deníku → ověření na held-out sadě → karta „Vylepšení“ s historií a návratem
 - [ ] 7. Autonomie krok 3: rozšíření jako JS nástroje v sandboxu (registr, oprávnění, testy, zapnout/vrátit)
