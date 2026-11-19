@@ -40,17 +40,20 @@ class ChainEngine(
                     }
                     reservedUsd = res
                 }
-                var started = false
+                var started = false; var streamed = 0
+                // placené volání ukončené Stopem / chybou až po zaúčtování: vrátit rezervaci a zapsat odhad podle skutečně přijatého textu
+                fun chargePartial() { if (m.provider.paid && guard != null && reservedUsd > 0) guard.settle(m.provider.id, m.model, reservedUsd, null, null, chars, streamed, opts.maxTokens) }
                 try {
-                    val r = factory(m).generate(fitted, opts, cancel) { d -> started = true; onDelta(d) }
+                    val r = factory(m).generate(fitted, opts, cancel) { d -> started = true; streamed += d.text.length; onDelta(d) }
                     if (m.provider.paid && guard != null) guard.settle(m.provider.id, m.model, reservedUsd, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, opts.maxTokens)
                     onUsage(m.provider.id, m.model, r.inputTokens, r.outputTokens)
                     return r
-                } catch (e: CancelledException) { throw e
+                } catch (e: CancelledException) { chargePartial(); throw e
                 } catch (e: Exception) {
                     last = e
                     val pre = CostGuard.preResponse(e)
-                    if (reservedUsd > 0 && pre) guard!!.refund(m.provider.id, reservedUsd)
+                    if (reservedUsd > 0 && pre && !started) guard!!.refund(m.provider.id, reservedUsd)
+                    else if (reservedUsd > 0) chargePartial()
                     if (started) throw e
                     if (m.provider.paid && !pre) throw e // zaplacený pokus → neplatit podruhé u dalšího člena
                     val msg = e.message.orEmpty()

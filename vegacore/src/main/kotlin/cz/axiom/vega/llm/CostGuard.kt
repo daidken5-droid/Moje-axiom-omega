@@ -72,7 +72,12 @@ class GuardedEngine(private val inner: LlmEngine, private val provider: String, 
         val (d, res) = guard.tryReserve(provider, model, chars, options.maxTokens)
         (d as? CostGuard.Decision.Deny)?.let {
             throw CostGuard.BudgetException("Placené volání zastaveno: ${it.reason}.", provider, model, guard.estimateUsd(provider, model, chars, options.maxTokens)) }
-        val r = try { inner.generate(messages, options, cancel, onDelta) } catch (e: Throwable) { if (CostGuard.preResponse(e)) guard.refund(provider, res); throw e }
+        var streamed = 0
+        val r = try { inner.generate(messages, options, cancel) { d -> streamed += d.text.length; onDelta(d) } } catch (e: Throwable) {
+            // nic nepřišlo a nic se neúčtovalo → vrátit; jinak (Stop během psaní, chyba po zaúčtování) zapsat odhad podle přijatého textu
+            if (CostGuard.preResponse(e) && streamed == 0) guard.refund(provider, res) else guard.settle(provider, model, res, null, null, chars, streamed, options.maxTokens)
+            throw e
+        }
         guard.settle(provider, model, res, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, options.maxTokens)
         return r
     }

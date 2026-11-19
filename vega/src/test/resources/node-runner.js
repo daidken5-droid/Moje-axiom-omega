@@ -11,7 +11,8 @@ function resolve(base, p) {
 }
 let tests = [];
 const show = v => fmtv(v); const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const expect = a => ({
+let expects = 0;
+const expect = a => (expects++, {
   toBe: b => { if (!Object.is(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
   toEqual: b => { if (!eq(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
   toBeCloseTo: (b, d = 2) => { if (Math.abs(a - b) > Math.pow(10, -d) / 2) throw new Error('čekáno ≈' + b + ', je ' + a); },
@@ -35,7 +36,7 @@ function load(path) {
   for (const s of specs) {
     tests = [];
     try { load(s); } catch (e) { fail++; out.push('✗ ' + s + ': ' + e.message); continue; }
-    for (const [n, f] of tests) { try { await f(); pass++; out.push('✓ ' + s + ' › ' + n); } catch (e) { fail++; out.push('✗ ' + s + ' › ' + n + ': ' + e.message); } }
+    for (const [n, f] of tests) { try { expects = 0; await f(); if (expects === 0) throw new Error('test nic neověřuje (žádné expect)'); pass++; out.push('✓ ' + s + ' › ' + n); } catch (e) { fail++; out.push('✗ ' + s + ' › ' + n + ': ' + e.message); } }
   }
   out.push(pass + ' prošlo, ' + fail + ' selhalo');
   process.stdout.write(JSON.stringify({ exitCode: fail || pass === 0 ? 1 : 0, output: out.join('\n'), command: specs.join(' ') }));

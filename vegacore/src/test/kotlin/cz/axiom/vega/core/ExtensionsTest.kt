@@ -23,7 +23,9 @@ class ExtensionsTest {
         assertEquals("pocet-radku", e1.id); assertFalse(e1.enabled, "nové rozšíření je vypnuté")
         assertTrue(x.setEnabled(e1.id, true)!!.enabled)
         val e2 = x.saveVersion("Počet řádků", "verze 2", code2, tests, 0, "1 prošlo", Extensions.shaOf(code2, tests))
-        assertEquals(2, e2.current); assertTrue(e2.enabled)
+        assertEquals(2, e2.current); assertFalse(e2.enabled, "nová verze se nezapne sama")
+        // jiný zdroj se stejným jménem → odmítnuto
+        assertFailsWith<IllegalArgumentException> { x.saveVersion("Počet řádků", "cizí", code2, tests, 0, "ok", Extensions.shaOf(code2, tests), origin = "projekt jiný") }
         val back = x.rollback(e1.id)!!
         assertEquals(1, back.current); assertEquals(code1, back.cur().code)
         assertEquals(listOf("uloženo v1", "zapnuto", "nová verze v2", "vráceno na v1"), back.history.map { it.action })

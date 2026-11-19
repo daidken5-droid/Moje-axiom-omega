@@ -107,6 +107,16 @@ Další pravidla:
     - Stream 600 průběžných částí: 0,99 s → 0,83 s celkem (už předtím rychlá cesta přes `#live`).
   - **NEOVĚŘENO:** `Ops.home()` na telefonu. Bez zařízení nejde změřit pravdivě, odhad z hostitele by byl zavádějící.
 - [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
+- [x] 11. Red-team konzilium nad nočním diffem. Opraveno:
+  - Placené volání přerušené Stopem nebo selhané po zaúčtování se nezapsalo do útraty (opakovaným Stop + restart šlo přečerpat strop). Teď se zapíše odhad podle přijatého textu.
+  - Naučené pravidlo routeru mohlo pohltit běžný rozhovor (stačila 2 slova kdekoli). Nově musí jít o krátkou zprávu (≤ 10 slov) nebo větu podobnou příkladu. Doklad = jiný den. Akce s vedlejšími účinky (projekt, kód, výzva, NFC, rozšíření, postup) se nikdy nezapínají samy.
+  - Rozšíření z jiného projektu se stejným jménem mohlo přepsat zapnuté rozšíření. Nově je id podle projektu, cizí zdroj se odmítne a nová verze se nikdy nezapne sama.
+  - „vytvoř rozšíření“ s otevřeným projektem ukládalo místo založení. Uloží jen „ulož / publikuj“.
+  - Test bez `expect` už neprojde (Worker i dvojník v Node). Rozšíření nepozná, jestli běží v testu.
+  - Anonymizace deníku nově pokrývá hesla/PIN/CVV, tokeny JWT a Bearer, e-maily s diakritikou a čísla od 3 číslic.
+  - `\w` → `\p{L}` (ICU vs. JVM).
+  - Spinner NFC se vypne po Stop / chybě.
+  - **Ponecháno (zapsáno v Problémech):** DNS rebinding.
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

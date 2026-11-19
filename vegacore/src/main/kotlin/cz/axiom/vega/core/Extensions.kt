@@ -34,20 +34,23 @@ class Extensions(private val kv: Kv, private val clock: () -> Long = System::cur
      * Uloží novou verzi z projektu. [testExit] a [testOutput] musí pocházet z běhu testů nad PŘESNĚ tímto [code]
      * a [tests] ([testedSha] spočítá volající ze souborů, které testům předal). Neprošlé testy = nic se neuloží.
      */
-    fun saveVersion(name: String, description: String, code: String, tests: Map<String, String>, testExit: Int, testOutput: String, testedSha: String, origin: String = ""): Ext = synchronized(lock) {
+    fun saveVersion(name: String, description: String, code: String, tests: Map<String, String>, testExit: Int, testOutput: String, testedSha: String, origin: String = "", key: String = name): Ext = synchronized(lock) {
         require(tests.isNotEmpty()) { "Rozšíření musí mít testy (*.test.js)." }
         require(code.contains("run")) { "tool.js musí exportovat funkci run(input, params)." }
         require(code.length <= MAX_CODE) { "Kód rozšíření je příliš velký (${code.length} znaků)." }
         val sha = shaOf(code, tests)
         require(testExit == 0) { "Testy neprošly – rozšíření se neuloží.\n" + testOutput.take(600) }
         require(testedSha == sha) { "Testovaný kód se liší od ukládaného – spusť testy znovu." }
-        val id = idOf(name)
+        val id = idOf(key)
         val old = get(id)
+        // jiný projekt se stejným jménem nesmí tiše přepsat cizí rozšíření
+        require(old == null || old.origin == origin) { "Rozšíření „${old?.name}“ už existuje z jiného zdroje (${old?.origin}) – přejmenuj projekt." }
         val n = (old?.versions?.maxOfOrNull { it.v } ?: 0) + 1
         val ver = Version(n, code, sha, tests, testedSha, testOutput.take(4000), clock())
         val e = if (old == null) Ext(id, name.take(60), description.take(300), false, n, listOf(ver), origin, listOf(Event(clock(), "uloženo v$n", "testy prošly")))
-                else old.copy(description = description.take(300), current = n, versions = (old.versions + ver).takeLast(KEEP_VERSIONS),
-                              history = old.history + Event(clock(), "nová verze v$n", if (old.enabled) "zůstává zapnuté" else "testy prošly"))
+                // nová verze se nikdy nezapne sama – uživatel ji zapne (předchozí zůstává k vrácení)
+                else old.copy(description = description.take(300), current = n, enabled = false, versions = (old.versions + ver).takeLast(KEEP_VERSIONS),
+                              history = old.history + Event(clock(), "nová verze v$n", "čeká na zapnutí"))
         save(e); e
     }
 

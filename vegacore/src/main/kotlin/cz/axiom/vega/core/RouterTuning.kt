@@ -31,21 +31,22 @@ class RouterTuning(private val kv: Kv, private val clock: () -> Long = System::c
     private fun save(r: List<Rule>) { kv.write(key, json.encodeToString(ListSerializer(Rule.serializer()), r.takeLast(200))); activeCache = null }
 
     fun active(): List<Router.Learned> = activeCache ?: rules().filter { it.status == Status.ACTIVE.name }.map { it.learned() }.also { activeCache = it }
-    private fun Rule.learned() = Router.Learned(id, tokens.toSet(), target)
+    private fun Rule.learned() = Router.Learned(id, tokens.toSet(), target, examples)
 
     /** Projde deník, doplní / aktualizuje návrhy a ty s dost doklady po úspěšné kontrole zapne. Vrací změněná pravidla. */
     fun refresh(signals: List<SelfTune.Signal>, ctxFor: (String) -> Router.Ctx = { NONE }): List<Rule> = synchronized(lock) {
         val cands = signals.filter { it.kind in setOf("CORRECTION", "REPHRASE", "WRONG_INTENT") && it.area in FALLBACK && it.resolved.isNotBlank() &&
                 it.resolved != it.area && it.resolved !in FALLBACK && !it.resolved.startsWith("přímý") && it.prevExcerpt.isNotBlank() }
-            .mapNotNull { s -> tokensOf(s.prevExcerpt, s.excerpt)?.let { Triple(it, s.resolved, s.prevExcerpt) } }
-            .groupBy { it.first.sorted().joinToString(" ") + "→" + it.second }
+            .mapNotNull { s -> tokensOf(s.prevExcerpt, s.excerpt)?.let { Cand(it, s.resolved, s.prevExcerpt, s.at / 86_400_000L) } }
+            .groupBy { it.tokens.sorted().joinToString(" ") + "→" + it.target }
         val rules = rules().toMutableList(); val changed = ArrayList<Rule>()
         for ((id, group) in cands) {
-            val (tokens, target, _) = group.first(); val examples = group.map { it.third }.distinct().takeLast(5)
+            val tokens = group.first().tokens; val target = group.first().target; val examples = group.map { it.example }.distinct().takeLast(5)
+            val days = group.map { it.day }.distinct().size // doklad = jiný den (opakování v jedné chvíli není nezávislé)
             val i = rules.indexOfFirst { it.id == id }
-            var r = if (i >= 0) rules[i].copy(examples = (rules[i].examples + examples).distinct().takeLast(5), evidence = maxOf(rules[i].evidence, group.size))
-                    else Rule(id, tokens.sorted(), target, examples, group.size, Status.PROPOSED.name, history = listOf(Event(clock(), "návrh", "z deníku slabin")))
-            if (r.status == Status.PROPOSED.name && r.evidence >= AUTO_EVIDENCE) {
+            var r = if (i >= 0) rules[i].copy(examples = (rules[i].examples + examples).distinct().takeLast(5), evidence = maxOf(rules[i].evidence, days))
+                    else Rule(id, tokens.sorted(), target, examples, days, Status.PROPOSED.name, history = listOf(Event(clock(), "návrh", "z deníku slabin")))
+            if (r.status == Status.PROPOSED.name && r.evidence >= AUTO_EVIDENCE && !needsConsent(r.target)) {
                 val v = validate(r, rules.filter { it.status == Status.ACTIVE.name && it.id != r.id }, ctxFor)
                 r = if (v == null) r.copy(status = Status.ACTIVE.name, reason = "", history = r.history + Event(clock(), "zapnuto samo", "${r.evidence} doklady, kontrolní sada beze změny"))
                     else r.copy(reason = v)
@@ -83,8 +84,13 @@ class RouterTuning(private val kv: Kv, private val clock: () -> Long = System::c
         return miss?.let { "příklad „$it“ by pořád nešel na ${r.target} (akce v tomto kontextu nejde spustit)" }
     }
 
+    private data class Cand(val tokens: Set<String>, val target: String, val example: String, val day: Long)
+
     companion object {
         const val AUTO_EVIDENCE = 2
+        /** Akce s vedlejšími účinky (model, kód, dokumenty, NFC, vlastní rozšíření) se samy nezapínají – jen návrh na klepnutí. */
+        fun needsConsent(target: String) = target.startsWith("nástroj:ext.") || target.startsWith("postup:") ||
+            target in setOf("záměr:NewProject", "záměr:Code", "záměr:Demand", "záměr:Nfc", "záměr:Hypothesis", "záměr:CompareFiles", "záměr:MakeButton")
         private val FALLBACK = setOf("záměr:Talk", "záměr:Research")
         val NONE = Router.Ctx(false, null, false, false, null)
         private val STOP = setOf("prosim", "muzes", "mohl", "mohla", "bys", "chci", "potrebuju", "jsem", "myslel", "myslela", "myslim", "jen", "tak", "taky", "ale",

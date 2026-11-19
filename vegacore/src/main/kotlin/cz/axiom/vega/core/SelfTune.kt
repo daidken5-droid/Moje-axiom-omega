@@ -99,10 +99,14 @@ class SelfTune(private val kv: Kv, private val version: String = "", private val
         /** Zkrátí a anonymizuje: klíče, e-maily, URL (jen doména), IBAN/čísla účtů a delší čísla → značky. */
         fun anonymize(s: String): String = s.replace(Regex("\\s+"), " ").trim()
             .replace(Regex("(sk-|AIza|gsk_|csk-|ghp_|github_pat_|xox[bp]-)[A-Za-z0-9_\\-]{8,}"), "‹klíč›")
-            .replace(Regex("[\\w.+-]+@[\\w-]+\\.[\\w.]+"), "‹e-mail›")
+            .replace(Regex("eyJ[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_.\\-]*"), "‹token›")
+            .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9_.\\-]{8,}"), "$1‹token›")
+            .replace(Regex("(?i)(heslo|hesla|password|passwd|pin|token|cvv|cvc)(\\s*(je|:|=)?\\s*)\\S+"), "$1$2‹skryto›")
+            .replace(Regex("[\\p{L}\\p{Nd}._%+-]+@[\\p{L}\\p{Nd}-]+\\.[\\p{L}\\p{Nd}.]+"), "‹e-mail›")
             .replace(Regex("https?://([^/\\s]+)\\S*")) { "‹url ${it.groupValues[1]}›" }
             .replace(Regex("[A-Z]{2}\\d{2}(?: ?[A-Z0-9]{4}){3,7}"), "‹IBAN›")
             .replace(Regex("\\d[\\d /.-]{4,}\\d"), "‹číslo›")
+            .replace(Regex("\\d{3,}"), "‹číslo›")
             .take(160)
     }
 }

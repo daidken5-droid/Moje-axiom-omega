@@ -497,7 +497,8 @@ function load(path) {
 }
 let tests = [];
 const show = v => fmtv(v); const eq = (a, b) => JStr(a) === JStr(b);
-const expect = a => Freeze({
+let expects = 0;
+const expect = a => (expects++, Freeze({
   toBe: b => { if (!OIs(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
   toEqual: b => { if (!eq(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
   toBeCloseTo: (b, d = 2) => { if (MathAbs(a - b) > MathPow(10, -d) / 2) throw new Error('čekáno ≈' + b + ', je ' + a); },
@@ -505,7 +506,7 @@ const expect = a => Freeze({
   toBeFalsy: () => { if (a) throw new Error('čekána nepravda, je ' + show(a)); },
   toContain: b => { if (!(a && a.includes && a.includes(b))) throw new Error(show(a) + ' neobsahuje ' + show(b)); },
   toThrow: () => { try { a(); } catch (e) { return; } throw new Error('čekána výjimka'); },
-});
+}));
 const APush = Function.prototype.call.bind(Array.prototype.push);
 const test = (n, f) => { APush(tests, [n, f]); };
 lock('test', test); lock('it', test); lock('describe', (n, f) => f()); lock('expect', expect);
@@ -518,7 +519,7 @@ try { Freeze(Array.prototype); Freeze(Object.getPrototypeOf([][Symbol.iterator](
     const s = specs[si]; tests = [];
     try { load(s); } catch (e) { fail++; APush(out, '✗ ' + s + ': ' + e.message); continue; }
     const mine = tests; const cnt = mine.length;
-    for (let ti = 0; ti < cnt; ti++) { const n = mine[ti][0], f = mine[ti][1]; try { await f(); pass++; APush(out, '✓ ' + s + ' › ' + n); } catch (e) { fail++; APush(out, '✗ ' + s + ' › ' + n + ': ' + e.message); } }
+    for (let ti = 0; ti < cnt; ti++) { const n = mine[ti][0], f = mine[ti][1]; try { expects = 0; await f(); if (expects === 0) throw new Error('test nic neověřuje (žádné expect)'); pass++; APush(out, '✓ ' + s + ' › ' + n); } catch (e) { fail++; APush(out, '✗ ' + s + ' › ' + n + ': ' + e.message); } }
   }
   APush(out, pass + ' prošlo, ' + fail + ' selhalo');
   post({ nonce: NONCE, exitCode: fail || pass === 0 ? 1 : 0, output: (specs.length ? '' : 'Žádné testy (*.test.js).\\n') + out.join('\\n'), command: specs.join(' ') });
@@ -546,6 +547,7 @@ function runExtension(code, input, params, timeoutMs) {
 const post = self.postMessage.bind(self); const NONCE = ${JSON.stringify(nonce)};
 try { Object.defineProperty(self, 'postMessage', { value: () => {}, writable: false, configurable: false }); } catch (e) {}
 for (const k of ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts', 'indexedDB', 'caches', 'BroadcastChannel']) { try { Object.defineProperty(self, k, { value: undefined, writable: false, configurable: false }); } catch (e) {} }
+for (const k of ['test', 'it', 'describe', 'expect']) { try { Object.defineProperty(self, k, { value: () => ({}), writable: false, configurable: false }); } catch (e) {} }
 const module = { exports: {} };
 try {
   new Function('module', 'exports', 'require', ${JSON.stringify(code)})(module, module.exports, () => { throw new Error('require není v rozšíření dostupné'); });
@@ -575,8 +577,8 @@ window.vega = {
       case 'phase': { const ph = $('#phase'); if (ph) ph.textContent = d.text; break; }
       case 'busy': S.busy = true; render(); break;
       case 'idle': S.busy = false; S.stream = ''; render(); break;
-      case 'done': S.busy = false; if (d.cancelled) toast('Zastaveno. Hotové kroky zůstaly.'); render(); break;
-      case 'error': S.busy = false; S.stream = ''; render(); toast(d.text, 7000); break;
+      case 'done': S.busy = false; if (d.cancelled) S.nfc = false; if (d.cancelled) toast('Zastaveno. Hotové kroky zůstaly.'); render(); break;
+      case 'error': S.busy = false; S.nfc = false; S.stream = ''; render(); toast(d.text, 7000); break;
       case 'toast': toast(d.text, 7000); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));

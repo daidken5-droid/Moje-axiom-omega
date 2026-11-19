@@ -26,6 +26,8 @@ class SelfTuneTest {
         val a = SelfTune.anonymize("klíč sk-abcdefghijklmnop12, mail jan.novak@example.cz, účet 123456789/0100, https://banka.cz/x?token=1 a CZ65 0800 0000 1920 0014 5399")
         assertFalse(a.contains("abcdefgh") || a.contains("novak") || a.contains("123456789") || a.contains("token=") || a.contains("1920"), a)
         assertTrue(a.contains("‹url banka.cz›") && a.contains("‹klíč›") && a.contains("‹e-mail›"), a)
+        val b = SelfTune.anonymize("heslo je Tajne123, pin 4821, mail jiří.dvořák@seznam.cz, Bearer abcdefghijkl, eyJhbGciOi.eyJzdWIi.sig")
+        assertFalse(b.contains("Tajne") || b.contains("4821") || b.contains("jiří") || b.contains("dvořák") || b.contains("abcdefghijkl") || b.contains("eyJ"), b)
 
         var t = 1_700_000_000_000L
         val kv = MemKv { t }; val st = SelfTune(kv, clock = { t }, keepDays = 30)

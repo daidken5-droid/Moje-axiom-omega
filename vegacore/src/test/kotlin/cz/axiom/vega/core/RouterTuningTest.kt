@@ -20,13 +20,15 @@ class RouterTuningTest {
             t += 15_000
             val fix = "ne, spočítej sha256 té fotky"
             st.userTurn(fix); st.routed(SelfTune.area(Router.route(fix, none)))
-            t += 3_600_000
+            t += 86_400_000 // další den = nezávislý doklad
         }
         val sig = st.signals().filter { it.kind == "CORRECTION" }
         assertEquals(2, sig.size); assertTrue(sig.all { it.area == "záměr:Talk" && it.resolved == "nástroj:hash" }, sig.toString())
 
         val changed = tune.refresh(st.signals())
         val r = changed.single(); assertEquals("ACTIVE", r.status, r.reason); assertEquals("nástroj:hash", r.target)
+        // dlouhá nesouvisející věta se stejnými slovy pravidlo nespustí
+        assertEquals("záměr:Talk", SelfTune.area(Router.route("jaký formát fotky je nejlepší a jak se pozná otisk prstu na displeji mobilu, který mám od loňska", none.copy(learned = tune.active()))))
         val ctx = none.copy(learned = tune.active())
         assertEquals("nástroj:hash", SelfTune.area(Router.route("jaký je otisk té fotky z dovolené", ctx)))
         // pevná pravidla a rozhovor beze změny
@@ -51,5 +53,15 @@ class RouterTuningTest {
         assertNotNull(tune.validate(code, emptyList()))
         assertNull(tune.validate(code, emptyList()) { Router.Ctx(false, null, true, false, null) })
         assertEquals(setOf("otisk", "fotky", "jaky"), RouterTuning.tokensOf("jaký je otisk té fotky", "ne, spočítej sha256 té fotky"))
+    }
+
+    @Test fun sameDayRepeatsAndRiskyTargetsDoNotAutoActivate() {
+        val t = 1_700_000_000_000L
+        val sig = { at: Long, target: String -> SelfTune.Signal("CORRECTION", "záměr:Talk", "ne, to chci jinak", prevExcerpt = "založ mi věc na faktury", at = at, resolved = target) }
+        val tune = RouterTuning(MemKv())
+        val a = tune.refresh(listOf(sig(t, "nástroj:hash"), sig(t + 60_000, "nástroj:hash"))).single()
+        assertEquals("PROPOSED", a.status, "dvakrát v jedné chvíli = jeden doklad"); assertEquals(1, a.evidence)
+        val b = tune.refresh(listOf(sig(t, "záměr:NewProject"), sig(t + 2 * 86_400_000L, "záměr:NewProject"))).single()
+        assertEquals("PROPOSED", b.status, "akce s vedlejšími účinky jen jako návrh")
     }
 }

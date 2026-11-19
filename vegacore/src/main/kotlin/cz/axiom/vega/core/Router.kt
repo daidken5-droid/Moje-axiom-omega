@@ -44,12 +44,14 @@ object Router {
                    val learned: List<Learned> = emptyList())
 
     /** Naučené pravidlo: zpráva obsahuje všechna [tokens] (bez diakritiky) → záměr [target] (štítek jako SelfTune.area). */
-    data class Learned(val id: String, val tokens: Set<String>, val target: String)
+    data class Learned(val id: String, val tokens: Set<String>, val target: String, val examples: List<String> = emptyList())
 
     private fun learnedMatch(raw: String, c: Ctx): Intent? {
         if (c.learned.isEmpty()) return null
         val words = Text.words(Text.fold(raw)).toSet()
-        return c.learned.firstOrNull { it.tokens.size >= 2 && words.containsAll(it.tokens) }?.let { intentFor(it.target, raw, c) }
+        // výrazy nestačí: krátká zpráva (≤ 10 slov), nebo věta podobná uloženému příkladu – jinak by dvojice slov pohltila běžný rozhovor
+        fun similar(l: Learned) = words.size <= 10 || l.examples.any { ex -> val e = Text.words(Text.fold(ex)).toSet(); e.isNotEmpty() && (e intersect words).size.toDouble() / (e union words).size >= 0.6 }
+        return c.learned.firstOrNull { it.tokens.size >= 2 && words.containsAll(it.tokens) && similar(it) }?.let { intentFor(it.target, raw, c) }
     }
 
     /** Štítek oblasti → záměr, jen pro záměry, které jdou spustit z pouhého textu (a v daném kontextu dávají smysl). */

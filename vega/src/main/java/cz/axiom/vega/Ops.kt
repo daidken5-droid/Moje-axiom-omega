@@ -105,10 +105,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (!r.has("exitCode")) throw ToolError("Testy nedoběhly (obrazovka se zavřela) – nic se neuložilo.")
         val name = ws.name.ifBlank { "Rozšíření" }
         val e = try { extensions.saveVersion(name, (ws.config()["description"] ?: "Nástroj z projektu ${ws.name}"), code, tests, r.getInt("exitCode"), r.optString("output"),
-            cz.axiom.vega.core.Extensions.shaOf(code, tests), origin = "projekt ${ws.root.name}") } catch (x: IllegalArgumentException) { throw ToolError(x.message ?: "Neuloženo.") }
+            cz.axiom.vega.core.Extensions.shaOf(code, tests), origin = "projekt ${ws.root.name}", key = "${ws.name}-${ws.root.name.takeLast(6)}") } catch (x: IllegalArgumentException) { throw ToolError(x.message ?: "Neuloženo.") }
         registerExtensions()
         reply(chat, "Rozšíření „${e.name}“ uloženo jako v${e.current} – testy prošly ve Workeru bez sítě.\n${r.optString("output").lines().takeLast(4).joinToString("\n")}\n" +
-            (if (e.enabled) "Je zapnuté (nová verze platí hned; předchozí vrátíš v Menu → Vylepšení)." else "Zapneš ho v Menu → Vylepšení – pak je v nástrojích pod „Rozšíření“."))
+            "Zapneš ho v Menu → Vylepšení (nová verze se nezapíná sama; předchozí jde vrátit) – pak je v nástrojích pod „Rozšíření“.")
     }
     private fun tuneCtx(@Suppress("UNUSED_PARAMETER") example: String) = Router.Ctx(false, null, activeWorkspace() != null, lastResultRun != null, procedures)
     /** Projde deník a o pravidlech, která se právě sama zapnula, dá vědět (s možností vrátit v Paměť → Vylepšení). */
@@ -128,7 +128,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Karta Vylepšení: naučená pravidla, deník slabin (souhrn), stav. */
     fun improvementsJson(): JSONObject {
         val rules = JSONArray(); tuning.rules().reversed().forEach { r -> rules.put(JSONObject().put("id", r.id).put("status", r.status).put("target", improvementLabel(r.target))
-            .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason.replace(Regex("(záměr|nástroj|postup):[\\w.\\-]+")) { improvementLabel(it.value) })
+            .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason.replace(Regex("(záměr|nástroj|postup):[\\p{L}\\p{Nd}._\\-]+")) { improvementLabel(it.value) })
             .put("history", JSONArray(r.history.map { JSONObject().put("at", it.at).put("action", it.action).put("note", it.note) }))) }
         val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", improvementLabel(g.area)).put("count", g.count)
             .put("example", g.examples.lastOrNull()?.let { it.excerpt.ifBlank { it.detail } } ?: "")) }
@@ -1098,7 +1098,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** true = vyřízeno bez modelu. Parametry se drží v rozsahu projektu (jiný projekt má vlastní). */
     private fun decide(chat: String?, text: String, ws: Workspace?): Boolean {
         val scope = scopeOf(ws)
-        if (ws != null && Regex("(?i)(ulož|uložit|udělej|vytvoř|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
+        if (ws != null && Regex("(?i)(ulož|uložit|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
         cz.axiom.vega.core.Econ.simpleProduct(text)?.let { reply(chat, it); return true }
         // bod zvratu
         val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
