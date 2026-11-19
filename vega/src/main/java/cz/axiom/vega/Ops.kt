@@ -120,16 +120,17 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun improvementLabel(target: String) = when {
         target.startsWith("nástroj:") -> "nástroj " + (Tools.get(target.removePrefix("nástroj:"))?.title ?: target.removePrefix("nástroj:"))
         target.startsWith("postup:") -> "postup " + target.removePrefix("postup:")
-        else -> mapOf("záměr:BuildStatementTool" to "zpracování výpisu", "záměr:Demand" to "předžalobní výzva", "záměr:Nfc" to "NFC", "záměr:Continue" to "navázání na práci",
+        else -> mapOf("záměr:Talk" to "rozhovor", "záměr:Research" to "rešerše", "model" to "model (cloud)", "přímý výpočet/důkazy/export" to "přímý výpočet", "záměr:FollowUp" to "navázání na výsledek",
+            "záměr:Remember" to "zapamatování", "záměr:FixColumn" to "oprava sloupce", "záměr:Undo" to "vrácení změny", "záměr:BuildStatementTool" to "zpracování výpisu", "záměr:Demand" to "předžalobní výzva", "záměr:Nfc" to "NFC", "záměr:Continue" to "navázání na práci",
             "záměr:WhatDoYouRemember" to "paměť", "záměr:Hypothesis" to "rozbor hypotézy", "záměr:NewProject" to "nový projekt", "záměr:MakeButton" to "tlačítko z výsledku",
             "záměr:Code" to "úprava kódu", "záměr:CompareFiles" to "porovnání souborů")[target] ?: target
     }
     /** Karta Vylepšení: naučená pravidla, deník slabin (souhrn), stav. */
     fun improvementsJson(): JSONObject {
         val rules = JSONArray(); tuning.rules().reversed().forEach { r -> rules.put(JSONObject().put("id", r.id).put("status", r.status).put("target", improvementLabel(r.target))
-            .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason)
+            .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason.replace(Regex("(záměr|nástroj|postup):[\\w.\\-]+")) { improvementLabel(it.value) })
             .put("history", JSONArray(r.history.map { JSONObject().put("at", it.at).put("action", it.action).put("note", it.note) }))) }
-        val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", g.area).put("count", g.count)
+        val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", improvementLabel(g.area)).put("count", g.count)
             .put("example", g.examples.lastOrNull()?.let { it.excerpt.ifBlank { it.detail } } ?: "")) }
         val ext = JSONArray(); extensions.list().forEach { e -> ext.put(JSONObject().put("id", e.id).put("name", e.name).put("description", e.description).put("enabled", e.enabled)
             .put("version", e.current).put("versions", e.versions.size).put("canRollback", e.versions.any { it.v < e.current }).put("origin", e.origin)
@@ -186,7 +187,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             catch (e: Partial) { note { selftune.observe(SelfTune.Kind.ERROR, "model", detail = human(e.cause ?: e)) } }
             catch (e: CancelledException) { emit("done", JSONObject().put("cancelled", true)) }
             catch (e: Throwable) {
-                note { selftune.observe(SelfTune.Kind.ERROR, if (e is cz.axiom.vega.llm.ChainEngine.ChainException || e is CostGuard.BudgetException) "model" else selftune.lastArea(), detail = "${e.javaClass.simpleName}: ${human(e)}") }
+                val model = e is cz.axiom.vega.llm.ChainEngine.ChainException || e is CostGuard.BudgetException
+                note { selftune.observe(SelfTune.Kind.ERROR, if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
                 emit("error", JSONObject().put("text", human(e)))
             }
             finally { engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }

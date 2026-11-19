@@ -95,7 +95,12 @@ Další pravidla:
     - nekonečná smyčka skončí na limitu;
     - podvržený výsledek z kódu rozšíření se ignoruje (nonce).
   - **Testy:** ExtensionsTest (2 testy) prošel.
-- [ ] 8. UI: dotaz na souhlas vs. jiné listy (už hlídáno), spinner NFC po idle, přístupnost (aria, kontrast), kontrola na 360 px šířky
+- [x] 8. UI: dotaz na souhlas vs. jiné listy (už hlídáno), spinner NFC po idle, přístupnost (aria, kontrast), kontrola na 360 px šířky
+  - **Výsledek (snímky z Chromia na hostiteli, 360 px, světlý i tmavý režim, bez chyb JS a bez přetečení):**
+    - Karta Vylepšení: s 2–3 tlačítky se text smrskl na jedno slovo na řádek. Tlačítka jsou teď pod textem (`.row.stack`).
+    - Technické štítky (`záměr:Talk`, `ChainException`) se zobrazují česky.
+    - Spinner NFC zmizel hned po idle, i když telefon poslouchal. Teď se řídí skutečným stavem poslechu (`nfc.listening` → zpráva).
+    - Kontrast: bílý text na modré #5b8cff měl 3,16:1. Nově `--signal-strong` #3567e8 (4,93:1, WCAG AA) pro tlačítka a odeslání. Šedý text na listu má 5,7:1.
 - [ ] 9. Výkon: profil `Ops.home()` a vykreslování chatu se 300 zprávami; měření před/po
 - [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
 

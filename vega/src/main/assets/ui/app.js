@@ -187,7 +187,7 @@ function card(c, isLast) {
       <div class="res-big">${fmt(c.total)} Kč</div><div class="res-sub">PDF zpětně zkontrolováno: ${c.checks.filter(k => k.ok).length}/${c.checks.length}</div>
       ${c.warnings.map(w => `<div class="res-body warn">⚠ ${esc(w)}</div>`).join('')}
       <div class="res-a"><button class="btn primary" data-act="openOut" data-f="${esc(c.files[1] || c.files[0])}">Otevřít PDF</button><span class="grow"></span><button class="more" data-act="demandMenu" data-d='${esc(JSON.stringify(c))}' aria-label="Další">⋯</button></div></div>`;
-    case 'nfcWait': return isLast && S.busy !== false ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span></div>` : '';
+    case 'nfcWait': return isLast && S.nfc ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span></div>` : '';
     case 'memRevert': return `<button class="pill sig" data-act="memRevert" data-id="${esc(c.id)}">Vrátit předchozí verzi</button>`;
     case 'memory': return `<button class="pill" data-act="library" data-tab="memory">Otevřít paměť ›</button>`;
     default: return '';
@@ -332,16 +332,16 @@ function library(tab) {
     const v = call('improvements') || { rules: [], weak: [] };
     const st = { ACTIVE: ['zapnuto', 'ok'], PROPOSED: ['návrh', ''], REVERTED: ['vráceno', ''], REJECTED: ['zamítnuto', 'bad'] };
     body = `<p class="lede">Co jsem se naučila z tvých oprav. Pravidlo se zapne jen tehdy, když nezmění žádný kontrolní případ, a můžeš ho kdykoli vrátit. Deník zůstává jen v telefonu.</p>
-      <h3>Naučená pravidla</h3><div class="list">${v.rules.map(r => `<div class="row"><span class="grow"><b>„${esc(r.examples[r.examples.length - 1] || r.tokens.join(' '))}“ → ${esc(r.target)} <span class="pill ${st[r.status][1]}">${st[r.status][0]}</span></b>
+      <h3>Naučená pravidla</h3><div class="list">${v.rules.map(r => `<div class="row stack"><span class="grow"><b>„${esc(r.examples[r.examples.length - 1] || r.tokens.join(' '))}“ → ${esc(r.target)} <span class="pill ${st[r.status][1]}">${st[r.status][0]}</span></b>
         <small>výrazy: ${r.tokens.map(esc).join(', ')} · doklady: ${r.evidence}${r.reason ? ' · ' + esc(r.reason) : ''}</small>
         <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
-        ${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
-        ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
-      <h3>Rozšíření (nástroje, které jsem napsala)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
+        <span class="acts">${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
+        ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</span></div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
+      <h3>Rozšíření (nástroje, které jsem napsala)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row stack"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
         <small>${esc(e.description)} · bez sítě · ${esc(e.tests || 'testy prošly')}</small><small>${e.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
-        <button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
+        <span class="acts"><button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
         ${e.canRollback ? `<button class="btn" data-act="impr" data-id="${esc(e.id)}" data-a="extBack">Vrátit verzi</button>` : ''}
-        <button class="btn ghost" data-act="impr" data-id="${esc(e.id)}" data-a="extDel">Smazat</button></div>`).join('') || '<div class="row"><span class="grow note">Zatím žádné. Řekni třeba „napiš rozšíření, které z výpisu vytáhne IBANy“ – napíšu ho s testy, a když projdou, „ulož jako rozšíření“.</span></div>'}</div>
+        <button class="btn ghost" data-act="impr" data-id="${esc(e.id)}" data-a="extDel">Smazat</button></span></div>`).join('') || '<div class="row"><span class="grow note">Zatím žádné. Řekni třeba „napiš rozšíření, které z výpisu vytáhne IBANy“ – napíšu ho s testy, a když projdou, „ulož jako rozšíření“.</span></div>'}</div>
       <h3>Kde mám slabiny (30 dní)</h3><div class="list">${v.weak.map(w => `<div class="row"><span class="grow"><b>${esc(w.kind)} · ${esc(w.area)} <span class="pill">${w.count}×</span></b><small>${esc(w.example)}</small></span></div>`).join('') || '<div class="row"><span class="grow note">Bez záznamů.</span></div>'}</div>`;
   } else {
     const ms = call('memory') || [];
@@ -563,7 +563,7 @@ window.vega = {
   on(type, d) {
     switch (type) {
       case 'message':
-        S.stream = '';
+        S.stream = ''; if (!(d.msg && d.msg.card && d.msg.card.type === 'nfcWait')) S.nfc = false;
         if (d.chat === 'temp') S.tempMsgs.push(d.msg);
         if (d.chat === chatId()) render(); else if (d.chat !== 'temp') toast('VEGA: ' + String(d.msg.text || 'výsledek je hotový').slice(0, 80));
         break;
@@ -609,8 +609,8 @@ window.vega = {
       case 'verifier': toast(d.message, 7000); if ($('#kc-verifier')) settingsSheet(); break;
       case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}`; else toast(d.message, 6000); break; }
       case 'nfc.start': B.nfc(chatId()); break;
-      case 'nfc.listening': { const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
-      case 'nfc.off': sheet(`<h2>NFC je vypnuté</h2><p class="lede">Zapni ho v systému a zkus to znovu.</p><button class="btn primary wide" data-act="nfcSettings">Otevřít nastavení NFC</button>`); break;
+      case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
+      case 'nfc.off': S.nfc = false; render(); sheet(`<h2>NFC je vypnuté</h2><p class="lede">Zapni ho v systému a zkus to znovu.</p><button class="btn primary wide" data-act="nfcSettings">Otevřít nastavení NFC</button>`); break;
     }
   },
   /** Systémové Zpět: nejdřív zavřít list (= „ne“ u dotazu), pak režim nástroje; jinak ať aplikace jde do pozadí. */
