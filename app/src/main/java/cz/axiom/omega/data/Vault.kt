@@ -80,11 +80,8 @@ class Vault(context: Context) {
         const val NANOGPT = "nanogpt"
         const val OLLAMA = "ollama"
         const val SYNTHETIC = "synthetic"
-        /** Gemini API: klíč z projektu bez fakturace (bezplatná kvóta) a klíč z projektu s kreditem Google AI Pro. */
-        const val GEMINI = "gemini"
-        const val GEMINI_PRO = "geminipro"
         /** Všechny klíče (nouzové smazání, „zapomenout klíče“). */
-        val ALL = listOf(KIMI, CLAUDE, SERVER, NODE, HF, GROQ, CEREBRAS, OPENROUTER, GEMINI, DEEPSEEK, CHUTES, NANOGPT, OLLAMA, SYNTHETIC, GEMINI_PRO)
-        val CLOUD = listOf(GROQ, CEREBRAS, OPENROUTER, GEMINI, DEEPSEEK, CHUTES, NANOGPT, OLLAMA, SYNTHETIC, GEMINI_PRO)
+        val ALL = listOf(KIMI, CLAUDE, SERVER, NODE, HF, GROQ, CEREBRAS, OPENROUTER, DEEPSEEK, CHUTES, NANOGPT, OLLAMA, SYNTHETIC)
+        val CLOUD = listOf(GROQ, CEREBRAS, OPENROUTER, DEEPSEEK, CHUTES, NANOGPT, OLLAMA, SYNTHETIC)
     }
 }
