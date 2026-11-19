@@ -424,7 +424,7 @@ class OpsSpecTest {
         awaitMsg(r2, n2, 30_000)
         val f2 = msgs(r2, n2).last()
         assertEquals(3, f2.getJSONObject("card").getInt("rev"))
-        assertTrue(f2.getString("text"), f2.getString("text").contains("−49\u00a0960,30")) // výdaje: 16 810,40 + 17 750 + 16 399,90
+        assertTrue(f2.getString("text"), f2.getString("text").contains("−50\u00a0960,30")) // výdaje: 16 810,40 + 17 750 + 16 399,90
         val log2 = f2.getJSONObject("card").getJSONArray("log").let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
         assertTrue(log2.none { it.getInt("rev") == 3 && it.getString("action") == "spočítáno" && it.getString("step") == "zpracování souboru" })
         assertEquals(0L, o.settings.commercialRequests())
