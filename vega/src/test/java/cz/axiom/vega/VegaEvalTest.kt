@@ -22,6 +22,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 class VegaEvalTest {
     private val ctx = RuntimeEnvironment.getApplication()
     private val url: String? = (System.getenv("VEGA_EVAL_URL") ?: File(System.getProperty("user.home"), ".vega-eval-url").takeIf { it.exists() }?.readText())?.trim()?.ifBlank { null }
+    /** ~/.vega-eval-only = čárkami oddělená id případů (dodělání přerušeného měření); jinak všechny. */
+    private val only: Set<String>? = File(System.getProperty("user.home"), ".vega-eval-only").takeIf { it.exists() }?.readText()?.split(',')?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet()
+    private fun want(id: String) = only == null || id in only
     private fun res(n: String) = javaClass.getResource("/$n")!!.readBytes()
 
     private class NoKeys(c: android.content.Context) : Vault(c) {
@@ -97,14 +100,14 @@ class VegaEvalTest {
         val c0 = o.settings.commercialRequests()
 
         // ---- 1. český rozhovor: výpočet
-        run {
+        if (want("konverzace-vypocet")) run {
             val q = "Kolik je 48 × 37?"
             val (a, t) = timed { raw(q) }; record("konverzace-vypocet", "český rozhovor", "model sám", norm(a).contains("1776"), !a.startsWith("CHYBA"), 0, t, "", a)
             val (m, t2) = timed { say(o, r, o.newChat(), q) }; val x = allText(m)
             record("konverzace-vypocet", "český rozhovor", "model ve VEGA", norm(x).contains("1776"), !x.contains("CHYBA"), 0, t2, if (x.contains("bez modelu")) "deterministické jádro" else "model", x)
         }
         // ---- 2. český rozhovor: vysvětlení
-        run {
+        if (want("konverzace-vysvetleni")) run {
             val q = "Vysvětli mi jednou nebo dvěma větami, co je inflace."
             fun okc(s: String) = czech.containsMatchIn(s) && !Regex("[\\u4e00-\\u9fff]").containsMatchIn(s) && s.trim().length in 30..700 && s.lowercase().contains("cen")
             val (a, t) = timed { raw(q) }; record("konverzace-vysvetleni", "český rozhovor", "model sám", okc(a), !a.startsWith("CHYBA"), 0, t, "${a.length} znaků", a)
@@ -112,7 +115,7 @@ class VegaEvalTest {
             record("konverzace-vysvetleni", "český rozhovor", "model ve VEGA", okc(x), !x.startsWith("CHYBA"), 0, t2, "${x.length} znaků", x)
         }
         // ---- 3. dlouhé vícedílné zadání
-        run {
+        if (want("dlouhe-zadani")) run {
             val filler = "Text kapitoly popisuje organizační detaily, harmonogram porad, seznam účastníků a obecné zásady komunikace. "
             val chapters = (1..12).map { i -> "Kapitola $i.\n" + filler.repeat(22) + when (i) { 3 -> "Rozpočet projektu činí 4,2 milionu Kč. "; 7 -> "Termín dokončení je 30. září 2027. "; 9 -> "Odpovědnou osobou je Ing. Marta Dvořáková. "; else -> "" } + filler.repeat(4) }
             val doc = chapters.joinToString("\n\n") + "\n\nOtázky: Jaký je rozpočet projektu? Kdy je termín dokončení? Kdo je odpovědná osoba?"
@@ -123,7 +126,7 @@ class VegaEvalTest {
             record("dlouhe-zadani", "dlouhé vícedílné zadání", "model ve VEGA", okc(x), !x.contains("CHYBA") && !x.contains("\"type\":\"resume\""), 0, t2, Regex("Pokryto \\d+/\\d+").find(x)?.value ?: "", x)
         }
         // ---- 4. rešerše
-        run {
+        if (want("reserse")) run {
             val q = "Operace Anthropoid"
             val (a, t) = timed { raw(q) }; record("reserse", "rešerše", "model sám", false, !a.startsWith("CHYBA"), 0, t, "model nemá web – zdroje nejde ověřit" + if (Regex("https?://").containsMatchIn(a)) " (uvedl URL bez stažení)" else "", a)
             val (m, t2) = timed { say(o, r, o.newChat(), q) }; val x = allText(m)
@@ -131,7 +134,7 @@ class VegaEvalTest {
             record("reserse", "rešerše", "model ve VEGA", src > 0 && Regex("\\[\\d+]").containsMatchIn(m.lastOrNull()?.optString("text") ?: ""), src > 0, 0, t2, "staženo zdrojů: $src", x)
         }
         // ---- 5. oprava programu
-        run {
+        if (want("oprava-programu")) run {
             val task = "Sleva se počítá špatně, oprav to."
             val files = sleva.entries.joinToString("\n\n") { "=== ${it.key} ===\n${it.value}" }
             val (a, t) = timed { raw("ÚKOL: $task\n\n$files", cz.axiom.vega.core.CodeAgent.SYSTEM, 1500) }
@@ -146,7 +149,7 @@ class VegaEvalTest {
             record("oprava-programu", "oprava programu", "model ve VEGA", v.exitCode == 0, !x.contains("CHYBA"), 0, t2, "kol $rounds, test kód ${v.exitCode}, revize ${v.revision}", x)
         }
         // ---- 6. práce s daty
-        run {
+        if (want("data-vypis")) run {
             val csv = res("eval/vypis-rijen.csv"); val q = "Spočítej mi z výpisu příjmy, výdaje a saldo."
             fun okc(s: String) = norm(s).let { it.contains("49712,47") && (it.contains("24085,2") || it.contains("24085.2")) && it.contains("25627,27") } ||
                 norm(s).let { it.contains("49712.47") && it.contains("24085.2") && it.contains("25627.27") }
@@ -156,7 +159,7 @@ class VegaEvalTest {
             record("data-vypis", "práce s daty", "model ve VEGA", okc(x), !x.contains("CHYBA"), 0, t2, Regex("Kontrola proti zůstatku[^\"\\\\]*").find(x)?.value ?: "", x)
         }
         // ---- 7. dokument
-        run {
+        if (want("dokument-vyzva")) run {
             val q = "Napiš předžalobní výzvu: věřitel Jan Malý, Praha; dlužník Stavby s.r.o., Brno; faktura 2026/118 na 48 400 Kč za stavební práce, vystavena 1. 3. 2026, splatnost 15. 3. 2026; dlužník uhradil 10 000 Kč dne 1. 5. 2026. Spočítej dlužnou jistinu a úrok z prodlení k 19. 11. 2026."
             val (a, t) = timed { raw(q, null, 1500) }
             fun okc(s: String) = norm(s).let { it.contains("38400") || it.contains("38 400") } && Regex("(?i)úrok").containsMatchIn(s) && Regex("\\d+[,.]?\\d*\\s*%").containsMatchIn(s)
@@ -173,7 +176,7 @@ class VegaEvalTest {
             record("dokument-vyzva", "dokument", "model ve VEGA", okc(x) && x.contains(".pdf") && x.contains(".docx"), !x.contains("CHYBA"), 1, t2, "formulář = 1 zásah; " + (Regex("PDF jsem zpětně přečetl: \\d/\\d")).find(x)?.value.orEmpty(), x)
         }
         // ---- 8. návrat k projektu (po „restartu“ = nová instance nad stejným úložištěm)
-        run {
+        if (want("navrat-k-projektu")) run {
             val q = "pokračuj tam, kde jsme skončili"
             val (a, t) = timed { raw(q) }; record("navrat-k-projektu", "návrat k projektu", "model sám", a.contains("Sleva"), !a.startsWith("CHYBA"), 0, t, "model nemá stav mezi sezeními", a)
             val r2 = Rec(); val o2 = ops(r2); o2.settings.activeProject = null
@@ -186,7 +189,7 @@ class VegaEvalTest {
         val out = JSONObject().put("server", url).put("prostredi", "JVM + Robolectric v kontejneru (ne telefon, ne emulátor); model na CPU kontejneru")
             .put("komercni_pozadavky", o.settings.commercialRequests() - c0).put("vlastni_pozadavky", o.settings.requests("own")).put("vysledky", rows)
             .put("treti_varianta", "komerční asistent neměřen – bez klíče a bez schváleného rozpočtu (výchozí útrata 0 Kč)")
-        File("build/vega-eval.json").writeText(out.toString(2))
+        File(if (only != null) "build/vega-eval-part.json" else "build/vega-eval.json").writeText(out.toString(2))
         println("EVAL komerční požadavky: ${o.settings.commercialRequests() - c0}")
     }
 }
