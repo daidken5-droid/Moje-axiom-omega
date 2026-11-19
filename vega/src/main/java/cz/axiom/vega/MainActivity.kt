@@ -188,6 +188,14 @@ class MainActivity : ComponentActivity() {
 
     fun openNfcSettings() = startActivity(Intent(AndroidSettings.ACTION_NFC_SETTINGS))
     fun pick() = runOnUiThread { pickFiles.launch(arrayOf("*/*")) }
+    /** Balíček ověřovače citací (.zip) – instaluje se mimo chat, ověří otisky souborů. */
+    private val pickVerifier = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) Thread {
+            val r = try { contentResolver.openInputStream(uri)!!.use { ops.installVerifier(it) } } catch (e: Exception) { "Instalace selhala: ${e.message}" }
+            send("verifier", JSONObject().put("message", r).put("ready", ops.grounding.ready))
+        }.start()
+    }
+    fun pickVerifierZip() = runOnUiThread { pickVerifier.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
     /** Hlasové zadání přes systémové rozpoznávání (čeština); aplikace sama mikrofon nepotřebuje. */
     private val speech = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val t = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
@@ -350,5 +358,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true") }
     @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
     @JavascriptInterface fun voice() = safe { a.voice() }
+    @JavascriptInterface fun verifierInstall() = safe { a.pickVerifierZip() }
+    @JavascriptInterface fun verifierRemove() = safe { ops.removeVerifier(); true }
     @JavascriptInterface fun exportRetry(chat: String, run: String) = safe { ops.exportRetry(chat.takeIf { it != "temp" }, run) }
 }

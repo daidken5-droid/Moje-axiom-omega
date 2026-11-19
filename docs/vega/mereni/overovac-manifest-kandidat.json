@@ -1,0 +1,44 @@
+{
+ "format": "vega-verifier/1",
+ "name": "kandidat-pilot",
+ "base_repo": "MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli",
+ "base_rev": "0a71e92a985b6e1ad1828cf67ce9c459639c1dca",
+ "source": "runs/pilot/ckpt-8",
+ "labels": [
+  "PODPORUJE",
+  "NEDOSTAČUJE",
+  "ODPORUJE"
+ ],
+ "max_len": 256,
+ "threshold": 0.62,
+ "tokenizer": "xlmr-unigram (NFKC, Metaspace ▁, <s> A </s></s> B </s>)",
+ "special": {
+  "bos": 0,
+  "pad": 1,
+  "eos": 2,
+  "unk": 3
+ },
+ "quantization": "jen váhy: tabulka embeddingů int8 po řádcích (quantize_weights.py --emb-only), aktivace fp32",
+ "export_parity": {
+  "fp32": {
+   "max_rozdil_pravdepodobnosti": 1.8328428268432617e-06,
+   "shoda_rozhodnuti": "59/59",
+   "ms_na_dvojici_hostitel_CPU": 6.7,
+   "velikost_MB": 428.1
+  },
+  "int8": {
+   "max_rozdil_pravdepodobnosti": 0.008548736572265625,
+   "shoda_rozhodnuti": "59/59",
+   "ms_na_dvojici_hostitel_CPU": 7.9,
+   "velikost_MB": 141.1
+  }
+ },
+ "files": {
+  "model.onnx": "d73722be623f916cc435fa6f7d26cef715662b8b06c2bda56a58228ead169c7b",
+  "vocab.tsv": "62fce312d72594ad30235447483680a6d1bbce5d7e219bbe29a241539e449f92"
+ },
+ "sizes_MB": {
+  "model.onnx": 141.1,
+  "vocab.tsv": 7.8
+ }
+}

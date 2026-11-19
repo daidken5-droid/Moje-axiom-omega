@@ -12,3 +12,7 @@ tools/ui-preview/out/
 tools/native-test/build/
 dist/
 .kotlin/
+tools/verifier/cache/
+tools/verifier/runs/
+tools/verifier/bundles/
+tools/verifier/__pycache__/

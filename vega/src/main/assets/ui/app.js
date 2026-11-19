@@ -119,6 +119,14 @@ function valueHtml(v, rows = 6) {
   if (v.kind === 'BYTES') return '';
   return `<pre>${esc(String(v.text ?? v.preview ?? '').slice(0, 3000))}</pre>`;
 }
+/** Opora ve zdroji: u každého tvrzení výsledek pro KONKRÉTNÍ citovanou pasáž; klepnutí otevře pasáž v originále. */
+const CHK = { PODPORUJE: ['ok', 'podporuje'], ODPORUJE: ['bad', 'odporuje'], NEDOSTACUJE: ['', 'nedostačuje'], NEVYHODNOCENO: ['', 'nevyhodnoceno'] };
+function checksHtml(c) {
+  const ch = c.checks || []; if (!ch.length) return '';
+  const allNev = ch.every(x => x.label === 'NEVYHODNOCENO');
+  if (allNev) return `<div class="note">Opora citací: nevyhodnoceno – ${esc(ch[0].reason)}</div>`;
+  return `<div class="res"><div class="res-h">Opora ve zdroji</div><div class="res-body">${ch.map((x, i) => `<button class="chk" style="width:100%;text-align:left" data-act="chkOpen" data-i="${i}" data-c='${esc(JSON.stringify({ x, item: (c.items || []).find(s => s.n === x.n) || null }))}'><span class="pill ${CHK[x.label][0]}">[${x.n}] ${CHK[x.label][1]}</span><span><b>${esc(x.claim)}</b><small>${esc(x.kind)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></span></button>`).join('')}</div></div>`;
+}
 const diffHtml = d => `<pre class="diff">${String(d || '').split('\n').slice(0, 400).map(l => `<span class="${l.startsWith('@@') ? 'h' : l[0] === '+' ? 'a' : l[0] === '-' ? 'd' : ''}">${esc(l)}</span>`).join('\n')}</pre>`;
 
 function card(c, isLast) {
@@ -173,7 +181,7 @@ function card(c, isLast) {
         ${isLast ? `<div class="res-a"><button class="btn ${c.canSave ? '' : 'primary'}" data-act="btnTry">Vyzkoušet na jiném souboru</button><span class="grow"></span><button class="btn ${c.canSave ? 'primary' : ''}" data-act="btnSave" ${c.canSave ? '' : 'disabled style="opacity:.45"'}>Uložit a připnout</button></div>` : ''}</div>` + (c.value ? `<div class="res"><div class="res-body" style="padding-bottom:12px">${valueHtml(c.value, 4)}</div></div>` : '');
     }
     case 'verification': { const v = c.verification; return `<div class="res"><div class="res-h">Ověření</div><div class="res-big">${v.kind !== 'run' && v.kind !== 'static' ? 'Neověřeno' : v.exitCode === 0 ? 'Prošlo' : 'Neprošlo'}</div><div class="res-sub">${esc(v.label)} · rev ${esc(v.revision)}</div><div class="res-a"><span class="grow"></span><button class="btn" data-act="showVer" data-ver='${esc(JSON.stringify(v))}'>Výstup</button></div></div>`; }
-    case 'sources': return `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${c.candidates.length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
+    case 'sources': return checksHtml(c) + `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${(c.candidates || []).length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
     case 'coverage': { const ok = c.items.filter(i => i.ok).length; return `<button class="pill ${ok === c.items.length ? 'ok' : 'bad'}" data-act="coverage" data-cov='${esc(JSON.stringify(c))}'>Pokryto ${ok}/${c.items.length} požadavků ›</button>`; }
     case 'demandForm': return `<div class="res"><div class="res-h">Předžalobní výzva</div><div class="res-sub" style="padding-top:6px">Faktura a úhrady – předvyplněno syntetickým případem.</div><div class="res-a"><button class="btn primary" data-act="demandForm" data-s='${esc(JSON.stringify(c.sample))}'>Vyplnit a vyrobit</button></div></div>`;
     case 'demand': return `<div class="res"><div class="res-h">Předžalobní výzva <span class="pill ${c.verified ? 'ok' : 'bad'}">${c.verified ? 'sazba ověřena' : 'sazba neověřena'}</span></div>
@@ -359,6 +367,10 @@ function settingsSheet() {
       <button class="btn primary wide" data-act="saveOwn" style="margin-top:10px">Uložit a ověřit</button><div class="status" id="kc-own"></div></div>
     <label class="switch"><span><b>Pouze vlastní modely</b><small>celý požadavek jen na tvém serveru – žádné komerční API ani při výpadku</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
     <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}</p>
+    <h3>Ověřovač citací</h3>
+    <div class="card"><div class="note">Neuronový model v telefonu (bez sítě) ukáže, jestli citovaná pasáž tvrzení podporuje, odporuje mu, nebo nestačí. Váhy nejsou v aplikaci – instalují se jako balíček (.zip z tools/verifier).</div>
+      <div class="status" id="kc-verifier">${s.verifierReady ? '<span class="pill ok">načteno</span> ' : '<span class="pill">vypnuto</span> '}${esc(s.verifier || '')}</div>
+      <div class="inline" style="margin-top:8px"><button class="btn primary" data-act="verifierInstall">Nainstalovat balíček</button>${s.verifierReady ? '<button class="btn ghost" data-act="verifierRemove">Odebrat</button>' : ''}</div></div>
     <h3>Model v cloudu</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> v projektu bez fakturace. Model Gemini 4 Hydrogen, pokud ho tvůj klíč už má. V Česku se data z bezplatné kvóty nepoužívají k tréninku.')}
     <details ${s.keys.geminipro ? 'open' : ''}><summary>Mám předplatné Google AI Pro</summary>
@@ -550,6 +562,7 @@ window.vega = {
         S.req = d.req; break;
       case 'jstest': runJsTests(d.files, d.timeoutMs || 10000).then(r => B.answer(d.req, JSON.stringify(r))); break;
       case 'verified': toast(d.kind === 'none' ? 'Testy nedoběhly – výsledek neplatí, zkus znovu.' : d.exitCode === 0 ? 'Testy prošly.' : 'Testy neprošly – výstup v panelu projektu.', 5000); if (S.space.kind === 'project' && panelOpen()) projectPanel(); break;
+      case 'verifier': toast(d.message, 7000); if ($('#kc-verifier')) settingsSheet(); break;
       case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}`; else toast(d.message, 6000); break; }
       case 'nfc.start': B.nfc(chatId()); break;
       case 'nfc.listening': { const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
@@ -583,6 +596,12 @@ function act(a, d) {
       else { S.awaitProc = d.id; toast('Vyber soubor – tlačítko ho zpracuje.'); B.pickFiles(); } break;
     case 'memGlobal': { const r = call('rememberGlobal', d.t); if (r) toast('Uloženo jako globální preference.'); break; }
     case 'model': modelSheet(); break;
+    case 'chkOpen': { const o = JSON.parse(d.c); const x = o.x, it = o.item;
+      const t = it ? String(it.text || '') : ''; const ws = Math.max(0, x.ws || 0), we = Math.min(t.length, x.we || t.length);
+      sheet(`<h2>[${x.n}] ${esc(CHK[x.label][1])}</h2><p class="lede">${esc(x.claim)}</p>${x.p ? `<p class="note">podpora ${fmt(x.p[0] * 100)} % · nedostačuje ${fmt(x.p[1] * 100)} % · odporuje ${fmt(x.p[2] * 100)} % (výsledek o této pasáži, ne o pravdivosti světa)</p>` : `<p class="note">${esc(x.reason)}</p>`}
+        ${it ? `<div class="card"><b>${esc(it.title)}</b><div class="note">${link(it.url)} · staženo ${esc(it.fetched || '')}</div><p style="white-space:pre-wrap">${esc(t.slice(0, ws))}<mark>${esc(t.slice(ws, we))}</mark>${esc(t.slice(we))}</p></div>` : ''}`, true); break; }
+    case 'verifierInstall': B.verifierInstall(); toast('Vyber balíček ověřovače (.zip).'); break;
+    case 'verifierRemove': call('verifierRemove'); toast('Ověřovač odebrán – citace budou „nevyhodnoceno“.'); settingsSheet(); break;
     case 'exportRetry': if (busyGuard()) return; S.busy = true; call('exportRetry', chatId(), d.run); render(); break;
     case 'taskLog': { const l = JSON.parse(d.log); sheet(`<h2>Záznam běhu</h2><div class="list">${l.map(x => `<div class="row"><span class="pill">r${x.rev}</span><span class="grow"><b>${esc(x.step)}${x.input !== '*' ? ' · ' + esc(x.input) : ''}</b><small>${esc(x.action)}</small></span></div>`).join('')}</div>`, true); break; }
     case 'profile': settingsSheet(); break;

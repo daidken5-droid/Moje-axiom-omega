@@ -1,0 +1,159 @@
+{
+ "pozor": "Štítky jsou NÁVRHY modelu bez lidské kontroly → měření PŘEDBĚŽNÉ.",
+ "referencni_NLI": {
+  "prah": 0.91,
+  "jak": "precision≥0.9",
+  "validace": {
+   "cs→cs": {
+    "n": 12,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      5,
+      1,
+      0
+     ],
+     [
+      0,
+      3,
+      0
+     ],
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    "falesne_podpory": "0/6",
+    "precision_PODPORUJE": "5/5",
+    "recall_PODPORUJE": "5/6",
+    "NEVYHODNOCENO": "0/12"
+   },
+   "en→cs": {
+    "n": 11,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      2,
+      0,
+      2
+     ],
+     [
+      0,
+      2,
+      0
+     ],
+     [
+      0,
+      1,
+      4
+     ]
+    ],
+    "falesne_podpory": "0/7",
+    "precision_PODPORUJE": "2/2",
+    "recall_PODPORUJE": "2/4",
+    "NEVYHODNOCENO": "0/11"
+   },
+   "vše": {
+    "n": 23,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      7,
+      1,
+      2
+     ],
+     [
+      0,
+      5,
+      0
+     ],
+     [
+      0,
+      2,
+      6
+     ]
+    ],
+    "falesne_podpory": "0/13",
+    "precision_PODPORUJE": "7/7",
+    "recall_PODPORUJE": "7/10",
+    "NEVYHODNOCENO": "0/23"
+   }
+  }
+ },
+ "kandidat": {
+  "prah": 0.62,
+  "jak": "precision≥0.9",
+  "validace": {
+   "cs→cs": {
+    "n": 12,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      5,
+      1,
+      0
+     ],
+     [
+      0,
+      3,
+      0
+     ],
+     [
+      0,
+      0,
+      3
+     ]
+    ],
+    "falesne_podpory": "0/6",
+    "precision_PODPORUJE": "5/5",
+    "recall_PODPORUJE": "5/6",
+    "NEVYHODNOCENO": "0/12"
+   },
+   "en→cs": {
+    "n": 11,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      2,
+      0,
+      2
+     ],
+     [
+      0,
+      2,
+      0
+     ],
+     [
+      0,
+      2,
+      3
+     ]
+    ],
+    "falesne_podpory": "0/7",
+    "precision_PODPORUJE": "2/2",
+    "recall_PODPORUJE": "2/4",
+    "NEVYHODNOCENO": "0/11"
+   },
+   "vše": {
+    "n": 23,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      7,
+      1,
+      2
+     ],
+     [
+      0,
+      5,
+      0
+     ],
+     [
+      0,
+      2,
+      6
+     ]
+    ],
+    "falesne_podpory": "0/13",
+    "precision_PODPORUJE": "7/7",
+    "recall_PODPORUJE": "7/10",
+    "NEVYHODNOCENO": "0/23"
+   }
+  }
+ }
+}

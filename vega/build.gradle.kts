@@ -91,6 +91,8 @@ dependencies {
     // PDF (text i zpětná kontrola vygenerovaného PDF) a OCR v telefonu – stejné knihovny jako AVIOR
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // ověřovač opory ve zdroji (ONNX v telefonu, bez sítě); váhy se do APK nebalí – instalují se jako balíček
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

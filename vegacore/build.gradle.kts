@@ -17,6 +17,9 @@ kotlin {
 
 dependencies {
     api(project(":core"))
+    // ověřovač opory ve zdroji: stejné Java API ai.onnxruntime – na Androidu dodá onnxruntime-android (aplikace), v testech JVM verze
+    compileOnly("com.microsoft.onnxruntime:onnxruntime:1.20.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
 }

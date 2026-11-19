@@ -134,4 +134,23 @@ class OpsDecideTest {
         val table = o.run(run)!!.last as cz.axiom.vega.core.Value.Table
         assertEquals(table.rows, cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(files[0].readBytes())).rows)
     }
+
+    @Test fun groundingPerCitationAndMissingBundle() {
+        val o = ops(Rec())
+        // bez balíčku: každé tvrzení nevyhodnoceno s důvodem, nic nepadá
+        val miss = o.groundChecks("Výbor se v pondělí sešel [1].", listOf("The committee was scheduled to meet on Monday."))
+        assertEquals("NEVYHODNOCENO", miss.getJSONObject(0).getString("label"))
+        assertTrue(miss.getJSONObject(0).getString("reason").contains("není nainstalovaný"))
+        // zástupný ověřovač: dva zdroje si odporují → dva samostatné výsledky; souvětí s motivem → datum a motiv zvlášť
+        o.grounding = object : cz.axiom.vega.core.Grounding.Checker {
+            override val ready = true; override val status = "test"
+            override fun check(claim: String, passage: String) = cz.axiom.vega.core.Grounding.Verdict(
+                if (passage.contains("did not")) cz.axiom.vega.core.Grounding.Label.ODPORUJE else if (claim.contains("protože")) cz.axiom.vega.core.Grounding.Label.NEDOSTACUJE else cz.axiom.vega.core.Grounding.Label.PODPORUJE, floatArrayOf(.5f, .3f, .2f))
+        }
+        val r = o.groundChecks("Výbor se 3. 3. 2025 sešel, protože chtěl schválit rozpočet [1][2].", listOf("The committee met on 3 March 2025.", "The committee did not meet on 3 March 2025."))
+        val got = (0 until r.length()).map { r.getJSONObject(it).let { j -> j.getString("kind") + "/" + j.getInt("n") + "=" + j.getString("label") } }
+        assertEquals(listOf("událost/1=PODPORUJE", "událost/2=ODPORUJE", "motiv / důvod/1=NEDOSTACUJE", "motiv / důvod/2=ODPORUJE"), got)
+        // citace bez zdroje
+        assertEquals("NEVYHODNOCENO", o.groundChecks("Něco tvrdím s odkazem [5].", listOf("x")).getJSONObject(0).getString("label"))
+    }
 }
