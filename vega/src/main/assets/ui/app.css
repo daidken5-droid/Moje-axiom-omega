@@ -234,3 +234,4 @@ body.focus .bar { border-color: color-mix(in srgb, var(--signal) 45%, var(--line
 .steps li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .steps li:first-child { border-top: 0; }
 .steps small { display: block; color: var(--muted); font-size: 12.5px; }
+.pill.older { display: block; margin: 8px auto 16px; padding: 8px 14px; color: var(--ink2); }

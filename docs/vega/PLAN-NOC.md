@@ -101,7 +101,11 @@ Další pravidla:
     - Technické štítky (`záměr:Talk`, `ChainException`) se zobrazují česky.
     - Spinner NFC zmizel hned po idle, i když telefon poslouchal. Teď se řídí skutečným stavem poslechu (`nfc.listening` → zpráva).
     - Kontrast: bílý text na modré #5b8cff měl 3,16:1. Nově `--signal-strong` #3567e8 (4,93:1, WCAG AA) pro tlačítka a odeslání. Šedý text na listu má 5,7:1.
-- [ ] 9. Výkon: profil `Ops.home()` a vykreslování chatu se 300 zprávami; měření před/po
+- [x] 9. Výkon: profil `Ops.home()` a vykreslování chatu se 300 zprávami; měření před/po
+  - **Výsledek (Chromium na hostiteli, 300 zpráv):**
+    - Plné vykreslení chatu: 50–70 ms → 14–15 ms, uzly 5 558 → 1 489. Vykresluje se posledních 80 zpráv, starší jsou na tlačítku „Zobrazit starší“.
+    - Stream 600 průběžných částí: 0,99 s → 0,83 s celkem (už předtím rychlá cesta přes `#live`).
+  - **NEOVĚŘENO:** `Ops.home()` na telefonu. Bez zařízení nejde změřit pravdivě, odhad z hostitele by byl zavádějící.
 - [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
 
 ## Problémy

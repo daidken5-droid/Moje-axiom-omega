@@ -62,9 +62,13 @@ function renderStream() {
   const el = $('#stream');
   document.body.classList.toggle('chatting', !!list.length || S.busy);
   if (!list.length && !S.busy) { el.innerHTML = emptyState(); S.lastCard = null; renderChips(); return; }
-  el.innerHTML = list.map(m => m.role === 'user'
+  // dlouhý chat: vykreslit jen posledních WINDOW zpráv (rychlost na telefonu); starší na klepnutí
+  const WINDOW = 80; const key = S.space.kind + ':' + S.space.id;
+  const shown = list.length > WINDOW && S.showAll !== key ? list.slice(-WINDOW) : list;
+  const last = list[list.length - 1];
+  el.innerHTML = (shown.length < list.length ? `<button class="pill older" data-act="older">Zobrazit starší zprávy (${list.length - shown.length})</button>` : '') + shown.map(m => m.role === 'user'
     ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
-    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${card(m.card, m === list[list.length - 1])}</div>`).join('') +
+    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${card(m.card, m === last)}</div>`).join('') +
     (S.busy ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
   el.scrollTop = el.scrollHeight;
   S.lastCard = [...list].reverse().find(m => m.card && m.card.type === 'run')?.card || null;
@@ -685,6 +689,7 @@ function act(a, d) {
     case 'share': B.share(d.f); break;
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
+    case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }
     case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
