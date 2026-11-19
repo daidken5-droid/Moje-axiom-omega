@@ -32,13 +32,13 @@ class ChainEngine(
                 val fitted = fit(messages, m.provider.contextChars); val chars = fitted.sumOf { it.content.length }
                 var reservedUsd = 0.0
                 if (m.provider.paid && guard != null) {
-                    val d = guard.check(m.provider.id, m.model, chars, opts.maxTokens)
+                    val (d, res) = guard.tryReserve(m.provider.id, m.model, chars, opts.maxTokens)
                     if (d is CostGuard.Decision.Deny) {
                         val est = guard.estimateUsd(m.provider.id, m.model, chars, opts.maxTokens)
                         last = CostGuard.BudgetException(d.reason, m.provider.id, m.model, est)
                         failures += Failure(m.provider.id, m.provider.name, m.model, d.reason, budget = true, rateLimited = false, estUsd = est); break
                     }
-                    reservedUsd = guard.reserve(m.provider.id, m.model, chars, opts.maxTokens)
+                    reservedUsd = res
                 }
                 var started = false
                 try {

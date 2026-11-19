@@ -20,9 +20,9 @@ object Quick {
     fun answer(raw: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): String? {
         val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ')
         if (Regex("^(kolik je hodin|kolik je cas|jaky je cas)$").matches(t)) return "Je %02d:%02d.".format(now.hour, now.minute)
-        if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?|^jake je (dnes )?datum$|^kolikateho je( dnes)?$").containsMatchIn(t) && t.length < 30)
+        if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."
-        days(t)?.let { return it }
+        days(t, now.toLocalDate())?.let { return it }
         convert(t)?.let { return it }
         Regex("^(?:kolik je |spocitej |vypocitej )?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze)\\s*(\\d[\\d ]*(?:[.,]\\d+)?)$").find(t)?.let { m ->
             val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null; return "${fmt(p)} % z ${fmt(b)} je ${fmt(b * p / 100)}." }
@@ -41,7 +41,7 @@ object Quick {
     private val UNITS = mapOf(
         "km" to ("m" to 1000.0), "m" to ("m" to 1.0), "cm" to ("m" to 0.01), "mm" to ("m" to 0.001), "mi" to ("m" to 1609.344), "mile" to ("m" to 1609.344), "mil" to ("m" to 1609.344),
         "ft" to ("m" to 0.3048), "stop" to ("m" to 0.3048), "in" to ("m" to 0.0254), "palcu" to ("m" to 0.0254), "palec" to ("m" to 0.0254),
-        "kg" to ("kg" to 1.0), "g" to ("kg" to 0.001), "t" to ("kg" to 1000.0), "lb" to ("kg" to 0.45359237), "liber" to ("kg" to 0.45359237), "oz" to ("kg" to 0.028349523125), "uncí" to ("kg" to 0.028349523125),
+        "kg" to ("kg" to 1.0), "g" to ("kg" to 0.001), "t" to ("kg" to 1000.0), "lb" to ("kg" to 0.45359237), "liber" to ("kg" to 0.45359237), "oz" to ("kg" to 0.028349523125), "unci" to ("kg" to 0.028349523125),
         "l" to ("l" to 1.0), "ml" to ("l" to 0.001), "gal" to ("l" to 3.785411784), "galonu" to ("l" to 3.785411784),
         "km/h" to ("m/s" to 1 / 3.6), "m/s" to ("m/s" to 1.0), "mph" to ("m/s" to 0.44704))
     private fun convert(t: String): String? {
@@ -58,10 +58,10 @@ object Quick {
     }
 
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
-    private fun days(t: String): String? {
+    private fun days(t: String, today: LocalDate): String? {
         val m = Regex("kolik (?:je )?dni (?:od|mezi) (.+?) (?:do|a) (.+)$").find(t) ?: return null
-        val a = date(m.groupValues[1]) ?: (if (m.groupValues[1].startsWith("dnes")) LocalDate.now() else null) ?: return null
-        val b = date(m.groupValues[2]) ?: (if (m.groupValues[2].startsWith("dnes")) LocalDate.now() else null) ?: return null
+        val a = date(m.groupValues[1]) ?: (if (m.groupValues[1].startsWith("dnes")) today else null) ?: return null
+        val b = date(m.groupValues[2]) ?: (if (m.groupValues[2].startsWith("dnes")) today else null) ?: return null
         return "Mezi ${a.dayOfMonth}. ${a.monthValue}. ${a.year} a ${b.dayOfMonth}. ${b.monthValue}. ${b.year} je ${kotlin.math.abs(ChronoUnit.DAYS.between(a, b))} dní."
     }
 

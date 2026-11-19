@@ -1,6 +1,7 @@
 package cz.axiom.vega.net
 
 import java.io.InputStream
+import java.net.InetAddress
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -30,23 +31,43 @@ object Http {
         if (publicOnly && isPrivateHost(host)) throw NetException("Veřejný web nesmí mířit do lokální sítě ($host).")
     }
 
-    /** Lokální síť: localhost, *.local/.lan/.home.arpa, privátní a link-local IPv4/IPv6 (u jmen i podle skutečné adresy). */
+    /** Lokální síť: localhost, *.local/.lan/.home.arpa/.internal, privátní, link-local, CGNAT a ULA adresy (i IPv4 v IPv6). */
     fun isPrivateHost(host: String): Boolean {
-        val h = host.lowercase().trim('[', ']')
-        if (h == "localhost" || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa") || h.endsWith(".internal")) return true
+        val h = host.lowercase().trim('[', ']').trimEnd('.')
+        if (h.isEmpty() || h == "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa") || h.endsWith(".internal")) return true
         val ip = Regex("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$").find(h)
-        if (ip != null) {
-            val (a, b) = ip.destructured.toList().take(2).map { it.toInt() }
-            return a == 10 || a == 127 || (a == 192 && b == 168) || (a == 172 && b in 16..31) || (a == 169 && b == 254) || (a == 100 && b in 64..127) || a == 0
-        }
-        if (h.contains(':')) return h == "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe80")
+        if (ip != null) { val (a, b) = ip.destructured.toList().take(2).map { it.toInt() }; return privateV4(a, b) }
+        if (h.contains(':')) return runCatching { isPrivateAddress(InetAddress.getByName(h)) }.getOrDefault(true) // literál, bez DNS
         return false
+    }
+    private fun privateV4(a: Int, b: Int) = a == 10 || a == 127 || (a == 192 && b == 168) || (a == 172 && b in 16..31) || (a == 169 && b == 254) || (a == 100 && b in 64..127) || a == 0 || a >= 224
+    /** Skutečná adresa (po překladu jména): smyčka, privátní, link-local, CGNAT, ULA, multicast, IPv4 zabalená v IPv6. */
+    fun isPrivateAddress(a: InetAddress): Boolean {
+        if (a.isLoopbackAddress || a.isAnyLocalAddress || a.isLinkLocalAddress || a.isSiteLocalAddress || a.isMulticastAddress) return true
+        val b = a.address
+        if (b.size == 4) return privateV4(b[0].toInt() and 255, b[1].toInt() and 255)
+        if (b.size == 16) {
+            if ((b[0].toInt() and 0xfe) == 0xfc) return true // fc00::/7 ULA
+            val mapped = (0 until 10).all { b[it] == 0.toByte() } && b[10] == 0xff.toByte() && b[11] == 0xff.toByte()
+            val compat = (0 until 12).all { b[it] == 0.toByte() }
+            if (mapped || compat) return privateV4(b[12].toInt() and 255, b[13].toInt() and 255)
+        }
+        return false
+    }
+    /**
+     * Veřejný web: jméno se přeloží a ŽÁDNÁ z adres nesmí být v lokální síti (jinak by stránka „evil.example“ s DNS
+     * na 127.0.0.1 / 192.168.x.x prošla jménem). Nepřeložitelné jméno projde – spojení pak samo selže.
+     */
+    fun requirePublicResolved(host: String) {
+        val addrs = runCatching { InetAddress.getAllByName(host.trim('[', ']')) }.getOrNull() ?: return
+        addrs.firstOrNull { isPrivateAddress(it) }?.let { throw NetException("Veřejný web nesmí mířit do lokální sítě ($host → ${it.hostAddress}).") }
     }
 
     /** Otevře spojení (bez automatického přesměrování). */
     fun open(url: String, method: String = "GET", connectMs: Int = 20_000, readMs: Int = 120_000, publicOnly: Boolean = false): HttpURLConnection {
         if (airgap) throw NetException("Air-gap: síť je vypnutá.")
         requireAllowed(url, publicOnly)
+        if (publicOnly) URI(url).host?.let { requirePublicResolved(it) }
         return (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method; connectTimeout = connectMs; readTimeout = readMs
             instanceFollowRedirects = false
@@ -62,7 +83,8 @@ object Http {
         var cur = url
         repeat(6) {
             val c = open(cur, readMs = readMs, publicOnly = publicOnly)
-            headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+            // vlastní hlavičky (např. klíč) jen na původní server, ne na cíl přesměrování jinam
+            if (URI(cur).host.equals(URI(url).host, true)) headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             try {
                 val code = c.responseCode
                 if (code in 300..399) {

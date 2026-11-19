@@ -34,12 +34,17 @@ class CostGuard(private val store: Store, private val charsPerToken: Double = 2.
     @Synchronized fun reserve(provider: String, model: String, inputChars: Int, maxOut: Int): Double {
         val est = estimateUsd(provider, model, inputChars, maxOut); reserved.merge(provider, est, Double::plus); return est
     }
+    /** Kontrola + rezervace ATOMICKY (dvě souběžná volání nesmí obě projít kontrolou a pak společně přečerpat strop). */
+    @Synchronized fun tryReserve(provider: String, model: String, inputChars: Int, maxOut: Int): Pair<Decision, Double> {
+        val d = check(provider, model, inputChars, maxOut)
+        return if (d is Decision.Deny) d to 0.0 else d to reserve(provider, model, inputChars, maxOut)
+    }
     @Synchronized fun refund(provider: String, amount: Double) { reserved.computeIfPresent(provider) { _, v -> maxOf(0.0, v - amount) } }
     /** Skutečná cena (tokeny od poskytovatele, jinak odhad ze znaků) místo rezervace. */
     @Synchronized fun settle(provider: String, model: String, reservedUsd: Double, inTok: Long?, outTok: Long?, inChars: Int, outChars: Int, maxOut: Int) {
         refund(provider, reservedUsd); record(provider, model, inTok, outTok, inChars, outChars)
     }
-    fun record(provider: String, model: String, inTok: Long?, outTok: Long?, inChars: Int, outChars: Int) {
+    @Synchronized fun record(provider: String, model: String, inTok: Long?, outTok: Long?, inChars: Int, outChars: Int) {
         val p = priceOf(provider, model); if (p.flat) return
         val i = inTok ?: (inChars / charsPerToken).toLong(); val o = outTok ?: (outChars / charsPerToken).toLong()
         store.addSpent(provider, i * p.inPerM / 1e6 + o * p.outPerM / 1e6)
@@ -64,9 +69,9 @@ class CostGuard(private val store: Store, private val charsPerToken: Double = 2.
 class GuardedEngine(private val inner: LlmEngine, private val provider: String, private val model: String, private val guard: CostGuard) : LlmEngine by inner {
     override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: CancelToken, onDelta: (Delta) -> Unit): GenResult {
         val chars = messages.sumOf { it.content.length }
-        (guard.check(provider, model, chars, options.maxTokens) as? CostGuard.Decision.Deny)?.let {
+        val (d, res) = guard.tryReserve(provider, model, chars, options.maxTokens)
+        (d as? CostGuard.Decision.Deny)?.let {
             throw CostGuard.BudgetException("Placené volání zastaveno: ${it.reason}.", provider, model, guard.estimateUsd(provider, model, chars, options.maxTokens)) }
-        val res = guard.reserve(provider, model, chars, options.maxTokens)
         val r = try { inner.generate(messages, options, cancel, onDelta) } catch (e: Throwable) { if (CostGuard.preResponse(e)) guard.refund(provider, res); throw e }
         guard.settle(provider, model, res, r.inputTokens, r.outputTokens, chars, r.text.length + r.reasoning.length, options.maxTokens)
         return r

@@ -15,7 +15,19 @@ Další pravidla:
 - **Kontrola Android regexů:** žádné `(?U)` ani `\b` za českým písmenem. Hlídá to AndroidRegexTest.
 
 ## Body
-- [ ] 1. Nové jádro (`cz.axiom.vega.base/net/llm/web/calc/files`): hloubková kontrola 3 úhly (bezpečnost, správnost, mrtvý kód) → opravy + testy
+- [x] 1. Nové jádro (`cz.axiom.vega.base/net/llm/web/calc/files`): hloubková kontrola 3 úhly (bezpečnost, správnost, mrtvý kód) → opravy + testy
+  - **Výsledek:** CoreScanTest (3 testy), celkem 39 + 21 testů zelených.
+  - **Bezpečnost:**
+    - SSRF přes jméno (DNS na 127.0.0.1 / LAN) – veřejný web teď překládá jméno a kontroluje všechny adresy;
+    - IPv4 v IPv6 (`::ffff:127.0.0.1`), `localhost.`, `*.localhost`, multicast;
+    - vlastní hlavičky se neposílají na cíl přesměrování jinam.
+  - **Rozpočet:** `check` + `reserve` byly dvě operace, takže dvě souběžná placená volání mohla přečerpat strop. Nově je to atomické `tryReserve`.
+  - **Správnost:**
+    - „dnes je hezky“ už nevrací datum;
+    - unce po odstranění diakritiky;
+    - „dnes“ v počtu dní bere čas z parametru.
+  - **Mrtvý kód:** nic, všechny veřejné funkce jádra se používají.
+  - **Zbývá:** DNS rebinding (překlad ověřený zvlášť před spojením) jde plně řešit jen vlastním resolverem. Je to zapsané v Problémech.
 - [ ] 2. Úklid úložiště podle stáří a velikosti: `resume/`, `taskfile/`, `cache/long`, `evidence/`, staré `run/` (velké přílohy uložit jednou podle otisku)
 - [ ] 3. Web: proč DuckDuckGo z kontejneru nic nevrací; záložní vyhledávání (Wikipedie search už je); test parseru na uloženém HTML
 - [ ] 4. Kontrola všech regexů na Android (ICU): u každého `Regex("…")` ve VEGA ověřit konstrukce; rozšířit AndroidRegexTest o `\b` za ne-ASCII
@@ -27,4 +39,4 @@ Další pravidla:
 - [ ] 10. Finální: CI APK, SHA-256, shrnutí noci v `docs/vega/README.md`
 
 ## Problémy
-(zatím nic)
+- DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
