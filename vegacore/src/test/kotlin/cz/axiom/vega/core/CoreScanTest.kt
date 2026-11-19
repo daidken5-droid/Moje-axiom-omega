@@ -49,3 +49,14 @@ class CoreScanTest {
         assertTrue(Quick.answer("převeď 3 oz na g")!!.contains("85,0486"))
     }
 }
+
+class WebParseTest {
+    @Test fun duckDuckGoSample() {
+        val html = javaClass.getResource("/web/ddg-sample.html")!!.readText()
+        val r = cz.axiom.vega.web.Web.duckParse(html, 6)
+        assertEquals(3, r.size, r.toString())
+        assertEquals("https://en.wikipedia.org/wiki/Manhattan_Project", r[0].source)
+        assertTrue(r[0].text.contains("Manhattan") && !r[0].text.contains("<b>"))
+        assertTrue(cz.axiom.vega.web.Web.duckParse("<div class=\"anomaly-modal\">", 6).isEmpty())
+    }
+}

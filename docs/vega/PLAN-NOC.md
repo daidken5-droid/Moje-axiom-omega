@@ -39,7 +39,14 @@ Další pravidla:
     - osiřelé přílohy úloh (ukládají se jednou podle otisku).
   - **Bezpečnost úklidu:** chybějící nebo rozbitý seznam chatů = nic se nemaže.
   - `Kv.modified()` je nová funkce. Verze 1.4.0 (versionCode 6).
-- [ ] 3. Web: proč DuckDuckGo z kontejneru nic nevrací; záložní vyhledávání (Wikipedie search už je); test parseru na uloženém HTML
+- [x] 3. Web: proč DuckDuckGo z kontejneru nic nevrací; záložní vyhledávání (Wikipedie search už je); test parseru na uloženém HTML
+  - **Příčina:** parser je v pořádku, na skutečné stránce našel 10/10 výsledků. Selhávalo spojení: tunel proxy v kontejneru padal uprostřed přenosu. DDG navíc botům občas vrací stránku „anomaly“ (HTTP 202).
+  - **Oprava:**
+    - jeden opakovaný pokus;
+    - stránka „anomaly“ = prázdný výsledek bez chyby;
+    - `duckParse` je oddělený kvůli testu.
+  - **Test:** WebParseTest na uloženém vzorku skutečného HTML (3 výsledky, dekódování uddg, odstranění `<b>`).
+  - **NEOVĚŘENO:** lite.duckduckgo.com z kontejneru neodpověděl, takže parser pro něj jsem nenapsal naslepo.
 - [ ] 4. Kontrola všech regexů na Android (ICU): u každého `Regex("…")` ve VEGA ověřit konstrukce; rozšířit AndroidRegexTest o `\b` za ne-ASCII
 - [ ] 5. Autonomie krok 1: `SelfTune` deník signálů slabin (chyby, opravy uživatele, Stop, špatný záměr, pomalé kroky) + test
 - [ ] 6. Autonomie krok 2: návrh příkladů routeru z deníku → ověření na held-out sadě → karta „Vylepšení“ s historií a návratem

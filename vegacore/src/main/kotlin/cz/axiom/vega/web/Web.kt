@@ -57,11 +57,20 @@ object Web {
             Snippet(0, "${str(s, "title") ?: key} – Wikipedie ($lang)", text, url) }
     }
 
-    /** DuckDuckGo (HTML verze bez JavaScriptu): titul, cílová adresa a úryvek. */
+    /**
+     * DuckDuckGo (HTML verze bez JavaScriptu): titul, cílová adresa a úryvek. Jeden opakovaný pokus při výpadku
+     * spojení; stránka „anomaly“ (ochrana proti botům, HTTP 202) = žádné výsledky, ne chyba.
+     */
     fun duck(query: String, n: Int): List<Snippet> {
-        val r = Http.get("https://html.duckduckgo.com/html/?q=${enc(query)}", maxBytes = 1_500_000)
-        if (r.code !in 200..299) return emptyList()
-        val html = String(r.body, Charsets.UTF_8)
+        val url = "https://html.duckduckgo.com/html/?q=${enc(query)}"
+        val r = runCatching { Http.get(url, maxBytes = 1_500_000) }.recoverCatching { Thread.sleep(600); Http.get(url, maxBytes = 1_500_000) }.getOrThrow()
+        if (r.code != 200) return emptyList()
+        return duckParse(String(r.body, Charsets.UTF_8), n)
+    }
+
+    /** Výsledky z HTML DuckDuckGo (odděleno kvůli testu na uloženém vzorku). */
+    fun duckParse(html: String, n: Int): List<Snippet> {
+        if (html.contains("anomaly-modal") || html.contains("challenge-form")) return emptyList()
         val out = ArrayList<Snippet>()
         Regex("(?is)<a[^>]+class=\"result__a\"[^>]+href=\"([^\"]+)\"[^>]*>(.*?)</a>.*?class=\"result__snippet\"[^>]*>(.*?)</a>").findAll(html).forEach { m ->
             var href = entities(m.groupValues[1]); if (href.startsWith("//")) href = "https:$href"
