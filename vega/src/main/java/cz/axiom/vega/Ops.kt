@@ -426,7 +426,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             chain.any { it is java.net.SocketTimeoutException } -> "Server neodpověděl včas – zkus to znovu (vstup zůstal zachovaný)."
             chain.any { it is javax.net.ssl.SSLException } -> "Zabezpečené spojení selhalo – jsi možná na Wi-Fi s přihlašovací stránkou (hotel, vlak). Přihlas se v prohlížeči a zkus to znovu."
             chain.any { it.message.orEmpty().contains("došlo místo") } -> "V telefonu došlo místo – uvolni úložiště a zkus to znovu."
-            else -> e.message?.substringBefore(" [{")?.take(300) ?: e.javaClass.simpleName
+            // vlastní chyby VEGA mají české texty; cizí výjimky (NullPointer, IllegalState…) laikovi nic neřeknou
+            e is ToolError || e is cz.axiom.vega.net.NetException || e is NoEngine || e is Workspace.Conflict -> e.message?.substringBefore(" [{")?.take(300) ?: "Něco se nepovedlo."
+            // require()/error() s českým textem projde; anglický text cizí knihovny ne
+            e.message?.let { Regex("[ěščřžýáíéůúňťďĚŠČŘŽÝÁÍÉŮÚŇŤĎ]").containsMatchIn(it) } == true -> e.message!!.substringBefore(" [{").take(300)
+            e is OutOfMemoryError -> "Na tohle telefon nemá dost paměti – zkus menší soubor nebo zavři jiné aplikace."
+            else -> "Něco se pokazilo uvnitř VEGA (${e.javaClass.simpleName}). Zkus to prosím znovu – tvoje zadání zůstalo uložené. Když se to bude opakovat, zapíšu si to a příště to opravím."
         }
     }
 

@@ -112,7 +112,7 @@ function emptyState() {
   const noModel = !h.engine && !h.own;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
     ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá">Odpovídá: <b>${esc(h.airgap ? 'nikdo (bez sítě)' : h.model || 'automaticky')}</b> ▾</button>` : ''}
-    ${noModel ? `<div class="quiet">Rozhovor potřebuje model – <button class="linkbtn" data-act="settings">Gemini zdarma nebo vlastní server</button>. Nástroje fungují i bez něj.</div>` : ''}
+    ${noModel && !h.airgap ? `<div class="setup"><p>Aby ti VEGA mohla odpovídat, potřebuje jednou nastavit model. Zdarma to zabere asi 2 minuty.</p><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button><small>Výpočty, převody a nástroje fungují i bez toho.</small></div>` : ''}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
 }
 
@@ -512,6 +512,21 @@ function modelSheet() {
     <div class="list" style="margin-top:12px"><button class="row" data-act="settings"><span class="grow"><b>Vlastní server a klíče…</b><small>adresa, model, Gemini zdarma, kredit Pro</small></span><span class="end">›</span></button>
     <button class="row" data-act="temp"><span class="grow"><b>Dočasný chat</b><small>nic se neukládá</small></span></button></div>`);
 }
+/** Průvodce pro laika: klíč Gemini zdarma ve 3 krocích, bez celého Nastavení. */
+function freeSetup() {
+  sheet(`<h2>Rozhovor zdarma za 2 minuty</h2>
+    <p class="lede">VEGA potřebuje <b>klíč</b> – něco jako heslo, kterým se přihlásí k modelu Google Gemini. Je zdarma, platební kartu nezadáváš.</p>
+    <ol class="steps">
+      <li>Otevři <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> a přihlas se svým Google účtem.</li>
+      <li>Klepni na <b>Create API key</b> (Vytvořit klíč API) a klíč zkopíruj – začíná na <code>AIza</code> (velké I jako Ivan).</li>
+      <li>Vlož ho sem a klepni na <b>Uložit a vyzkoušet</b>.</li>
+    </ol>
+    <input class="field" id="freeKey" type="password" placeholder="sem vlož klíč (AIza…)" autocomplete="off" spellcheck="false" aria-label="Klíč Gemini">
+    <button class="btn primary wide" data-act="freeSave" style="margin-top:8px">Uložit a vyzkoušet</button><div class="status" id="kc-gemini" aria-live="polite"></div>
+    <p class="note">Klíč zůstane šifrovaný jen v tomhle telefonu. Nový klíč z AI Studia je bez fakturace, takže nic nezaplatíš – nanejvýš dojde denní limit zdarma, který se druhý den obnoví.</p>
+    <p class="note">Jiné možnosti (vlastní server, další poskytovatelé): <button class="linkbtn" data-act="settings">Nastavení</button></p>`);
+  const k = $('#freeKey'); if (k) k.focus();
+}
 function pairOwn() {
   const el = $('#pairCode'); const p = el && el.value.trim() ? call('pairCode', el.value) : null;
   if (!p) { if (el && !el.value.trim()) toast('Vlož párovací kód ze serveru (začíná VEGA-PAIR:).'); return; }
@@ -746,7 +761,10 @@ window.vega = {
       case 'extrun': runExtension(d.code, d.input, d.params, d.timeoutMs || 8000).then(r => B.answer(d.req, JSON.stringify(r))); break;
       case 'verified': toast(d.kind === 'none' ? 'Testy nedoběhly – výsledek neplatí, zkus znovu.' : d.exitCode === 0 ? 'Testy prošly.' : 'Testy neprošly – výstup v panelu projektu.', 5000); if (S.space.kind === 'project' && panelOpen()) projectPanel(); break;
       case 'verifier': toast(d.message, 7000); if ($('#kc-verifier')) settingsSheet(); break;
-      case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}`; else toast(d.message, 6000); break; }
+      case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}` +
+          // průvodce prvním spuštěním: po úspěchu jedním klepnutím do chatu
+          (d.ok && $('#freeKey') ? '<button class="btn primary wide" data-act="freeDone" style="margin-top:10px">Hotovo – můžeme si povídat</button>' : (!d.ok && $('#freeKey') ? '<br><small>Zkontroluj, že jsi zkopíroval celý klíč. Když nepomůže, vytvoř v AI Studiu nový.</small>' : ''));
+        else toast(d.message, 6000); S.home = null; break; }
       case 'nfc.start': B.nfc(chatId()); break;
       case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
       case 'nfc.off': S.nfc = false; render(); sheet(`<h2>NFC je vypnuté</h2><p class="lede">Zapni ho v systému a zkus to znovu.</p><button class="btn primary wide" data-act="nfcSettings">Otevřít nastavení NFC</button>`); break;
@@ -792,6 +810,13 @@ function act(a, d) {
     case 'saveOwn': saveOwn(); break;
     case 'pairOwn': pairOwn(); break;
     case 'pickModel': modelSheet(); break;
+    case 'freeSetup': freeSetup(); break;
+    case 'freeDone': closeSheet(true); S.home = null; render(); { const i = $('#input') || $('textarea'); if (i) i.focus(); } break;
+    case 'freeSave': { const v = (($('#freeKey') || {}).value || '').trim();
+      if (!v) { toast('Vlož klíč z AI Studia (začíná na AIza).'); break; }
+      if (!/^AIza/.test(v.replace(/^.*?(AIza)/, '$1'))) { const st = $('#kc-gemini'); if (st) st.textContent = 'Tohle nevypadá jako klíč Gemini – ten začíná na „AIza“. Zkopíruj ho z AI Studia znovu.'; break; }
+      doSaveKey('gemini', v); const st = $('#kc-gemini'); if (st && st.textContent.startsWith('Uloženo')) { const f = $('#freeKey'); if (f) f.value = ''; }
+      S.home = null; break; }
     case 'setProvider': if (call('setSetting', 'preferredProvider', d.id || '') !== null) { S.home = null; renderTop(); modelSheet(); toast(d.id ? 'Odpovídat bude vybraný poskytovatel (ostatní jen jako záloha při výpadku).' : 'Automatický výběr.'); } break;
     case 'testOwn': { const st = $('#kc-own'); if (st) st.textContent = 'Ptám se serveru (u usnutého Space může první odpověď trvat i minuty)…'; call('testOwn'); break; }
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
