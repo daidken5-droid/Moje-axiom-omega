@@ -115,7 +115,12 @@ object CzNum {
     fun usesDecimalComma(samples: List<String>): Boolean {
         val c = samples.count { Regex("\\d,\\d{1,2}(\\s|$|[^\\d])").containsMatchIn(it.trim() + " ") }
         val d = samples.count { Regex("\\d\\.\\d{1,2}(\\s|$|[^\\d])").containsMatchIn(it.trim() + " ") }
-        return c >= d
+        // tvar celého čísla: „1,500“ / „12,300.50“ = americké tisíce; „1.500“ / „1.234,50“ = české tisíce
+        val bare = samples.map { it.replace(currency, "").replace(Regex("[\\s\u00a0\u202f'()+−-]"), "") }
+        val usThousands = bare.count { Regex("^\\d{1,3}(,\\d{3})+(\\.\\d+)?$").matches(it) }
+        val czThousands = bare.count { Regex("^\\d{1,3}(\\.\\d{3})+(,\\d+)?$").matches(it) }
+        val comma = c + czThousands; val dot = d + usThousands
+        return if (comma == dot) true else comma > dot // bez důkazů česky
     }
 
     fun format(v: Double, decimals: Int = 2): String {

@@ -189,8 +189,15 @@ Další pravidla:
   - **Ponecháno:** číslo `1,500` (americký zápis tisíců) se čte jako 1,5. Rozhodnutí podle celého sloupce je samostatná změna parseru.
 
 ## Další kolo 5 (pro další probuzení)
-- [ ] 21. Doručit APK 1.4.2 (CI), SHA-256
-- [ ] 22. CzNum: desetinná čárka vs. americké tisíce rozhodnout podle celého sloupce (`1,500` vs. `1,5`) + testy
+- [x] 21. Doručit APK 1.4.2 (CI), SHA-256
+  - **Výsledek:** `VEGA-f6b87e9.apk` (1.4.2, versionCode 8), SHA-256 `6aa5b63acb7a1b847b23a0c8f4a34c9786604281afc6124b542987242b11e0eb`, certifikát `4557a2ce…cdb4`. Doručeno uživateli.
+- [x] 22. CzNum: desetinná čárka vs. americké tisíce rozhodnout podle celého sloupce (`1,500` vs. `1,5`) + testy
+  - **Výsledek:** `usesDecimalComma` počítá i tvar celých čísel.
+    - Skupiny po třech za čárkou (`1,500`, `12,300.50`) = americké tisíce.
+    - Skupiny po třech za tečkou (`1.500`, `1.234,50`) = české tisíce.
+    - Bez důkazů česky.
+  - **Dopad:** sloupec `1,500; 2,300; 12,000` se dřív četl jako 1,5 / 2,3 / 12, teď 1 500 / 2 300 / 12 000.
+  - **Testy:** CzNumColumnTest prošel, celkem 56 + 25 zelené.
 - [ ] 23. CodeAgent: nespouštět úpravy uvnitř bloku `### NOVÝ` (dvojí aplikace) + test
 
 ## Problémy

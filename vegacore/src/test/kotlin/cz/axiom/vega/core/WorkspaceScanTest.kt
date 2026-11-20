@@ -47,3 +47,17 @@ class WorkspaceScanTest {
         assertTrue(System.currentTimeMillis() - t1 < 5_000, "CSV s uvozovkami uprostřed nesmí být kvadratické"); assertTrue(r.rows.size >= 40_000)
     }
 }
+
+class CzNumColumnTest {
+    @Test fun decidesDecimalSeparatorFromWholeColumn() {
+        // americké tisíce bez desetinných míst: dřív „1,500“ = 1,5
+        val us = listOf("1,500", "2,300", "12,000", "950")
+        assertFalse(CzNum.usesDecimalComma(us)); assertEquals(1500.0, CzNum.parse("1,500", CzNum.usesDecimalComma(us)))
+        assertFalse(CzNum.usesDecimalComma(listOf("12,300.50", "1,200.00")))
+        // české
+        assertTrue(CzNum.usesDecimalComma(listOf("1 234,50", "-12,00", "300")))
+        assertTrue(CzNum.usesDecimalComma(listOf("1.500", "2.300,00")))
+        assertTrue(CzNum.usesDecimalComma(listOf("100", "200")), "bez důkazů česky")
+        assertEquals(1.5, CzNum.parse("1,5", CzNum.usesDecimalComma(listOf("1,5", "2,25"))))
+    }
+}
