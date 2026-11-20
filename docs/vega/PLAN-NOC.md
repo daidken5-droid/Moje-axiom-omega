@@ -125,7 +125,11 @@ Další pravidla:
   - **Souběh – dočasný chat:** `clearTemp()` mazal `ArrayList` historie z vlákna mostu, zatímco ji výkonné vlákno procházelo (hrozila ConcurrentModificationException). Teď maže na výkonném vlákně.
   - **Souběh – úlohy s revizemi:** „zkontroluj, pak přidej“ u běžících úloh šlo ve dvou krocích, takže dvě souběžné revize mohly spustit dva výpočty téže úlohy. Teď atomické `add()`.
   - **Rozdělení na soubory:** záměrně NEPROVEDENO. Přesun 1 500 řádků v noci bez možnosti vyzkoušet na telefonu je riziko bez přínosu pro uživatele. Testy 51 + 21 zelené.
-- [ ] 13. DNS rebinding: připojit se na ověřenou IP. Buď vlastní `SocketFactory` + SNI / `HostnameVerifier`, nebo zdokumentovaný důvod, proč ne. Test s lokálním serverem.
+- [x] 13. DNS rebinding: připojit se na ověřenou IP. Buď vlastní `SocketFactory` + SNI / `HostnameVerifier`, nebo zdokumentovaný důvod, proč ne. Test s lokálním serverem.
+  - **Výsledek:** zdokumentováno, NEOPRAVENO. `HttpURLConnection` neumí vlastní resolver ani vlastní tovární třídu pro prostý socket a TLS vrstva dostane už připojený socket.
+  - **Plná oprava:** přechod síťové vrstvy na OkHttp s `Dns`, který vrátí jen ověřené adresy. Přestavba 7 míst volání, kterou je nutné vyzkoušet na telefonu, proto ne v noci bez zařízení.
+  - **Dopad mezery:** jen GET veřejného webu, žádné klíče ani vlastní hlavičky, odpověď se jen čte jako text.
+  - **Doporučení:** samostatný blok s testem na Pixelu.
 - [ ] 14. Vylepšení → u opakované chyby nástroje nabídnout „Navrhnout rozšíření“ (zadání z anonymizovaných příkladů → nový projekt). Jen na klepnutí.
 - [ ] 15. Red-team kolo 2 nad body 12–14
 

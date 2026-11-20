@@ -57,6 +57,11 @@ object Http {
     /**
      * Veřejný web: jméno se přeloží a ŽÁDNÁ z adres nesmí být v lokální síti (jinak by stránka „evil.example“ s DNS
      * na 127.0.0.1 / 192.168.x.x prošla jménem). Nepřeložitelné jméno projde – spojení pak samo selže.
+     *
+     * ZNÁMÁ MEZERA (DNS rebinding): HttpURLConnection přeloží jméno znovu sám a vlastní překlad mu nejde podstrčit.
+     * Útočník s vlastním DNS a krátkým TTL by mohl podruhé vrátit lokální adresu. Plná oprava = síťová vrstva
+     * s vlastním resolverem (OkHttp `Dns`) – větší přestavba, kterou je nutné vyzkoušet na telefonu. Dopad je omezený:
+     * jen GET veřejného webu, odpověď je text pro model, žádné klíče ani hlavičky se do LAN nepošlou.
      */
     fun requirePublicResolved(host: String) {
         val addrs = runCatching { InetAddress.getAllByName(host.trim('[', ']')) }.getOrNull() ?: return
