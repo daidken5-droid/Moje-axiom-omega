@@ -7,7 +7,8 @@ import kotlinx.serialization.json.Json
 
 /**
  * DENÍK SLABIN (autonomie, krok 1): VEGA si lokálně zapisuje, kde selhala nebo kde ji uživatel opravil. Z deníku
- * pak navrhuje vylepšení (příklady routeru, úpravy postupů, nové nástroje). Nic se nikam neposílá.
+ * pak navrhuje vylepšení (příklady routeru, úpravy postupů, nové nástroje). Sám se nikam neposílá; jen na klepnutí
+ * „Navrhnout rozšíření“ jde text chyb nástroje (po souhlasu, který to uvádí) do zadání modelu.
  *
  * Soukromí: ukládá se jen štítek oblasti (záměr / nástroj), druh signálu a ZKRÁCENÁ, ANONYMIZOVANÁ věta uživatele
  * (čísla, e-maily, adresy, klíče nahrazené značkou) – nikdy obsah souborů. Deník je po dnech, drží [keepDays] dní.

@@ -81,6 +81,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     val tuning = cz.axiom.vega.core.RouterTuning(kv)
     /** Rozšíření (vrstva B): JS nástroje, které VEGA napsala; běží jen v izolovaném Workeru bez sítě. */
     val extensions = cz.axiom.vega.core.Extensions(kv)
+    private val proposing = ConcurrentHashMap.newKeySet<String>()
 
     private fun registerExtensions() {
         Tools.all().filter { it.id.startsWith("ext.") }.forEach { Tools.unregister(it.id) }
@@ -146,13 +147,25 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         "extBack" -> if (extensions.rollback(id) == null) "Není starší verze." else { registerExtensions(); null }
         "extDel" -> { extensions.delete(id); registerExtensions(); null }
         "extPropose" -> {
-            val tool = Tools.get(id.removePrefix("nástroj:"))?.title ?: id.removePrefix("nástroj:")
-            val errs = selftune.signals().filter { it.area == id && it.kind == "ERROR" }.map { it.detail.ifBlank { it.excerpt } }.filter { it.isNotBlank() }.distinct().takeLast(5)
-            if (errs.isEmpty()) "Pro tenhle nástroj nemám v deníku žádné chyby." else {
-                // zadání jen z anonymizovaného deníku (žádný obsah souborů); model a souhlas řeší běžná cesta projektu
-                submit { newProject(null, "rozšíření pro $tool – zvládne případy, na kterých vestavěný nástroj „$tool“ selhal. Zaznamenané chyby (anonymizované):\n" +
-                    errs.joinToString("\n") { "- $it" } + "\nNapiš run(input, params), které vstup zpracuje i v těchto případech, a testy, které je pokrývají.") }
-                null
+            val toolId = id.removePrefix("nástroj:")
+            val tool = Tools.get(toolId)?.title ?: toolId
+            val sig = selftune.signals().filter { it.area == id && it.kind == "ERROR" }
+            // stejné podmínky jako u tlačítka (ne jen důvěra v UI) + žádný dvojitý návrh
+            when {
+                !id.startsWith("nástroj:") || id.startsWith("nástroj:ext.") || sig.size < 2 -> "Tady rozšíření nenavrhuji (málo chyb nebo nejde o vestavěný nástroj)."
+                !proposing.add(id) -> "Návrh pro tenhle nástroj už běží."
+                else -> {
+                    // do zadání jen text chyb nástroje (ToolError); u obecných výjimek jen jejich druh – zpráva může citovat obsah souboru
+                    val errs = sig.map { s -> s.detail.substringBefore(": ").let { cls -> if (cls == "ToolError") s.detail.removePrefix("ToolError: ") else cls } }.filter { it.isNotBlank() }.distinct().takeLast(5)
+                    submit {
+                        note { selftune.routed("záměr:ExtPropose") } // odmítnutý souhlas / výpadek se nesmí připsat nástroji jako další chyba
+                        try { newProject(null, "Napiš rozšíření, které zvládne případy, na kterých vestavěný nástroj „$tool“ selhal. Zaznamenané chyby (anonymizované):\n" +
+                                errs.joinToString("\n") { "- $it" } + "\nNapiš run(input, params), které vstup zpracuje i v těchto případech, a testy, které je pokrývají.",
+                                extraConsent = listOf("zadání z deníku chyb nástroje „$tool“ (${errs.size} anonymizovaných záznamů)"), fixedName = "Rozšíření $tool")
+                        } finally { proposing -= id }
+                    }
+                    null
+                }
             }
         }
         "activate" -> tuning.activate(id, ::tuneCtx)
@@ -808,8 +821,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
     }
 
-    private fun newProject(chat: String?, spec: String) {
-        val name = Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|rozšíření|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
+    private fun newProject(chat: String?, spec: String, extraConsent: List<String> = emptyList(), fixedName: String? = null) {
+        val name = fixedName ?: Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|rozšíření|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
         val id = createProject(name, emptyMap())
         emit("project", JSONObject().put("id", id))
         // odpověď patří do prostoru nového projektu (UI se tam přepne), ne do původního chatu
@@ -817,7 +830,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         code("proj-$id", Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js." +
             (if (ext) "\nJDE O ROZŠÍŘENÍ VEGY: hlavní soubor MUSÍ být tool.js bez require(), s funkcí module.exports.run = (input, params) => výsledný text (input je text). " +
                 "Žádná síť, žádné soubory. Testy v tool.test.js s require('./tool') na reálných příkladech vstupu. Až testy projdou, uživatel napíše „ulož jako rozšíření“." else ""),
-            Router.CodeKind.CHANGE), workspace(id))
+            Router.CodeKind.CHANGE), workspace(id), extraConsent = extraConsent)
     }
 
     private fun projectDiffCard(w: Workspace, path: String? = null, taskIds: List<Int> = emptyList()): JSONObject {
@@ -827,7 +840,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 .put("diff", if (c.id in taskIds) cz.axiom.vega.core.Diff.unified(cz.axiom.vega.core.Diff.lines(c.before ?: "", c.after ?: "").lines, 2).take(6000) else "")) } })
     }
 
-    private fun code(chat: String?, intent: Router.Intent.Code, wsIn: Workspace?, resume: Boolean = false) {
+    private fun code(chat: String?, intent: Router.Intent.Code, wsIn: Workspace?, resume: Boolean = false, extraConsent: List<String> = emptyList()) {
         val ws = wsIn ?: throw ToolError("Nejdřív otevři nebo založ projekt (Projekty → Nový / Importovat složku).")
         if (intent.kind == Router.CodeKind.TEST) { val v = verify(ws); saveState(ws, chat, null, v, absorbManual = false); reply(chat, "Ověření: ${v.label}, návratový kód ${v.exitCode}.", verificationCard(v)); return }
         // RUČNÍ ZÁSAH UŽIVATELE od poslední práce: ukázat rozdíl PŘED další úpravou a chránit ty soubory před přepsáním celého obsahu
@@ -847,7 +860,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val manualNote = if (manual.isNotEmpty()) "\nUživatel mezitím ručně upravil: ${manual.joinToString(", ") { it.first }} – jeho změny zachovej." else ""
         val resumeNote = if (resume) "\nPOKRAČOVÁNÍ přerušené úlohy: část úprav už v souborech může být – nic nezdvojuj, dodělej jen to, co chybí." else ""
         val (prompt, seen) = CodeAgent.prompt(ws, intent.task + (crash?.let { "\nPád: ${it.exception}: ${it.message} v ${it.ownFrames.firstOrNull() ?: "?"}" } ?: "") + manualNote + resumeNote, log)
-        val consent = "project:${ws.root.name}:${ws.revision()}" to (ws.relevant(intent.task).map { "soubor $it" } + listOfNotNull(log?.let { "log (${it.length} znaků)" }))
+        val consent = "project:${ws.root.name}:${ws.revision()}" to (ws.relevant(intent.task).map { "soubor $it" } + listOfNotNull(log?.let { "log (${it.length} znaků)" }) + extraConsent)
         val sys = CodeAgent.SYSTEM + (memory.context("project:${ws.root.name}")?.let { "\n\n$it" } ?: "")
         if (intent.kind == Router.CodeKind.EXPLAIN) {
             val a = llm(chat, listOf(ChatMessage(Role.SYSTEM, "Jsi VEGA. Vysvětli kód česky, stručně, s odkazy soubor:řádek. Tykej." + (memory.context("project:${ws.root.name}")?.let { "\n\n$it" } ?: "")), ChatMessage(Role.USER, prompt)), consent)

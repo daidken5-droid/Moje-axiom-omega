@@ -138,7 +138,18 @@ Další pravidla:
     3. Model a souhlas jdou běžnou cestou projektu.
     4. Uložení a zapnutí dál potvrzuje uživatel.
   - **Testy:** 51 + 21 zelené.
-- [ ] 15. Red-team kolo 2 nad body 12–14
+- [x] 15. Red-team kolo 2 nad body 12–14
+  - **Výsledek:** nic kritického. Opraveno:
+    - Odmítnutý souhlas nebo výpadek u návrhu se zapisoval jako další chyba nástroje (tlačítko by nezmizelo a chyba „Neodesláno“ by šla do dalšího zadání).
+    - Souhlas teď výslovně uvádí „zadání z deníku chyb (N záznamů)“. Do zadání jde jen text chyb nástroje, u obecných výjimek jen jejich druh, protože zpráva výjimky může citovat obsah souboru.
+    - Podmínky návrhu se kontrolují i na straně aplikace a dvojité klepnutí nezaloží dva projekty.
+    - Název projektu je „Rozšíření <nástroj>“.
+  - **Ověřeno beze změny:** pořadí mazání dočasného chatu, opakování úloh s revizemi, escapování v UI, komentář k DNS rebindingu.
+
+## Další kolo 3 (pro další probuzení)
+- [ ] 16. Doručit APK s body 12–15 (CI), SHA-256
+- [ ] 17. Testy jednotek pro Ops: extPropose (podmínky, dvojité klepnutí), selftune hooky v submit/stop (Robolectric jako OpsSpecTest)
+- [ ] 18. Red-team kolo 3: Engines.kt a MainActivity.kt (most JS ↔ Kotlin, oprávnění, intenty, sdílení souborů)
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
