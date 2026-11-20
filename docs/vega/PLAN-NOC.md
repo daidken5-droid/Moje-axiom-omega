@@ -493,8 +493,12 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     - skript nanečisto a bez tokenu;
     - názvy parametrů huggingface_hub proti nainstalované knihovně.
   - **NEOVĚŘENO:** skutečné nasazení (vyžaduje tvůj token).
-- [ ] 52. Síť: DNS rebinding – stahování přes ověřenou IP (připojení na IP z kontroly + SNI/Host), test se zlým resolverem.
+- [x] 52. Síť: DNS rebinding – stahování přes ověřenou IP (připojení na IP z kontroly + SNI/Host), test se zlým resolverem.
+  - **Hotovo jinak (bez přestavby sítě):** u přímého HTTPS spojení na veřejný web zabalí `Http.PeerCheck` továrnu TLS soketů. Ověří SKUTEČNOU adresu už připojeného soketu, a když vede do lokální sítě, zavře ho dřív, než odejde jediný bajt (TLS ani požadavek).
+  - Přes proxy se to ověřit nedá a zůstává kontrola překladu jména.
+  - **Test RebindingTest:** soket na 127.0.0.1 se jménem „evil.example“ je odmítnut a zavřen.
+  - NEOVĚŘENO na telefonu (Android HttpsURLConnection vrství TLS stejnou metodou `createSocket(socket, host, port, autoClose)`).
 - [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
 
 ## Problémy
-- DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
+- ~~DNS rebinding~~ – vyřešeno bodem 52 (kontrola skutečné adresy soketu před TLS); přes proxy jen kontrola překladu.

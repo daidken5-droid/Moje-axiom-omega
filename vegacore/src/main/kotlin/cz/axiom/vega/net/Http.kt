@@ -58,10 +58,9 @@ object Http {
      * Veřejný web: jméno se přeloží a ŽÁDNÁ z adres nesmí být v lokální síti (jinak by stránka „evil.example“ s DNS
      * na 127.0.0.1 / 192.168.x.x prošla jménem). Nepřeložitelné jméno projde – spojení pak samo selže.
      *
-     * ZNÁMÁ MEZERA (DNS rebinding): HttpURLConnection přeloží jméno znovu sám a vlastní překlad mu nejde podstrčit.
-     * Útočník s vlastním DNS a krátkým TTL by mohl podruhé vrátit lokální adresu. Plná oprava = síťová vrstva
-     * s vlastním resolverem (OkHttp `Dns`) – větší přestavba, kterou je nutné vyzkoušet na telefonu. Dopad je omezený:
-     * jen GET veřejného webu, odpověď je text pro model, žádné klíče ani hlavičky se do LAN nepošlou.
+     * DNS rebinding (jméno se při spojení přeloží znovu, podruhé třeba na 192.168.x.x): u přímého HTTPS spojení
+     * [PeerCheck] ověří SKUTEČNOU adresu už připojeného soketu ještě před TLS a před odesláním požadavku.
+     * Přes proxy se ověřit nedá (soket vede na proxy, jméno překládá ona) – tam zůstává jen kontrola překladu výše.
      */
     fun requirePublicResolved(host: String) {
         val addrs = runCatching { InetAddress.getAllByName(host.trim('[', ']')) }.getOrNull() ?: return
@@ -74,11 +73,31 @@ object Http {
         requireAllowed(url, publicOnly)
         if (publicOnly) URI(url).host?.let { requirePublicResolved(it) }
         return (URL(url).openConnection() as HttpURLConnection).apply {
+            if (publicOnly && this is javax.net.ssl.HttpsURLConnection && direct(url)) sslSocketFactory = PeerCheck(sslSocketFactory)
             requestMethod = method; connectTimeout = connectMs; readTimeout = readMs
             instanceFollowRedirects = false
             setRequestProperty("User-Agent", USER_AGENT)
             if (method == "POST") doOutput = true
         }
+    }
+
+    private fun direct(url: String) = runCatching { java.net.ProxySelector.getDefault()?.select(URI(url)).orEmpty().all { it.type() == java.net.Proxy.Type.DIRECT } }.getOrDefault(false)
+
+    /** TLS nad už připojeným soketem: pokud vede do lokální sítě (rebinding), zavřít dřív, než odejde jediný bajt. */
+    class PeerCheck(private val d: javax.net.ssl.SSLSocketFactory) : javax.net.ssl.SSLSocketFactory() {
+        private fun check(s: java.net.Socket): java.net.Socket {
+            val a = s.inetAddress
+            if (a != null && isPrivateAddress(a)) { runCatching { s.close() }; throw java.io.IOException("Veřejný web nesmí mířit do lokální sítě (${a.hostAddress}) – spojení zrušeno.") }
+            return s
+        }
+        override fun createSocket(s: java.net.Socket, host: String?, port: Int, autoClose: Boolean): java.net.Socket { check(s); return d.createSocket(s, host, port, autoClose) }
+        override fun createSocket(host: String?, port: Int) = check(d.createSocket(host, port))
+        override fun createSocket(host: String?, port: Int, la: InetAddress?, lp: Int) = check(d.createSocket(host, port, la, lp))
+        override fun createSocket(host: InetAddress?, port: Int) = check(d.createSocket(host, port))
+        override fun createSocket(a: InetAddress?, port: Int, la: InetAddress?, lp: Int) = check(d.createSocket(a, port, la, lp))
+        override fun createSocket(): java.net.Socket = d.createSocket()
+        override fun getDefaultCipherSuites(): Array<String> = d.defaultCipherSuites
+        override fun getSupportedCipherSuites(): Array<String> = d.supportedCipherSuites
     }
 
     data class Response(val code: Int, val url: String, val contentType: String, val body: ByteArray)

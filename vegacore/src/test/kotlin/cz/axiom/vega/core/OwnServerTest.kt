@@ -47,3 +47,15 @@ class OwnServerTest {
         assertTrue(r.text.contains("Praha"), r.text); assertEquals(r.text, sb.toString())
     }
 }
+
+/** Bod 52: DNS rebinding – připojený soket do lokální sítě se zavře před TLS. */
+class RebindingTest {
+    @Test fun peerCheckRefusesLocalSocketBeforeTls() {
+        java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { srv ->
+            val s = java.net.Socket(java.net.InetAddress.getLoopbackAddress(), srv.localPort)
+            val f = cz.axiom.vega.net.Http.PeerCheck(javax.net.ssl.SSLContext.getDefault().socketFactory)
+            val e = assertFailsWith<java.io.IOException> { f.createSocket(s, "evil.example", 443, true) }
+            assertTrue(e.message!!.contains("lokální sítě"), e.message); assertTrue(s.isClosed, "soket se zavřel")
+        }
+    }
+}
