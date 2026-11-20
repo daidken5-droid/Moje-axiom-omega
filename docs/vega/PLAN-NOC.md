@@ -283,5 +283,27 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
   - **Testy:** SelfUpdateTest (4 testy: pravidla, výběr souborů, sled API a pojistka větve, stav), celkem 70 + 25 zelené.
   - **NEOVĚŘENO:** celý tok proti skutečnému GitHubu a instalace na telefonu (chybí token; CI `vega-auto.yml` poběží až s prvním PR).
 
+- [x] 36. Red-team kolo 7 (samoúpravy) – opraveno:
+  - **KRITICKÉ – nepřezkoumaný kód modelu by se podepsal a nainstaloval.** Nově:
+    - hlídač citlivých API v aplikaci i v CI;
+    - chráněné soubory (trezor, most, síť, samoúpravy);
+    - instalace až z obrazovky se změnami (diff).
+  - **KRITICKÉ – podpisový klíč dosažitelný z běhu s kódem modelu.** Nově:
+    - CI na push, ne pull request (bez cache pracovní větve a bez workflow AVIORu);
+    - podpis jen z prostředí `vega-sign`, které nastaví uživatel;
+    - návod na ruleset.
+  - **Další opravy:**
+    - běh CI podle workflow a commitu;
+    - povolené cesty místo zakázaných (`res/xml-v26`);
+    - hlídač bez přejmenování a jen pro běžné soubory;
+    - automatické zlepšování ve výchozím stavu vypnuté;
+    - ukázky z deníku označené jako data;
+    - APK proudem se stropem;
+    - kontrola rozpracovaných úprav po startu, po 48 h jako selhané;
+    - spouštěcí věta podle textu bez diakritiky.
+  - **Ověřeno:** hlídač CI lokálně na zkušebním git repozitáři (symlink, přejmenování gradle, citlivé API a chráněný soubor odmítnuty, povolená změna prošla).
+  - **Testy:** 71 + 25 zelené.
+  - **Zablokováno bezpečnostní kontrolou prostředí:** workflow pro export náhradního klíče jako artefakt. Klíč do prostředí `vega-sign` musí nastavit uživatel (návod v AUTONOMIE.md).
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

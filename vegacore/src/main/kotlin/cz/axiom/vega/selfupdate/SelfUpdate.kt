@@ -12,14 +12,28 @@ import kotlinx.serialization.json.Json
  * balíčku a certifikátu → instalace potvrzená uživatelem (vyžaduje Android) → návrat = předchozí APK / nová úprava.
  */
 object Policy {
-    private val ALLOWED = listOf("vega/src/", "vegacore/src/")
-    private val DENY = Regex("(\\.gradle(\\.kts)?$|AndroidManifest\\.xml$|/res/xml/|proguard|\\.(jks|keystore|p12|pem|key)$|(^|/)\\.github/|(^|/)gradle/|local\\.properties)", RegexOption.IGNORE_CASE)
+    /** POVOLENÉ cesty (ne zakázané): kód aplikace, UI a testy. Res, manifest, sestavení, CI ani klíče sem nepatří. */
+    private val ALLOWED = listOf("vega/src/main/java/", "vega/src/main/assets/ui/", "vegacore/src/main/kotlin/", "vegacore/src/test/kotlin/", "vega/src/test/java/")
+    private val DENY = Regex("(\\.gradle(\\.kts)?$|AndroidManifest\\.xml$|/res/|proguard|\\.(jks|keystore|p12|pem|key)$|(^|/)\\.github/|(^|/)gradle/|local\\.properties)", RegexOption.IGNORE_CASE)
+    /** Soubory s trezorem klíčů, mostem JS↔Kotlin, sítí a samotnými samoúpravami – samoúprava je měnit nesmí. */
+    private val PROTECTED_FILES = Regex("(/Store\\.kt|/MainActivity\\.kt|/net/Http\\.kt|/core/Extensions\\.kt|/VegaApp\\.kt)$|/selfupdate/")
+    /**
+     * Citlivá API v PŘIDANÝCH řádcích: klíče, síť, procesy, most, sandbox, samoúpravy. Model by je jinak mohl
+     * (třeba po vložené instrukci v textu) použít k vynesení klíčů. Tentýž seznam kontroluje i CI (vega-auto.yml).
+     */
+    val SENSITIVE = Regex("(?i)(vault|keystore|getSharedPreferences|Http\\.(open|request|download|get)|HttpURLConnection|URLConnection|java\\.net\\.|Socket|Runtime\\.getRuntime|ProcessBuilder|" +
+        "addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch\\s*\\(|new\\s+Worker|postMessage|eval\\s*\\(|new\\s+Function|" +
+        "selfupdate|GitHub\\(|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\\.loadLibrary|Class\\.forName|reflect)")
+
+    /** Přidané řádky (+) unifikovaného diffu, které sahají na citlivá API. */
+    fun sensitiveAdditions(diff: String): List<String> = diff.lines().filter { it.startsWith("+") && !it.startsWith("+++") && SENSITIVE.containsMatchIn(it) }.map { it.take(160) }
 
     /** null = cesta je povolená; jinak důvod. */
     fun check(path: String): String? = when {
-        path.contains("..") || path.startsWith("/") || path.contains('\\') -> "neplatná cesta"
-        ALLOWED.none { path.startsWith(it) } -> "mimo vega/ a vegacore/ (AVIOR, CI ani sestavení VEGA měnit nesmí)"
+        path.contains("..") || path.startsWith("/") || path.contains('\\') || path.any { it.code < 32 || it.code > 126 } -> "neplatná cesta"
+        ALLOWED.none { path.startsWith(it) } -> "mimo kód a UI VEGY (AVIOR, prostředky, manifest, CI ani sestavení měnit nesmí)"
         DENY.containsMatchIn(path) -> "chráněný soubor (sestavení, oprávnění, síťová politika, klíče)"
+        PROTECTED_FILES.containsMatchIn(path) -> "chráněný soubor (trezor klíčů, most, síť nebo samoúpravy)"
         else -> null
     }
     fun editable(path: String) = check(path) == null && path.substringAfterLast('.').lowercase() in setOf("kt", "js", "css", "html", "md", "json", "txt", "xml")
@@ -46,7 +60,7 @@ class SelfUpdateStore(private val kv: Kv, private val clock: () -> Long = System
         READY("připraveno k instalaci"), INSTALLED("nainstalováno"), DISCARDED("zahozeno") }
     @Serializable data class Event(val at: Long, val action: String)
     @Serializable data class Upd(val id: String, val task: String, val branch: String, val status: String, val files: List<String>, val commit: String = "",
-                                 val runUrl: String = "", val pr: Long = 0, val apk: String = "", val apkSha: String = "", val note: String = "", val origin: String = "uživatel",
+                                 val runUrl: String = "", val pr: Long = 0, val diff: String = "", val apk: String = "", val apkSha: String = "", val note: String = "", val origin: String = "uživatel",
                                  val at: Long = 0, val history: List<Event> = emptyList())
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     fun list(): List<Upd> = kv.keys("selfupdate/upd/").mapNotNull { k -> kv.read(k)?.let { runCatching { json.decodeFromString(Upd.serializer(), it) }.getOrNull() } }.sortedByDescending { it.at }

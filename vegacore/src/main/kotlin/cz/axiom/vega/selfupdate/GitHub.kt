@@ -72,15 +72,10 @@ class GitHub(val owner: String, val repo: String, private val token: String, pri
         return commit
     }
 
-    /** Pull request z větve samoúpravy do pracovní větve (spustí CI vega-auto.yml; sloučením se změna přijme natrvalo). */
-    fun createPull(branch: String, base: String, title: String, body: String): Long {
-        requireAutoBranch(branch)
-        val o = call("POST", "/pulls", buildJsonObject { put("title", title.take(120)); put("head", branch); put("base", base); put("body", body.take(20_000)) })
-        return (o?.get("number") as? JsonPrimitive)?.longOrNull ?: 0L
-    }
-
-    fun latestRun(branch: String): Run? {
-        val o = call("GET", "/actions/runs?branch=${java.net.URLEncoder.encode(branch, "UTF-8")}&per_page=1") ?: return null
+    /** Běh PRÁVĚ workflow samoúprav pro PRÁVĚ tento commit (ne jiný workflow ani pozdější push do větve). */
+    fun latestRun(commit: String, workflow: String = "vega-auto.yml"): Run? {
+        require(Regex("^[0-9a-f]{40}$").matches(commit)) { "Neplatný commit." }
+        val o = call("GET", "/actions/workflows/$workflow/runs?head_sha=$commit&per_page=1") ?: return null
         val r = (o["workflow_runs"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
         return Run((r["id"] as JsonPrimitive).longOrNull ?: 0, s(r, "status") ?: "?", s(r, "conclusion"), s(r, "html_url") ?: "", s(r, "head_sha") ?: "")
     }

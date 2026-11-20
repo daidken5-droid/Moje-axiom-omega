@@ -323,14 +323,14 @@ function drawer() {
 function selfUpdateHtml() {
   const u = call('selfUpdates') || { items: [] };
   const setup = `<details ${u.hasToken ? '' : 'open'}><summary class="note">Nastavení GitHubu${u.hasToken ? ' ✓' : ''}</summary>
-      <p class="note">Fine-grained token jen pro repozitář ${esc(u.repo)}: <b>Contents</b> a <b>Pull requests</b> zápis, <b>Actions</b> čtení. <b>Workflows NEPOVOLUJ</b> – pak úprava nikdy nezmění CI ani podpis. Token zůstane v trezoru telefonu.</p>
+      <p class="note">Fine-grained token jen pro repozitář ${esc(u.repo)}: <b>Contents</b> zápis, <b>Actions</b> čtení. <b>Workflows NEPOVOLUJ</b> – pak úprava nikdy nezmění CI. Na GitHubu nastav pravidlo (ruleset), aby token směl zakládat jen větve <code>vega/auto-*</code>, a podpisový klíč dej do prostředí <code>vega-sign</code> (návod v docs/vega/AUTONOMIE.md). Token zůstane v trezoru telefonu.</p>
       <input class="field" id="ghTok" type="password" autocomplete="off" placeholder="${u.hasToken ? 'token uložen – nový přepíše' : 'github_pat_…'}">
       <div class="inline" style="margin-top:6px"><input class="field" id="ghRepo" value="${esc(u.repo)}" aria-label="Repozitář"><input class="field" id="ghBase" value="${esc(u.base)}" aria-label="Pracovní větev"></div>
       <button class="btn" data-act="suSave" style="margin-top:6px">Uložit</button></details>`;
   const items = u.items.map(x => `<div class="row stack"><span class="grow"><b>${esc(x.task.slice(0, 120))} <span class="pill ${x.status === 'READY' || x.status === 'INSTALLED' ? 'ok' : x.status === 'FAILED' ? 'bad' : ''}">${esc(x.label)}</span></b>
-      <small>${esc(x.origin)} · ${x.files.length} souborů${x.pr ? ' · PR #' + x.pr : ''}${x.note ? ' · ' + esc(x.note) : ''}</small><small>${x.files.map(f => esc(f.split('/').pop())).join(', ')}</small></span>
+      <small>${esc(x.origin)} · ${x.files.length} souborů${x.note ? ' · ' + esc(x.note) : ''}</small><small>${x.files.map(f => esc(f.split('/').pop())).join(', ')}</small></span>
       <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
-      ${x.status === 'READY' ? `<button class="btn primary" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Nainstalovat</button>` : ''}
+      ${x.diff ? `<button class="btn ${x.status === 'READY' ? 'primary' : ''}" data-act="suDiff" data-id="${esc(x.id)}">${x.status === 'READY' ? 'Projít změny a nainstalovat' : 'Zobrazit změny'}</button>` : ''}
       ${!['INSTALLED', 'DISCARDED'].includes(x.status) ? `<button class="btn ghost" data-act="suAct" data-id="${esc(x.id)}" data-a="discard">Zahodit</button>` : ''}</span></div>`).join('');
   return `<h3>Úpravy aplikace (měním sama sebe)</h3>
     <p class="note">Napiš, co mám na sobě změnit. Úpravu napíšu, CI ji otestuje a podepíše; instalaci vždy potvrdíš ty. Měnit smím jen kód VEGY – ne sestavení, oprávnění ani klíče.</p>
@@ -719,6 +719,9 @@ function act(a, d) {
     case 'suSave': { const t = ($('#ghTok') || {}).value || ''; const r1 = call('setSetting', 'ghRepo', ($('#ghRepo') || {}).value || ''); const r2 = call('setSetting', 'ghBase', ($('#ghBase') || {}).value || '');
       const r3 = t ? call('saveKey', 'github', t) : true; if (r1 !== null && r2 !== null && r3 !== null) toast('Uloženo.'); library('improve'); break; }
     case 'suStart': { const t = (($('#suTask') || {}).value || '').trim(); if (!t) { toast('Napiš, co mám na sobě změnit.'); break; } if (busyGuard()) return; S.busy = true; if (call('selfUpdateStart', t)) { closeSheet(true); toast('Připravuji úpravu sebe sama – výsledek přijde do chatu a do karty Vylepšení.', 6000); } render(); break; }
+    case 'suDiff': { const x = ((call('selfUpdates') || {}).items || []).find(i => i.id === d.id); if (!x) break;
+      sheet(`<h2>Změny, které jsem na sobě udělala</h2><p class="lede">${esc(x.task)}</p><p class="note">Hlídač ověřil: jen kód a UI VEGY, žádná citlivá API (klíče, síť, most, samoúpravy), testy v CI prošly${x.status === 'READY' ? '' : ' (zatím neprošly – čeká se na CI)'}. Přesto si změny projdi – instaluješ kód, který napsal model.</p>
+        <pre class="diff">${esc(x.diff)}</pre>${x.status === 'READY' ? `<button class="btn primary wide" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Prošel jsem změny – nainstalovat</button>` : ''}`, true); break; }
     case 'suAuto': call('setSetting', 'autoImprove', String(!!($('#suAuto') || {}).checked)); break;
     case 'suAct': { const r = call('selfUpdateAction', d.id, d.a); if (typeof r === 'string') toast(r, 7000); else toast({ poll: 'Kontroluji sestavení…', discard: 'Zahazuji úpravu (větev i PR).', install: 'Potvrď instalaci v systémovém dialogu.' }[d.a]); if (d.a !== 'install') setTimeout(() => library('improve'), 1500); break; }
     case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }

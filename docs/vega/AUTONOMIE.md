@@ -92,34 +92,55 @@ Rozšíření běží jen v sandboxu Workeru: bez sítě a bez přístupu k apli
 **Spuštění:**
 - větou v chatu: „vylepši se: …“ / „uprav aplikaci, aby …“;
 - tlačítkem v Menu → Vylepšení → Úpravy aplikace;
-- samo jednou denně z opakované slabiny v deníku (≥ 3× za týden, jde vypnout).
+- volitelně samo jednou denně z opakované slabiny (VÝCHOZÍ VYPNUTO).
 
 **Postup:**
 1. VEGA načte zdroj z GitHubu.
 2. Model navrhne úpravu v izolované kopii.
-3. **Pravidla cest:** měnit jde jen `vega/src` a `vegacore/src`, nikdy gradle, manifest, `res/xml`, CI ani klíče.
-4. VEGA udělá commit na `vega/auto-…` a založí pull request.
-5. **CI `vega-auto.yml`:**
-   - job 1 testuje a sestavuje BEZ klíčů a secrets;
-   - job 2 jen podepíše, nespouští žádný kód z větve;
-   - hlídač cest ověří změněné soubory.
-6. VEGA stáhne APK a ověří otisk ze SHA256SUMS.
-7. **Instalace:** stejný balíček, stejný certifikát, vyšší verze. Potvrzení dá uživatel v systémovém dialogu.
+3. **Pravidla v aplikaci:**
+   - jen povolené cesty (`vega/src/main/java`, `vega/src/main/assets/ui`, `vegacore/src/main/kotlin`, testy);
+   - chráněné soubory (trezor, most, síť, samoúpravy) nesmí měnit;
+   - hlídač citlivých API v přidaných řádcích (klíče, síť, procesy, most, sandbox, samoúpravy).
+4. VEGA udělá commit na `vega/auto-…`. Bez pull requestu, takže se nespustí workflow AVIORu.
+5. **CI `vega-auto.yml` (push):**
+   - job 1: hlídač (cesty bez přejmenování, jen běžné soubory, citlivá API), testy a sestavení BEZ secrets a klíče;
+   - job 2: podpis JEN klíčem z prostředí `vega-sign`, bez kódu z větve.
+6. VEGA stáhne APK proudem na disk a ověří otisk ze SHA256SUMS (chrání jen proti poškozenému přenosu).
+7. **Instalace až po zobrazení změn (diff) v aplikaci:**
+   - stejný balíček, stejný certifikát, vyšší verze;
+   - potvrzení dá uživatel v systémovém dialogu.
 
 **Návrat:**
-- zahodit úpravu (smaže větev i PR);
-- nainstalovat předchozí APK;
-- nebo zadat novou úpravu.
+- zahodit úpravu (smaže větev);
+- nebo nainstalovat předchozí APK.
 
-Sloučením PR se změna přijme natrvalo.
+### Jednorázové nastavení (bez něj samoúpravy APK nepodepíšou)
 
-**Token (fine-grained, jen jeden repozitář):**
+1. **Token (fine-grained, jen repozitář Moje-axiom-omega):**
 
-| Oprávnění | Úroveň |
-|---|---|
-| Contents | Read and write |
-| Pull requests | Read and write |
-| Actions | Read |
-| **Workflows** | **Nepovolovat** – GitHub pak z telefonu odmítne každou změnu CI, takže kód napsaný modelem se nikdy nedostane k podpisovému klíči |
+   | Oprávnění | Úroveň |
+   |---|---|
+   | Contents | Read and write |
+   | Actions | Read |
+   | **Workflows** | **Nepovolovat** |
+
+2. **Ruleset** (Settings → Rules → Rulesets):
+   - Cíl: všechny větve kromě `vega/auto-*`.
+   - Pravidlo: zakázat vytváření a aktualizaci větví (výjimka jen vlastník).
+   - **Proč:** token s Contents RW jinak technicky smí pushnout i jinam, kde běží workflow se secrets. Aplikace sama píše jen do `vega/auto-*`; ruleset to vynutí i na GitHubu.
+3. **Podpisový klíč v prostředí `vega-sign`** (Settings → Environments):
+   - **Secrets:** `VEGA_SIGN_KEYSTORE_B64`, `VEGA_SIGN_PASSWORD`, `VEGA_SIGN_ALIAS`.
+   - **Deployment branches:** jen `vega/auto-*`.
+   - **Současný stav:** nainstalovaná VEGA je podepsaná náhradním klíčem z cache Actions („AVIOR CI“). Ten vývojová relace z bezpečnostních důvodů nevynáší.
+   - **Doporučené čisté řešení:** vlastní klíč.
+     1. V počítači: `keytool -genkeypair -alias vega -keyalg RSA -keysize 2048 -validity 12000 -storetype PKCS12 -keystore vega.p12`.
+     2. `base64 -w0 vega.p12` vlož do `VEGA_SIGN_KEYSTORE_B64` a heslo do `VEGA_SIGN_PASSWORD`. Alias `vega` dej do `VEGA_SIGN_ALIAS`.
+     3. Stejný klíč dej i do repozitářových secrets `OMEGA_KEYSTORE_B64`, `OMEGA_KEYSTORE_PASSWORD`, `OMEGA_KEY_ALIAS` a `OMEGA_KEY_PASSWORD` (pak se jím podepisují i běžná sestavení).
+     4. VEGA jednou přeinstaluj, protože jiný klíč nejde nainstalovat přes starý. Data VEGY se tím smažou.
+   - Po přechodu na secrets doporučuji smazat záznam `avior-signing-v1` v Actions → Caches.
 
 **Verze:** CI předává rostoucí versionCode (minuty od 1. 1. 2026). Každé sestavení, i samoúprava, jde nainstalovat přes předchozí.
+
+**Co kontrola NEZARUČÍ:** hlídač citlivých API je heuristika a testy může model upravit. Proto instalace vyžaduje projít změny. Kód, který mění logiku, nainstaluj, jen když mu rozumíš nebo mu věříš.
+
+**Bezpečnost dosud:** žádná samoúprava zatím neběžela (chybí token). Náhradní klíč tedy nebyl vystaven kódu z modelu.
