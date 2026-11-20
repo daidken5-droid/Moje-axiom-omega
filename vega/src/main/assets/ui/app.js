@@ -462,43 +462,45 @@ function settingsSheet() {
   sheet(`<h2>Nastavení</h2>
     <h3>Ty</h3>
     <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>
-    <h3>Vlastní model</h3>
-    <div class="card"><div class="note">Server s otevřeným modelem (llama.cpp server, Ollama, vLLM…) s OpenAI API. Doma v síti stačí <b>http://192.168.x.x:8080/v1</b>, přes internet jen https. Hotový server zdarma (Hugging Face nebo tvoje PC): <b>tools/vega-server</b> – po spuštění vypíše párovací kód.</div>
+    <h3>Odpovídání (zdarma)</h3>
+    ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> (projekt bez platební karty). Nevíš jak? Použij průvodce „Zapnout rozhovor zdarma“ na úvodní obrazovce.')}
+    <label class="switch"><span><b>Veřejný web</b><small>hledání, zdroje a kurzy – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Bez internetu</b><small>žádná síť – fungují jen výpočty a nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
+
+    <details><summary>Pro pokročilé</summary>
+    <h3>Vlastní model (vlastní server)</h3>
+    <div class="card"><div class="note">Server s otevřeným modelem (llama.cpp, Ollama, vLLM…) s OpenAI API. Doma v síti stačí <b>http://192.168.x.x:8080/v1</b>, přes internet jen https. Hotový server zdarma: <b>tools/vega-server</b> – po spuštění vypíše párovací kód.</div>
       <label class="lbl">Párovací kód</label><div class="inline"><input class="field" id="pairCode" placeholder="VEGA-PAIR:…" autocomplete="off" spellcheck="false"><button class="btn" data-act="pairOwn">Spárovat</button></div>
       <label class="lbl">Adresa serveru</label><input class="field" id="ownUrl" value="${esc(s.ownUrl || '')}" placeholder="http://192.168.1.20:8080/v1" inputmode="url" autocomplete="off">
       <label class="lbl">Model (prázdné = první, který server nabízí)</label><input class="field" id="ownModel" value="${esc(s.ownModel || '')}" placeholder="např. qwen2.5-7b-instruct" autocomplete="off">
       <label class="lbl">Klíč serveru (nepovinné)</label><input class="field" type="password" id="ownKey" placeholder="${s.ownKey ? 'uloženo – nový přepíše' : 'jen když ho server vyžaduje'}" autocomplete="off">
       <div class="inline" style="margin-top:10px"><button class="btn primary" data-act="saveOwn">Uložit a ověřit</button>${s.ownUrl ? '<button class="btn" data-act="testOwn">Vyzkoušet odpověď</button>' : ''}</div><div class="status" id="kc-own"></div></div>
     <label class="switch"><span><b>Pouze vlastní modely</b><small>celý požadavek jen na tvém serveru – žádné komerční API ani při výpadku</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
-    <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}</p>
+
     <h3>Ověřovač citací</h3>
-    <div class="card"><div class="note">Neuronový model v telefonu (bez sítě) ukáže, jestli citovaná pasáž tvrzení podporuje, odporuje mu, nebo nestačí. Váhy nejsou v aplikaci – stáhnou se jednou jako ověřený balíček (otisk modelu musí sedět), nebo se nainstalují ze souboru (.zip z tools/verifier).</div>
+    <div class="card"><div class="note">Neuronový model v telefonu (bez sítě) ukáže, jestli citovaná pasáž tvrzení podporuje, odporuje mu, nebo nestačí. Váhy se stáhnou jednou jako ověřený balíček (otisk musí sedět), nebo ze souboru (.zip z tools/verifier).</div>
       <div class="status" id="kc-verifier">${s.verifierReady ? '<span class="pill ok">načteno</span> ' : '<span class="pill">vypnuto</span> '}${esc(s.verifier || '')}</div>
       <div class="inline" style="margin-top:8px"><button class="btn primary" data-act="verifierDownload">Stáhnout (150 MB)</button><button class="btn" data-act="verifierInstall">Ze souboru</button>${s.verifierReady ? '<button class="btn ghost" data-act="verifierRemove">Odebrat</button>' : ''}</div></div>
-    <h3>Model v cloudu</h3>
-    ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> v projektu bez fakturace. Model Gemini 4 Hydrogen, pokud ho tvůj klíč už má. V Česku se data z bezplatné kvóty nepoužívají k tréninku.')}
-    <details ${s.keys.geminipro ? 'open' : ''}><summary>Mám předplatné Google AI Pro</summary>
-      ${keyRow('geminipro', 'Gemini – kredit Pro', 'Pro samo klíč nedává, obsahuje měsíční kredit (~10 USD). Aktivuj ho v AI Studiu, v tom placeném projektu vytvoř klíč a vlož ho sem. Použije se, až dojde bezplatná kvóta.')}
-      ${s.keys.geminipro ? `<label class="lbl">Strop kreditu za měsíc (Kč) · utraceno ${fmt(s.spent.geminipro)} Kč</label><input class="field" type="number" min="0" data-budget="geminipro" value="${s.budgets.geminipro || ''}" placeholder="např. 150">
-        <label class="switch"><span><b>Čerpat kredit automaticky</b><small>bez ptaní, do stropu výše</small></span><input type="checkbox" data-set="allow.geminipro" ${s.allowed.geminipro ? 'checked' : ''}></label>
-        <p class="note">Doporučuji strop pod kreditem. Počítám skutečné tokeny včetně přemýšlení a rezervuji odhad předem. Útratu mimo VEGA (AI Studio, jiné aplikace) nevidím – v Cloud Billing si nastav rozpočet i u Google. Bez povolení se zeptám u každého úkolu.</p>` : ''}
-    </details>
-    <h3>Soukromí a chování</h3>
-    <label class="switch"><span><b>Veřejný web</b><small>rešerše a čtení odkazů – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
-    <label class="switch"><span><b>Air-gap</b><small>žádná síť – fungují jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
+
+    <h3>Placené a záložní modely</h3>
+    <div class="card"><div class="note">Používají se, až dojde bezplatná kvóta. Placené se bez tvého povolení s limitem nepoužijí.</div></div>
+    ${keyRow('geminipro', 'Gemini – kredit Pro', 'Předplatné Google AI Pro má měsíční kredit (~10 USD). V placeném projektu vytvoř klíč a vlož ho sem.')}
+    ${s.keys.geminipro ? `<label class="lbl">Strop kreditu za měsíc (Kč) · utraceno ${fmt(s.spent.geminipro)} Kč</label><input class="field" type="number" min="0" data-budget="geminipro" value="${s.budgets.geminipro || ''}" placeholder="např. 150">
+      <label class="switch"><span><b>Čerpat kredit automaticky</b><small>bez ptaní, do stropu výše</small></span><input type="checkbox" data-set="allow.geminipro" ${s.allowed.geminipro ? 'checked' : ''}></label>` : ''}
+    ${keyRow('groq', 'Groq – zdarma', 'Záloha, když Gemini narazí na limit.')}
+    ${keyRow('cerebras', 'Cerebras – zdarma', 'Záloha.')}
+    ${keyRow('openrouter', 'OpenRouter – zdarma modely', 'Záloha.')}
+    ${keyRow('deepseek', 'DeepSeek – placený', 'Servery v Číně – citlivé podklady raději ne.')}
+    ${keyRow('claude', 'Claude – placený', 'Anthropic API.')}
+    <label class="lbl">Společný strop pro ostatní placené (Kč / měsíc)</label><input class="field" type="number" min="0" data-budgetall value="${s.budgetKc || 0}">
+    ${['deepseek', 'claude'].filter(k => s.keys[k]).map(k => `<label class="switch"><span><b>${k === 'claude' ? 'Claude' : 'DeepSeek'} automaticky</b><small>v rámci společného stropu</small></span><input type="checkbox" data-set="allow.${k}" data-shared="1" ${s.allowed[k] ? 'checked' : ''}></label>`).join('')}
+    <label class="lbl">Kurz USD → Kč</label><input class="field" type="number" step="0.1" min="10" max="60" data-usdkc value="${s.usdKc || 23.5}">
+
+    <h3>Chování</h3>
     <label class="switch"><span><b>Iniciativa</b><small>navrhnu další krok u projektu</small></span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></label>
-    <details><summary>Pokročilé</summary>
-      ${keyRow('groq', 'Groq – zdarma', 'Záloha, když Gemini narazí na limit.')}
-      ${keyRow('cerebras', 'Cerebras – zdarma', 'Záloha.')}
-      ${keyRow('openrouter', 'OpenRouter – zdarma modely', 'Záloha.')}
-      ${keyRow('deepseek', 'DeepSeek – placený', 'Servery v Číně – citlivé podklady raději ne.')}
-      ${keyRow('claude', 'Claude – placený', 'Anthropic API.')}
-      <label class="lbl">Společný strop pro ostatní placené (Kč / měsíc)</label><input class="field" type="number" min="0" data-budgetall value="${s.budgetKc || 0}">
-      ${['deepseek', 'claude'].filter(k => s.keys[k]).map(k => `<label class="switch"><span><b>${k === 'claude' ? 'Claude' : 'DeepSeek'} automaticky</b><small>v rámci společného stropu</small></span><input type="checkbox" data-set="allow.${k}" data-shared="1" ${s.allowed[k] ? 'checked' : ''}></label>`).join('')}
-      <label class="lbl">Kurz USD → Kč</label><input class="field" type="number" step="0.1" min="10" max="60" data-usdkc value="${s.usdKc || 23.5}">
-      <p class="note">Tento měsíc utraceno celkem ${fmt(s.spentKc)} Kč. Lokální index: ${s.indexed} souborů.</p>
+    <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}. Tento měsíc utraceno ${fmt(s.spentKc)} Kč. Lokální index: ${s.indexed} souborů.</p>
     </details>
-    <p class="note" style="margin-top:24px">VEGA 1.3 · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
+    <p class="note" style="margin-top:24px">VEGA · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
 }
 
 /** Výběr modulu / poskytovatele: „Automaticky“ nebo konkrétní; ostatní nastavení zůstanou jako záloha při výpadku. */

@@ -565,5 +565,14 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     - rozdělení Nastavení na Základní / Pokročilé;
     - XLSX s prázdnými buňkami a sériovými daty.
 
+
+## Kolo 55 (1.9.0) – doporučení + WiFi analyzátor + NFC inspektor
+- [x] 55a. **NFC inspektor** (jako „read“ u Flipperu, jen čtení): typ karty/čipu (MIFARE Classic/Ultralight/NTAG, ISO-DEP karta, FeliCa, NFC-V), UID, norma, technologie, SAK/ATQA a NDEF záznamy. `NfcTag` (jádro) + test. U chráněných karet jasně řečeno, že se obsah nečte ani nekopíruje. Klonování/emulace záměrně NE.
+- [x] 55b. **WiFi analyzátor** (ne breaker): pasivní sken okolí → kanály (2,4/5/6 GHz), síla signálu, typ zabezpečení, zahlcení; upozorní na slabé zabezpečení VLASTNÍ sítě (WEP/WPA/WPS/otevřená) a poradí kanál. `WifiScan` (jádro) + testy; v appce oprávnění polohy s vysvětlením, jen čtení, žádný zásah.
+  - **WiFi „breaker“ (deauth/jamming) ODMÍTNUTO:** útok typu DoS, v ČR nelegální, a Android ho bez roota/HW stejně neumí – byla by to atrapa.
+- [x] 55c. **Převod měn kurzem ČNB** („100 eur na koruny“): `CnbRates` (jádro) + test; v appce stažení denního lístku max 1× denně + cache, offline fallback na ruční kurz.
+- [x] 55d. **Nastavení rozdělené** na Základní (jméno, Gemini zdarma, web, bez internetu) a sbalené „Pro pokročilé“ (vlastní server, ověřovač, placené/záložní modely, kurz). „Air-gap“ → „Bez internetu“.
+- Odloženo z doporučení: automatické doplnění z webu u dotazů na ceny; historie u hypotéz; XLSX s prázdnými buňkami.
+
 ## Problémy
 - ~~DNS rebinding~~ – vyřešeno bodem 52 (kontrola skutečné adresy soketu před TLS); přes proxy jen kontrola překladu.
