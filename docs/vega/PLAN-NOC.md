@@ -342,7 +342,17 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
 ## Uživatel: dalších 7 kol (10–16)
 Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživatel pozná.
 - [ ] 39. Kolo 10: UI (app.js) – stav, přístupnost, XSS, chování na telefonu
-- [ ] 40. Kolo 11: modely a peníze – Engines, poskytovatelé, souhlasy, CostGuard, přepínání
+- [x] 40. Kolo 11: modely a peníze – Engines, poskytovatelé, souhlasy, CostGuard, přepínání
+  - **Výsledek – TICHÁ ÚTRATA:** výběr modelu u OpenRouteru (kontrola klíče, samooprava) mohl zvolit placený model, třeba llama-405b. Ten by čerpal kredit uživatele mimo strážce nákladů. Teď jen modely `:free`, nikdy placený (test).
+  - **Další opravy:**
+    - Placené se nabízí jen tam, kde pomůže (limit, kvóta, strop), ne při výpadku sítě, špatném klíči nebo chybě serveru. Totéž u rady „povol X v Nastavení“.
+    - Schválení úkolu jako částka od okamžiku schválení: přelom měsíce strop nezvětší.
+    - Odhad nad maximem úkolu je srozumitelné odmítnutí; dialog už neslibuje víc, než se vynutí.
+    - Přerušený stream Claude se už nevydává za celou odpověď.
+    - `<think>` rozdělené mezi části streamu se už neukáže v odpovědi.
+    - Neověřená cena „hydrogen“ se počítá jako draze.
+    - Souhlas pro vlastní server platí jen pro jeho adresu.
+  - **Testy:** Round11Test prošel, celkem 76 + 25 zelené.
 - [ ] 41. Kolo 12: projekty s kódem a rozšíření – celý tok
 - [ ] 42. Kolo 13: kvalita odpovědí – rešerše, web, důkazy, citace
 - [ ] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace

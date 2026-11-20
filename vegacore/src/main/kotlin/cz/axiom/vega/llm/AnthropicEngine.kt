@@ -34,7 +34,7 @@ class AnthropicEngine(private val key: String, val model: String) : LlmEngine {
             c.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val code = c.responseCode
             if (code !in 200..299) throw EngineException("Claude HTTP $code: ${Http.readText(c.errorStream).take(300)}", retryable = code == 429 || code >= 500 || code == 529)
-            val text = StringBuilder(); val think = StringBuilder(); var inTok: Long? = null; var outTok: Long? = null; var stop: String? = null
+            val text = StringBuilder(); val think = StringBuilder(); var inTok: Long? = null; var outTok: Long? = null; var stop: String? = null; var done = false
             Sse.read(c.inputStream, cancel) { data ->
                 val o = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return@read true
                 when ((o["type"] as? JsonPrimitive)?.contentOrNull) {
@@ -45,13 +45,14 @@ class AnthropicEngine(private val key: String, val model: String) : LlmEngine {
                     }
                     "message_delta" -> { outTok = ((o["usage"] as? JsonObject)?.get("output_tokens") as? JsonPrimitive)?.longOrNull ?: outTok
                         stop = ((o["delta"] as? JsonObject)?.get("stop_reason") as? JsonPrimitive)?.contentOrNull }
-                    "message_stop" -> return@read false
+                    "message_stop" -> { done = true; return@read false }
                     "error" -> throw EngineException("Claude: ${((o["error"] as? JsonObject)?.get("message") as? JsonPrimitive)?.contentOrNull}", retryable = true, billed = true)
                 }
                 true
             }
             cancel.check()
             if (text.isBlank()) throw EngineException("Claude nevrátil text.", billed = true)
+            if (!done && stop == null) throw EngineException("Claude: spojení se přerušilo uprostřed odpovědi.", retryable = true, billed = true, cause = java.io.IOException("stream closed"))
             return GenResult(text.toString().trim(), think.toString(), model, stop, inTok, outTok, System.currentTimeMillis() - t0)
         } catch (e: CancelledException) { throw e
         } catch (e: EngineException) { throw e

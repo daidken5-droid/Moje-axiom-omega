@@ -19,7 +19,9 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class Engines(private val settings: Settings, private val vault: Vault) {
     /** Schválení placeného poskytovatele pro právě běžící úkol: poskytovatel → STROP útraty celého úkolu (USD, absolutně). */
-    private val runApprovals = ConcurrentHashMap<String, Double>()
+    /** Schválení úkolu: útrata v okamžiku schválení + povolená částka (přelom měsíce strop nezvětší). */
+    private data class Approval(val base: Double, val delta: Double)
+    private val runApprovals = ConcurrentHashMap<String, Approval>()
 
     val NAMES = linkedMapOf("gemini" to "Gemini (zdarma)", "groq" to "Groq", "cerebras" to "Cerebras", "openrouter" to "OpenRouter",
         "geminipro" to "Gemini – kredit Pro", "deepseek" to "DeepSeek", "claude" to "Claude")
@@ -34,7 +36,8 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     val guard = CostGuard(object : CostGuard.Store {
         override fun allowed(provider: String) = runApprovals.containsKey(provider) || autoAllowed(provider)
         override fun budgetUsd(provider: String): Double {
-            runApprovals[provider]?.let { return it }
+            runApprovals[provider]?.let { a -> val now = settings.spentUsd(provider); val used = if (now >= a.base) now - a.base else now
+                return now + (a.delta - used).coerceAtLeast(0.0) }
             val usdKc = settings.usdKc.toDouble()
             // vlastní strop poskytovatele, jinak SPOLEČNÝ strop pro všechny placené dohromady (ne „500 Kč každému“)
             return if (settings.hasOwnBudget(provider)) settings.budgetKc(provider) / usdKc
@@ -47,7 +50,8 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     fun autoAllowed(p: String) = settings.allowed(p) && settings.budgetKc(p) > 0
 
     /** Schválí úkol: strop = dosavadní útrata + [usd] (celý úkol, ne každé volání zvlášť). */
-    fun approveRun(provider: String, usd: Double) { runApprovals[provider] = settings.spentUsd(provider) + usd.coerceIn(0.0, 5.0) }
+    fun approveRun(provider: String, usd: Double) { runApprovals[provider] = Approval(settings.spentUsd(provider), usd.coerceIn(0.0, MAX_RUN_USD)) }
+    companion object { const val MAX_RUN_USD = 5.0 }
     /** Konec úkolu (i chyba, zrušení) → schválení zaniká. */
     fun clearRun() = runApprovals.clear()
 

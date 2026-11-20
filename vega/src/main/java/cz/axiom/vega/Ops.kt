@@ -375,7 +375,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             e is cz.axiom.vega.llm.ChainEngine.ChainException -> {
                 val daily = e.failures.any { it.message.contains("denní limit") }
                 (if (daily) "Bezplatný denní limit je vyčerpaný (obnoví se zítra) – ${e.message}." else "Cloud teď neodpověděl – ${e.message}. Zkus to za chvíli.") +
-                    (engines.pendingPaid().firstOrNull()?.let { " Můžeš povolit ${engines.name(it)} v Nastavení." } ?: "")
+                    (if (paidHelps(e)) engines.pendingPaid().firstOrNull()?.let { " Můžeš povolit ${engines.name(it)} v Nastavení." } ?: "" else "")
             }
             e is CostGuard.BudgetException -> e.message ?: "Placené volání zastaveno."
             chain.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení k internetu. Ruční nástroje fungují dál."
@@ -782,6 +782,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             run(chat, pick, messages, consent, chars, maxTokens, visible)
         } catch (e: cz.axiom.vega.llm.ChainEngine.ChainException) {
             if (e.billed) throw e
+            // placené nabízet jen když pomůže (limit / kvóta / strop) – ne při výpadku sítě, špatném klíči nebo chybě serveru
+            if (!paidHelps(e)) throw e
             val alt = approvePaid(chars, maxTokens, calls, e.message ?: "", e.failures.filter { it.budget }.map { it.provider }) ?: throw e
             run(chat, alt, messages, consent, chars, maxTokens, visible)
         } catch (e: CostGuard.BudgetException) {
@@ -790,11 +792,16 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
     }
 
+    private fun paidHelps(e: cz.axiom.vega.llm.ChainEngine.ChainException) = e.failures.isNotEmpty() &&
+        e.failures.all { it.budget || it.rateLimited || Regex("denní limit|limit|kvót|quota|tier", RegexOption.IGNORE_CASE).containsMatchIn(it.message) }
+
     /** Nabídne placený klíč (nejdřív kredit Pro) pro TENTO úkol s odhadem ceny; null = uživatel odmítl / není co nabídnout. */
     private fun approvePaid(chars: Int, maxTokens: Int, calls: Int, why: String, overCap: List<String> = emptyList()): Engines.Pick? {
         val cand = (overCap + engines.pendingPaid()).distinct().firstOrNull() ?: return null
         val est = engines.estimateKc(cand, chars, maxTokens) * calls.coerceAtLeast(1)
-        val capKc = est * 1.2 + 0.25 // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
+        val maxKc = Engines.MAX_RUN_USD * settings.usdKc
+        if (est > maxKc) throw ToolError("Odhad ${"%.2f".format(est)} Kč je nad maximem jednoho úkolu (${"%.0f".format(maxKc)} Kč) – rozděl úkol na menší, nic se neutratilo.")
+        val capKc = minOf(est * 1.2 + 0.25, maxKc) // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
         val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("capKc", capKc).put("calls", calls).put("chars", chars)
             .put("reason", why).put("overCap", cand in overCap).put("noFree", why.startsWith("Bezplatného"))
             .put("hint", if (cand == "geminipro") "Trvale: Nastavení → Mám předplatné Google AI Pro → strop a „Čerpat kredit automaticky“."
@@ -806,7 +813,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private fun run(chat: String?, pick: Engines.Pick, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, chars: Int, maxTokens: Int, visible: Boolean = true): String {
         // souhlas platí pro CELÝ řetěz (při limitu může odpověď převzít záloha) a pro tento obsah
-        val need = pick.chain.map { "${consent?.first}|${it.first}" }.filter { it !in consented }
+        // u vlastního serveru patří k souhlasu i jeho adresa (změna serveru = nový souhlas)
+        val need = pick.chain.map { "${consent?.first}|${it.first}" + if (it.first == "Vlastní model") "|" + settings.ownUrl.hashCode() else "" }.filter { it !in consented }
         if (consent != null && need.isNotEmpty()) {
             val r = ask("consent", JSONObject().put("target", pick.chain.first().let { "${it.first} · ${it.second}" })
                 .put("fallback", JSONArray(pick.chain.drop(1).map { it.first })).put("notes", JSONArray(pick.notes))

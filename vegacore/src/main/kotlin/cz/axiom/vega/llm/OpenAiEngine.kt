@@ -39,8 +39,12 @@ class OpenAiEngine(private val base: String, private val key: String?, val model
             if (code !in 200..299) throw httpError(vendor, code, Http.readText(c.errorStream))
             val text = StringBuilder(); val think = StringBuilder()
             var inThink = false; var finish: String? = null; var inTok: Long? = null; var outTok: Long? = null; var served = model
-            fun emit(s: String) {
-                // <think>…</think> přímo v textu (llama.cpp, některé otevřené modely)
+            var carry = ""
+            fun emit(s0: String) {
+                // <think>…</think> přímo v textu (llama.cpp, některé otevřené modely); značka rozdělená mezi části streamu se skládá
+                var s = carry + s0; carry = ""
+                val tag = if (inThink) "</think>" else "<think>"
+                for (k in minOf(tag.length - 1, s.length) downTo 1) if (tag.startsWith(s.takeLast(k))) { carry = s.takeLast(k); s = s.dropLast(k); break }
                 var rest = s
                 while (rest.isNotEmpty()) {
                     if (inThink) { val e = rest.indexOf("</think>"); if (e < 0) { think.append(rest); onDelta(Delta(rest, true)); rest = "" } else { think.append(rest, 0, e); onDelta(Delta(rest.substring(0, e), true)); rest = rest.substring(e + 8); inThink = false } }
@@ -67,6 +71,7 @@ class OpenAiEngine(private val base: String, private val key: String?, val model
                 }
                 true
             }
+            if (carry.isNotEmpty()) { if (inThink) think.append(carry) else text.append(carry); carry = "" }
             cancel.check()
             if (text.isBlank()) throw EngineException("$vendor nevrátil text (finish=${finish ?: "?"}).", retryable = true, billed = true)
             // stream skončil bez [DONE] i bez finish_reason = spojení se přerušilo; neúplný text nevydávat za celou odpověď

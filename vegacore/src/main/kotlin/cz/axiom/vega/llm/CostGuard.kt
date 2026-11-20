@@ -57,7 +57,7 @@ class CostGuard(private val store: Store, private val charsPerToken: Double = 2.
             val m = model.lowercase()
             return when (provider) {
                 "claude" -> when { "opus" in m -> Price(15.0, 75.0); "haiku" in m -> Price(1.0, 5.0); else -> Price(3.0, 15.0) }
-                "geminipro", "gemini" -> when { "hydrogen" in m -> Price(1.5, 7.5); Regex("-pro\\b|-pro-").containsMatchIn(m) -> Price(4.0, 18.0); "flash" in m -> Price(1.0, 4.0); else -> Price(3.0, 15.0) }
+                "geminipro", "gemini" -> when { Regex("-pro\\b|-pro-").containsMatchIn(m) -> Price(4.0, 18.0); "flash" in m -> Price(1.0, 4.0); else -> Price(3.0, 15.0) }
                 "deepseek" -> Price(0.7, 2.5)
                 else -> Price(3.0, 15.0) // neznámý = draze
             }

@@ -95,3 +95,13 @@ class QuickUnitsTest {
         assertNull(q("2 kg na km")) // různé veličiny
     }
 }
+
+class Round11Test {
+    @Test fun openRouterNeverPicksPaidModel() {
+        val p = cz.axiom.vega.llm.Providers.provider("openrouter")!!
+        val avail = listOf("meta-llama/llama-3.1-405b-instruct", "anthropic/claude-sonnet-4", "google/gemma-3-12b-it:free")
+        assertEquals("google/gemma-3-12b-it:free", cz.axiom.vega.llm.Providers.pickModel(p, avail))
+        // bez jediného :free modelu v nabídce → preferovaný (všechny preferované jsou :free), nikdy placený
+        assertTrue(cz.axiom.vega.llm.Providers.pickModel(p, listOf("meta-llama/llama-3.1-405b-instruct")).endsWith(":free"))
+    }
+}

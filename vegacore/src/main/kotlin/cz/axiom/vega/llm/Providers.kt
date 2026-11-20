@@ -29,7 +29,8 @@ object Providers {
      * (velikost, „pro“, „instruct“), jinak první preferovaný. [avoid] = modely, které právě selhaly.
      */
     fun pickModel(p: Provider, available: List<String>, avoid: Set<String> = emptySet()): String {
-        val avail = available.map { it.removePrefix("models/") }.filter { a -> avoid.none { it.equals(a, true) } }
+        // OpenRouter je „zdarma“ jen u modelů :free – placený model by tiše čerpal kredit uživatele (mimo strážce nákladů)
+        val avail = available.map { it.removePrefix("models/") }.filter { a -> avoid.none { it.equals(a, true) } && (p.id != "openrouter" || a.endsWith(":free")) }
         val wanted = p.preferred.filter { w -> avoid.none { it.equals(w, true) } }
         if (avail.isEmpty()) return wanted.firstOrNull() ?: p.preferred.first()
         wanted.firstOrNull { w -> avail.any { it.equals(w, true) } }?.let { w -> return avail.first { it.equals(w, true) } }
