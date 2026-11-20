@@ -547,33 +547,60 @@ function load(path) {
   return module.exports;
 }
 let tests = [];
-const show = v => fmtv(v); const eq = (a, b) => JStr(a) === JStr(b);
+const show = v => { try { return typeof v === 'string' ? v : JStr(v, (k, x) => x === undefined ? 'undefined' : (typeof x === 'number' && !Number.isFinite(x)) ? Str(x) : typeof x === 'function' ? 'function' : x); } catch (e) { return Str(v); } }; const eq = (a, b) => JStr(a) === JStr(b);
 let expects = 0;
-const expect = a => (expects++, Freeze({
-  toBe: b => { if (!OIs(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
-  toEqual: b => { if (!eq(a, b)) throw new Error('čekáno ' + show(b) + ', je ' + show(a)); },
-  toBeCloseTo: (b, d = 2) => { if (MathAbs(a - b) > MathPow(10, -d) / 2) throw new Error('čekáno ≈' + b + ', je ' + a); },
-  toBeTruthy: () => { if (!a) throw new Error('čekána pravda, je ' + show(a)); },
-  toBeFalsy: () => { if (a) throw new Error('čekána nepravda, je ' + show(a)); },
-  toContain: b => { if (!(a && a.includes && a.includes(b))) throw new Error(show(a) + ' neobsahuje ' + show(b)); },
-  toThrow: () => { try { a(); } catch (e) { return; } throw new Error('čekána výjimka'); },
-}));
+// zachycené před načtením kódu projektu: projekt nesmí podvrhnout porovnání (String.prototype.includes = () => true)
+const SIncl = Function.prototype.call.bind(String.prototype.includes), AIncl = Function.prototype.call.bind(Array.prototype.includes);
+const IsArr = Array.isArray, NumFin = Number.isFinite, OKeys = Object.keys, ProtoOf = Object.getPrototypeOf, HasOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
+const czErr = m => SIncl(m, 'Cannot use import statement') || SIncl(m, 'import declarations') ? m + ' → použij module.exports a require() místo import/export'
+  : SIncl(m, 'is not defined') ? m + ' → chybí deklarace nebo require()' : SIncl(m, 'is not a function') ? m + ' → volaná věc není funkce (překlep, špatný export?)' : m;
+const msgOf = e => { try { return e && e.message !== undefined ? Str(e.message) : Str(e); } catch (x) { return '?'; } };
+/** Skutečné hluboké porovnání (ne přes JSON: [undefined, NaN] ≠ [null, null], Map ≠ {}, funkce ≠ undefined). */
+const deq = (x, y, d) => { d = d || 0; if (OIs(x, y)) return true; if (d > 60 || typeof x !== 'object' || typeof y !== 'object' || x === null || y === null || ProtoOf(x) !== ProtoOf(y)) return false;
+  if (x instanceof Map || x instanceof Set) return x.size === y.size && deq(Array.from(x), Array.from(y), d + 1);
+  const kx = OKeys(x), ky = OKeys(y); if (kx.length !== ky.length) return false;
+  for (let i = 0; i < kx.length; i++) { const k = kx[i]; if (!HasOwn(y, k) || !deq(x[k], y[k], d + 1)) return false; } return true; };
+const matchers = (a, neg) => { const chk = (ok, msg) => { expects++; if (ok === !!neg) throw new Error((neg ? 'NEMĚLO platit: ' : '') + msg); };
+  return Freeze({
+    toBe: b => chk(OIs(a, b), 'čekáno ' + show(b) + ', je ' + show(a)),
+    toEqual: b => chk(deq(a, b), 'čekáno ' + show(b) + ', je ' + show(a)),
+    toBeCloseTo: (b, d = 2) => chk(typeof a === 'number' && NumFin(a) && NumFin(b) && MathAbs(a - b) <= MathPow(10, -d) / 2, 'čekáno ≈' + b + ', je ' + show(a)),
+    toBeTruthy: () => chk(!!a, 'čekána pravda, je ' + show(a)),
+    toBeFalsy: () => chk(!a, 'čekána nepravda, je ' + show(a)),
+    toBeNull: () => chk(a === null, 'čekáno null, je ' + show(a)),
+    toBeUndefined: () => chk(a === undefined, 'čekáno undefined, je ' + show(a)),
+    toContain: b => chk(typeof a === 'string' ? SIncl(a, b) : IsArr(a) ? AIncl(a, b) : false, show(a) + ' neobsahuje ' + show(b)),
+    toThrow: m => { let thrown = false, em = ''; try { a(); } catch (e) { thrown = true; em = msgOf(e); }
+      chk(thrown && (m === undefined || SIncl(em, Str(m))), thrown ? 'výjimka „' + em + '“ neobsahuje „' + m + '“' : 'čekána výjimka'); },
+  }); };
+// expect(x) bez porovnání se NEpočítá jako ověření; .not obrací porovnání
+const expect = a => { const m = matchers(a, false); return Freeze(Object.assign({}, m, { not: matchers(a, true) })); };
 const APush = Function.prototype.call.bind(Array.prototype.push);
 const test = (n, f) => { APush(tests, [n, f]); };
-lock('test', test); lock('it', test); lock('describe', (n, f) => f()); lock('expect', expect);
+let befores = [];
+lock('test', test); lock('it', test); lock('describe', (n, f) => f()); lock('expect', expect); lock('beforeEach', f => { APush(befores, f); });
 const specs = Keys(FILES).filter(f => /\\.test\\.js$/.test(f) || /^test\\/.*\\.js$/.test(f)).sort();
 // kód projektu nesmí přepsat iteraci polí a tím „vyprázdnit“ seznam testů (podvržené „prošlo“)
-try { Freeze(Array.prototype); Freeze(Object.getPrototypeOf([][Symbol.iterator]())); } catch (e) {}
+// (Array.prototype se nezmrazuje – rozbilo by to platný kód „a.map = …“; harness iteruje přes zachycené funkce a indexy)
+try { Freeze(Object.getPrototypeOf([][Symbol.iterator]())); Freeze(Promise.prototype); Freeze(Promise); } catch (e) {}
 (async () => {
   let pass = 0, fail = 0;
-  for (let si = 0; si < specs.length; si++) {
-    const s = specs[si]; tests = [];
-    try { load(s); } catch (e) { fail++; APush(out, '✗ ' + s + ': ' + e.message); continue; }
-    const mine = tests; const cnt = mine.length;
-    for (let ti = 0; ti < cnt; ti++) { const n = mine[ti][0], f = mine[ti][1]; try { expects = 0; await f(); if (expects === 0) throw new Error('test nic neověřuje (žádné expect)'); pass++; APush(out, '✓ ' + s + ' › ' + n); } catch (e) { fail++; APush(out, '✗ ' + s + ' › ' + n + ': ' + e.message); } }
+  try {
+    for (let si = 0; si < specs.length; si++) {
+      const s = specs[si]; tests = []; befores = [];
+      try { load(s); } catch (e) { fail++; APush(out, '✗ ' + s + ': ' + czErr(msgOf(e))); continue; }
+      const mine = tests, bf = befores; const cnt = mine.length;
+      for (let ti = 0; ti < cnt; ti++) { const n = mine[ti][0], f = mine[ti][1];
+        try { expects = 0; for (let bi = 0; bi < bf.length; bi++) await bf[bi](); await f(); if (expects === 0) throw new Error('test nic neověřuje (žádné expect s porovnáním)'); pass++; APush(out, '✓ ' + s + ' › ' + n); }
+        catch (e) { fail++; APush(out, '✗ ' + s + ' › ' + n + ': ' + czErr(msgOf(e))); } }
+    }
+  } catch (e) { fail++; APush(out, '✗ testovací běh: ' + msgOf(e)); }
+  finally {
+    // souhrn VŽDY první a výstup omezený (200 000 řádků logu by schovalo výsledek a zahltilo most)
+    const sum = pass + ' prošlo, ' + fail + ' selhalo';
+    const body = out.length > 2000 ? out.slice(0, 1000).concat(['… (' + (out.length - 2000) + ' řádků vynecháno) …'], out.slice(-1000)) : out;
+    post({ nonce: NONCE, exitCode: fail || pass === 0 ? 1 : 0, output: sum + (specs.length ? '' : '\\nŽádné testy (*.test.js).') + '\\n' + body.join('\\n').slice(0, 200000) + '\\n' + sum, command: specs.join(' ') });
   }
-  APush(out, pass + ' prošlo, ' + fail + ' selhalo');
-  post({ nonce: NONCE, exitCode: fail || pass === 0 ? 1 : 0, output: (specs.length ? '' : 'Žádné testy (*.test.js).\\n') + out.join('\\n'), command: specs.join(' ') });
 })();
 })();`;
     let w;
@@ -604,7 +631,7 @@ try {
   new Function('module', 'exports', 'require', ${JSON.stringify(code)})(module, module.exports, () => { throw new Error('require není v rozšíření dostupné'); });
   if (typeof module.exports.run !== 'function') throw new Error('tool.js neexportuje run(input, params)');
   Promise.resolve(module.exports.run(${JSON.stringify(input)}, Object.freeze(${JSON.stringify(params || {})})))
-    .then(v => post({ nonce: NONCE, ok: true, output: typeof v === 'string' ? v : JSON.stringify(v, null, 2) }), e => post({ nonce: NONCE, ok: false, error: String(e && e.message || e) }));
+    .then(v => { try { post({ nonce: NONCE, ok: true, output: typeof v === 'string' ? v : JSON.stringify(v, null, 2) }); } catch (x) { post({ nonce: NONCE, ok: false, error: 'výsledek nejde převést na text: ' + String(x && x.message || x) }); } }, e => post({ nonce: NONCE, ok: false, error: String(e && e.message || e) }));
 } catch (e) { post({ nonce: NONCE, ok: false, error: String(e && e.message || e) }); }
 })();`;
     let w;

@@ -183,14 +183,14 @@ class Workspace(val root: File) {
     private class SymRx(val rx: Regex, val kind: String?, val kindGroup: Int, val nameGroup: Int)
 
     private val symRx = mapOf(
-        "kt" to listOf(SymRx(Regex("^\\s*(?:(?:private|internal|public|protected|override|suspend|inline|data|sealed|abstract|open|enum|const)\\s+)*(fun|class|object|interface|val|var)\\s+(?:<[^>]+>\\s*)?(?:[\\w.]+\\.)?(\\w+)"), null, 1, 2)),
-        "java" to listOf(SymRx(Regex("^\\s*(?:(?:public|private|protected|static|final|abstract)\\s+)*(class|interface|enum)\\s+(\\w+)"), null, 1, 2),
-            SymRx(Regex("^\\s*(?:(?:public|private|protected|static|final|synchronized)\\s+)+[\\w<>\\[\\], ]+\\s+(\\w+)\\s*\\("), "method", 0, 1)),
-        "js" to listOf(SymRx(Regex("^\\s*(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s*\\*?\\s*(\\w+)"), "function", 0, 1),
-            SymRx(Regex("^\\s*(?:export\\s+)?class\\s+(\\w+)"), "class", 0, 1),
-            SymRx(Regex("^\\s*(?:export\\s+)?(?:const|let|var)\\s+(\\w+)\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|\\w+)\\s*=>"), "function", 0, 1),
-            SymRx(Regex("^\\s*(\\w+)\\s*\\([^)]*\\)\\s*\\{\\s*$"), "method", 0, 1)),
-        "py" to listOf(SymRx(Regex("^\\s*(def|class)\\s+(\\w+)"), null, 1, 2)),
+        "kt" to listOf(SymRx(Regex("^\\s*(?:(?:private|internal|public|protected|override|suspend|inline|data|sealed|abstract|open|enum|const)\\s+)*(fun|class|object|interface|val|var)\\s+(?:<[^>]+>\\s*)?(?:[[\\p{L}\\p{N}_$].]+\\.)?([\\p{L}\\p{N}_$]+)"), null, 1, 2)),
+        "java" to listOf(SymRx(Regex("^\\s*(?:(?:public|private|protected|static|final|abstract)\\s+)*(class|interface|enum)\\s+([\\p{L}\\p{N}_$]+)"), null, 1, 2),
+            SymRx(Regex("^\\s*(?:(?:public|private|protected|static|final|synchronized)\\s+)+[\\p{L}\\p{N}_$<>\\[\\], ]+\\s+([\\p{L}\\p{N}_$]+)\\s*\\("), "method", 0, 1)),
+        "js" to listOf(SymRx(Regex("^\\s*(?:export\\s+)?(?:default\\s+)?(?:async\\s+)?function\\s*\\*?\\s*([\\p{L}\\p{N}_$]+)"), "function", 0, 1),
+            SymRx(Regex("^\\s*(?:export\\s+)?class\\s+([\\p{L}\\p{N}_$]+)"), "class", 0, 1),
+            SymRx(Regex("^\\s*(?:export\\s+)?(?:const|let|var)\\s+([\\p{L}\\p{N}_$]+)\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[\\p{L}\\p{N}_$]+)\\s*=>"), "function", 0, 1),
+            SymRx(Regex("^\\s*([\\p{L}\\p{N}_$]+)\\s*\\([^)]*\\)\\s*\\{\\s*$"), "method", 0, 1)),
+        "py" to listOf(SymRx(Regex("^\\s*(def|class)\\s+([\\p{L}\\p{N}_$]+)"), null, 1, 2)),
     )
 
     private val notNames = setOf("if", "for", "while", "switch", "catch", "return", "function")

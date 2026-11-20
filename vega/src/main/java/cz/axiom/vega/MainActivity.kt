@@ -345,7 +345,7 @@ class Bridge(private val a: MainActivity) {
         require(!cz.axiom.vega.core.Workspace.isSecret(path)) { "Soubory s klíči v aplikaci neupravuji." }
         ops.workspace(id).write(path, text, hash.ifBlank { null }, "ruční úprava").id
     }
-    @JavascriptInterface fun undo(id: String, change: String) = safe { JSONObject.quote(ops.workspace(id).undo(change.toIntOrNull()?.takeIf { it > 0 }).path) }
+    @JavascriptInterface fun undo(id: String, change: String) = safe { JSONObject.quote(ops.undoChange(id, change.toIntOrNull()?.takeIf { it > 0 })) }
     @JavascriptInterface fun diff(id: String) = safe { JSONArray().apply { ops.workspace(id).diffFromBase().forEach { (p, d) -> put(JSONObject().put("path", p).put("added", d.added).put("removed", d.removed).put("diff", cz.axiom.vega.core.Diff.unified(d.lines, 3))) } } }
     @JavascriptInterface fun verify(id: String) = safe {
         // přes frontu úloh: testy nesmí běžet souběžně s úpravami, které právě aplikuje model

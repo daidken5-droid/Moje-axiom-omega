@@ -1021,7 +1021,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val id = createProject(name, emptyMap())
         emit("project", JSONObject().put("id", id))
         // odpověď patří do prostoru nového projektu (UI se tam přepne), ne do původního chatu
-        val ext = Regex("(?i)rozšířen").containsMatchIn(spec)
+        val ext = "rozsiren" in cz.axiom.vega.base.Text.fold(spec).lowercase()
         code("proj-$id", Router.Intent.Code("Založ projekt podle zadání: $spec\nPoužij JavaScript (Node-styl, module.exports) a přidej testy *.test.js." +
             (if (ext) "\nJDE O ROZŠÍŘENÍ VEGY: hlavní soubor MUSÍ být tool.js bez require(), s funkcí module.exports.run = (input, params) => výsledný text (input je text). " +
                 "Žádná síť, žádné soubory. Testy v tool.test.js s require('./tool') na reálných příkladech vstupu. Až testy projdou, uživatel napíše „ulož jako rozšíření“." else ""),
@@ -1061,30 +1061,34 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val a = llm(chat, listOf(ChatMessage(Role.SYSTEM, "Jsi VEGA. Vysvětli kód česky, stručně, s odkazy soubor:řádek. Tykej." + (memory.context("project:${ws.root.name}")?.let { "\n\n$it" } ?: "")), ChatMessage(Role.USER, prompt)), consent)
             reply(chat, a); note(ws, "decision", "Vysvětleno: ${intent.task}"); return
         }
-        // checkpoint úlohy: po zabití aplikace „pokračuj, kde jsme skončili“ ví, co bylo rozdělané
         val startRev = ws.revision()
-        kv.write("project/${ws.root.name}/task.json", JSONObject().put("task", intent.task).put("kind", intent.kind.name).put("chat", chat ?: "").put("startRev", startRev).put("done", false).put("at", System.currentTimeMillis()).toString())
         saveState(ws, chat, goal = intent.task, v = null, keepBaseline = true)
         emit("phase", JSONObject().put("text", "Navrhuji úpravu…"))
         var reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys), ChatMessage(Role.USER, prompt)), consent, maxTokens = 8000, calls = 4, visible = false)
         var plan = CodeAgent.parse(reply)
-        if (plan.edits.isEmpty()) { finishTask(ws); reply(chat, plan.explanation.ifBlank { "Model nenavrhl žádnou úpravu." } + "\n\n_(Žádná změna souborů – nic nepřepsáno.)_"); return }
+        if (plan.edits.isEmpty()) { reply(chat, plan.explanation.ifBlank { "Model nenavrhl žádnou úpravu." } + "\n\n_(Žádná změna souborů – nic nepřepsáno.)_"); return }
+        // checkpoint úlohy AŽ s návrhem v ruce (bez klíče / bez odpovědi modelu nevznikne falešná „přerušená úloha“)
+        kv.write("project/${ws.root.name}/task.json", JSONObject().put("task", intent.task).put("kind", intent.kind.name).put("chat", chat ?: "").put("startRev", startRev).put("done", false).put("at", System.currentTimeMillis()).toString())
         var applied = CodeAgent.apply(ws, plan, seen, intent.task.take(80), protect, resume)
         var v = try { verify(ws) } catch (e: CancelledException) {
             reply(chat, "Testy jsem zastavil. Změny už jsou v pracovní kopii – můžeš je zkontrolovat, vybrat nebo vrátit.", projectDiffCard(ws, taskIds = applied.changes.map { it.id })); throw Handled()
         }
         val rounds = ArrayList<JSONObject>(); rounds += roundJson(1, applied, v)
         // OPRAVNÁ KOLA (max. 2 navíc) jen když test OPRAVDU proběhl a selhal; model dostane SKUTEČNÝ výstup testu
-        var round = 1
-        while (v.kind == "run" && v.exitCode != 0 && v.exitCode != 124 && round < 3 && (applied.changes.isNotEmpty() || round == 1)) {
+        var round = 1; var lastFailed = applied.failed
+        // nic se neaplikovalo (úseky nesedí) → jedno kolo znovu i když staré testy prochází; jinak jen při selhaných testech
+        fun needsRepair() = (v.kind == "run" && v.exitCode != 0 && v.exitCode != 124) || (round == 1 && applied.changes.isEmpty() && applied.failed.isNotEmpty())
+        while (needsRepair() && round < 3) {
             round++
-            emit("phase", JSONObject().put("text", "Test neprošel – oprava $round/3 podle výstupu testu…"))
-            val (p2, seen2) = CodeAgent.prompt(ws, "Úkol: ${intent.task}\nTesty po změně selhaly. Oprav kód (ne testy, pokud test odpovídá zadání).\nSKUTEČNÝ VÝSTUP TESTŮ:\n${v.output.take(4000)}$manualNote", null)
+            emit("phase", JSONObject().put("text", if (v.exitCode != 0) "Test neprošel – oprava $round/3 podle výstupu testu…" else "Úpravy nešly použít – zkouším znovu ($round/3)…"))
+            val why = if (lastFailed.isNotEmpty()) "\nTYTO ÚPRAVY SE NEPOVEDLY (úsek v souboru nesedí – načti aktuální obsah níže a pošli jiný, přesný úsek):\n" + lastFailed.joinToString("\n") { "- ${it.first.path}: ${it.second}" } else ""
+            val (p2, seen2) = CodeAgent.prompt(ws, "Úkol: ${intent.task}\n" + (if (v.exitCode != 0) "Testy po změně selhaly. Oprav kód (ne testy, pokud test odpovídá zadání).\nSKUTEČNÝ VÝSTUP TESTŮ:\n${v.output.take(4000)}" else "Předchozí návrh se nepodařilo aplikovat.") + why + manualNote, null)
             reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys), ChatMessage(Role.USER, p2)), consent, maxTokens = 8000, calls = 4 - round, visible = false)
             plan = CodeAgent.parse(reply)
             if (plan.edits.isEmpty()) break
             val a2 = CodeAgent.apply(ws, plan, seen2, "oprava po testu ($round)", protect)
-            applied = CodeAgent.Applied(applied.changes + a2.changes, applied.failed + a2.failed, applied.skipped + a2.skipped)
+            applied = CodeAgent.Applied(applied.changes + a2.changes, applied.failed + a2.failed, applied.skipped + a2.skipped); lastFailed = a2.failed
+            if (a2.changes.isEmpty()) { rounds += roundJson(round, a2, v); break } // kolo bez jediné změny = testy znovu nepouštět a nevolat model potřetí
             v = try { verify(ws) } catch (e: CancelledException) { reply(chat, "Testy jsem zastavil. Opravené změny jsou v pracovní kopii.", projectDiffCard(ws, taskIds = applied.changes.map { it.id })); throw Handled() }
             rounds += roundJson(round, a2, v)
         }
@@ -1098,6 +1102,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             append("Změn: ${applied.changes.size}").append(if (applied.failed.isNotEmpty()) ", ${applied.failed.size} úprav NEaplikováno (" + applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" } + ")" else "").append(". ")
             append(when (v.kind) { "run" -> if (v.exitCode == 0) "Testy prošly (revize ${v.revision}${if (round > 1) ", po $round kolech" else ""})." else "Testy NEprošly ani po $round kolech (kód ${v.exitCode}) – výstup níže."; "none" -> "Testy nedoběhly – výsledek neověřen, spusť je znovu."; else -> "Jen staticky zkontrolováno (pro tento jazyk VEGA testy nespouští)." })
             if (applied.changes.size > 1) append(" Můžeš přijmout jen vybrané změny – ověřím právě tu kombinaci.")
+            applied.changes.map { it.path }.filter { it.endsWith(".test.js") || it.startsWith("test/") }.distinct().takeIf { it.isNotEmpty() }?.let { append("\n⚠ Změnily se i TESTY (${it.joinToString()}) – zkontroluj, že pořád ověřují to, co chceš.") }
         }
         reply(chat, text, projectDiffCard(ws, taskIds = applied.changes.map { it.id }).put("verification", verificationJson(v)).put("rounds", JSONArray(rounds)))
     }
@@ -1109,6 +1114,14 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * PŘIJMOUT JEN VYBRANÉ ZMĚNY: ostatní změny úlohy se vrátí (od nejnovější), pak se ověří PRÁVĚ tato kombinace.
      * Ruční zásah uživatele se nevrací – undo hlídá, že soubor od změny nikdo neupravil.
      */
+    /** Ruční „vrátit“ z UI: ve frontě s úlohami (nepřekříží běžící úpravu) a s novým snímkem stavu – jinak by se vrácení tvářilo jako cizí ruční změna. */
+    fun undoChange(projectId: String, change: Int?): String {
+        if (busy) throw ToolError("Právě běží úloha – změnu vrátíš po jejím dokončení (nechci ji překřížit).")
+        val done = java.util.concurrent.CompletableFuture<String>()
+        submit { try { val ws = workspace(projectId); val p = ws.undo(change).path; saveState(ws, null, null, null, absorbManual = false); done.complete(p) } catch (e: Throwable) { done.completeExceptionally(e); throw e } }
+        return try { done.get(30, java.util.concurrent.TimeUnit.SECONDS) } catch (e: java.util.concurrent.ExecutionException) { throw e.cause ?: e }
+    }
+
     fun keepChanges(chat: String?, projectId: String, task: List<Int>, keep: List<Int>) = submit {
         val ws = workspace(projectId)
         val all = ws.changes(); val wasUndone = all.filter { it.op.startsWith("undo#") }.map { it.op.removePrefix("undo#").toIntOrNull() }.toSet()
@@ -1121,7 +1134,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val v = verify(ws)
         saveState(ws, chat, null, v, absorbManual = false)
         note(ws, "decision", "Přijaty změny ${keep.joinToString { "#$it" }}, vráceny ${undone.joinToString { "#$it" }} → ${v.label} (kód ${v.exitCode})")
-        reply(chat, "Ponechal jsem ${keep.size} změn, vrátil ${undone.size}${if (failed.isNotEmpty()) " (nevráceno: ${failed.joinToString("; ")})" else ""}. " +
+        val kept = valid.size - undone.size
+        reply(chat, (if (failed.isNotEmpty()) "Tvůj výběr nešel provést přesně (nevráceno: ${failed.joinToString("; ")}) – ověřil jsem tuto kombinaci: " else "") +
+            "Ponechal jsem $kept ${if (kept == 1) "změnu" else if (kept in 2..4) "změny" else "změn"}, vrátil ${undone.size}. " +
             when (v.kind) { "run" -> if (v.exitCode == 0) "Tato kombinace testy PROŠLA (revize ${v.revision})." else "Tato kombinace testy NEPROŠLA (kód ${v.exitCode}, revize ${v.revision})."; "none" -> "Testy nedoběhly – neověřeno."; else -> "Jen statická kontrola." },
             projectDiffCard(ws).put("verification", verificationJson(v)))
     }

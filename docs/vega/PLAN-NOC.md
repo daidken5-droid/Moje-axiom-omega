@@ -368,7 +368,13 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
     - Neověřená cena „hydrogen“ se počítá jako draze.
     - Souhlas pro vlastní server platí jen pro jeho adresu.
   - **Testy:** Round11Test prošel, celkem 76 + 25 zelené.
-- [ ] 41. Kolo 12: projekty s kódem a rozšíření – celý tok
+- [x] 41. Kolo 12: projekty s kódem a rozšíření – celý tok
+  - **Testovací běh (Worker):** skutečné porovnání hodnot (toEqual do hloubky, NaN), `.not`, `beforeEach`, `toThrow("text")`, `toBeCloseTo` jen pro čísla; test bez jediného `expect` = chyba; vyhození ne-Error hodnoty nespadne; výstup vždy dorazí (try/finally, souhrn na začátku i konci, strop 2000 řádků / 200 kB); test nepodvrhne `Array.prototype.includes`; české nápovědy u „import“ / „není definováno“ / „není funkce“.
+  - **Smyčka oprav:** model dostane i důvody, proč jeho úpravy nešly použít; kolo bez jediné změny smyčku ukončí (žádné zbytečné volání); když se v 1. kole nic neaplikovalo, zkusí to jednou znovu; odpověď upozorní, když se změnily i testy.
+  - **Checkpoint úlohy** vzniká až s návrhem modelu v ruce → po chybě klíče už nevisí falešná „přerušená úloha“.
+  - **Ruční „vrátit“** jde frontou s úlohami (nepřekříží běžící úpravu) a uloží nový stav; „přijmout jen vybrané“ přizná, když výběr nešel přesně, a hlásí skutečný počet ponechaných změn.
+  - **Symboly** v JS/Kotlin/Java/Python s českými názvy a `$` (např. `spočítejCenu`, `$sečti`) – dřív na JVM chyběly.
+  - **Vylepšení z kola 12 (uživatel uvidí):** srozumitelné výsledky testů v češtině a varování „⚠ Změnily se i TESTY“.
 - [x] 42. Kolo 13: kvalita odpovědí – rešerše, web, důkazy, citace
   - **Výsledek – ODPOVĚĎ VYPADALA OVĚŘENĚ, I KDYŽ NEBYLA, opraveno:**
     - V dlouhé úloze vytlačily číslované články přílohy otázku uživatele, a karta přesto hlásila „Pokryto 20/20“. Požadavky se teď berou jen z textu uživatele a otázky jdou první.

@@ -23,6 +23,12 @@ class WorkspaceScanTest {
         assertFalse(zip.contains("keys/data.json"))
     }
 
+    @Test fun czechAndDollarIdentifiersAreSymbols() {
+        val w = ws(mapOf("a.js" to "function spočítejCenu(x) {\n  return x\n}\nconst \$sečti = (a) => a\nclass Účet {}\n".toByteArray(), "b.py" to "def přepočet(x):\n    pass\n".toByteArray()))
+        val names = w.symbols().map { it.name }.toSet()
+        for (n in listOf("spočítejCenu", "\$sečti", "Účet", "přepočet")) assertTrue(n in names, "$n v $names")
+    }
+
     @Test fun nonUtf8IsNotPatchedAndCrlfPatches() {
         val cp = "// cena v Kč\nval x = 1\n".toByteArray(charset("windows-1250"))
         val w = ws(mapOf("a.kt" to cp, "b.kt" to "val a = 1\r\nval b = 2\r\n".toByteArray()))
