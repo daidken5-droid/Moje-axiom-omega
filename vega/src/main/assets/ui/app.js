@@ -758,8 +758,9 @@ function act(a, d) {
     case 'procMenu': { const p = JSON.parse(d.p); sheet(`<h2>${esc(p.name)} <span class="pill">v${p.version}</span></h2><p class="lede">${esc(p.description || '')}</p>
         <button class="btn wide" data-act="pinProc" data-id="${esc(p.id)}" data-on="${p.pinned ? 'false' : 'true'}" style="margin:6px 0">${p.pinned ? 'Odepnout z úvodní obrazovky' : 'Připnout na úvodní obrazovku'}</button>
         <div class="card"><div class="note">Vstup: ${esc(p.inputDesc || p.inputKind)}</div><div class="note">Výstup: ${esc(p.outputKind)}</div><div class="note">Kroky: ${p.steps.map(esc).join(' → ')}</div><div class="note">Oprávnění: ${p.perms.length ? p.perms.map(esc).join(', ') : 'žádná'} · použito ${p.uses}×</div></div>
-        <h3>Verze</h3>${p.changelog.map(c => `<p class="note">${esc(c)}</p>`).join('')}
+        <h3>Verze</h3>${p.changelog.map(c => `<p class="note">${esc(c)}</p>`).join('')}${p.version > 1 ? `<button class="btn wide" data-act="revProc" data-id="${esc(p.id)}">Vrátit předchozí verzi</button>` : ''}
         <button class="btn wide" data-act="delProc" data-id="${esc(p.id)}" style="margin-top:14px;color:var(--bad)">Smazat nástroj</button>`); break; }
+    case 'revProc': { const r = call('revertProcedure', d.id); if (r) { toast('Vráceno – postup je teď v' + r.version + ' (obsah předchozí verze).'); S.procs = null; library('procs'); } break; }
     case 'delProc': if (confirm('Smazat uložený nástroj?')) { call('deleteProcedure', d.id); S.procs = null; library('procs'); } break;
     case 'memAdd': { const v = ($('#memText') || {}).value; if (v) { const r = call('memoryAdd', v); if (r) toast(r.ok ? 'Zapamatováno.' : r.reason, 5000); library('memory'); } break; }
     case 'memRevert': { const r = call('memoryRevert', d.id); toast(r ? 'Vráceno na: ' + r : 'Není co vrátit'); if ($('#layer').innerHTML) library('memory'); break; }

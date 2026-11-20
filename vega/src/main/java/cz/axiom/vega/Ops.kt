@@ -79,6 +79,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     @Volatile private var activeChat: String? = null
     /** Právě běžící požadavek (jeho záznam „Pokračovat“ není „rozpracovaný“ pro jiné zprávy). */
     @Volatile private var currentReq: String? = null
+    /** Oblast úlohy spuštěné mimo chat (pro deník slabin). */
+    @Volatile private var jobArea: String? = null
     /** Deník slabin (autonomie, krok 1): chyby, opravy od uživatele, Stop, pomalé kroky – jen lokálně, anonymizovaně. */
     val selftune = cz.axiom.vega.core.SelfTune(kv, BuildConfig.VERSION_NAME)
     /** Naučená pravidla routeru z deníku (vrstva A): zapnou se jen po kontrole, jdou vrátit. */
@@ -94,9 +96,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val (o, r) = settings.ghRepo.split('/').takeIf { it.size == 2 } ?: throw ToolError("Repozitář zadej jako vlastník/název.")
         return cz.axiom.vega.selfupdate.GitHub(o, r, t)
     }
-    fun selfUpdateStart(chat: String?, task: String, origin: String = "uživatel") = submit { selfUpdate0(chat, task, origin) }
+    fun selfUpdateStart(chat: String?, task: String, origin: String = "uživatel") = submit { jobArea = "selfupdate"; selfUpdate0(chat, task, origin) }
 
-    /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest → commit na vega/auto-… → pull request (spustí CI). */
+    /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest a citlivých API → commit na vega/auto-… (push spustí CI). */
     private fun selfUpdate0(chat: String?, task: String, origin: String) {
         if (settings.airgap) throw ToolError("Air-gap je zapnutý – na GitHub ani k modelu nesahám.")
         val g = gh(); val base = settings.ghBase
@@ -140,6 +142,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Stav CI; po úspěchu stáhne APK, ověří otisk ze SHA256SUMS a připraví ho k instalaci. */
     fun selfUpdatePoll(id: String) = submit {
+        jobArea = "selfupdate"
         val u = selfUpdates.get(id) ?: throw ToolError("Úprava neexistuje.")
         val g = gh(); val run = g.latestRun(u.commit)
         val nu = when {
@@ -175,7 +178,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     fun selfUpdateDiscard(id: String) = submit {
         val u = selfUpdates.get(id) ?: return@submit
-        runCatching { gh().deleteBranch(u.branch) } // zavře i pull request
+        runCatching { gh().deleteBranch(u.branch) }
         if (u.apk.isNotBlank()) out.file(u.apk)?.delete()
         selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.DISCARDED)
         emit("selfupdate", JSONObject().put("id", id))
@@ -193,7 +196,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (System.currentTimeMillis() - selfUpdates.lastAuto() < 24 * 3600_000L) return@note
         // rozpracovaná úprava blokuje další, ale jen 48 h (zaseknutá větev nesmí blokovat navždy)
         if (selfUpdates.list().any { it.status in setOf("PUSHED", "BUILDING") && System.currentTimeMillis() - it.at < 48 * 3600_000L }) return@note
-        val g = selftune.groups(days = 7, min = 3).firstOrNull { it.area != "model" && it.kind in setOf(SelfTune.Kind.ERROR, SelfTune.Kind.CORRECTION, SelfTune.Kind.WRONG_INTENT, SelfTune.Kind.REPHRASE) } ?: return@note
+        val g = selftune.groups(days = 7, min = 3).firstOrNull { it.area != "model" && it.area != "selfupdate" && it.area != "?" && it.kind in setOf(SelfTune.Kind.ERROR, SelfTune.Kind.CORRECTION, SelfTune.Kind.WRONG_INTENT, SelfTune.Kind.REPHRASE) } ?: return@note
         selfUpdates.setLastAuto()
         val ex = g.examples.map { it.excerpt.ifBlank { it.detail } }.filter { it.isNotBlank() }.distinct().take(4)
         selfUpdateStart(null, "Zlepši se v oblasti „${improvementLabel(g.area)}“: opakovaně ${g.kind.label} (${g.count}× za týden). Najdi příčinu v kódu a oprav ji malou bezpečnou změnou s testem.\n" +
@@ -202,7 +205,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     fun selfUpdatesJson(): JSONObject = JSONObject().put("hasToken", vault.has("github")).put("repo", settings.ghRepo).put("base", settings.ghBase).put("auto", settings.autoImprove)
         .put("items", JSONArray().apply { selfUpdates.list().take(20).forEach { u -> put(JSONObject().put("id", u.id).put("task", u.task).put("branch", u.branch).put("status", u.status)
-            .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files)).put("pr", u.pr)
+            .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files))
             .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
 
     private fun registerExtensions() {
@@ -347,10 +350,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 // chyba se uloží i do chatu (ne jen 7 s toastu) – otázka nezůstane bez odpovědi
                 activeChat?.let { ch -> note { addMsg(ch, JSONObject().put("role", "vega").put("text", "⚠ " + human(e))) } }
                 val model = e is cz.axiom.vega.llm.ChainEngine.ChainException || e is CostGuard.BudgetException
-                note { selftune.observe(SelfTune.Kind.ERROR, if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
+                // úloha na pozadí (samoúpravy) má vlastní oblast – nepřipisovat ji poslednímu nástroji z chatu
+                note { selftune.observe(SelfTune.Kind.ERROR, jobArea ?: if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
                 emit("error", JSONObject().put("text", human(e)))
             }
-            finally { activeChat = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
+            finally { activeChat = null; jobArea = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
         }
     }
 
@@ -414,7 +418,20 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     // ------------------------------------------------------------------ chaty
 
     private fun chatKey(id: String) = "chat/$id.json"
-    fun chats(): JSONArray = readArray("chats.json")
+    /** Poškozený seznam chatů se NEMAŽE, ale přestaví z uložených chatů (jinak by úklid při dalším startu smazal všechny staré konverzace). */
+    fun chats(): JSONArray {
+        val raw = kv.read("chats.json") ?: return JSONArray()
+        return runCatching { JSONArray(raw) }.getOrElse {
+            kv.write("chats.json.bad", raw)
+            val rebuilt = JSONArray()
+            kv.keys("chat/").filter { it.endsWith(".json") && !it.removePrefix("chat/").startsWith("proj-") }.sortedByDescending { kv.modified(it) }.take(50).forEach { k ->
+                val id = k.removePrefix("chat/").removeSuffix(".json")
+                val title = runCatching { JSONArray(kv.read(k)).let { a -> (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("role") == "user" }?.optString("text") } }.getOrNull()
+                rebuilt.put(JSONObject().put("id", id).put("title", (title ?: "Obnovený chat").take(40)).put("at", kv.modified(k)))
+            }
+            kv.write("chats.json", rebuilt.toString()); rebuilt
+        }
+    }
     fun messages(chat: String): JSONArray = readArray(chatKey(chat))
     /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
     private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
@@ -620,7 +637,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
     /** Jeden záznam na POŽADAVEK (ne na chat): pozdější zpráva ani druhý výpadek nepřepíše rozpracovaný požadavek. */
     private fun resumeKey(chat: String?, req: String) = "resume/${chat ?: "temp"}/${req.filter { it.isLetterOrDigit() }.take(24)}.json"
-    fun pendingResume(chat: String?, req: String? = null): JSONObject? = (req?.let { resumeKey(chat, it) } ?: kv.keys("resume/${chat ?: "temp"}/").maxOrNull())
+    fun pendingResume(chat: String?, req: String? = null): JSONObject? = (req?.let { resumeKey(chat, it) }
+            ?: kv.keys("resume/${chat ?: "temp"}/").maxByOrNull { k -> kv.read(k)?.let { runCatching { JSONObject(it).optLong("at") }.getOrNull() } ?: 0L })
         ?.let { k -> kv.read(k)?.let { runCatching { JSONObject(it).put("req", k.substringAfterLast('/').removeSuffix(".json")) }.getOrNull() } }
 
     /** „Pokračovat“ po výpadku: stejné zadání a přílohy, bez nové zprávy uživatele v historii. */

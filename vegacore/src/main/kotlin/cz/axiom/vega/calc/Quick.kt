@@ -63,7 +63,7 @@ object Quick {
     /** Procenta: „o kolik % je 120 víc než 100“, „změna z 100 na 120 v %“, „kolik procent je 30 ze 120“. */
     private fun percent(t: String): String? {
         if (!Regex("%|procent").containsMatchIn(t)) return null
-        Regex("z $N na $N").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
+        Regex("^(?:zmena |o kolik (?:%|procent)[a-z ]{0,20} )?z $N na $N(?: (?:je|to|v|o kolik|kolik)[a-z %]*)?$").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
             if (a == 0.0) return null; val p = (b - a) / a * 100
             return "Z ${fmt(a)} na ${fmt(b)} je to ${if (p >= 0) "nárůst" else "pokles"} o ${fmt(Math.round(kotlin.math.abs(p) * 100) / 100.0)} %." }
         Regex("o kolik (?:%|procent) je $N (vic|vice|min|mene) nez $N").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[3]) ?: return null
@@ -87,14 +87,14 @@ object Quick {
 
     /** „jaký den v týdnu je 24. 12. 2026“, „na co připadá 1. 1. 2027“. */
     private fun weekday(t: String): String? {
-        if (!Regex("den v tydnu|pripada|jaky den (je|byl|bude) ").containsMatchIn(t)) return null
+        if (!Regex("^(jaky den v tydnu (je|byl|bude)|na (co|jaky den) pripada|jaky den (je|byl|bude)) ").containsMatchIn(t)) return null
         val d = date(t) ?: return null
         return "${d.dayOfMonth}. ${d.monthValue}. ${d.year} je ${DAYS[d.dayOfWeek.value - 1]}."
     }
 
     /** „kolik let je od 5. 3. 1990“, „kolik mi je, když jsem se narodil 5. 3. 1990“. */
     private fun age(t: String, today: LocalDate): String? {
-        if (!Regex("kolik (mi |mu |ji |je )?(je )?let|narodil|narozen|vek").containsMatchIn(t)) return null
+        if (!Regex("^(kolik (mi |mu |ji |mu bylo |je )?(je )?let|kolik let (je |uplynulo )?od|jaky (je )?vek|kolik je mi|kolik mi bude)(?![a-z])").containsMatchIn(t)) return null
         val d = date(t)?.takeIf { it.isBefore(today) } ?: return null
         val y = java.time.Period.between(d, today).years
         val next = d.withYear(today.year).let { if (!it.isAfter(today)) it.plusYears(1) else it }

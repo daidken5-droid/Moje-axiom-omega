@@ -34,9 +34,9 @@ jobs:
           git diff --no-renames --name-only HEAD~1 HEAD | tee changed.txt
           ok='^(vega/src/main/java/|vega/src/main/assets/ui/|vegacore/src/main/kotlin/|vegacore/src/test/kotlin/|vega/src/test/java/)'
           bad=$(grep -vE "$ok" changed.txt || true)
-          prot=$(grep -E '(/Store\.kt|/MainActivity\.kt|/net/Http\.kt|/core/Extensions\.kt|/VegaApp\.kt)$|/selfupdate/' changed.txt || true)
+          prot=$(grep -E '(/Store\.kt|/MainActivity\.kt|/net/Http\.kt|/core/Extensions\.kt|/VegaApp\.kt|/Engines\.kt)$|/selfupdate/|/web/|/llm/' changed.txt || true)
           modes=$(git diff --no-renames --raw HEAD~1 HEAD | awk '{print $2}' | grep -vE '^(100644|000000)$' || true)
-          sens=$(git diff --no-renames -U0 HEAD~1 HEAD | grep -E '^\+[^+]' | grep -iE '(vault|keystore|getSharedPreferences|Http\.(open|request|download|get)|HttpURLConnection|URLConnection|java\.net\.|Socket|Runtime\.getRuntime|ProcessBuilder|addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch[[:space:]]*\(|new[[:space:]]+Worker|postMessage|eval[[:space:]]*\(|new[[:space:]]+Function|selfupdate|GitHub\(|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\.loadLibrary|Class\.forName|reflect)' || true)
+          sens=$(git diff --no-renames -U0 HEAD~1 HEAD | grep -E '^\+[^+]' | grep -iE '(vault|keystore|getSharedPreferences|Http\.(open|request|download|get)|HttpURLConnection|URLConnection|java\.net\.|Socket|Runtime\.getRuntime|ProcessBuilder|addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch[[:space:]]*\(|new[[:space:]]+Worker|postMessage|eval[[:space:]]*\(|new[[:space:]]+Function|selfupdate|GitHub\(|gh\(\)|\.headers|Web\.|fetchText|toolCtx|engines\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\.loadLibrary|Class\.forName|reflect)' || true)
           if [ -n "$bad$prot$modes$sens" ]; then
             echo "::error::Samoúprava porušila pravidla."; echo "Mimo povolené cesty: $bad"; echo "Chráněné soubory: $prot"; echo "Nepovolený typ souboru: $modes"; echo "Citlivá API: $sens"; exit 1
           fi

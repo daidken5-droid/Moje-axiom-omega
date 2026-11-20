@@ -321,5 +321,22 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
   - **FileKv:** nedokončený zápis už nepřepíše cíl napůl a dočasný soubor se uklidí.
   - **Testy:** 72 + 25 zelené.
 
+- [x] 38. Red-team kolo 9 (závěrečná kontrola celého nočního diffu) – opraveno (1.5.2):
+  - **Souhra dvou oprav:** obnova poškozeného seznamu chatů ho mazala, takže by úklid při dalším startu smazal všechny staré konverzace. Seznam se teď přestaví z uložených chatů a záložní soubory `.bad` úklid nemaže.
+  - **Hlídač samoúprav:** obejití přes `gh().headers` + `Web.fetchText`. Přidána citlivá API a chráněné jsou i `web/`, `llm/` a `Engines.kt`, v aplikaci i v CI (ověřeno lokálně).
+  - **Rychlé odpovědi** už nechytají běžné věty: „připadá mi divné…“, „člověk z banky…“, „inflace klesla z 15 na 10 %“ (procentní body).
+  - **Deník slabin:** úlohy na pozadí (samoúpravy) mají vlastní oblast, takže síťové chyby nespouštějí „zlepšení“.
+  - **Výpisy:**
+    - soubor bez hlavičky s opakovanou hodnotou už nehlásí „hlavička se změnila“;
+    - **STARŠÍ CHYBA:** u souboru bez hlavičky se první pohyb bral jako hlavička a chyběl v součtu.
+  - **Drobnosti:**
+    - „Pokračovat“ vybírá nejnovější záznam podle času;
+    - registr nástrojů je synchronizovaný;
+    - návrat postupu na předchozí verzi je v UI;
+    - neplatné komentáře a mrtvé pole PR jsou pryč;
+    - „vrať to, prosím“ / „vrať změny“ / „padají“ zase fungují.
+  - **Testy:** Round9Test (3 testy), celkem 75 + 25 zelené.
+- [ ] 34. Finální APK + shrnutí všech 9 kol
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

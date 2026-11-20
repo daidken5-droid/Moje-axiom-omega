@@ -160,3 +160,28 @@ class Round6Test {
         LogTool.crash(long + "\njava.lang.IllegalStateException: boom\n\tat a.b.C.d(C.kt:1)")
     }
 }
+
+class Round9Test {
+    private fun q(s: String) = cz.axiom.vega.calc.Quick.answer(s)
+    @Test fun quickDoesNotHijackSentences() {
+        assertEquals(null, q("Připadá mi divné, že mi 3. 4. 2026 přišla platba dvakrát"))
+        assertEquals(null, q("Člověk z banky mi 5. 10. 2026 volal kvůli úvěru"))
+        assertEquals(null, q("inflace klesla z 15 na 10 %, mám fixovat?"))
+        assertTrue(q("změna z 200 na 150 v %")!!.contains("pokles o 25 %"))
+        assertTrue(q("jaký den v týdnu je 24. 12. 2026")!!.endsWith("čtvrtek."))
+        assertTrue(q("kolik let je od 5. 3. 1990") != null)
+    }
+
+    @Test fun headerlessFileWithRepeatedValueStillWorks() {
+        val m1 = "1.1.2026;-1500,00;Nájem\n2.1.2026;-200,00;Jídlo\n3.1.2026;-300,00;Benzín\n"
+        val spec = Statement.detect(m1).spec!!
+        val m2 = "1.2.2026;-1500,00;Nájem\n2.2.2026;-250,00;Jídlo\n"
+        assertEquals(2, Statement.process(m2, spec).ok)
+    }
+
+    @Test fun housekeepingKeepsBadBackups() {
+        val kv = MemKv(); kv.write("chats.json", """[{"id":"c2"}]"""); kv.write("chat/c1.json.bad", "{rozbité")
+        Housekeeping.run(kv)
+        kotlin.test.assertNotNull(kv.read("chat/c1.json.bad"))
+    }
+}

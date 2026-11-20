@@ -16,14 +16,14 @@ object Policy {
     private val ALLOWED = listOf("vega/src/main/java/", "vega/src/main/assets/ui/", "vegacore/src/main/kotlin/", "vegacore/src/test/kotlin/", "vega/src/test/java/")
     private val DENY = Regex("(\\.gradle(\\.kts)?$|AndroidManifest\\.xml$|/res/|proguard|\\.(jks|keystore|p12|pem|key)$|(^|/)\\.github/|(^|/)gradle/|local\\.properties)", RegexOption.IGNORE_CASE)
     /** Soubory s trezorem klíčů, mostem JS↔Kotlin, sítí a samotnými samoúpravami – samoúprava je měnit nesmí. */
-    private val PROTECTED_FILES = Regex("(/Store\\.kt|/MainActivity\\.kt|/net/Http\\.kt|/core/Extensions\\.kt|/VegaApp\\.kt)$|/selfupdate/")
+    private val PROTECTED_FILES = Regex("(/Store\\.kt|/MainActivity\\.kt|/net/Http\\.kt|/core/Extensions\\.kt|/VegaApp\\.kt|/Engines\\.kt)$|/selfupdate/|/web/|/llm/")
     /**
      * Citlivá API v PŘIDANÝCH řádcích: klíče, síť, procesy, most, sandbox, samoúpravy. Model by je jinak mohl
      * (třeba po vložené instrukci v textu) použít k vynesení klíčů. Tentýž seznam kontroluje i CI (vega-auto.yml).
      */
     val SENSITIVE = Regex("(?i)(vault|keystore|getSharedPreferences|Http\\.(open|request|download|get)|HttpURLConnection|URLConnection|java\\.net\\.|Socket|Runtime\\.getRuntime|ProcessBuilder|" +
         "addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch\\s*\\(|new\\s+Worker|postMessage|eval\\s*\\(|new\\s+Function|" +
-        "selfupdate|GitHub\\(|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\\.loadLibrary|Class\\.forName|reflect)")
+        "selfupdate|GitHub\\(|gh\\(\\)|\\.headers|Web\\.|fetchText|toolCtx|engines\\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\\.loadLibrary|Class\\.forName|reflect)")
 
     /** Přidané řádky (+) unifikovaného diffu, které sahají na citlivá API. */
     fun sensitiveAdditions(diff: String): List<String> = diff.lines().filter { it.startsWith("+") && !it.startsWith("+++") && SENSITIVE.containsMatchIn(it) }.map { it.take(160) }

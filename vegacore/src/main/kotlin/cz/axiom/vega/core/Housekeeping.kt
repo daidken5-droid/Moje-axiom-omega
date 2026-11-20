@@ -34,7 +34,7 @@ object Housekeeping {
         if (live != null) {
             fun chatOf(k: String, prefix: String) = k.removePrefix(prefix).substringBefore('/').removeSuffix(".json")
             for (prefix in listOf("chat/", "evidence/", "draft/button/", "resume/", "state/compare/"))
-                kv.keys(prefix).forEach { k -> val c = chatOf(k, prefix)
+                kv.keys(prefix).filter { !it.endsWith(".bad") }.forEach { k -> val c = chatOf(k, prefix)
                     if (c == "temp") { if (old(k, tempDays)) del[k] = prefix } else if (c !in live && !keepChat(c)) del[k] = prefix }
         }
         // 2) podle stáří

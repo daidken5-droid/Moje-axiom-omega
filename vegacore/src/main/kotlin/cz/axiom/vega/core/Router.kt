@@ -124,7 +124,7 @@ object Router {
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
         if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
         // jen samotný povel („zpět k tomu receptu“ ani „vrátím se zítra“ není vrácení změny)
-        if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to|vrat zmenu)( prosim)?[.!]*$")) return Intent.Undo
+        if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to|vrat zmenu|vrat zmeny)([ ,]+prosim)?[.!]*$")) return Intent.Undo
         // --- víc výpisů najednou → porovnání (zadání v revizích)
         if (c.attachments >= 2 && has(t, "porovnej|srovnej|secti|dohromady|celkem|soucet|saldo|bilanc")) return Intent.CompareFiles(null)
         // --- uložený postup podle jména („zpracuj výpis“)
@@ -144,8 +144,8 @@ object Router {
         // porovnání TEXTŮ: dva soubory, oddělovač --- nebo zmínka o verzích/textech („porovnej ceny elektřiny“ je otázka pro model)
         if (has(t, "porovnej|rozdil mezi|\\bdiff\\b|co se zmenilo") && (c.attachments >= 2 || text.contains("\n---") || text.contains("\n===") ||
                 has(t, "verz|dva texty|dve texty|tyhle dv|tyto dv|soubor|dokument"))) return Intent.Tool("text.diff", emptyMap(), "porovnání")
-        if (c.activeProject && has(t, "oprav|fix") && has(t, "\\blog(u|em|y|s)?\\b|\\bs?pad(l|la|lo|ne|a|u)?\\b|crash|vyjimk|exception|stack ?trace|traceback")) return Intent.Code(text, CodeKind.FIX_FROM_LOG)
-        if (has(t, "\\bs?pad(l|la|lo|ne|a|u)?\\b|crash|vyjimk|exception|stack ?trace|traceback") && (c.hasAttachment || text.contains("\n\tat ") || text.contains("Traceback"))) return Intent.Tool("log.crash", emptyMap(), "rozbor pádu")
+        if (c.activeProject && has(t, "oprav|fix") && has(t, "\\blog(u|em|y|s)?\\b|\\bs?pad(l|la|lo|ne|a|u|aji|y)?\\b|crash|vyjimk|exception|stack ?trace|traceback")) return Intent.Code(text, CodeKind.FIX_FROM_LOG)
+        if (has(t, "\\bs?pad(l|la|lo|ne|a|u|aji|y)?\\b|crash|vyjimk|exception|stack ?trace|traceback") && (c.hasAttachment || text.contains("\n\tat ") || text.contains("Traceback"))) return Intent.Tool("log.crash", emptyMap(), "rozbor pádu")
         Regex("(?:najdi|hledej|vyhledej)\\s+(?:v logu\\s+)?[„\"']?([^„\"'”“]+?)[“\"'”]?\\s+v logu|v logu\\s+(?:najdi|hledej)\\s+[„\"']?([^„\"'”“]+)").find(text.lowercase())?.let { m ->
             return Intent.Tool("log.search", mapOf("q" to (m.groupValues[1].ifBlank { m.groupValues[2] }).trim()), "hledání v logu")
         }

@@ -103,7 +103,8 @@ object Statement {
         val amount = spec.columns["amount"]?.let { h.indexOf(it) } ?: -1
         if (date < 0 || amount < 0) {
             // hlavička je poznat (některé uložené názvy sedí), ale datum/částka zmizely → staré pozice by tiše četly jiný sloupec (např. zůstatek)
-            val known = spec.columns.values.count { it in h }
+            // jen „jmenné“ hlavičky (ne čísla ani data z prvního řádku souboru bez hlavičky)
+            val known = spec.columns.values.count { it in h && it.any(Char::isLetter) && CzNum.parse(it) == null && CzNum.date(it) == null }
             if (known > 0) throw ToolError("Hlavička souboru se změnila – chybí sloupec „${spec.columns[if (amount < 0) "amount" else "date"]}“. Nepočítám ze staré pozice (mohl bych sečíst zůstatek). Napiš třeba „částka je ve sloupci …“.")
             return spec // bez rozpoznatelné hlavičky (soubor bez názvů sloupců) → uložené pozice
         }
@@ -139,7 +140,10 @@ object Statement {
         val spec = remap(spec0, headersOf(text, spec0))
         val d = spec.delimiter.first()
         // hlavička: řádek se stejným počtem polí a s textem ve sloupci částky
-        val p0 = Csv.read(lines.joinToString("\n"), d)
+        // soubor BEZ hlavičky: první řádek je pohyb (platné datum i částka) → nesmí se spolknout jako hlavička
+        val first = lines.firstOrNull { it.isNotBlank() }?.let { Csv.parse(it, d).firstOrNull() } ?: emptyList()
+        val firstIsData = first.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(first[spec.dateCol]) != null && CzNum.parse(first[spec.amountCol], spec.decimalComma) != null
+        val p0 = Csv.read(lines.joinToString("\n"), d, header = !firstIsData)
         var offset = 0
         val headerIdx = lines.indexOfFirst { l -> val c = Csv.parse(l, d).firstOrNull() ?: emptyList(); c.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(c[spec.dateCol]) == null && CzNum.parse(c[spec.amountCol], spec.decimalComma) == null }
         val p = if (headerIdx > 0) { offset = headerIdx; Csv.read(lines.drop(headerIdx).joinToString("\n"), d) } else p0

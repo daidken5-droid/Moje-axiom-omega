@@ -304,6 +304,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun procedures() = safe { JSONArray().apply { ops.procedures.list().forEach { p -> put(JSONObject().put("id", p.id).put("pinned", p.pinned).put("name", p.name).put("version", p.version).put("description", p.description).put("inputDesc", p.inputDesc).put("inputKind", p.inputKind).put("outputKind", p.outputKind).put("perms", JSONArray(p.perms)).put("steps", JSONArray(p.steps.map { it.tool })).put("changelog", JSONArray(p.changelog)).put("uses", p.uses)) } } }
     @JavascriptInterface fun saveProcedure(json: String) = safe { ops.saveProcedure(JSONObject(json)) }
     @JavascriptInterface fun deleteProcedure(id: String) = safe { ops.procedures.delete(id) }
+    @JavascriptInterface fun revertProcedure(id: String) = safe { ops.procedures.revert(id)?.let { JSONObject().put("version", it.version) } ?: throw IllegalStateException("Starší verze není.") }
     @JavascriptInterface fun runProcedure(chat: String, id: String, input: String) = safe { ops.runProcedure(chat.takeIf { it != "temp" }, id, JSONObject(input)) }
     @JavascriptInterface fun memory() = safe { ops.memoryJson() }
     @JavascriptInterface fun improvements() = safe { ops.improvementsJson() }
