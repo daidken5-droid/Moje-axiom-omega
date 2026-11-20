@@ -346,7 +346,7 @@ function library(tab) {
         <span class="acts"><button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
         ${e.canRollback ? `<button class="btn" data-act="impr" data-id="${esc(e.id)}" data-a="extBack">Vrátit verzi</button>` : ''}
         <button class="btn ghost" data-act="impr" data-id="${esc(e.id)}" data-a="extDel">Smazat</button></span></div>`).join('') || '<div class="row"><span class="grow note">Zatím žádné. Řekni třeba „napiš rozšíření, které z výpisu vytáhne IBANy“ – napíšu ho s testy, a když projdou, „ulož jako rozšíření“.</span></div>'}</div>
-      <h3>Kde mám slabiny (30 dní)</h3><div class="list">${v.weak.map(w => `<div class="row"><span class="grow"><b>${esc(w.kind)} · ${esc(w.area)} <span class="pill">${w.count}×</span></b><small>${esc(w.example)}</small></span></div>`).join('') || '<div class="row"><span class="grow note">Bez záznamů.</span></div>'}</div>`;
+      <h3>Kde mám slabiny (30 dní)</h3><div class="list">${v.weak.map(w => `<div class="row ${w.propose ? 'stack' : ''}"><span class="grow"><b>${esc(w.kind)} · ${esc(w.area)} <span class="pill">${w.count}×</span></b><small>${esc(w.example)}</small></span>${w.propose ? `<span class="acts"><button class="btn" data-act="impr" data-id="${esc(w.raw)}" data-a="extPropose">Navrhnout rozšíření</button></span>` : ''}</div>`).join('') || '<div class="row"><span class="grow note">Bez záznamů.</span></div>'}</div>`;
   } else {
     const ms = call('memory') || [];
     body = `<p class="lede">Paměť mění, jak odpovídám. Klíče, hesla ani pokyny z webu si neukládám. Zapomenutí smaže i odvozený index.</p>
@@ -692,7 +692,7 @@ function act(a, d) {
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
     case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }
-    case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
+    case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.', extPropose: 'Píšu rozšíření v novém projektu – až testy projdou, napiš „ulož jako rozšíření“.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;

@@ -130,7 +130,14 @@ Další pravidla:
   - **Plná oprava:** přechod síťové vrstvy na OkHttp s `Dns`, který vrátí jen ověřené adresy. Přestavba 7 míst volání, kterou je nutné vyzkoušet na telefonu, proto ne v noci bez zařízení.
   - **Dopad mezery:** jen GET veřejného webu, žádné klíče ani vlastní hlavičky, odpověď se jen čte jako text.
   - **Doporučení:** samostatný blok s testem na Pixelu.
-- [ ] 14. Vylepšení → u opakované chyby nástroje nabídnout „Navrhnout rozšíření“ (zadání z anonymizovaných příkladů → nový projekt). Jen na klepnutí.
+- [x] 14. Vylepšení → u opakované chyby nástroje nabídnout „Navrhnout rozšíření“ (zadání z anonymizovaných příkladů → nový projekt). Jen na klepnutí.
+  - **Výsledek:** u slabiny „chyba · nástroj X“ s aspoň 2 výskyty je tlačítko „Navrhnout rozšíření“ (vzhled ověřen v Chromiu na 360 px).
+  - **Co se stane po klepnutí:**
+    1. VEGA založí projekt se zadáním z anonymizovaných chyb z deníku (bez obsahu souborů).
+    2. Napíše `tool.js` + testy.
+    3. Model a souhlas jdou běžnou cestou projektu.
+    4. Uložení a zapnutí dál potvrzuje uživatel.
+  - **Testy:** 51 + 21 zelené.
 - [ ] 15. Red-team kolo 2 nad body 12–14
 
 ## Problémy

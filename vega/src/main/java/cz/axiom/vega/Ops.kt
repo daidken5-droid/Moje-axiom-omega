@@ -130,7 +130,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val rules = JSONArray(); tuning.rules().reversed().forEach { r -> rules.put(JSONObject().put("id", r.id).put("status", r.status).put("target", improvementLabel(r.target))
             .put("tokens", JSONArray(r.tokens)).put("examples", JSONArray(r.examples)).put("evidence", r.evidence).put("reason", r.reason.replace(Regex("(záměr|nástroj|postup):[\\p{L}\\p{Nd}._\\-]+")) { improvementLabel(it.value) })
             .put("history", JSONArray(r.history.map { JSONObject().put("at", it.at).put("action", it.action).put("note", it.note) }))) }
-        val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", improvementLabel(g.area)).put("count", g.count)
+        val weak = JSONArray(); selftune.groups(days = 30).take(12).forEach { g -> weak.put(JSONObject().put("kind", g.kind.label).put("area", improvementLabel(g.area)).put("count", g.count).put("raw", g.area)
+            // opakovaně padající vestavěný nástroj → VEGA může navrhnout vlastní rozšíření (jen na klepnutí)
+            .put("propose", g.kind == SelfTune.Kind.ERROR && g.count >= 2 && g.area.startsWith("nástroj:") && !g.area.startsWith("nástroj:ext."))
             .put("example", g.examples.lastOrNull()?.let { it.excerpt.ifBlank { it.detail } } ?: "")) }
         val ext = JSONArray(); extensions.list().forEach { e -> ext.put(JSONObject().put("id", e.id).put("name", e.name).put("description", e.description).put("enabled", e.enabled)
             .put("version", e.current).put("versions", e.versions.size).put("canRollback", e.versions.any { it.v < e.current }).put("origin", e.origin)
@@ -143,6 +145,16 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         "extOff" -> { extensions.setEnabled(id, false); registerExtensions(); null }
         "extBack" -> if (extensions.rollback(id) == null) "Není starší verze." else { registerExtensions(); null }
         "extDel" -> { extensions.delete(id); registerExtensions(); null }
+        "extPropose" -> {
+            val tool = Tools.get(id.removePrefix("nástroj:"))?.title ?: id.removePrefix("nástroj:")
+            val errs = selftune.signals().filter { it.area == id && it.kind == "ERROR" }.map { it.detail.ifBlank { it.excerpt } }.filter { it.isNotBlank() }.distinct().takeLast(5)
+            if (errs.isEmpty()) "Pro tenhle nástroj nemám v deníku žádné chyby." else {
+                // zadání jen z anonymizovaného deníku (žádný obsah souborů); model a souhlas řeší běžná cesta projektu
+                submit { newProject(null, "rozšíření pro $tool – zvládne případy, na kterých vestavěný nástroj „$tool“ selhal. Zaznamenané chyby (anonymizované):\n" +
+                    errs.joinToString("\n") { "- $it" } + "\nNapiš run(input, params), které vstup zpracuje i v těchto případech, a testy, které je pokrývají.") }
+                null
+            }
+        }
         "activate" -> tuning.activate(id, ::tuneCtx)
         "revert" -> { tuning.revert(id); null }
         "reject" -> { tuning.reject(id); null }
