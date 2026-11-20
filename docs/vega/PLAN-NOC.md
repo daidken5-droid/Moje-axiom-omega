@@ -147,7 +147,8 @@ Další pravidla:
   - **Ověřeno beze změny:** pořadí mazání dočasného chatu, opakování úloh s revizemi, escapování v UI, komentář k DNS rebindingu.
 
 ## Další kolo 3 (pro další probuzení)
-- [ ] 16. Doručit APK s body 12–17 (CI), SHA-256. Verze 1.4.1 (versionCode 7), protože sestavení f487168 mělo stejné číslo verze jako už doručená 1.4.0.
+- [x] 16. Doručit APK s body 12–18 (CI), SHA-256.
+  - **Výsledek:** `VEGA-f9e0363.apk` (1.4.1, versionCode 7), SHA-256 `f1d2dcc36fb382d5c3215daa993a0b94308c0142bd8c912bf8290bff318cc901`, certifikát `4557a2ce…cdb4`. Doručeno uživateli.
 - [x] 17. Testy jednotek pro Ops: extPropose (podmínky, dvojité klepnutí), selftune hooky v submit/stop (Robolectric jako OpsSpecTest)
   - **Výsledek:** OpsAutonomyTest (2 testy, Robolectric, air-gap):
     - Oprava v chatu („ne, spočítej sha256…“) se zapíše jako CORRECTION u rozhovoru s výsledkem „nástroj:hash“.
