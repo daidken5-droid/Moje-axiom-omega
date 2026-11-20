@@ -497,7 +497,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     // ------------------------------------------------------------------ výsledky (každý je běh – jde otevřít, předat, pokračovat)
 
-    fun run(id: String): Run? = kv.read("run/$id")?.let { runCatching { Run.fromJson(kotlinx.serialization.json.Json.parseToJsonElement(it) as kotlinx.serialization.json.JsonObject) }.getOrNull() }
+    fun run(id: String): Run? = cz.axiom.vega.core.loadRun(kv, id)
 
     fun valueJson(v: Value, rows: Int = 200): JSONObject {
         val o = JSONObject().put("kind", v.kind.name).put("label", v.kind.label).put("preview", v.preview(1500))

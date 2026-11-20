@@ -132,22 +132,22 @@ data class Run(val id: String, val name: String, val steps: List<Step>, val inpu
     val last: Value get() = results.lastOrNull { it.error == null }?.value ?: input
     val nextIndex get() = results.count { it.error == null }
 
-    fun toJson(): JsonObject = buildJsonObject {
+    fun toJson(enc: (Value) -> kotlinx.serialization.json.JsonElement = { Value.toJson(it) }): JsonObject = buildJsonObject {
         put("id", id); put("name", name); put("started", started)
         put("steps", Json.encodeToJsonElement(kotlinx.serialization.builtins.ListSerializer(Step.serializer()), steps))
-        put("input", Value.toJson(input))
+        put("input", enc(input))
         put("results", buildJsonArray { results.forEach { r -> add(buildJsonObject {
-            put("i", r.index); put("tool", r.tool); put("ms", r.millis); r.error?.let { put("error", it) }; r.value?.let { put("value", Value.toJson(it)) }
+            put("i", r.index); put("tool", r.tool); put("ms", r.millis); r.error?.let { put("error", it) }; r.value?.let { put("value", enc(it)) }
         }) } })
     }
 
     companion object {
-        fun fromJson(o: JsonObject) = Run(
+        fun fromJson(o: JsonObject, dec: (JsonObject) -> Value = { Value.fromJson(it) }) = Run(
             o["id"]!!.jsonPrimitive.content, o["name"]!!.jsonPrimitive.content,
             Json.decodeFromJsonElement(kotlinx.serialization.builtins.ListSerializer(Step.serializer()), o["steps"]!!),
-            Value.fromJson(o["input"]!!.jsonObject),
+            dec(o["input"]!!.jsonObject),
             o["results"]!!.jsonArray.map { e -> val r = e.jsonObject
-                StepResult(r["i"]!!.jsonPrimitive.content.toInt(), r["tool"]!!.jsonPrimitive.content, r["value"]?.jsonObject?.let { Value.fromJson(it) }, r["error"]?.jsonPrimitive?.content, r["ms"]!!.jsonPrimitive.content.toLong())
+                StepResult(r["i"]!!.jsonPrimitive.content.toInt(), r["tool"]!!.jsonPrimitive.content, r["value"]?.jsonObject?.let { dec(it) }, r["error"]?.jsonPrimitive?.content, r["ms"]!!.jsonPrimitive.content.toLong())
             }, o["started"]?.jsonPrimitive?.content?.toLong() ?: 0L,
         )
     }
@@ -183,8 +183,25 @@ object Runner {
     fun resume(run: Run, ctx: ToolCtx, save: (Run) -> Unit = {}) = run(run, ctx, save)
 }
 
-fun runsOf(kv: Kv): List<Run> = kv.keys("run/").mapNotNull { k -> runCatching { Run.fromJson(Json.parseToJsonElement(kv.read(k)!!).jsonObject) }.getOrNull() }.sortedByDescending { it.started }
-fun saveRun(kv: Kv, r: Run) = kv.write("run/${r.id}", r.toJson().toString())
+fun runsOf(kv: Kv): List<Run> = kv.keys("run/").mapNotNull { k -> loadRun(kv, k.removePrefix("run/")) }.sortedByDescending { it.started }
+
+/** Soubory nad tuto velikost jdou do kontrolního bodu jako odkaz na blob (jednou), ne jako base64 po každém kroku. */
+private const val RUN_BLOB_MIN = 256_000
+private fun sha256(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+fun saveRun(kv: Kv, r: Run) = kv.write("run/${r.id}", r.toJson { v ->
+    if (v is Value.Bytes && v.bytes.size >= RUN_BLOB_MIN) {
+        val sha = sha256(v.bytes)
+        if (kv.read("runblob/$sha") == null) kv.write("runblob/$sha", java.util.Base64.getEncoder().encodeToString(v.bytes))
+        buildJsonObject { put("k", "bytesRef"); put("name", v.name); v.mime?.let { put("mime", it) }; put("sha", sha) }
+    } else Value.toJson(v)
+}.toString())
+fun loadRun(kv: Kv, id: String): Run? = kv.read("run/$id")?.let { raw -> runCatching { Run.fromJson(Json.parseToJsonElement(raw).jsonObject) { o ->
+    if (o["k"]?.jsonPrimitive?.content == "bytesRef") {
+        val sha = o["sha"]!!.jsonPrimitive.content
+        val b64 = kv.read("runblob/$sha") ?: throw ToolError("Vstupní soubor běhu už není uložený.")
+        Value.Bytes(o["name"]!!.jsonPrimitive.content, java.util.Base64.getDecoder().decode(b64), o["mime"]?.jsonPrimitive?.content)
+    } else Value.fromJson(o)
+} }.getOrNull() }
 /** Držet posledních [keep] běhů (mezivýsledky mohou být velké) – volá se při startu nového běhu, ne po každém kroku. */
 /** Úklid starých běhů podle času souboru – bez parsování všech (velké běhy by se při každém startu načítaly celé). */
 fun pruneRuns(kv: Kv, keep: Int = 30) {
@@ -192,4 +209,11 @@ fun pruneRuns(kv: Kv, keep: Int = 30) {
     if (keys.size <= keep) return
     val byTime = keys.sortedByDescending { kv.modified(it) }
     if (byTime.all { kv.modified(it) == 0L }) runsOf(kv).drop(keep).forEach { kv.delete("run/${it.id}") } else byTime.drop(keep).forEach { kv.delete(it) }
+    pruneRunBlobs(kv)
+}
+/** Bloby, na které už žádný běh neodkazuje, smazat (hledá se jen text „sha“ v uložených bězích – bez parsování). */
+fun pruneRunBlobs(kv: Kv) {
+    val blobs = kv.keys("runblob/"); if (blobs.isEmpty()) return
+    val all = kv.keys("run/").mapNotNull { kv.read(it) }.joinToString("\n")
+    blobs.filter { !all.contains(it.removePrefix("runblob/")) }.forEach { kv.delete(it) }
 }

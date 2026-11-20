@@ -458,7 +458,18 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     - `detach` sinku a `web.destroy()` v `onDestroy`;
     - události do zničené aktivity se neposílají (`isDestroyed`).
   - **Záměrně vynecháno:** „jen poslední delta na pozadí“. Delty jsou teď přírůstky (kolo 14), takže zahazovat je nejde, a po změně jsou malé.
-- [ ] 48. Úložiště: deník změn projektu ukládá obsahy nad 100 kB jako blob podle SHA (zpětně čitelný starý formát), `nextId` bez parsování; checkpoint běhu drží vstupní soubor jako odkaz, ne base64. Testy na starý i nový formát.
+- [x] 48. Úložiště: deník změn projektu ukládá obsahy nad 100 kB jako blob podle SHA (zpětně čitelný starý formát), `nextId` bez parsování; checkpoint běhu drží vstupní soubor jako odkaz, ne base64. Testy na starý i nový formát.
+  - **Deník změn:**
+    - obsahy od 100 000 znaků leží v `meta/blob/<sha>`, v deníku je jen odkaz;
+    - zkompaktněný deník drží cache podle času a velikosti souboru;
+    - `nextId` už deník neparsuje znovu;
+    - bloby bez odkazu se mažou.
+  - **Běhy:** vstupní soubory od 256 kB se uloží jednou jako `runblob/<sha>`, kontrolní bod drží jen odkaz. Úklid běhů maže i nepoužité bloby.
+  - **Test StorageTest (3 testy):**
+    - deník se dvěma změnami po 300 kB má pod 10 kB a obě změny jdou vrátit;
+    - starý formát deníku se přečte a navazuje;
+    - běh se vstupem 600 kB má checkpoint pod 2 kB a blob jen jeden;
+    - starý formát běhu s base64 se načte.
 - [ ] 49. Bezpečná instalace samoúpravy: APK v privátní složce, při instalaci znovu SHA-256 a stav READY; žádná sdílená složka výstupů.
 - [ ] 50. Navazující samoúpravy a návrat: úprava vychází z commitu nainstalované verze (pokud je to auto-větev, jinak z pracovní větve) a v diffu je uvedeno, proti čemu je; „Vrátit poslední úpravu“ = nový commit obsahu předchozí verze → nové sestavení s vyšším versionCode (bez odinstalace). Průběh po krocích v UI.
 - [ ] 51. Vlastní server: tlačítko „Vyzkoušet odpověď“ (krátký dotaz, změřená doba a rychlost), srozumitelné hlášky pro usnutý Space (probouzení 1–3 min), skript `deploy-hf.sh` pro nahrání do Space tvým tokenem (běží u tebe, token nikam neukládá).

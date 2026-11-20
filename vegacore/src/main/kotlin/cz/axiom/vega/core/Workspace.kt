@@ -38,6 +38,8 @@ class Workspace(val root: File) {
     val name: String get() = File(meta, "name").takeIf { it.exists() }?.readText() ?: root.name
 
     companion object {
+        private const val BLOB_MIN = 100_000
+        private const val BLOB_REF = "\u0000blob:"
         /** Soubory, které se nikdy nečtou do kontextu modelu (klíče, osobní data). */
         /** Kontroluj vždy NORMALIZOVANOU cestu ([isSecret]) – „.env/“ nebo „cfg\\.env“ by surový výraz obešly. */
         val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|pfx|jks|keystore|ovpn)|id_(rsa|ed25519|ecdsa|dsa).*|secrets?\\.(json|ya?ml|properties|toml)|.*credentials.*\\.json|.*service[-_.]?account.*\\.json|client_secret.*\\.json|.*firebase-adminsdk.*\\.json|token\\.json|google-services\\.json|GoogleService-Info\\.plist|local\\.properties|keystore\\.properties|gradle\\.properties|\\.npmrc|\\.netrc|\\.pypirc|\\.git-credentials|\\.htpasswd)$", RegexOption.IGNORE_CASE)
@@ -88,9 +90,32 @@ class Workspace(val root: File) {
     // ------------------------------------------------------------------ deník změn
 
     private val logFile = File(meta, "changes.json")
-    fun changes(): List<Change> = runCatching { json.decodeFromString(ListSerializer(Change.serializer()), logFile.readText()) }.getOrDefault(emptyList())
-    private fun log(c: Change) { logFile.writeText(json.encodeToString(ListSerializer(Change.serializer()), (changes() + c).takeLast(300))) }
-    private fun nextId() = (changes().maxOfOrNull { it.id } ?: 0) + 1
+    /**
+     * Deník změn: obsahy nad [BLOB_MIN] znaků leží jako blob podle SHA (meta/blob/…), v deníku jen odkaz – deník zůstane malý
+     * (dřív až 300 × 2 × 2 MB). Starý formát (obsah přímo v deníku) se čte beze změny. Zkompaktněný deník drží cache.
+     */
+    private val blobDir = File(meta, "blob")
+    @Volatile private var rawCache: Triple<Long, Long, List<Change>>? = null
+    private fun raw(): List<Change> {
+        val stamp = logFile.lastModified() to logFile.length()
+        rawCache?.let { if (it.first == stamp.first && it.second == stamp.second) return it.third }
+        val l = runCatching { json.decodeFromString(ListSerializer(Change.serializer()), logFile.readText()) }.getOrDefault(emptyList())
+        rawCache = Triple(stamp.first, stamp.second, l); return l
+    }
+    private fun pack(t: String?): String? = if (t == null || t.length < BLOB_MIN) t else {
+        val sha = java.security.MessageDigest.getInstance("SHA-256").digest(t.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        File(blobDir, sha).let { f -> if (!f.isFile) atomicWrite(f, t) }; BLOB_REF + sha
+    }
+    private fun unpack(t: String?): String? = if (t != null && t.startsWith(BLOB_REF)) runCatching { File(blobDir, t.removePrefix(BLOB_REF)).readText() }.getOrNull() else t
+    fun changes(): List<Change> = raw().map { c -> if (c.before?.startsWith(BLOB_REF) == true || c.after?.startsWith(BLOB_REF) == true) c.copy(before = unpack(c.before), after = unpack(c.after)) else c }
+    private fun log(c: Change) {
+        val l = (raw() + c.copy(before = pack(c.before), after = pack(c.after))).takeLast(300)
+        logFile.writeText(json.encodeToString(ListSerializer(Change.serializer()), l)); rawCache = null
+        // bloby bez odkazu (vypadly z posledních 300) smazat
+        val used = l.flatMap { listOfNotNull(it.before, it.after) }.filter { it.startsWith(BLOB_REF) }.map { it.removePrefix(BLOB_REF) }.toSet()
+        blobDir.listFiles()?.filter { it.name !in used && !it.name.startsWith(".") }?.forEach { it.delete() }
+    }
+    private fun nextId() = (raw().maxOfOrNull { it.id } ?: 0) + 1
 
     private fun atomicWrite(f: File, text: String) {
         f.parentFile.mkdirs()
