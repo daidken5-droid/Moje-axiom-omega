@@ -431,7 +431,8 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
     - toast už neslibuje mazání neexistujícího PR.
   - **Zbývá (NEVYŘEŠENO, vyžaduje tebe):** viz AUTONOMIE.md „Po kole 15“ – vyřadit `vega/auto-**` z workflow AVIORu, ruleset i na tagy, vlastní podpisový klíč a smazat cache se starým klíčem. Úpravy na sebe nenavazují (každá vychází z pracovní větve) a „Vrátit“ starší APK Android nedovolí – zapsáno jako známé omezení.
   - **Vylepšení z kola 15 (uživatel uvidí):** srozumitelný důvod selhání samoúpravy s odkazem na běh a upozornění hned po selhání.
-- [ ] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí
+- [x] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí
+  - Plný regresní běh testů (jádro + aplikace) zelený po každém kole; verze 1.6.0; shrnutí v docs/vega/README.md.
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

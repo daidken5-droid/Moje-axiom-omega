@@ -1,4 +1,35 @@
-# VEGA 1.5 – předávací přehled
+# VEGA 1.6 – předávací přehled
+
+## Kola 10–16 + vlastní server + ověřovač citací (1.5.2 → 1.6.0)
+
+**Testy:** jádro i aplikace zelené. Testovalo se jen na hostiteli (JVM + Robolectric, Chromium, chroot s obrazem llama.cpp). Na telefonu nic ověřeno není.
+
+| Kolo | Oblast | Nejvážnější nález → oprava | Co uvidíš |
+|---|---|---|---|
+| 10 | UI a přístupnost | list se zavíral během běžící úlohy; odkazy v markdownu bez kontroly schématu | tlačítko „↓ Nová odpověď“, větší dotykové cíle |
+| 11 | peníze a modely | placený krok šlo schválit nad strop běhu; OpenRouter nabízel placené modely | účtenka po placeném kroku |
+| 12 | projekty s kódem | test bez kontroly „prošel“; smyčka oprav volala model zbytečně | české výsledky testů, „⚠ Změnily se i TESTY“ |
+| 13 | kvalita odpovědí | skrytý text stránek (display:none) se dostal k modelu; tvrzení bez citace se tvářila ověřeně | „podloženo x z y tvrzení“, datum zdroje |
+| 14 | výkon | každá aktualizace odpovědi znovu vykreslovala celý text | plynulé psaní: vykreslení 9kB odpovědi 2,3 s → 0,04 s (naměřeno) |
+| 15 | samoúpravy | testy od modelu mohly přepsat soubory před sestavením APK; `.gitattributes` vypnul hlídač | srozumitelný důvod selhání + odkaz na CI |
+| 16 | závěr | regresní běh všech testů, verze 1.6.0 | – |
+
+**Vlastní AI server** (`tools/vega-server`):
+- Jde o llama.cpp s modelem Qwen3-4B (Apache 2.0) a povinným klíčem. Běží zdarma na Hugging Face Space nebo na tvém PC.
+- VEGA se k němu připojí přes **Nastavení → Vlastní model → Párovací kód**.
+- Ověřeno klientem VEGA proti skutečnému serveru (stejný obraz jako pro HF, 2 vlákna jako free CPU):
+  - česká odpověď, ~4 tokeny/s;
+  - bez klíče 401.
+- NEOVĚŘENO: nasazení na tvém HF účtu a spojení z telefonu.
+
+**Ověřovač citací:**
+- Balíček vydává CI jako GitHub Release `overovac-referencni-1` (149 MB). Je sestavený deterministicky a otisk modelu sedí s tím, který VEGA zná.
+- Ve VEGA: **Nastavení → Ověřovač citací → Stáhnout (150 MB)**. Nainstaluje se jen balíček se známým otiskem.
+- Ověřeno, že stažený balíček VEGA načte a vyhodnotí (záměna osoby → ODPORUJE, zápor → ODPORUJE).
+- Známá slabina modelu: „plánovalo se“ vs. „uskutečnilo se“ vyhodnotí jako PODPORUJE.
+
+**Musíš udělat ty:** viz `docs/vega/AUTONOMIE.md`, oddíl „Po kole 15“ (workflow AVIORu, ruleset na tagy, vlastní podpisový klíč).
+
 
 ## Shrnutí: 9 kol red-team kontroly + vylepšení (1.4.0 → 1.5.2)
 
