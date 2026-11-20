@@ -1,4 +1,23 @@
-# VEGA 1.6 – předávací přehled
+# VEGA 1.7 – předávací přehled
+
+## 1.7.0
+- **APK:** `VEGA-f5a18ed.apk` (versionCode 465886)
+- **SHA-256:** `efef88eada48e37940cb9251715ce686e01d9fe45a44682e0d0877f6758cdb89`
+- **Certifikát:** `4557a2ce…cdb4`
+
+Co je nového (body 46–53 a 52b v PLAN-NOC.md):
+- **Výběr modulu / poskytovatele** na úvodní obrazovce.
+- **Výkon:** cache zpráv; strop paměti příloh; deník změn a běhy s bloby.
+- **Samoúpravy:**
+  - instalace jen ze soukromé složky s novou kontrolou otisku;
+  - navazování úprav bez přepsání novější práce;
+  - „Vrátit poslední úpravu“.
+- **Vlastní server:** „Vyzkoušet odpověď“, srozumitelné chyby, `deploy_hf.py`.
+- **Ochrana proti DNS rebindingu.**
+- **Opravy 12 nálezů nezávislé kontroly,** mimo jiné díra v hlídači samoúprav (řádek „++“).
+
+Ověřeno jen na hostiteli (JVM, Robolectric, Chromium), na telefonu nic.
+
 
 ## Kola 10–16 + vlastní server + ověřovač citací (1.5.2 → 1.6.0)
 
