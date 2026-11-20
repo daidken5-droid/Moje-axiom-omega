@@ -427,7 +427,8 @@ function settingsSheet() {
     <h3>Ty</h3>
     <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>
     <h3>Vlastní model</h3>
-    <div class="card"><div class="note">Server s otevřeným modelem (llama.cpp server, Ollama, vLLM…) s OpenAI API. Doma v síti stačí <b>http://192.168.x.x:8080/v1</b>, přes internet jen https.</div>
+    <div class="card"><div class="note">Server s otevřeným modelem (llama.cpp server, Ollama, vLLM…) s OpenAI API. Doma v síti stačí <b>http://192.168.x.x:8080/v1</b>, přes internet jen https. Hotový server zdarma (Hugging Face nebo tvoje PC): <b>tools/vega-server</b> – po spuštění vypíše párovací kód.</div>
+      <label class="lbl">Párovací kód</label><div class="inline"><input class="field" id="pairCode" placeholder="VEGA-PAIR:…" autocomplete="off" spellcheck="false"><button class="btn" data-act="pairOwn">Spárovat</button></div>
       <label class="lbl">Adresa serveru</label><input class="field" id="ownUrl" value="${esc(s.ownUrl || '')}" placeholder="http://192.168.1.20:8080/v1" inputmode="url" autocomplete="off">
       <label class="lbl">Model (prázdné = první, který server nabízí)</label><input class="field" id="ownModel" value="${esc(s.ownModel || '')}" placeholder="např. qwen2.5-7b-instruct" autocomplete="off">
       <label class="lbl">Klíč serveru (nepovinné)</label><input class="field" type="password" id="ownKey" placeholder="${s.ownKey ? 'uloženo – nový přepíše' : 'jen když ho server vyžaduje'}" autocomplete="off">
@@ -435,9 +436,9 @@ function settingsSheet() {
     <label class="switch"><span><b>Pouze vlastní modely</b><small>celý požadavek jen na tvém serveru – žádné komerční API ani při výpadku</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
     <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}</p>
     <h3>Ověřovač citací</h3>
-    <div class="card"><div class="note">Neuronový model v telefonu (bez sítě) ukáže, jestli citovaná pasáž tvrzení podporuje, odporuje mu, nebo nestačí. Váhy nejsou v aplikaci – instalují se jako balíček (.zip z tools/verifier).</div>
+    <div class="card"><div class="note">Neuronový model v telefonu (bez sítě) ukáže, jestli citovaná pasáž tvrzení podporuje, odporuje mu, nebo nestačí. Váhy nejsou v aplikaci – stáhnou se jednou jako ověřený balíček (otisk modelu musí sedět), nebo se nainstalují ze souboru (.zip z tools/verifier).</div>
       <div class="status" id="kc-verifier">${s.verifierReady ? '<span class="pill ok">načteno</span> ' : '<span class="pill">vypnuto</span> '}${esc(s.verifier || '')}</div>
-      <div class="inline" style="margin-top:8px"><button class="btn primary" data-act="verifierInstall">Nainstalovat balíček</button>${s.verifierReady ? '<button class="btn ghost" data-act="verifierRemove">Odebrat</button>' : ''}</div></div>
+      <div class="inline" style="margin-top:8px"><button class="btn primary" data-act="verifierDownload">Stáhnout (150 MB)</button><button class="btn" data-act="verifierInstall">Ze souboru</button>${s.verifierReady ? '<button class="btn ghost" data-act="verifierRemove">Odebrat</button>' : ''}</div></div>
     <h3>Model v cloudu</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> v projektu bez fakturace. Model Gemini 4 Hydrogen, pokud ho tvůj klíč už má. V Česku se data z bezplatné kvóty nepoužívají k tréninku.')}
     <details ${s.keys.geminipro ? 'open' : ''}><summary>Mám předplatné Google AI Pro</summary>
@@ -473,6 +474,13 @@ function modelSheet() {
     <label class="switch"><span><b>Bez sítě (air-gap)</b><small>jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
     <div class="list" style="margin-top:12px"><button class="row" data-act="settings"><span class="grow"><b>Vlastní server a klíče…</b><small>adresa, model, Gemini zdarma, kredit Pro</small></span><span class="end">›</span></button>
     <button class="row" data-act="temp"><span class="grow"><b>Dočasný chat</b><small>nic se neukládá</small></span></button></div>`);
+}
+function pairOwn() {
+  const el = $('#pairCode'); const p = el && el.value.trim() ? call('pairCode', el.value) : null;
+  if (!p) { if (el && !el.value.trim()) toast('Vlož párovací kód ze serveru (začíná VEGA-PAIR:).'); return; }
+  $('#ownUrl').value = p.url; $('#ownModel').value = p.model || '';
+  const st = $('#kc-own'); if (st) st.textContent = 'Adresa a model vyplněny. Teď do „Klíč serveru“ vlož svůj VEGA_KEY a klepni na Uložit a ověřit.';
+  const k = $('#ownKey'); if (k) k.focus();
 }
 function saveOwn() {
   const url = ($('#ownUrl') || {}).value.trim(), model = ($('#ownModel') || {}).value.trim(), key = ($('#ownKey') || {}).value.trim();
@@ -730,12 +738,14 @@ function act(a, d) {
       const t = it ? String(it.text || '') : ''; const ws = Math.max(0, x.ws || 0), we = Math.min(t.length, x.we || t.length);
       sheet(`<h2>[${x.n}] ${esc(CHK[x.label][1])}</h2><p class="lede">${esc(x.claim)}</p>${x.p ? `<p class="note">podpora ${fmt(x.p[0] * 100)} % · nedostačuje ${fmt(x.p[1] * 100)} % · odporuje ${fmt(x.p[2] * 100)} % (výsledek o této pasáži, ne o pravdivosti světa)</p>` : `<p class="note">${esc(x.reason)}</p>`}
         ${it ? `<div class="card"><b>${esc(it.title)}</b><div class="note">${link(it.url)} · staženo ${esc(it.fetched || '')}</div><p style="white-space:pre-wrap">${esc(t.slice(0, ws))}<mark>${esc(t.slice(ws, we))}</mark>${esc(t.slice(we))}</p></div>` : ''}`, true); break; }
+    case 'verifierDownload': if (S.busy) { toast('Počkej, až doběhne rozdělaná práce.'); break; } if (busyCall('verifierDownload') !== null) toast('Stahuji ověřovač – stačí jednou, pak funguje i bez sítě. Doporučuju Wi-Fi.', 6000); break;
     case 'verifierInstall': B.verifierInstall(); toast('Vyber balíček ověřovače (.zip).'); break;
     case 'verifierRemove': call('verifierRemove'); toast('Ověřovač odebrán – citace budou „nevyhodnoceno“.'); settingsSheet(); break;
     case 'exportRetry': if (busyGuard()) return; busyCall('exportRetry', chatId(), d.run); render(); break;
     case 'taskLog': { const l = JSON.parse(d.log); sheet(`<h2>Záznam běhu</h2><div class="list">${l.map(x => `<div class="row"><span class="pill">r${x.rev}</span><span class="grow"><b>${esc(x.step)}${x.input !== '*' ? ' · ' + esc(x.input) : ''}</b><small>${esc(x.action)}</small></span></div>`).join('')}</div>`, true); break; }
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;
+    case 'pairOwn': pairOwn(); break;
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
     case 'stop': B.stop(); break;
     case 'plus': plusSheet(); break;

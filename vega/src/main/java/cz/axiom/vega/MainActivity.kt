@@ -418,7 +418,9 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true"); true }
     @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
     @JavascriptInterface fun voice() = safe { a.voice() }
+    @JavascriptInterface fun pairCode(code: String) = safe { cz.axiom.vega.llm.Pairing.parse(code).let { JSONObject().put("url", it.url).put("model", it.model) } }
     @JavascriptInterface fun verifierInstall() = safe { a.pickVerifierZip() }
+    @JavascriptInterface fun verifierDownload() = safe { ops.downloadVerifier(); true }
     @JavascriptInterface fun verifierRemove() = safe { ops.removeVerifier(); true }
     @JavascriptInterface fun exportRetry(chat: String, run: String) = safe { ops.exportRetry(chat.takeIf { it != "temp" }, run) }
 }

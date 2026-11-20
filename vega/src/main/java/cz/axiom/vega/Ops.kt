@@ -1659,7 +1659,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     }
 
     /** Instalace balíčku (.zip: manifest.json, model.onnx, vocab.tsv) – jen povolená jména, ověření otisků, výměna až po kontrole. */
-    fun installVerifier(input: java.io.InputStream): String {
+    fun installVerifier(input: java.io.InputStream, requireKnown: Boolean = false): String {
         val tmp = File(context.filesDir, "vega/verifier.tmp").apply { deleteRecursively(); mkdirs() }
         val allowed = setOf("manifest.json", "model.onnx", "vocab.tsv")
         java.util.zip.ZipInputStream(input.buffered()).use { z ->
@@ -1671,12 +1671,32 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                     while (true) { val n = z.read(buf); if (n < 0) break; total += n; if (total > cap) { tmp.deleteRecursively(); throw ToolError("Soubor $name v balíčku je větší než povolený limit.") }; o.write(buf, 0, n) } } }
         }
         val m = try { cz.axiom.vega.core.VerifierBundle.read(tmp) } catch (e: Exception) { tmp.deleteRecursively(); throw ToolError("Balíček nelze použít: ${e.message}") }
+        if (requireKnown && m.files["model.onnx"] !in KNOWN_MODELS) { tmp.deleteRecursively(); throw ToolError("Stažený balíček nemá známý otisk modelu – neinstaluji ho.") }
         synchronized(groundingLock) {
             (groundingCache as? java.io.Closeable)?.close(); groundingCache = null
             verifierDir.deleteRecursively(); if (!tmp.renameTo(verifierDir)) { tmp.copyRecursively(verifierDir, true); tmp.deleteRecursively() }
         }
         return "Nainstalováno: ${m.name} (${m.baseRepo}@${m.baseRev.take(7)}, práh ${m.threshold}). ${grounding.status}"
     }
+    /**
+     * Stažení referenčního balíčku z GitHub Release (vydává ho .github/workflows/vega-verifier.yml).
+     * Instaluje se JEN balíček se známým otiskem modelu – podvržený soubor na serveru neprojde.
+     */
+    fun downloadVerifier() = submit {
+        if (settings.airgap) throw ToolError("Air-gap je zapnutý – balíček nestahuji. Nainstaluj ho ze souboru.")
+        emit("phase", JSONObject().put("text", "Stahuji ověřovač citací (asi 150 MB)…"))
+        val zip = File(context.cacheDir, "verifier-dl.zip")
+        try {
+            cz.axiom.vega.net.Http.download(VERIFIER_URL, zip, 220_000_000L)
+            emit("phase", JSONObject().put("text", "Kontroluji otisky a instaluji…"))
+            val msg = zip.inputStream().use { installVerifier(it, requireKnown = true) }
+            emit("verifier", JSONObject().put("message", msg).put("ready", grounding.ready))
+        } catch (e: cz.axiom.vega.net.NetException) {
+            throw ToolError("Balíček se nepodařilo stáhnout (${e.message}). Zkus to na Wi-Fi znovu, nebo ho nainstaluj ze souboru.")
+        } finally { zip.delete(); File(zip.path + ".part").delete() }
+    }
+    private val VERIFIER_URL = "https://github.com/daidken5-droid/Moje-axiom-omega/releases/download/overovac-referencni-1/referencni.zip"
+
     fun removeVerifier() { synchronized(groundingLock) { (groundingCache as? java.io.Closeable)?.close(); groundingCache = null; verifierDir.deleteRecursively() } }
 
     /** Ověření: JS testy skutečně spuštěné v izolovaném Workeru WebView (bez sítě, s limitem času), jinak statická kontrola. */
