@@ -95,7 +95,9 @@ object Router {
     }
 
     private fun f(s: String) = Text.fold(s).lowercase().trim()
-    private fun has(t: String, vararg rx: String) = rx.any { Regex(it).containsMatchIn(t) }
+    private val rxCache = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+    /** Vzory se kompilují jednou (dřív ~45 kompilací na každou zprávu). */
+    private fun has(t: String, vararg rx: String) = rx.any { rxCache.getOrPut(it) { Regex(it) }.containsMatchIn(t) }
 
     fun route(raw: String, c: Ctx): Intent {
         val text = raw.trim()

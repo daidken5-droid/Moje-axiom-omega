@@ -315,8 +315,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 addMsg(ch, JSONObject().put("role", "vega").put("text", "Odpověď se nedokončila (aplikace byla ukončena). Zadání je uložené – klepni na **Pokračovat**.")
                     .put("card", JSONObject().put("type", "resume").put("chat", ch).put("req", o.optString("req")).put("kind", o.optString("kind")).put("text", o.optString("text").take(200)))) } } } }
         // rozpracované úpravy po startu zkontrolovat (bez ručního klepnutí); po 48 h bez výsledku označit jako selhané
-        exec.execute { note { selfUpdates.list().filter { it.status in setOf("PUSHED", "BUILDING") }.forEach { u ->
-            if (System.currentTimeMillis() - u.at > 48 * 3600_000L) selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "bez výsledku 48 h") else if (vault.has("github") && !settings.airgap) selfUpdatePoll(u.id) } } }
+        // o 20 s později: kontrola jde přes síť a frontu úloh – první zpráva po startu na ni nesmí čekat
+        java.util.Timer("vega-su-poll", true).schedule(object : java.util.TimerTask() { override fun run() { exec.execute { note { selfUpdates.list().filter { it.status in setOf("PUSHED", "BUILDING") }.forEach { u ->
+            if (System.currentTimeMillis() - u.at > 48 * 3600_000L) selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "bez výsledku 48 h") else if (vault.has("github") && !settings.airgap) selfUpdatePoll(u.id) } } } } }, 20_000L)
         runCatching { registerExtensions() }
     }
 
@@ -829,11 +830,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
         // pojistka: režim „Pouze vlastní modely“ zapnutý během čekání na souhlas → řetěz sestavený dřív nesmí odejít jinam
         if (settings.ownOnly && pick.provider != "own") throw ToolError("Režim Pouze vlastní modely: tento požadavek by šel na ${pick.provider} – neodesláno.")
-        val sb = StringBuilder(); var last = 0L
+        val sb = StringBuilder(); var last = 0L; var sent = 0
         val paidBefore = pick.paidIds.associateWith { settings.spentUsd(it) }
         val res = try {
             pick.engine.generate(messages, GenOptions(maxTokens = maxTokens, effort = "medium", temperature = 0.4f), cancel) { d ->
-                if (!d.reasoning) { sb.append(d.text); val now = System.currentTimeMillis(); if (visible && now - last > 90) { last = now; emit("delta", JSONObject().put("chat", chat ?: "temp").put("text", sb.toString())) } }
+                if (!d.reasoning) { sb.append(d.text); val now = System.currentTimeMillis(); if (visible && now - last > 90) { last = now
+                    // jen PŘÍRŮSTEK od posledního odeslání (dřív celý text při každé aktualizaci → kvadratická cena u dlouhých odpovědí)
+                    emit("delta", JSONObject().put("chat", chat ?: "temp").put("from", sent).put("text", sb.substring(sent))); sent = sb.length } }
             }
         } catch (e: Exception) {
             // rozepsaná odpověď se neztratí: uložit s poznámkou (zastaveno / výpadek)
@@ -1010,7 +1013,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun nextStep(w: Workspace): String? {
         if (!settings.initiative) return null
         val v = w.verifications().lastOrNull()
-        val open = (0 until journal(w).length()).map { journal(w).getJSONObject(it) }.lastOrNull { it.optString("kind") == "question" }
+        val jr = journal(w) // jednou – dřív se deník četl z disku pro každý záznam znovu
+        val open = (0 until jr.length()).map { jr.getJSONObject(it) }.lastOrNull { it.optString("kind") == "question" }
         return when {
             v != null && v.exitCode != 0 -> "Poslední ověření selhalo (${v.label}) – oprav to: „oprav padající test“."
             open != null -> "Otevřená otázka: ${open.optString("text")}"
@@ -1157,7 +1161,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun saveState(w: Workspace, chat: String?, goal: String?, v: Workspace.Verification?, keepBaseline: Boolean = false, absorbManual: Boolean = true) {
         val old = projectState(w) ?: JSONObject()
         // ruční změny, které uživatel ještě neviděl ověřené v úloze, zůstanou chráněné i po novém snímku
-        val carried = if (absorbManual) emptyList() else userChanges(w).map { it.first }.filter { p -> w.changes().lastOrNull { it.path == p }?.let { c -> w.hash(p) != null && w.read(p) == c.after } != true } + (old.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
+        val ch = if (absorbManual) emptyList() else w.changes() // deník jednou, ne pro každou cestu
+        val carried = if (absorbManual) emptyList() else userChanges(w).map { it.first }.filter { p -> ch.lastOrNull { it.path == p }?.let { c -> w.hash(p) != null && w.read(p) == c.after } != true } + (old.optJSONArray("protect")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
         val o = JSONObject().put("project", w.root.name).put("name", w.name).put("goal", goal ?: old.optString("goal")).put("chat", chat ?: old.optString("chat")).put("at", System.currentTimeMillis())
         o.put("lastVerified", v?.takeIf { it.kind != "none" }?.let { JSONObject().put("label", it.label).put("exitCode", it.exitCode).put("revision", it.revision).put("at", it.at) } ?: old.optJSONObject("lastVerified") ?: JSONObject.NULL)
         val files = JSONObject(); val snap = JSONObject()
@@ -1776,12 +1781,13 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     fun home(): JSONObject {
         val ws = activeWorkspace()
+        val pick = engines.pick() // jednou: každé volání dešifruje uložené klíče přes Keystore
         return JSONObject().put("pinned", JSONArray().apply { settings.pinned.mapNotNull { Tools.get(it) }.forEach { put(JSONObject().put("id", it.id).put("title", it.title).put("group", it.group).put("offline", it.offline)) } })
             .put("buttons", JSONArray().apply { procedures.list().filter { it.pinned }.forEach { p -> put(JSONObject().put("id", p.id).put("name", p.name).put("version", p.version).put("inputKind", p.inputKind).put("offline", p.steps.all { s -> Tools.get(s.tool)?.offline != false })) } })
             .put("userName", settings.userName).put("ownOnly", settings.ownOnly).put("own", engines.ownConfigured()).put("web", settings.webAllowed)
-            .put("model", when { settings.airgap -> "Bez sítě"; settings.ownOnly -> if (engines.ownConfigured()) "Vlastní model" else "Vlastní model (nenastaven)"; else -> engines.pick()?.let { engines.name(it.provider).substringBefore(" (") } ?: "Bez modelu" })
+            .put("model", when { settings.airgap -> "Bez sítě"; settings.ownOnly -> if (engines.ownConfigured()) "Vlastní model" else "Vlastní model (nenastaven)"; else -> pick?.let { engines.name(it.provider).substringBefore(" (") } ?: "Bez modelu" })
             .put("project", ws?.let { JSONObject().put("id", it.root.name).put("name", it.name).put("files", it.files().size).put("next", nextStep(it) ?: JSONObject.NULL) } ?: JSONObject.NULL)
-            .put("engine", engines.pick()?.let { "${it.provider} · ${it.model}" + if (it.paid) " (placený)" else " (zdarma)" } ?: JSONObject.NULL)
+            .put("engine", pick?.let { "${it.provider} · ${it.model}" + if (it.paid) " (placený)" else " (zdarma)" } ?: JSONObject.NULL)
             .put("airgap", settings.airgap)
     }
 

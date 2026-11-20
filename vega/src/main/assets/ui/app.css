@@ -210,6 +210,8 @@ body.chatting::before { opacity: .35; }
 
 /* ---------- vstup ---------- */
 .bar { border-radius: 30px; padding: 8px; border: 1px solid var(--line); background: color-mix(in srgb, var(--sheet) 92%, transparent); backdrop-filter: blur(12px); box-shadow: 0 8px 40px rgba(29, 58, 138, .25); align-items: flex-end; }
+/* telefon: rozmazání pod lištou by se přepočítávalo každý snímek při posouvání a psaní odpovědi */
+@media (pointer: coarse) { .bar { backdrop-filter: none; background: var(--sheet); } }
 body.focus .bar { border-color: color-mix(in srgb, var(--signal) 45%, var(--line)); }
 .plus { background: none; color: var(--ink2); font-size: 26px; font-weight: 300; }
 .go { background: var(--signal-strong); color: #fff; box-shadow: 0 0 0 0 rgba(91, 140, 255, .5); transition: transform .15s; }

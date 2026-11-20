@@ -20,10 +20,11 @@ import javax.crypto.spec.GCMParameterSpec
 
 /** Kv nad soubory (files/vega/kv/…) s atomickým zápisem – přežije pád uprostřed zápisu. */
 class FileKv(private val root: File) : Kv {
+    private val KEY_SAFE = Regex("[^A-Za-z0-9/_.-]")
     init { root.mkdirs() }
     private fun f(key: String): File {
         require(!key.contains("..")) { "Neplatný klíč" }
-        return File(root, key.replace(Regex("[^A-Za-z0-9/_.-]"), "_"))
+        return File(root, key.replace(KEY_SAFE, "_"))
     }
     @Synchronized override fun read(key: String) = f(key).takeIf { it.isFile }?.readText()
     @Synchronized override fun write(key: String, value: String) {

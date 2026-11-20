@@ -393,7 +393,26 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
   - **Důkazy:** převzetí od agentur (ČTK, Reuters…) = jedna linie, ne nezávislé zdroje.
   - **Vylepšení z kola 11:** účtenka po placeném kroku („Zaplaceno: DeepSeek 1,20 Kč za tento krok · tento měsíc 41 z 500 Kč“).
   - **Testy:** Round13Test (2 testy) prošel a test pokrytí je opravený, celkem 78 + 25 zelené.
-- [ ] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace
+- [x] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace
+  - **Streamování odpovědi:**
+    - Kotlin posílá jen přírůstek textu (dřív celý text 11× za sekundu).
+    - UI vykreslí hotové odstavce jednou a dál překresluje jen rozepsaný konec, nejvýš jednou za snímek.
+    - **Naměřeno** v Chromiu se 4× zpomaleným CPU: odpověď 9 kB ve 220 aktualizacích trvala 2 347 ms, teď 37 ms (63×). Výsledný text je totožný s vykreslením najednou.
+  - **Start:** kontrola rozpracovaných samoúprav (síť přes GitHub) běží až po 20 s, takže první zpráva po spuštění na ni nečeká.
+  - **Drobné zrychlení:**
+    - `home()` volá výběr modelu jednou (každé volání dešifruje klíče přes Keystore);
+    - deník projektu se v `nextStep` čte jednou (dřív pro každý záznam znovu);
+    - `saveState` čte deník změn jednou;
+    - regexy v `CzNum.parse` (každá buňka výpisu), `FileKv` (každá operace úložiště) a v routeru (~45 na zprávu) se kompilují jen jednou.
+  - **Telefon:** lišta bez `backdrop-filter`, aby se při posouvání nepřepočítávalo rozmazání.
+  - **Baterie:** prověřeno, žádné wakelocky, služby, alarmy ani pollování na pozadí.
+  - **Zbývá (NEUDĚLÁNO):**
+    - `render()` při každé události znovu načítá chat přes most;
+    - deník změn drží celé obsahy souborů;
+    - přílohy mají strop jen na počet, ne na bajty;
+    - checkpoint běhu ukládá vstupní soubor jako base64.
+    - Je to větší přestavba a zapsal jsem ji do plánu.
+  - **Vylepšení z kola 14 (uživatel uvidí):** plynulé psaní dlouhých odpovědí bez trhání a rychlejší první odpověď po startu.
 - [x] 44. Kolo 15: samoúpravy, druhé kolo
   - **Kritické (opraveno):** testy od modelu běžely ve stejném jobu jako sestavení APK, takže mohly přepsat chráněné soubory (manifest, Store.kt…) nebo ~/.gradle. CI má teď 4 oddělené joby: hlídač → testy → sestavení na čistém runneru z čistého checkoutu, bez testů → podpis.
   - **Hlídač (aplikace i CI shodně):**

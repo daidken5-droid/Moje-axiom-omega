@@ -255,6 +255,25 @@ function renderTop() {
   $('#modelName').textContent = h.model ? '· ' + h.model : '';
   $('#avatar').textContent = (h.userName || 'V').trim().charAt(0).toUpperCase() || 'V';
 }
+// Živá odpověď: hotové odstavce se vykreslí JEDNOU a zůstanou v DOM, znovu se překresluje jen rozepsaný konec;
+// nejvýš jednou za snímek (requestAnimationFrame) – plynulé i u dlouhých odpovědí.
+function liveSoon() { if (S.liveRaf) return; S.liveRaf = requestAnimationFrame(() => { S.liveRaf = 0; liveRender(); }); }
+function liveCut(t) { // poslední hranice odstavce mimo blok kódu
+  let i = t.lastIndexOf('\n\n');
+  while (i > 0 && ((t.slice(0, i).match(/```/g) || []).length % 2)) i = t.lastIndexOf('\n\n', i - 1);
+  return i > 0 ? i + 2 : 0;
+}
+function liveRender() {
+  const l = $('#live'); if (!l) return; const t = S.stream;
+  if (!S.live || S.live.el !== l || !t.startsWith(S.live.text.slice(0, S.live.done))) {
+    l.innerHTML = '<div class="live-done"></div><div class="live-tail"></div>'; S.live = { el: l, text: '', done: 0 };
+  }
+  const cut = liveCut(t), done = l.firstChild, tail = l.lastChild;
+  if (cut > S.live.done) { done.insertAdjacentHTML('beforeend', md(t.slice(S.live.done, cut))); S.live.done = cut; }
+  tail.innerHTML = md(t.slice(S.live.done)); S.live.text = t;
+  const ph = $('#phase'); if (ph) ph.textContent = 'Píšu…';
+  if (S.stick) $('#stream').scrollTop = 1e9; else jumpPill(true);
+}
 function render() { S.home = null; renderStream(); renderTop(); }
 
 /* ------------------------------------------------------------------ listy */
@@ -660,7 +679,10 @@ window.vega = {
         if (d.chat === chatId()) { render(); if (!S.stick) jumpPill(true); const sr = $('#sr'); if (sr && d.msg && d.msg.role !== 'user') sr.textContent = String(d.msg.text || '').slice(0, 400); }
         else if (d.chat !== 'temp' || S.space.kind !== 'temp') toast('VEGA: ' + String(d.msg.text || 'výsledek je hotový').slice(0, 120), 8000);
         break;
-      case 'delta': if (d.chat === chatId()) { S.stream = d.text; const l = $('#live'); if (l) { l.innerHTML = md(d.text); const ph = $('#phase'); if (ph) ph.textContent = 'Píšu…'; if (S.stick) $('#stream').scrollTop = 1e9; else jumpPill(true); } else { render(); if (!S.stick) jumpPill(true); } } break;
+      case 'delta': if (d.chat === chatId()) {
+          // přírůstek: from = délka, na kterou navazuje (0 = nové volání modelu); starší tvar bez from = celý text
+          S.stream = typeof d.from === 'number' ? S.stream.slice(0, Math.min(d.from, S.stream.length)) + d.text : d.text;
+          if ($('#live')) liveSoon(); else { S.live = null; render(); if (!S.stick) jumpPill(true); } } break;
       case 'phase': { const ph = $('#phase'); if (ph) ph.textContent = d.text; break; }
       case 'busy': S.busy = true; render(); break;
       case 'idle': S.busy = false; S.stream = ''; render(); break;

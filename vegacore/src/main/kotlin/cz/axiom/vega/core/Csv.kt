@@ -83,6 +83,7 @@ object Csv {
 
 /** Čísla a data v českém zápisu. */
 object CzNum {
+    private val NUM_CHARS = Regex("[0-9.,]+")
     private val currency = Regex("(?i)\\s*(kč|czk|eur|€|usd|\\$)\\s*")
 
     /**
@@ -98,7 +99,7 @@ object CzNum {
         if (s.startsWith("+")) s = s.drop(1)
         if (s.startsWith("-")) { neg = !neg; s = s.drop(1) }
         s = s.replace(" ", "").replace("'", "")
-        if (!s.matches(Regex("[0-9.,]+")) || !s.any(Char::isDigit)) return null
+        if (!s.matches(NUM_CHARS) || !s.any(Char::isDigit)) return null
         val lastComma = s.lastIndexOf(','); val lastDot = s.lastIndexOf('.')
         val normalized = when {
             lastComma >= 0 && lastDot >= 0 -> if (lastComma > lastDot) s.replace(".", "").replace(',', '.') else s.replace(",", "")
