@@ -60,3 +60,24 @@ class WebParseTest {
         assertTrue(cz.axiom.vega.web.Web.duckParse("<div class=\"anomaly-modal\">", 6).isEmpty())
     }
 }
+
+class QuickPlusTest {
+    private val now = java.time.ZonedDateTime.of(2026, 11, 20, 9, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun q(s: String) = cz.axiom.vega.calc.Quick.answer(s, now)
+
+    @Test fun vatPercentDatesAge() {
+        assertTrue(q("1000 Kč bez DPH")!!.contains("1 210 Kč s DPH"), q("1000 Kč bez DPH"))
+        assertTrue(q("kolik je 1 210 s DPH bez daně")!!.contains("1 000 Kč bez DPH"), q("kolik je 1 210 s DPH bez daně"))
+        assertTrue(q("500 bez DPH 12 %")!!.contains("560 Kč"), q("500 bez DPH 12 %"))
+        assertTrue(q("DPH z 2000")!!.contains("420 Kč"), q("DPH z 2000"))
+        assertTrue(q("o kolik procent je 120 víc než 100?")!!.contains("20 % víc"))
+        assertTrue(q("změna z 200 na 150 v %")!!.contains("pokles o 25 %"))
+        assertTrue(q("kolik procent je 30 ze 120")!!.contains("25 %"))
+        assertEquals("Za 30 dní bude 20. 12. 2026 (neděle).", q("za 30 dní"))
+        assertTrue(q("jaký den v týdnu je 24. 12. 2026")!!.endsWith("čtvrtek."))
+        assertTrue(q("kolik let je od 5. 3. 1990")!!.contains("uplynulo 36 let"), q("kolik let je od 5. 3. 1990"))
+        // běžné věty se nesmí chytit
+        assertNull(q("zítra pojedu za babičkou na 3 dny"))
+        assertNull(q("jaké je DPH na knihy v Česku"))
+    }
+}

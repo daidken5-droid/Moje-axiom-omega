@@ -240,5 +240,23 @@ Další pravidla:
 - [x] 29. Ranní shrnutí noci pro uživatele v `docs/vega/README.md` (všechny verze 1.4.0–1.4.x, co je NEOVĚŘENO na telefonu, co čeká na rozhodnutí)
   - **Výsledek:** tabulka verzí s otisky, seznam toho, co je NEOVĚŘENO na telefonu, a otevřená rozhodnutí na začátku README.
 
+## Uživatel: celkem 9 kol kontroly + opravdová vylepšení, shrnutí až potom
+Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživatel pozná.
+- [x] 30. Vylepšení: rychlé odpovědi bez modelu
+  - DPH (s / bez, 21 / 12 %), procentní změna, „o kolik %“;
+  - datum za N dní / týdnů, den v týdnu, věk / výročí;
+  - převody (dávky, plocha, objem, data).
+  - **Výsledek:** nové odpovědi přesně, offline, bez modelu a bez kvóty:
+    - DPH: „1000 bez DPH“ → 1 210 Kč, „1 210 s DPH“ → 1 000 Kč + DPH, „DPH z 2000“, sazba 21 / 12 / 0 % podle dotazu;
+    - procenta: „o kolik % je 120 víc než 100“, „změna z 200 na 150 v %“, „kolik procent je 30 ze 120“;
+    - data: „za 30 dní“ / „před 2 týdny“ / „za 3 měsíce“ s dnem v týdnu, „jaký den v týdnu je 24. 12. 2026“, „kolik let je od 5. 3. 1990“ včetně dalšího výročí.
+  - **Hranice:** běžné věty („pojedu za babičkou na 3 dny“, „jaké je DPH na knihy“) se nechytí. Jdou modelu, tam je potřeba úsudek.
+  - **Testy:** QuickPlusTest prošel, celkem 62 + 25 zelené.
+  - **Nehotové:** převody dávek, plochy a objemu nechávám na kolo 7 podle toho, co laik reálně píše.
+- [ ] 31. Red-team kolo 7: skutečné toky laika end-to-end. Robolectric scénáře „první spuštění → klíč → dotaz → soubor → export → paměť → zapomenutí“: hledat místa, kde VEGA odpoví špatně nebo nesrozumitelně. Opravy a vylepšení odpovědí.
+- [ ] 32. Red-team kolo 8: výkon, baterie, úložiště a odolnost (velké soubory, dlouhé chaty, výpadky sítě uprostřed, restart procesu uprostřed úlohy). Měření před a po.
+- [ ] 33. Red-team kolo 9: závěrečná kontrola celého nočního diffu (bezpečnost, správnost, mrtvý kód), regresní testy.
+- [ ] 34. Teprve teď: finální APK + shrnutí všech 9 kol pro uživatele
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
