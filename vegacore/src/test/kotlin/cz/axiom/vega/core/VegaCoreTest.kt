@@ -280,8 +280,10 @@ class VegaCoreTest {
 
     @Test fun researchCoverageOfLongInput() {
         val subs = listOf("Jaké jsou náklady na provoz?", "Kdo je odpovědný za údržbu?", "Jaký je harmonogram?")
-        val cov = Research.coverage(subs, "## Náklady na provoz\n...\n## Harmonogram\n...")
+        // pokrytí = obsah sekce, ne nadpis (nadpis jen opakuje otázku); „text to neuvádí“ = bez odpovědi
+        val cov = Research.coverage(subs, "## 1. Jaké jsou náklady na provoz?\nNáklady na provoz jsou 5 000 Kč měsíčně podle bodu 4.\n## 2. Kdo je odpovědný za údržbu?\nText to neuvádí.\n## 3. Jaký je harmonogram?\nStart v březnu, předání v září, kontrolní dny každý měsíc.")
         assertEquals(listOf(true, false, true), cov.map { it.second })
+        assertEquals(listOf(false), Research.coverage(listOf("Jaká je výpovědní lhůta?"), "## 1. Jaká je výpovědní lhůta?\nText to neuvádí.").map { it.second })
         assertEquals(2, Research.candidates(listOf("Wikipedie: Prato", "Web: Operace Prato – článek", "Wikipedie: Prato")).size)
     }
 }

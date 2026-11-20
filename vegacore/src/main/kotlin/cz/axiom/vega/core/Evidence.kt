@@ -45,6 +45,8 @@ object Evidence {
             val toks = (words + acr).distinct()
             if (toks.isNotEmpty()) origins += "txt:" + toks.joinToString(" ")
         }
+        // převzetí od agentury („podle ČTK“, „(ČTK)“, „informovala agentura Reuters“) = jedna linie, ne nezávislé zdroje
+        Regex("(?<!\\p{L})(ČTK|CTK|Reuters|AP|AFP|DPA|TASR|Bloomberg|PAP|APA|ANSA|EFE|Interfax|TASS|Xinhua)(?!\\p{L})").findAll(d.text).forEach { origins += "agentura:" + f(it.value).replace("ctk", "čtk") }
         // jen platná data (31. 2. se nezapočítá)
         val dates = Regex("\\b(\\d{1,2})\\.[\\s\u00a0]?(\\d{1,2})\\.[\\s\u00a0]?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
         val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")

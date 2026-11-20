@@ -7,10 +7,11 @@ object LongText {
 
     fun subQuestions(text: String, max: Int = 60): List<String> {
         val out = LinkedHashSet<String>()
-        numbered.findAll(text).forEach { out += it.groupValues[1].trim() }
+        // nejdřív otázky a pokyny uživatele, pak číslované body (ty mohou být dlouhý seznam a vytlačit otázky)
         text.replace('\n', ' ').split(Regex("(?<=[.?!])\\s+")).map { it.trim() }.forEach { s ->
             if (s.length in 6..400 && (s.endsWith("?") || imperative.containsMatchIn(s))) out += s
         }
+        numbered.findAll(text).forEach { out += it.groupValues[1].trim() }
         return out.toList().take(max)
     }
 

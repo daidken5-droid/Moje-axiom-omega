@@ -369,7 +369,24 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
     - Souhlas pro vlastní server platí jen pro jeho adresu.
   - **Testy:** Round11Test prošel, celkem 76 + 25 zelené.
 - [ ] 41. Kolo 12: projekty s kódem a rozšíření – celý tok
-- [ ] 42. Kolo 13: kvalita odpovědí – rešerše, web, důkazy, citace
+- [x] 42. Kolo 13: kvalita odpovědí – rešerše, web, důkazy, citace
+  - **Výsledek – ODPOVĚĎ VYPADALA OVĚŘENĚ, I KDYŽ NEBYLA, opraveno:**
+    - V dlouhé úloze vytlačily číslované články přílohy otázku uživatele, a karta přesto hlásila „Pokryto 20/20“. Požadavky se teď berou jen z textu uživatele a otázky jdou první.
+    - Pokrytí počítal i nadpis, který jen opakoval otázku. Teď se kontroluje obsah sekce a „text to neuvádí“ = bez odpovědi.
+    - „pokračuj“, „dál“, „anglicky“, „dobrou noc“… spouštěly rešerši na webu. Naopak teď projde „Apollo 11“.
+    - Karta „Opora ve zdroji“ ukázala jen věty s citací, jako by byla ověřená celá odpověď. Teď ukazuje „podloženo x z y tvrzení, z toho n bez citace“.
+  - **Web a zdroje:**
+    - Každý zdroj je ohraničený `<zdroj>` s datem a „[n]“ v jeho textu je zneškodněné, takže nejde podvrhnout zdroj.
+    - Prompt říká, že text zdrojů jsou data, ne pokyny.
+    - htmlToText odstraní komentáře a skrytý text (vložené pokyny) a nechá nadpis a datum článku.
+    - Kódování: meta v 16 kB, jinak UTF-8 nebo windows-1250. Pojmenované entity (–, „, š) a `&amp;` až nakonec.
+  - **Aktuálnost:**
+    - Datum revize Wikipedie se posílá modelu i do karty.
+    - Model zná dnešní datum a u aktuálních témat bez webu řekne, že nemá živá data.
+    - Model, ověřovač i karta vidí stejný výřez zdroje.
+  - **Důkazy:** převzetí od agentur (ČTK, Reuters…) = jedna linie, ne nezávislé zdroje.
+  - **Vylepšení z kola 11:** účtenka po placeném kroku („Zaplaceno: DeepSeek 1,20 Kč za tento krok · tento měsíc 41 z 500 Kč“).
+  - **Testy:** Round13Test (2 testy) prošel a test pokrytí je opravený, celkem 78 + 25 zelené.
 - [ ] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace
 - [ ] 44. Kolo 15: samoúpravy, druhé kolo
 - [ ] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí

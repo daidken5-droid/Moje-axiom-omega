@@ -142,12 +142,13 @@ function valueHtml(v, rows = 6) {
   return `<pre>${esc(String(v.text ?? v.preview ?? '').slice(0, 3000))}</pre>`;
 }
 /** Opora ve zdroji: u každého tvrzení výsledek pro KONKRÉTNÍ citovanou pasáž; klepnutí otevře pasáž v originále. */
-const CHK = { PODPORUJE: ['ok', 'podporuje'], ODPORUJE: ['bad', 'odporuje'], NEDOSTACUJE: ['', 'nedostačuje'], NEVYHODNOCENO: ['', 'nevyhodnoceno'] };
+const CHK = { PODPORUJE: ['ok', 'podporuje'], ODPORUJE: ['bad', 'odporuje'], NEDOSTACUJE: ['', 'nedostačuje'], NEVYHODNOCENO: ['', 'nevyhodnoceno'], NECITOVANO: ['', 'bez citace'] };
 function checksHtml(c) {
   const ch = c.checks || []; if (!ch.length) return '';
-  const allNev = ch.every(x => x.label === 'NEVYHODNOCENO');
-  if (allNev) return `<div class="note">Opora citací: nevyhodnoceno – ${esc(ch[0].reason)}</div>`;
-  return `<div class="res"><div class="res-h">Opora ve zdroji</div><div class="res-body">${ch.map((x, i) => `<button class="chk" style="width:100%;text-align:left" data-act="chkOpen" data-i="${i}" data-c='${esc(JSON.stringify({ x, item: (c.items || []).find(s => s.n === x.n) || null }))}'><span class="pill ${CHK[x.label][0]}">[${x.n}] ${CHK[x.label][1]}</span><span><b>${esc(x.claim)}</b><small>${esc(x.kind)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></span></button>`).join('')}</div></div>`;
+  const cited = ch.filter(x => x.label !== 'NECITOVANO'), unc = ch.length - cited.length;
+  if (cited.length && cited.every(x => x.label === 'NEVYHODNOCENO')) return `<div class="note">Opora citací: nevyhodnoceno – ${esc(cited[0].reason)}${unc ? ` · ${unc} vět bez citace` : ''}</div>`;
+  const ok = cited.filter(x => x.label === 'PODPORUJE').length;
+  return `<div class="res"><div class="res-h">Opora ve zdroji · podloženo ${ok} z ${ch.length} tvrzení${unc ? ` (${unc} bez citace)` : ''}</div><div class="res-body">${ch.map((x, i) => `<button class="chk" style="width:100%;text-align:left" data-act="chkOpen" data-i="${i}" data-c='${esc(JSON.stringify({ x, item: (c.items || []).find(s => s.n === x.n) || null }))}'><span class="pill ${CHK[x.label][0]}">[${x.n}] ${CHK[x.label][1]}</span><span><b>${esc(x.claim)}</b><small>${esc(x.kind)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></span></button>`).join('')}</div></div>`;
 }
 const diffHtml = d => `<pre class="diff">${String(d || '').split('\n').slice(0, 400).map(l => `<span class="${l.startsWith('@@') ? 'h' : l[0] === '+' ? 'a' : l[0] === '-' ? 'd' : ''}">${esc(l)}</span>`).join('\n')}</pre>`;
 
