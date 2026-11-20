@@ -205,7 +205,27 @@ Další pravidla:
 ## Další kolo 6 (pro další probuzení)
 - [x] 24. Doručit APK 1.4.3 (CI), SHA-256
   - **Výsledek:** `VEGA-fef8147.apk` (1.4.3, versionCode 9), SHA-256 `eae025c75e2ea8668912f349badaef21903144e989e041b9f291ce802872dd98`, certifikát `4557a2ce…cdb4`. Doručeno uživateli.
-- [ ] 25. Red-team kolo 5: Memory / Evidence / Econ / Grounding (paměť a její zapomínání, důkazy a nezávislost zdrojů, výpočty, ověřovač citací)
+- [x] 25. Red-team kolo 5: Memory / Evidence / Econ / Grounding (paměť a její zapomínání, důkazy a nezávislost zdrojů, výpočty, ověřovač citací)
+  - **Výsledek – chybné výpočty, opraveno:**
+    - Tarif nad 12 měsíců: roční se účtoval jen jednou (24 měsíců: „o 1 680 Kč levněji“ místo správných 480 Kč). Teď se počítá každý započatý rok, u vratného poměrná část.
+    - „Roční 1200 Kč / měsíční 120 Kč“: měsíční cena převzala roční číslo.
+    - Neúplné „a kdyby cena byla 150?“ přepsalo uloženou kalkulaci neúplnými daty. Teď se doplní z uložené kalkulace.
+  - **Další opravy:**
+    - Kopie téže URL (tečka na konci, `#kotva`, `www`) se počítaly jako nezávislé zdroje. Naopak různá videa YouTube splynula v jeden zdroj.
+    - Zkratka „ČTK“ se v testu (JVM) četla jako „TK“, takže se lišila od telefonu.
+    - Datum s pevnou mezerou.
+    - Zapomenutí bez otevřeného projektu mazalo ve VŠECH projektech. Teď jen v globální paměti a podle celých slov.
+    - Tajné údaje v paměti: „heslo k wifi je…“, „password is…“, číslo účtu, IBAN a rodné číslo se neuloží.
+  - **Testy:** Round5Test (3 testy), celkem 60 + 25 zelené. Verze 1.4.4 (versionCode 10).
+
+## Další kolo 7 (pro další probuzení)
+- [ ] 26. Doručit APK 1.4.4 (CI), SHA-256
+- [ ] 27. Zbytek kola 5:
+  - po zapomenutí nenechat kopii v historii chatu (neopakovat zapomenutý text, vyřadit ho z kontextu modelu);
+  - smazat navázané `econ` / `tariff`;
+  - Grounding: když okno vynechá větu s negací nebo s obsahovými slovy tvrzení, vrátit NEVYHODNOCENO;
+  - dělič vět nesmí být kvadratický;
+  - Econ: porovnávat zaokrouhlené hodnoty.
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

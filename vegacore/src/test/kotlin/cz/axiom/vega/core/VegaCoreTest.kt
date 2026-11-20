@@ -124,7 +124,8 @@ class VegaCoreTest {
         assertTrue(m2.context("project:b")?.contains("Jestu") != true)
         // zapomenutí: záznam, index i návrat ze shrnutí
         assertTrue(m2.index().keys.any { it.startsWith("jestu") })
-        assertEquals(1, m2.forget("Jest").size)
+        assertEquals(0, m2.forget("Jest").size) // bez otevřeného projektu se v projektech nemaže
+        assertEquals(1, m2.forget("Jest", "project:a").size)
         assertTrue(m2.index().keys.none { it.startsWith("jestu") })
         val m3 = Memory(kv) { now }
         assertTrue(m3.importFromSummary(listOf("- Testy píšeme v Jestu", "- Mám rád tabulky")).map { it.text } == listOf("Mám rád tabulky"))

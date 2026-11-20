@@ -21,24 +21,32 @@ object Evidence {
     private val citeRx = Regex("(?:podle|cituje|odkazuje na|prevzato z|zdroj(?:em)?:?|jak uvedl[ao]?|informoval[ao]?)\\s+(?:anonymni(?:ho)?\\s+)?((?:prispev\\w*|zprav\\w*|clan\\w*|tweet\\w*|video\\w*|post\\w*|blog\\w*|svedect\\w*|vypoved\\w*)[^.;\\n]{0,60})")
     private val urlRx = Regex("https?://[^\\s)\"'>]+")
 
+    /** Stejná adresa = stejný původ: bez interpunkce na konci, kotvy, www a lomítka; z dotazu jen klíče identity (v, id, p…). */
+    fun normUrl(u: String): String {
+        val x = u.trimEnd('.', ',', ';', ':', '“', '”', '»', '!', '?').substringBefore('#').lowercase()
+        val base = x.substringBefore('?').substringAfter("://").removePrefix("www.").removeSuffix("/")
+        val keep = x.substringAfter('?', "").split('&').filter { it.substringBefore('=') in setOf("v", "id", "p", "t", "article", "aid", "story") }.sorted()
+        return if (keep.isEmpty()) base else base + "?" + keep.joinToString("&")
+    }
+
     fun parse(d: Doc): Parsed {
         val t = f(d.text)
         val origins = LinkedHashSet<String>()
         // URL = přesný původ (hostitel + cesta), porovnává se jen shodou celé adresy
-        urlRx.findAll(d.text).forEach { origins += "url:" + it.value.lowercase().removeSuffix("/").substringBefore("?").substringAfter("://").removePrefix("www.") }
+        urlRx.findAll(d.text).forEach { origins += "url:" + normUrl(it.value) }
         // textový původ = kmeny slov (5 písmen) + zkratky z velkých písmen (ČTK, ČT): „příspěvku na fóru Kvasar“ = „příspěvek na fóru Kvasar,“
         citeRx.findAll(t).forEach { m ->
             // jen popis ZDROJE: končí na čárce, číslu nebo slovese/spojce (jinak by se texty „shodly“ na slovech děje)
             val g = m.groupValues[1].split(',', ';', ':')[0]
             val cut = g.split(Regex("\\s+")).takeWhile { w -> w !in BREAK && !w.any(Char::isDigit) }.joinToString(" ")
             val orig = if (t.length == d.text.length) d.text.substring(m.groups[1]!!.range.first, m.groups[1]!!.range.first + cut.length) else ""
-            val acr = Regex("\\b\\p{Lu}{2,6}\\b").findAll(orig).map { f(it.value) }
+            val acr = Regex("(?<!\\p{L})\\p{Lu}{2,6}(?!\\p{L})").findAll(orig).map { f(it.value) }
             val words = cut.replace(Regex("[^a-z ]"), " ").split(Regex("\\s+")).filter { it.length > 3 && it !in STOP }.take(5).map { it.take(5) }
             val toks = (words + acr).distinct()
             if (toks.isNotEmpty()) origins += "txt:" + toks.joinToString(" ")
         }
         // jen platná data (31. 2. se nezapočítá)
-        val dates = Regex("\\b(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
+        val dates = Regex("\\b(\\d{1,2})\\.[\\s\u00a0]?(\\d{1,2})\\.[\\s\u00a0]?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
         val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")
         val mm = mRx.find(t)
         val motive = mm != null

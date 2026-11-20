@@ -55,7 +55,9 @@ object Mem {
 
     private val secretRx = listOf(
         Regex("(?i)\\b(sk|pk|rk)-[a-z0-9_-]{16,}"), Regex("(?i)\\bghp_[A-Za-z0-9]{20,}"), Regex("(?i)\\bAKIA[0-9A-Z]{16}\\b"), Regex("(?i)\\bAIza[0-9A-Za-z_-]{30,}"),
-        Regex("(?i)\\b(heslo|password|passwd|pin|token|api[ _-]?key|klíč k api|secret)\\b\\s*[:=je]+\\s*\\S{4,}"), Regex("(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+        Regex("(?i)(?<!\\p{L})(hesl[oaemu]\\p{L}*|password|passwd|pin|token|api[ _-]?key|klíč k api|secret)(?!\\p{L}).{0,30}?(\\s(je|is|zní)\\s|[:=])\\s*\\S{4,}"),
+        // čísla účtů / IBAN / rodné číslo
+        Regex("\\b[A-Z]{2}\\d{2}(?: ?[A-Z0-9]{4}){3,7}\\b"), Regex("\\b(\\d{2,6}-)?\\d{6,10}/\\d{4}\\b"), Regex("\\b\\d{6}/\\d{3,4}\\b"), Regex("(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
         Regex("\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{4}\\b"),
         // klíče poskytovatelů (Groq gsk_, Cerebras csk-, xAI, Google OAuth, Slack, Hugging Face)
         Regex("(?i)\\b(gsk_|csk-|xai-|ya29\\.|xox[bpa]-|hf_)[A-Za-z0-9_.-]{12,}"),
@@ -140,7 +142,9 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         val q = Text.fold(idOrQuery).lowercase().trim()
         val hit = list.filter { it.id == idOrQuery } .ifEmpty {
             val words = Text.words(q, 3).map { it.take(6) }
-            list.filter { e -> (scope == null || e.scope == scope || e.scope == "global") && words.isNotEmpty() && words.all { w -> Text.fold(e.text).lowercase().contains(w) } }
+            // bez otevřeného projektu jen globální paměť (ne „všechny projekty“); shoda celých slov (podle kmene), ne podřetězce
+            val sc = scope ?: "global"
+            list.filter { e -> (e.scope == sc || e.scope == "global") && words.isNotEmpty() && Text.words(Text.fold(e.text).lowercase(), 3).let { ew -> words.all { w -> ew.any { it.startsWith(w) } } } }
         }
         if (hit.isEmpty()) return emptyList()
         val ts = tombstones()

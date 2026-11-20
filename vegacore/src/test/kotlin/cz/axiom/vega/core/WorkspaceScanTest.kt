@@ -71,3 +71,30 @@ class CodeAgentParseTest {
         assertTrue((p.edits[0] as CodeAgent.Edit.Create).content.contains("### UPRAVIT: src/a.js"))
     }
 }
+
+class Round5Test {
+    @Test fun tariffOverYearAndMonthlyParsing() {
+        val t = Econ.parseTariff("Roční 1200 Kč / měsíční 120 Kč, budu ho používat 24 měsíců")!!
+        assertEquals(120.0, t.monthly, "měsíční cena nesmí převzít roční číslo"); assertEquals(1200.0, t.yearly)
+        val a = Econ.tariffAnswer(t)
+        assertTrue(a.contains("o 480 Kč") || a.contains("o 480,00 Kč"), a) // 24 × 120 = 2 880 vs. 2 × 1 200 = 2 400
+        assertEquals(120.0, Econ.parseTariff("roční 1 200 Kč, nebo 120 Kč/měsíc")!!.monthly)
+    }
+
+    @Test fun evidenceUrlCopiesAndCzechAcronyms() {
+        assertEquals(Evidence.normUrl("https://x.cz/a"), Evidence.normUrl("https://www.x.cz/a/."))
+        assertEquals(Evidence.normUrl("https://x.cz/a#top"), Evidence.normUrl("https://x.cz/a,"))
+        assertTrue(Evidence.normUrl("https://youtube.com/watch?v=AAA") != Evidence.normUrl("https://youtube.com/watch?v=BBB"))
+        val o = Evidence.parse(Evidence.Doc("d", "Podle zprávy ČTK z pondělí se to stalo.")).origins
+        assertTrue(o.any { it.contains("čtk") || it.contains("ctk") }, o.toString())
+    }
+
+    @Test fun secretsInMemoryAndForgetScope() {
+        for (s in listOf("heslo k wifi je Kocour2024", "my password is hunter22", "účet 123456789/0100", "CZ65 0800 0000 1920 0014 5399")) assertTrue(Mem.looksSecret(s), s)
+        val m = Memory(MemKv())
+        m.remember("v projektu používej středník", "project:a", Mem.Kind.PROJECT_FACT)
+        m.remember("piš stručně", "global", Mem.Kind.PREFERENCE)
+        assertTrue(m.forget("středník", null).isEmpty(), "bez otevřeného projektu se nemaže v projektech")
+        assertEquals(1, m.forget("středník", "project:a").size)
+    }
+}

@@ -96,7 +96,7 @@ object Econ {
     fun parseTariff(raw: String, prev: Tariff? = null): Tariff? {
         val t = f(raw)
         val y = near(t, "rocni\\w*(?: tarif| predplatne| platba| licence| varianta)?|za rok|rocne") ?: prev?.yearly
-        val m = Regex("$NUM\\s*(?:kc)?\\s*(?:mesicne|za mesic|/\\s*mesic|mesicni)").find(t)?.let { num(it.groupValues[1]) } ?: near(t, "mesicni\\w*(?: tarif| platba| varianta)?|mesicne") ?: prev?.monthly
+        val m = Regex("$NUM\\s*(?:kc)?\\s*(?:mesicne|za mesic|/\\s*mesic(?!n)|mesicni)").find(t)?.let { num(it.groupValues[1]) } ?: near(t, "mesicni\\w*(?: tarif| platba| varianta)?|mesicne") ?: prev?.monthly
         if (y == null || m == null) return null
         val months = Regex("(?:budu (?:ho |to )?(?:pouzivat|platit|potrebovat)|na|po dobu|pouziju)\\s+$NUM\\s*mesic").find(t)?.let { num(it.groupValues[1]) }
             ?: Regex("$NUM\\s*mesic\\w* (?:pouziti|vyuziti|pouzivani)").find(t)?.let { num(it.groupValues[1]) } ?: prev?.months
@@ -108,7 +108,8 @@ object Econ {
     fun isTariffQuestion(raw: String) = Regex("rocni|za rok|rocne").containsMatchIn(f(raw)) && Regex("mesic").containsMatchIn(f(raw)) && Regex("\\d").containsMatchIn(raw)
 
     private fun costMonthly(t: Tariff, n: Double) = maxOf(n, t.monthlyMin ?: 0.0) * t.monthly
-    private fun costYearly(t: Tariff, n: Double) = if (t.refundable) t.yearly * minOf(n, 12.0) / 12.0 else t.yearly
+    /** Roční tarif na [n] měsíců: nevratný = každý započatý rok celý; vratný = poměrná část (po letech i zbytek). */
+    private fun costYearly(t: Tariff, n: Double) = if (t.refundable) t.yearly * n / 12.0 else t.yearly * kotlin.math.ceil(n / 12.0 - 1e-9).coerceAtLeast(1.0)
 
     fun tariffAnswer(t: Tariff): String {
         val sb = StringBuilder()

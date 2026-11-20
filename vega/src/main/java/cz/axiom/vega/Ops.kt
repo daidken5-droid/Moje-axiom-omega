@@ -1130,7 +1130,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // bod zvratu
         val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
         if (cz.axiom.vega.core.Econ.isUnitQuestion(text) && !(econ != null && cz.axiom.vega.core.Econ.isUnitCorrection(text) && cz.axiom.vega.core.Econ.parseUnit(text).let { listOfNotNull(it.price, it.variable, it.fixed).size < 2 })) {
-            val u = cz.axiom.vega.core.Econ.parseUnit(text)
+            val u0 = cz.axiom.vega.core.Econ.parseUnit(text)
+            // „a kdyby cena byla 150?“ s uloženou kalkulací: doplnit chybějící údaje z ní (a nikdy ji nepřepsat neúplnými daty)
+            val u = if (cz.axiom.vega.core.Econ.unitAnswer(u0) == null && econ != null) econ.merge(u0) else u0
             val res = cz.axiom.vega.core.Econ.unitAnswer(u, cz.axiom.vega.core.Econ.claim(text)) ?: run { reply(chat, "Chybí mi ${listOfNotNull("cena".takeIf { u.price == null }, "variabilní náklad na kus".takeIf { u.variable == null }, "fixní náklady".takeIf { u.fixed == null }).joinToString(" a ")} – napiš ${if (u.price == null && u.variable == null) "je" else "ho"} a spočítám zisk i bod zvratu."); kv.write(econKey(scope), u.json()); return true }
             saveEcon(scope, u); reply(chat, res.text, econCard(u, res)); return true
         }
