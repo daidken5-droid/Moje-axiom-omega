@@ -274,7 +274,7 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
 - [ ] 31. Red-team kolo 7: skutečné toky laika end-to-end. Robolectric scénáře „první spuštění → klíč → dotaz → soubor → export → paměť → zapomenutí“: hledat místa, kde VEGA odpoví špatně nebo nesrozumitelně. Opravy a vylepšení odpovědí.
 - [ ] 32. Red-team kolo 8: výkon, baterie, úložiště a odolnost (velké soubory, dlouhé chaty, výpadky sítě uprostřed, restart procesu uprostřed úlohy). Měření před a po.
 - [ ] 33. Red-team kolo 9: závěrečná kontrola celého nočního diffu (bezpečnost, správnost, mrtvý kód), regresní testy.
-- [ ] 34. Teprve teď: finální APK + shrnutí všech 9 kol pro uživatele
+- [x] 34. Teprve teď: finální APK + shrnutí všech 9 kol pro uživatele
 
 ## Vrstva C (uživatel: „chci, aby se aplikace mohla kompletně sama upravovat“)
 - [x] 35. Samoúpravy aplikace 1.5.0
@@ -336,7 +336,8 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
     - neplatné komentáře a mrtvé pole PR jsou pryč;
     - „vrať to, prosím“ / „vrať změny“ / „padají“ zase fungují.
   - **Testy:** Round9Test (3 testy), celkem 75 + 25 zelené.
-- [ ] 34. Finální APK + shrnutí všech 9 kol
+- [x] 34. Finální APK + shrnutí všech 9 kol
+  - **Výsledek:** `VEGA-46851df.apk` (1.5.2), SHA-256 `51d3595e8cff0f0df1c50cc687804ecac9dc8e22089c6d894d1db1e456e22b47`. Shrnutí je na začátku README.
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

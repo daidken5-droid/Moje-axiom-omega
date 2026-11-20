@@ -1,4 +1,56 @@
-# VEGA 1.4 – předávací přehled
+# VEGA 1.5 – předávací přehled
+
+## Shrnutí: 9 kol red-team kontroly + vylepšení (1.4.0 → 1.5.2)
+
+**Finální APK:** `VEGA-46851df.apk` (1.5.2)
+- **SHA-256:** `51d3595e8cff0f0df1c50cc687804ecac9dc8e22089c6d894d1db1e456e22b47`
+- **Certifikát:** `4557a2ce…cdb4`, stejný jako u všech předchozích verzí, takže jde nainstalovat přes ně.
+- **Testy:** jádro 75 a aplikace 25, vše zelené.
+- **Kde se testovalo:** jen hostitel (JVM + Robolectric, Chromium). Na telefonu ani v emulátoru se v noci nic neověřovalo.
+
+| Kolo | Oblast | Nejvážnější nález → oprava |
+|---|---|---|
+| 1 | nové jádro (síť, LLM, výpočty) | **SSRF:** přes DNS / IPv6 do lokální sítě.<br>**Rozpočet:** souběžná placená volání ho mohla přečerpat. |
+| 2 | autonomie (návrh rozšíření) | odmítnutí se počítalo jako chyba nástroje; souhlas neuváděl, že jde ven deník |
+| 3 | most JS ↔ Kotlin, sdílení | **Klíče:** dočasná chyba Keystore mazala API klíč.<br>**Projekt:** `../..` jako „projekt“.<br>**Pád rendereru** se opakoval dokola. |
+| 4 | projekty a soubory | **klíče služebních účtů Google / Firebase šly modelu**; obejití `.env` mezerou; diff shazoval paměť; windows-1250 se poškodil |
+| 5 | paměť, důkazy, výpočty | **Tarif:** nad 12 měsíců počítán špatně (o 1 680 Kč místo 480 Kč).<br>**Kalkulace:** „a kdyby“ ji přepsalo.<br>**Zapomenutí** mazalo ve všech projektech. |
+| 6 | router, výpisy bank, postupy | **tiše špatné součty:** změněná hlavička četla zůstatek, různé měny se sčítaly, duplicitní soubor zdvojil CELKEM |
+| 7 | samoúpravy aplikace | **KRITICKÉ:**<br>• kód modelu by se podepsal a nainstaloval bez přezkoumání;<br>• podpisový klíč byl dosažitelný z běhu s kódem modelu. |
+| 8 | toky laika, odolnost | **Regrese:** úklid mazal konverzace projektů.<br>**Ztráta práce:** po zabití procesu.<br>**Výpadek sítě:** končil anglickým toastem. |
+| 9 | závěrečná kontrola celku | **Ztráta konverzací:** po obnově poškozeného seznamu by úklid smazal všechny staré.<br>**Hlídač samoúprav:** šel obejít přes `gh().headers`.<br>**Výpisy bez hlavičky:** první pohyb chyběl v součtu (starší chyba). |
+
+### Opravdová vylepšení (co uživatel pozná)
+- **Rychlé odpovědi bez modelu** (přesně, offline, bez kvóty):
+  - DPH (s / bez, 21 / 12 %), procenta a procentní změna;
+  - datum za N dní / týdnů / měsíců s dnem v týdnu, den v týdnu, věk a výročí;
+  - převody plochy, kuchyňských měr, dat (GB / GiB), času a energie.
+- **Výpisy:** součty po měnách, rozpoznání amerických tisíců (`1,500`), výpisy bez hlavičky, návrat uloženého postupu na předchozí verzi.
+- **Spolehlivost:**
+  - „Pokračovat“ i po zabití aplikace;
+  - chyby zůstávají v chatu;
+  - poškozená data aplikaci nezaseknou;
+  - srozumitelné hlášky pro Wi-Fi s přihlášením a plné úložiště.
+- **Autonomie:**
+  - deník slabin;
+  - naučená pravidla routeru;
+  - vlastní rozšíření v sandboxu;
+  - **samoúpravy aplikace** („vylepši se: …“) s hlídačem, CI bez klíčů a instalací až z přehledu změn.
+
+### Co je potřeba od uživatele (samoúpravy)
+Návod je v `AUTONOMIE.md`:
+1. Token jen Contents RW + Actions Read (bez Workflows).
+2. Ruleset omezující větve na `vega/auto-*`.
+3. Podpisový klíč v prostředí `vega-sign`.
+
+Bez toho samoúpravy připraví změnu, ale APK nepodepíšou.
+
+### Rozhodnutí, která jsem udělal
+- **DNS rebinding:** známá mezera s nízkým rizikem, zdokumentovaná. Plná oprava (OkHttp s vlastním resolverem) až s testem na telefonu.
+- **`Ops.kt` nerozděluji:** přesun 1 600 řádků bez testu na telefonu je riziko bez přínosu pro uživatele.
+
+---
+
 
 ## Ranní shrnutí noci 19./20. 11. 2026 (1.4.0 → 1.4.5)
 
