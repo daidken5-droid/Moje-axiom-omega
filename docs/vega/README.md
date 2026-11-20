@@ -1,4 +1,12 @@
-# VEGA 1.7 – předávací přehled
+# VEGA 1.8 – předávací přehled
+
+## 1.8.0 (kolo „laik“)
+- **APK:** `VEGA-f4d1062.apk` (versionCode 466187)
+- **SHA-256:** `a67df8ace31ba7e7eed20bf58b03127e6197b5abda141ae613199c80306b97de`
+- **Certifikát:** `4557a2ce…cdb4`
+
+Podrobnosti jsou v PLAN-NOC.md, bod 54. Ověřeno jen na hostiteli.
+
 
 ## 1.7.0
 - **APK:** `VEGA-f5a18ed.apk` (versionCode 465886)
