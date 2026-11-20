@@ -8,6 +8,8 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const J = (s, d = null) => { if (s === '' || s == null) return d; try { const v = JSON.parse(s); if (v && v.error) { toast(v.error); return d; } return v; } catch (e) { return s; } };
 const call = (m, ...a) => J(B[m](...a.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x))));
+/** Akce, která rozběhne úlohu: chyba mostu (null) nesmí nechat UI „zaneprázdněné“ navždy. */
+const busyCall = (m, ...a) => { S.busy = true; S.busyChat = chatId(); const r = call(m, ...a); if (r === null) S.busy = false; return r; };
 const fmt = n => Number(n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** Odkaz jen pro http(s) – „javascript:“ z NFC štítku, webu nebo modelu se nikdy nestane klikatelným. */
 const safeUrl = u => /^https?:\/\/[^\s"'<>]+$/i.test(String(u || '')) ? String(u) : null;
@@ -30,8 +32,23 @@ function md(t) {
   return String(t || '').split(/```/).map((b, i) => i % 2 ? `<pre>${esc(b.replace(/^\w*\n/, ''))}</pre>` :
     esc(b).replace(/^#{2,3} (.*)$/gm, '<h3>$1</h3>').replace(/^# (.*)$/gm, '<h3>$1</h3>')
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\s)_(.+?)_(?=\s|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/^[-•] (.*)$/gm, '• $1').replace(/\[(\d+)\]/g, '<sup>[$1]</sup>').replace(/\n/g, '<br>')).join('');
+      .replace(/^[-•] (.*)$/gm, '• $1')
+      // odkazy: [text](https://…) i holé https://… – jen http(s) přes safeUrl (escapovaný text, žádné javascript:)
+      .replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)<>"']+)\)/g, (m, t, u) => linkEsc(u, t))
+      .replace(/(^|[\s(])(https?:\/\/[^\s<>"')]+[^\s<>"').,;:!?])/g, (m, p, u) => p + linkEsc(u, u.length > 48 ? u.slice(0, 45) + '…' : u))
+      .replace(/\[(\d+)\]/g, '<sup>[$1]</sup>').replace(/\n/g, '<br>')).join('');
 }
+/** „↓ Nová odpověď“: když uživatel čte výš, obrazovka neskáče dolů – jen nabídne skok. */
+function jumpPill(on) {
+  let b = $('#jump');
+  if (!on) { if (b) b.remove(); return; }
+  if (b || $('#layer .sheet')) return; // nad otevřeným dialogem ne
+  b = document.createElement('button'); b.id = 'jump'; b.className = 'jump'; b.type = 'button'; b.textContent = '↓ Nová odpověď';
+  b.addEventListener('click', () => { const st = $('#stream'); st.scrollTop = st.scrollHeight; S.stick = true; jumpPill(false); });
+  document.body.appendChild(b);
+}
+/** Odkaz z UŽ escapovaného textu (md) – adresu vrátit do původní podoby jen pro kontrolu, do atributu zase escapovaně. */
+function linkEsc(u, label) { const raw = u.replace(/&amp;/g, '&'); return safeUrl(raw) ? `<a href="${esc(raw)}" rel="noopener">${label}</a>` : label; }
 const plural = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 function hello() {
   const h = new Date().getHours();
@@ -69,8 +86,10 @@ function renderStream() {
   el.innerHTML = (shown.length < list.length ? `<button class="pill older" data-act="older">Zobrazit starší zprávy (${list.length - shown.length})</button>` : '') + shown.map(m => m.role === 'user'
     ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
     : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${card(m.card, m === last)}</div>`).join('') +
-    (S.busy ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
-  el.scrollTop = el.scrollHeight;
+    (S.busy && (!S.busyChat || S.busyChat === chatId()) ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
+  if (!el.dataset.sl) { el.dataset.sl = '1'; el.addEventListener('scroll', () => { S.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (S.stick) jumpPill(false); }, { passive: true }); }
+  if (S.stick !== false) el.scrollTop = el.scrollHeight;
+  el.setAttribute('aria-busy', S.busy ? 'true' : 'false');
   S.lastCard = [...list].reverse().find(m => m.card && m.card.type === 'run')?.card || null;
   renderChips();
 }
@@ -241,13 +260,19 @@ function render() { S.home = null; renderStream(); renderTop(); }
 function sheet(html, full) {
   // otevřený dotaz (souhlas / schválení ceny) nesmí tiše zmizet pod jiným listem – úloha by čekala 5 minut
   if (S.req && !html.includes('data-act="answer"')) { toast('Nejdřív odpověz na otevřený dotaz.'); return; }
+  const prev = document.activeElement && !document.activeElement.closest('#layer') ? document.activeElement : S.prevFocus;
   closeSheet(true);
   $('#layer').innerHTML = `<div class="scrim" data-act="close"></div><div class="sheet ${full ? 'full' : ''}" role="dialog" aria-modal="true">${full ? `<div class="inline"><span class="grow"></span><button class="iconbtn" data-act="close" aria-label="Zavřít">✕</button></div>` : '<div class="grab"></div>'}${html}</div>`;
+  // přístupnost: dialog pojmenovaný nadpisem, fokus do dialogu, po zavření zpět
+  S.prevFocus = prev;
+  const h = $('#layer .sheet h2'); if (h) { h.id = 'sheetTitle'; h.tabIndex = -1; $('#layer .sheet').setAttribute('aria-labelledby', 'sheetTitle'); h.focus({ preventScroll: true }); }
 }
 /** Zavření listu s otevřeným dotazem (souhlas / schválení) = odpověď „ne“ – úloha nečeká 5 minut. */
 function closeSheet(silent) {
   if (S.req && !silent) { B.answer(S.req, JSON.stringify({ ok: false })); S.req = null; }
+  const had = !!$('#layer .sheet');
   $('#layer').innerHTML = '';
+  if (had && S.prevFocus && document.contains(S.prevFocus)) { try { S.prevFocus.focus({ preventScroll: true }); } catch (e) {} S.prevFocus = null; }
 }
 
 function plusSheet() {
@@ -294,7 +319,7 @@ function runTool() {
   const input = S.toolInput || (text ? { text } : S.files.length ? { file: S.files[S.files.length - 1].id } : null);
   if (!input) { toast('Chybí vstup – vlož text nebo přilož soubor.'); (tt || $('#input')).focus(); return; }
   closeSheet(true);
-  S.busy = true; S.stream = '';
+  S.busy = true; S.busyChat = chatId(); S.stream = '';
   call('runTool', chatId(), t.id, input, params);
   if (input.text) { $('#input').value = ''; autosize(); }
   if (input.file) S.files = S.files.filter(f => f.id !== input.file);
@@ -486,7 +511,8 @@ function autosize() { const i = $('#input'); i.style.height = 'auto'; i.style.he
 function setSpace(sp) {
   S.space = sp; S.tool = null; S.toolInput = null; S.stream = ''; S.lastCard = null;
   call('activate', sp.kind === 'project' ? sp.id : '');
-  closeSheet(true); render();
+  if (!S.req) closeSheet(true); // otevřený souhlas nesmí tiše zmizet (úloha by čekala 5 minut)
+  S.stick = true; render();
 }
 
 /* ------------------------------------------------------------------ JS testy: izolovaný Worker, bez sítě, limit času.
@@ -595,9 +621,10 @@ window.vega = {
       case 'message':
         S.stream = ''; if (!(d.msg && d.msg.card && d.msg.card.type === 'nfcWait')) S.nfc = false;
         if (d.chat === 'temp') S.tempMsgs.push(d.msg);
-        if (d.chat === chatId()) render(); else if (d.chat !== 'temp') toast('VEGA: ' + String(d.msg.text || 'výsledek je hotový').slice(0, 80));
+        if (d.chat === chatId()) { render(); if (!S.stick) jumpPill(true); const sr = $('#sr'); if (sr && d.msg && d.msg.role !== 'user') sr.textContent = String(d.msg.text || '').slice(0, 400); }
+        else if (d.chat !== 'temp' || S.space.kind !== 'temp') toast('VEGA: ' + String(d.msg.text || 'výsledek je hotový').slice(0, 120), 8000);
         break;
-      case 'delta': if (d.chat === chatId()) { S.stream = d.text; const l = $('#live'); if (l) { l.innerHTML = md(d.text); const ph = $('#phase'); if (ph) ph.textContent = 'Píšu…'; $('#stream').scrollTop = 1e9; } else render(); } break;
+      case 'delta': if (d.chat === chatId()) { S.stream = d.text; const l = $('#live'); if (l) { l.innerHTML = md(d.text); const ph = $('#phase'); if (ph) ph.textContent = 'Píšu…'; if (S.stick) $('#stream').scrollTop = 1e9; else jumpPill(true); } else { render(); if (!S.stick) jumpPill(true); } } break;
       case 'phase': { const ph = $('#phase'); if (ph) ph.textContent = d.text; break; }
       case 'busy': S.busy = true; render(); break;
       case 'idle': S.busy = false; S.stream = ''; render(); break;
@@ -607,10 +634,10 @@ window.vega = {
       case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
-        if (S.awaitTry) { S.awaitTry = false; if (ok.length) { S.busy = true; call('buttonTry', chatId(), ok[0].id); render(); } return; }
+        if (S.awaitTry) { S.awaitTry = false; if (ok.length) { busyCall('buttonTry', chatId(), ok[0].id); render(); } return; }
         if (S.awaitProc) { // soubor vybraný pro uložený nástroj patří jen jemu
           const id = S.awaitProc; S.awaitProc = null;
-          if (ok.length) { S.busy = true; call('runProcedure', chatId(), id, { file: ok[0].id }); render(); if (ok.length > 1) toast('Nástroj jsem spustil na prvním souboru.'); }
+          if (ok.length) { busyCall('runProcedure', chatId(), id, { file: ok[0].id }); render(); if (ok.length > 1) toast('Nástroj jsem spustil na prvním souboru.'); }
           return;
         }
         S.files = S.files.concat(ok); renderChips(); break;
@@ -661,13 +688,13 @@ function act(a, d) {
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
     case 'retry': if (busyGuard()) return; S.busy = true; if (call('retry', chatId(), d.req || '') === null) S.busy = false; render(); break;
-    case 'resumeTask': if (busyGuard()) return; S.busy = true; call('resumeTask', chatId(), d.p); render(); break;
+    case 'resumeTask': if (busyGuard()) return; busyCall('resumeTask', chatId(), d.p); render(); break;
     case 'keep': { if (busyGuard()) return; const keep = [...document.querySelectorAll('[data-keep]')].filter(x => x.checked).map(x => x.dataset.keep);
-      if (!keep.length) { toast('Vyber aspoň jednu změnu – nebo použij Vrátit.'); return; } S.busy = true; call('keepChanges', chatId(), d.p, d.task, keep.join(',')); render(); break; }
+      if (!keep.length) { toast('Vyber aspoň jednu změnu – nebo použij Vrátit.'); return; } busyCall('keepChanges', chatId(), d.p, d.task, keep.join(',')); render(); break; }
     case 'cardDiff': { const fs = JSON.parse(d.files); sheet(`<h2>Rozdíl</h2>${fs.map(f => `<h3>${esc(f.path)} · +${f.added} −${f.removed}</h3>${diffHtml(f.diff)}`).join('')}`, true); break; }
     case 'btnTry': if (busyGuard()) return; S.awaitTry = true; toast('Vyber JINÝ soubor stejného typu – ověřím na něm stejné kroky.'); B.pickFiles(); break;
     case 'btnSave': { const n = ($('#btnName') || {}).value || ''; const r = call('buttonSave', chatId(), n); if (r) { S.procs = null; toast(`Připnuto: ${r.name} (v${r.version})`); render(); } break; }
-    case 'runBtn': if (busyGuard()) return; if (d.kind === 'TEXT') { const t = $('#input').value.trim(); if (!t) { toast('Napiš text, na který tlačítko použiju.'); return; } S.busy = true; call('runProcedure', chatId(), d.id, { text: t }); $('#input').value = ''; render(); }
+    case 'runBtn': if (busyGuard()) return; if (d.kind === 'TEXT') { const t = $('#input').value.trim(); if (!t) { toast('Napiš text, na který tlačítko použiju.'); return; } busyCall('runProcedure', chatId(), d.id, { text: t }); $('#input').value = ''; render(); }
       else { S.awaitProc = d.id; toast('Vyber soubor – tlačítko ho zpracuje.'); B.pickFiles(); } break;
     case 'memGlobal': { const r = call('rememberGlobal', d.t); if (r) toast('Uloženo jako globální preference.'); break; }
     case 'model': modelSheet(); break;
@@ -677,7 +704,7 @@ function act(a, d) {
         ${it ? `<div class="card"><b>${esc(it.title)}</b><div class="note">${link(it.url)} · staženo ${esc(it.fetched || '')}</div><p style="white-space:pre-wrap">${esc(t.slice(0, ws))}<mark>${esc(t.slice(ws, we))}</mark>${esc(t.slice(we))}</p></div>` : ''}`, true); break; }
     case 'verifierInstall': B.verifierInstall(); toast('Vyber balíček ověřovače (.zip).'); break;
     case 'verifierRemove': call('verifierRemove'); toast('Ověřovač odebrán – citace budou „nevyhodnoceno“.'); settingsSheet(); break;
-    case 'exportRetry': if (busyGuard()) return; S.busy = true; call('exportRetry', chatId(), d.run); render(); break;
+    case 'exportRetry': if (busyGuard()) return; busyCall('exportRetry', chatId(), d.run); render(); break;
     case 'taskLog': { const l = JSON.parse(d.log); sheet(`<h2>Záznam běhu</h2><div class="list">${l.map(x => `<div class="row"><span class="pill">r${x.rev}</span><span class="grow"><b>${esc(x.step)}${x.input !== '*' ? ' · ' + esc(x.input) : ''}</b><small>${esc(x.action)}</small></span></div>`).join('')}</div>`, true); break; }
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;
@@ -692,7 +719,7 @@ function act(a, d) {
     case 'exitTool': S.tool = null; S.toolInput = null; renderChips(); break;
     case 'nfc': if (busyGuard()) return; closeSheet(true);
       if (S.space.kind === 'temp') { toast('Přilož štítek k zadní straně telefonu…'); B.nfc('temp'); return; }
-      S.busy = true; call('send', chatId(), 'Načti NFC štítek', []); render(); break;
+      busyCall('send', chatId(), 'Načti NFC štítek', []); render(); break;
     case 'nfcSettings': B.nfcSettings(); closeSheet(true); break;
     case 'demand': if (busyGuard()) return; { const smp = call('demandSample'); if (smp) demandSheet(smp); } break;
     case 'demandForm': demandSheet(JSON.parse(d.s)); break;
@@ -706,7 +733,7 @@ function act(a, d) {
       });
       if (missing) { toast('Vyplň: ' + missing); return; }
       if (o.payAmount > 0 && !o.payDate) { toast('Doplň datum úhrady.'); return; }
-      o.b2b = true; closeSheet(true); S.busy = true; call('demand', chatId(), o); render(); break;
+      o.b2b = true; closeSheet(true); busyCall('demand', chatId(), o); render(); break;
     }
     case 'demandMenu': { const c = JSON.parse(d.d); sheet(`<h2>Výzva</h2><div class="list">${c.files.map(f => `<button class="row" data-act="openOut" data-f="${esc(f)}"><span class="grow"><b>Otevřít ${esc(f.split('.').pop().toUpperCase())}</b></span></button><button class="row" data-act="share" data-f="${esc(f)}"><span class="grow"><b>Sdílet ${esc(f.split('.').pop().toUpperCase())}</b></span></button>`).join('')}</div>
         <h3>Výpočet a původ částek</h3><div class="tbl"><table><tr><th>Položka</th><th>Kč</th><th>Doklad</th></tr>${c.lines.map(l => `<tr><td>${esc(l.label)}</td><td>${fmt(l.amount)}</td><td>${esc(l.origin)}</td></tr>`).join('')}</table></div>
@@ -718,7 +745,7 @@ function act(a, d) {
     case 'libTab': library(d.tab); break;
     case 'suSave': { const t = ($('#ghTok') || {}).value || ''; const r1 = call('setSetting', 'ghRepo', ($('#ghRepo') || {}).value || ''); const r2 = call('setSetting', 'ghBase', ($('#ghBase') || {}).value || '');
       const r3 = t ? call('saveKey', 'github', t) : true; if (r1 !== null && r2 !== null && r3 !== null) toast('Uloženo.'); library('improve'); break; }
-    case 'suStart': { const t = (($('#suTask') || {}).value || '').trim(); if (!t) { toast('Napiš, co mám na sobě změnit.'); break; } if (busyGuard()) return; S.busy = true; if (call('selfUpdateStart', t)) { closeSheet(true); toast('Připravuji úpravu sebe sama – výsledek přijde do chatu a do karty Vylepšení.', 6000); } render(); break; }
+    case 'suStart': { const t = (($('#suTask') || {}).value || '').trim(); if (!t) { toast('Napiš, co mám na sobě změnit.'); break; } if (busyGuard()) return; S.busy = true; if (call('selfUpdateStart', t, chatId() || '')) { closeSheet(true); toast('Připravuji úpravu sebe sama – výsledek přijde do chatu a do karty Vylepšení.', 6000); } render(); break; }
     case 'suDiff': { const x = ((call('selfUpdates') || {}).items || []).find(i => i.id === d.id); if (!x) break;
       sheet(`<h2>Změny, které jsem na sobě udělala</h2><p class="lede">${esc(x.task)}</p><p class="note">Hlídač ověřil: jen kód a UI VEGY, žádná citlivá API (klíče, síť, most, samoúpravy), testy v CI prošly${x.status === 'READY' ? '' : ' (zatím neprošly – čeká se na CI)'}. Přesto si změny projdi – instaluješ kód, který napsal model.</p>
         <pre class="diff">${esc(x.diff)}</pre>${x.status === 'READY' ? `<button class="btn primary wide" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Prošel jsem změny – nainstalovat</button>` : ''}`, true); break; }
@@ -738,7 +765,7 @@ function act(a, d) {
     case 'dropFile': S.files = S.files.filter(f => f.id !== d.id); renderChips(); break;
     case 'export': { const r = call('export', d.run, -1); if (r) toast('Uloženo do Stažené/VEGA: ' + r.name); break; }
     case 'saveProc': { const r = call('saveProcedure', JSON.parse(d.save)); if (r) { if (d.run) S.savedRuns.add(d.run); S.procs = null; toast(`Nástroj „${r.name}“ uložen (v${r.version}). Nabídnu ho u dalšího souboru.`); closeSheet(true); render(); } break; }
-    case 'resume': if (busyGuard()) return; S.busy = true; call('resume', chatId(), d.run, {}); render(); break;
+    case 'resume': if (busyGuard()) return; busyCall('resume', chatId(), d.run, {}); render(); break;
     case 'runMenu': runMenu(d.run); break;
     case 'step': { const r = call('run', d.run); if (r) sheet(`<h2>Krok ${+d.i + 1}: ${esc(r.steps[d.i].title)}</h2>${valueHtml(Object.assign({ run: d.run }, r.stepValues[d.i] || {}), 500) || '<p class="lede">Krok nemá výsledek.</p>'}`, true); break; }
     case 'full': { const r = call('run', d.run); if (r) sheet(`<h2>${esc(r.name)}</h2>${valueHtml(Object.assign({ run: d.run }, r.value), 500)}`, true); break; }
@@ -808,7 +835,7 @@ function chipAct(v) {
   const [k, ...rest] = v.split(':'); const arg = rest.join(':');
   if (k === 'say') { $('#input').value = arg; send(); }
   else if (k === 'tool') useTool(arg);
-  else if (k === 'proc') { if (busyGuard()) return; const f = S.files.pop(); S.busy = true; call('runProcedure', chatId(), arg, { file: f.id }); render(); }
+  else if (k === 'proc') { if (busyGuard()) return; const f = S.files.pop(); busyCall('runProcedure', chatId(), arg, { file: f.id }); render(); }
   else if (k === 'panel') projectPanel();
   else if (k === 'saveLast' && S.lastCard && S.lastCard.save) act('saveProc', { save: JSON.stringify(S.lastCard.save), run: S.lastCard.run });
 }

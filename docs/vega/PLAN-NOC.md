@@ -341,7 +341,22 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
 
 ## Uživatel: dalších 7 kol (10–16)
 Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživatel pozná.
-- [ ] 39. Kolo 10: UI (app.js) – stav, přístupnost, XSS, chování na telefonu
+- [x] 39. Kolo 10: UI (app.js) – stav, přístupnost, XSS, chování na telefonu
+  - **Výsledek** (ověřeno v Chromiu na 360 px):
+    - Otevřený souhlas zmizel při přepnutí prostoru a UI by 5 min ukazovalo jen „Nejdřív odpověz…“. Teď zůstane.
+    - Výsledek „Upravit se“ se tiše zahodil. Teď jde do aktuálního chatu.
+    - Stream přetahoval obrazovku dolů každých 90 ms. Teď se lepí jen u dna, jinak nabídne „↓ Nová odpověď“.
+    - Animace se přehrávala u celého chatu při každém vykreslení. Teď jen poslední zpráva.
+    - Přetečení na 360 px (dlouhý název souboru, URL v listu).
+    - Zaneprázdnění zůstávalo viset po chybě mostu (10 akcí, `busyCall`).
+    - „Přemýšlím…“ se ukazovalo i v jiném chatu.
+  - **Přístupnost:**
+    - stream bez `aria-live` (dřív hlásil celý chat), samostatné hlášení hotové odpovědi;
+    - dialogy pojmenované nadpisem, fokus dovnitř a po zavření zpět;
+    - dotykové cíle tlačítek 40 px;
+    - hranice polí a přepínačů 3,07:1.
+  - **XSS:** injekce `javascript:` a `onerror` ověřena jako neškodná.
+  - **Vylepšení:** klikatelné odkazy v odpovědích (`[text](https://…)` i holé adresy, jen http/https) a „↓ Nová odpověď“.
 - [x] 40. Kolo 11: modely a peníze – Engines, poskytovatelé, souhlasy, CostGuard, přepínání
   - **Výsledek – TICHÁ ÚTRATA:** výběr modelu u OpenRouteru (kontrola klíče, samooprava) mohl zvolit placený model, třeba llama-405b. Ten by čerpal kredit uživatele mimo strážce nákladů. Teď jen modely `:free`, nikdy placený (test).
   - **Další opravy:**

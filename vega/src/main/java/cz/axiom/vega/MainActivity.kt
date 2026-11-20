@@ -309,7 +309,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun memory() = safe { ops.memoryJson() }
     @JavascriptInterface fun improvements() = safe { ops.improvementsJson() }
     @JavascriptInterface fun selfUpdates() = safe { ops.selfUpdatesJson() }
-    @JavascriptInterface fun selfUpdateStart(task: String) = safe { require(task.isNotBlank()) { "Napiš, co mám na sobě změnit." }; ops.selfUpdateStart(null, task.take(1000)); "true" }
+    @JavascriptInterface fun selfUpdateStart(task: String, chat: String) = safe { require(task.isNotBlank()) { "Napiš, co mám na sobě změnit." }; ops.selfUpdateStart(chat.ifBlank { null }, task.take(1000)); "true" }
     @JavascriptInterface fun selfUpdateAction(id: String, action: String) = safe {
         val u = ops.selfUpdates.get(id) ?: throw IllegalArgumentException("Úprava neexistuje")
         when (action) {
