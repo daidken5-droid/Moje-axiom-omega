@@ -219,7 +219,8 @@ Další pravidla:
   - **Testy:** Round5Test (3 testy), celkem 60 + 25 zelené. Verze 1.4.4 (versionCode 10).
 
 ## Další kolo 7 (pro další probuzení)
-- [ ] 26. Doručit APK 1.4.4 (CI), SHA-256
+- [x] 26. Doručit APK 1.4.4 (CI), SHA-256
+  - **Výsledek:** sestavení 1.4.4 nahradila 1.4.5 (obsahuje i bod 27). Doručeno `VEGA-4140644.apk` (1.4.5, versionCode 11), SHA-256 `3e4e0f62a0f02ff1071ac187369f8f2ed96f2432f99ac6275e2fa5e2b71cfd98`, certifikát `4557a2ce…cdb4`.
 - [x] 27. Zbytek kola 5:
   - po zapomenutí nenechat kopii v historii chatu (neopakovat zapomenutý text, vyřadit ho z kontextu modelu);
   - smazat navázané `econ` / `tariff`;
@@ -233,6 +234,10 @@ Další pravidla:
     - Econ počítá v haléřích: 0,3 − 0,1 už nedá „<“ u nulového zisku ani falešný zbytek u bodu zvratu.
   - **Testy:** Round5bTest prošel, celkem 61 + 25 zelené. Verze 1.4.5 (versionCode 11).
   - **NEOVĚŘENO:** okno ověřovače s modelem, protože skutečný model v testech nemám (logika je pokrytá jen čtením kódu).
+
+## Další kolo 8 (pro další probuzení)
+- [ ] 28. Red-team kolo 6: Router + Statement + Procedure Runner (záměry na okrajových větách, zpracování výpisů různých bank, ukládané postupy)
+- [ ] 29. Ranní shrnutí noci pro uživatele v `docs/vega/README.md` (všechny verze 1.4.0–1.4.x, co je NEOVĚŘENO na telefonu, co čeká na rozhodnutí)
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
