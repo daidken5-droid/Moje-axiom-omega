@@ -147,8 +147,12 @@ Další pravidla:
   - **Ověřeno beze změny:** pořadí mazání dočasného chatu, opakování úloh s revizemi, escapování v UI, komentář k DNS rebindingu.
 
 ## Další kolo 3 (pro další probuzení)
-- [ ] 16. Doručit APK s body 12–15 (CI), SHA-256
-- [ ] 17. Testy jednotek pro Ops: extPropose (podmínky, dvojité klepnutí), selftune hooky v submit/stop (Robolectric jako OpsSpecTest)
+- [ ] 16. Doručit APK s body 12–17 (CI), SHA-256. Verze 1.4.1 (versionCode 7), protože sestavení f487168 mělo stejné číslo verze jako už doručená 1.4.0.
+- [x] 17. Testy jednotek pro Ops: extPropose (podmínky, dvojité klepnutí), selftune hooky v submit/stop (Robolectric jako OpsSpecTest)
+  - **Výsledek:** OpsAutonomyTest (2 testy, Robolectric, air-gap):
+    - Oprava v chatu („ne, spočítej sha256…“) se zapíše jako CORRECTION u rozhovoru s výsledkem „nástroj:hash“.
+    - Návrh rozšíření odmítne málo chyb i rozšíření a dvojité klepnutí ohlásí „už běží“. Selhání návrhu (bez modelu) nepřidá nástroji další chybu.
+  - Hook pro Stop zůstává bez testu, protože vyžaduje běžící úlohu s modelem. Testy 51 + 23 zelené.
 - [ ] 18. Red-team kolo 3: Engines.kt a MainActivity.kt (most JS ↔ Kotlin, oprávnění, intenty, sdílení souborů)
 
 ## Problémy
