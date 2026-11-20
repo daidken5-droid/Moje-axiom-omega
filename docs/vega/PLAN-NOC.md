@@ -470,8 +470,19 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     - starý formát deníku se přečte a navazuje;
     - běh se vstupem 600 kB má checkpoint pod 2 kB a blob jen jeden;
     - starý formát běhu s base64 se načte.
-- [ ] 49. Bezpečná instalace samoúpravy: APK v privátní složce, při instalaci znovu SHA-256 a stav READY; žádná sdílená složka výstupů.
-- [ ] 50. Navazující samoúpravy a návrat: úprava vychází z commitu nainstalované verze (pokud je to auto-větev, jinak z pracovní větve) a v diffu je uvedeno, proti čemu je; „Vrátit poslední úpravu“ = nový commit obsahu předchozí verze → nové sestavení s vyšším versionCode (bez odinstalace). Průběh po krocích v UI.
+- [x] 49. Bezpečná instalace samoúpravy: APK v privátní složce, při instalaci znovu SHA-256 a stav READY; žádná sdílená složka výstupů.
+  - Hotovo:
+    - APK se ukládá do `files/vega/selfupd/apk/` (vlastní cesta pro FileProvider);
+    - instalace vyžaduje stav READY a těsně před otevřením instalátoru znovu spočítá SHA-256 a porovná ho s otiskem ze stažení;
+    - dál platí kontrola balíčku, certifikátu a vyšší verze.
+  - NEOVĚŘENO v telefonu.
+- [x] 50. Navazující samoúpravy a návrat: úprava vychází z commitu nainstalované verze (pokud je to auto-větev, jinak z pracovní větve) a v diffu je uvedeno, proti čemu je; „Vrátit poslední úpravu“ = nový commit obsahu předchozí verze → nové sestavení s vyšším versionCode (bez odinstalace). Průběh po krocích v UI.
+  - **Hotovo jinak (bezpečněji):** nová úprava se pořád commituje na pracovní větev (CI hlídač dál vyžaduje právě jeden commit nad chráněnou větví). Soubory nainstalované samoúpravy se ale do ní přenesou, takže ji instalace další úpravy nevrátí.
+  - Diff začíná řádkem „Proti pracovní větvi …; obsahuje i nainstalovanou úpravu …“ a commit má „Navazuje na: …“.
+  - **„Vrátit poslední úpravu“** (Vylepšení, jen když běží verze se samoúpravou): z pracovní větve se sestaví nová verze s vyšším versionCode. Commit mění jen `assets/ui/build-stamp.txt`, protože prázdný commit GitHub nevezme. Instaluje se jako běžná aktualizace, data zůstanou.
+    - CI hlídač takový commit propustí (ověřeno na dočasném gitu).
+    - Vrací se k pracovní větvi bez všech samoúprav.
+  - Průběh: stav + poznámka + odkaz na běh (kolo 15). Podrobnější kroky z CI NEUDĚLÁNO (token má jen čtení Actions, kroky by šlo číst – na později).
 - [ ] 51. Vlastní server: tlačítko „Vyzkoušet odpověď“ (krátký dotaz, změřená doba a rychlost), srozumitelné hlášky pro usnutý Space (probouzení 1–3 min), skript `deploy-hf.sh` pro nahrání do Space tvým tokenem (běží u tebe, token nikam neukládá).
 - [ ] 52. Síť: DNS rebinding – stahování přes ověřenou IP (připojení na IP z kontroly + SNI/Host), test se zlým resolverem.
 - [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.

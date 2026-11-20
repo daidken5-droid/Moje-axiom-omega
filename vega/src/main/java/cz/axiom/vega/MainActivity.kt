@@ -235,8 +235,12 @@ class MainActivity : ComponentActivity() {
      * Instalace samoúpravy: APK musí být STEJNÝ balíček, podepsaný STEJNÝM certifikátem a s vyšší verzí.
      * Instalaci potvrdí uživatel v systémovém dialogu (Android jinak nedovolí). Vrací null = dialog otevřen, jinak důvod.
      */
-    fun installUpdate(name: String): String? {
-        val f = ops.out.file(name) ?: return "APK úpravy už v telefonu není – zkontroluj sestavení znovu."
+    fun installUpdate(u: cz.axiom.vega.selfupdate.SelfUpdateStore.Upd): String? {
+        if (u.status != cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) return "Úprava není připravená k instalaci (${u.status})."
+        val f = ops.selfUpdateApk(u.apk) ?: return "APK úpravy už v telefonu není – zkontroluj sestavení znovu."
+        // otisk znovu těsně před instalací: soubor musí být přesně ten, který prošel kontrolou po stažení
+        val sha = f.inputStream().use { s -> val md = java.security.MessageDigest.getInstance("SHA-256"); val buf = ByteArray(64 * 1024); while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) }; md.digest().joinToString("") { "%02x".format(it) } }
+        if (u.apkSha.isBlank() || sha != u.apkSha) return "Otisk APK se od kontroly změnil – neinstaluji. Zkontroluj sestavení znovu."
         val pm = packageManager
         @Suppress("DEPRECATION") val flags = if (android.os.Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
         val arch = pm.getPackageArchiveInfo(f.absolutePath, flags) ?: return "Soubor není platné APK."
@@ -318,12 +322,13 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun improvements() = safe { ops.improvementsJson() }
     @JavascriptInterface fun selfUpdates() = safe { ops.selfUpdatesJson() }
     @JavascriptInterface fun selfUpdateStart(task: String, chat: String) = safe { require(task.isNotBlank()) { "Napiš, co mám na sobě změnit." }; ops.selfUpdateStart(chat.ifBlank { null }, task.take(1000)); "true" }
+    @JavascriptInterface fun selfUpdateRollback(chat: String) = safe { ops.selfUpdateRollback(chat.ifBlank { null }); true }
     @JavascriptInterface fun selfUpdateAction(id: String, action: String) = safe {
         val u = ops.selfUpdates.get(id) ?: throw IllegalArgumentException("Úprava neexistuje")
         when (action) {
             "poll" -> { ops.selfUpdatePoll(id); "true" }
             "discard" -> { ops.selfUpdateDiscard(id); "true" }
-            "install" -> a.installUpdate(u.apk)?.let { JSONObject.quote(it) } ?: "true"
+            "install" -> a.installUpdate(u)?.let { JSONObject.quote(it) } ?: "true"
             else -> throw IllegalArgumentException("Neznámá akce")
         }
     }

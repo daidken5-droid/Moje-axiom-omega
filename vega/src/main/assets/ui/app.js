@@ -388,6 +388,8 @@ function selfUpdateHtml() {
     ${u.hasToken ? `<textarea class="field" id="suTask" rows="2" placeholder="Např. „ať je tlačítko Odeslat větší“ nebo „přidej převod palců na centimetry“"></textarea>
     <div class="inline" style="margin-top:6px"><button class="btn primary" data-act="suStart">Upravit se</button>
     <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="suAuto" data-act="suAuto" ${u.auto ? 'checked' : ''}> sama 1× denně z opakovaných slabin</label></div>` : ''}
+    ${u.installed ? `<div class="card" style="margin-top:8px"><div class="note">Běží verze se samoúpravou „${esc(u.installed.task.slice(0, 80))}“ (${esc(u.installed.commit)}). Další úprava na ní naváže.</div>
+      ${u.hasToken ? `<button class="btn ghost" data-act="suRollback" style="margin-top:6px">Vrátit poslední úpravu</button>` : ''}</div>` : ''}
     <div class="list" style="margin-top:10px">${items || '<div class="row"><span class="grow note">Zatím žádná úprava.</span></div>'}</div>`;
 }
 
@@ -814,6 +816,7 @@ function act(a, d) {
     case 'suDiff': { const x = ((call('selfUpdates') || {}).items || []).find(i => i.id === d.id); if (!x) break;
       sheet(`<h2>Změny, které jsem na sobě udělala</h2><p class="lede">${esc(x.task)}</p>${x.diffCut ? '<p class="note warn"><b>Diff je zkrácený</b> – celý ho projdi na GitHubu, než instaluješ.</p>' : ''}<p class="note">Hlídač (heuristika, ne záruka – proto čti diff) zkontroloval: jen kód a UI VEGY, bez citlivých míst (klíče, síť, most, platby, souhlasy, samoúpravy), testy v CI prošly${x.status === 'READY' ? '' : ' (zatím neprošly – čeká se na CI)'}. Přesto si změny projdi – instaluješ kód, který napsal model.</p>
         <pre class="diff">${esc(x.diff)}</pre>${x.status === 'READY' ? `<button class="btn primary wide" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Prošel jsem změny – nainstalovat</button>` : ''}`, true); break; }
+    case 'suRollback': if (busyGuard()) return; if (!confirm('Sestavit novou verzi bez samoúprav? Data v aplikaci zůstanou.')) break; if (busyCall('selfUpdateRollback', chatId() || '') !== null) toast('Připravuji návrat – výsledek přijde do chatu a do Vylepšení.', 6000); break;
     case 'suAuto': call('setSetting', 'autoImprove', String(!!($('#suAuto') || {}).checked)); break;
     case 'suAct': { const r = call('selfUpdateAction', d.id, d.a); if (typeof r === 'string') toast(r, 7000); else toast({ poll: 'Kontroluji sestavení…', discard: 'Zahazuji úpravu (větev).', install: 'Potvrď instalaci v systémovém dialogu.' }[d.a]); if (d.a !== 'install') setTimeout(() => library('improve'), 1500); break; }
     case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }

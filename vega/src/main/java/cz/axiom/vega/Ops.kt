@@ -104,11 +104,16 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val g = gh(); val base = settings.ghBase
         val baseSha = g.refSha(base)
         val tree = g.tree(baseSha)
-        val pick = cz.axiom.vega.selfupdate.Policy.pickFiles(tree, task)
+        // navazování: nainstalovaná samoúprava se do nové přenese (jinak by ji instalace další úpravy potichu vrátila)
+        val prev = installedUpdate()
+        val carried: Map<String, String> = prev?.files.orEmpty().filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
+            .mapNotNull { f -> runCatching { f to g.file(f, prev!!.commit) }.getOrNull() }.toMap()
+        val pick = (cz.axiom.vega.selfupdate.Policy.pickFiles(tree, task) + carried.keys.filter { it in tree }).distinct()
         if (pick.isEmpty()) throw ToolError("V kódu aplikace jsem nenašla nic, čeho by se zadání týkalo – popiš ho konkrétněji (obrazovka, funkce, text).")
         val dir = File(context.cacheDir, "selfupd/" + System.currentTimeMillis()).apply { deleteRecursively() }
         try {
             val ws = Workspace.create(dir, "VEGA", pick.associateWith { g.file(it, baseSha).toByteArray() })
+            carried.forEach { (p, c) -> if (ws.hash(p) == null || ws.read(p) != c) ws.write(p, c, ws.hash(p), "nainstalovaná úprava ${prev?.commit?.take(7)}") }
             val listing = tree.keys.filter { cz.axiom.vega.selfupdate.Policy.editable(it) && !it.contains("/test/") }.sorted().take(400)
             val (prompt, hashes) = CodeAgent.prompt(ws, task, extra = "Další soubory aplikace (můžeš je jen jmenovat; upravit jde to, co je výše, nebo založit nový soubor ve vega/src či vegacore/src):\n" + listing.joinToString("\n"))
             val sys = CodeAgent.SYSTEM + "\n\nUPRAVUJEŠ SAMA SEBE – aplikaci VEGA pro Android (Kotlin, UI ve WebView: vega/src/main/assets/ui/app.js, app.css). " +
@@ -124,14 +129,16 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 reply(chat, "Úpravu sebe sama jsem nepřipravila – model nenavrhl použitelnou změnu." + (if (refused.isNotEmpty()) " Odmítnuto: ${refused.joinToString("; ")}." else "") +
                     (if (applied.failed.isNotEmpty()) " Nesedělo: ${applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" }}." else "")); return
             }
-            val diff = ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
+            val diff = (if (carried.isNotEmpty()) "# Proti pracovní větvi $base; obsahuje i nainstalovanou úpravu „${prev?.task?.take(80)}“ (${prev?.commit?.take(7)}).\n" else "# Proti pracovní větvi $base.\n") +
+                ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
             // hlídač citlivých API: klíče, síť, procesy, most, sandbox, samoúpravy (stejný seznam kontroluje CI)
             val sens = cz.axiom.vega.selfupdate.Policy.sensitiveChanges(diff) + changed.mapNotNull { p -> cz.axiom.vega.selfupdate.Policy.packageIssue(p, ws.read(p))?.let { "$p: $it" } }
             if (diff.length > 60_000) { reply(chat, "Úpravu jsem zahodila – změna je moc velká na to, abys ji v telefonu opravdu prošel (${diff.length / 1000} kB diffu). Zadej menší krok."); return }
             if (sens.isNotEmpty()) { reply(chat, "Úpravu jsem zahodila – sahala by na citlivá místa (klíče, síť, most, platby, souhlasy nebo samoúpravy), a to samoúprava nesmí:\n" + sens.take(5).joinToString("\n") { "• ${it.removePrefix("+").trim()}" } +
                 "\nTakovou změnu musí udělat člověk ve vývojovém prostředí."); return }
             val branch = cz.axiom.vega.selfupdate.Policy.branchName(task)
-            val commit = g.commitFiles(baseSha, branch, changed.associateWith { ws.read(it) }, "VEGA samoúprava: ${task.take(72)}\n\nPůvod: $origin\n\n${plan.explanation.take(3000)}")
+            val commit = g.commitFiles(baseSha, branch, changed.associateWith { ws.read(it) }, "VEGA samoúprava: ${task.take(72)}\n\nPůvod: $origin" +
+                (prev?.takeIf { carried.isNotEmpty() }?.let { "\nNavazuje na: ${it.commit.take(7)} (${it.task.take(80)})" } ?: "") + "\n\n${plan.explanation.take(3000)}")
             val u = selfUpdates.create(task, branch, changed, commit, origin).copy(diff = diff.take(60_000)).also { selfUpdates.save(it) }
             reply(chat, "Připravila jsem úpravu sebe sama: ${plan.explanation.lines().firstOrNull { it.isNotBlank() }?.take(200) ?: task}\n" +
                 "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
@@ -157,7 +164,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 val dir = File(context.filesDir, "vega/selfupd").apply { mkdirs() }; val zip = File(dir, "$id.zip")
                 cz.axiom.vega.net.Http.download(g.artifactZipUrl(art), zip, 200_000_000L, g.headers)
                 // APK proudem na disk s otiskem (ne celé do paměti); strop velikosti = chyba, ne tiché oříznutí
-                val target = File(out.dir, "VEGA-uprava-$id.apk"); var sha: String? = null; var sums = ""
+                val target = File(selfUpdApkDir, "VEGA-uprava-$id.apk"); var sha: String? = null; var sums = ""
                 try {
                     java.util.zip.ZipInputStream(zip.inputStream()).use { z -> while (true) { val e = z.nextEntry ?: break
                         when {
@@ -180,12 +187,36 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ je sestavená – projdi si změny a nainstaluj v Menu → Vylepšení."))
     }
 
+    /** APK samoúprav leží v soukromé složce (ne ve sdílených výstupech, kam zapisují i jiné funkce). */
+    val selfUpdApkDir: File get() = File(context.filesDir, "vega/selfupd/apk").apply { mkdirs() }
+    fun selfUpdateApk(name: String): File? = File(selfUpdApkDir, name).takeIf { it.isFile && it.parentFile == selfUpdApkDir && !name.contains('/') }
+
     fun selfUpdateDiscard(id: String) = submit {
         val u = selfUpdates.get(id) ?: return@submit
         runCatching { gh().deleteBranch(u.branch) }
-        if (u.apk.isNotBlank()) out.file(u.apk)?.delete()
+        if (u.apk.isNotBlank()) { selfUpdateApk(u.apk)?.delete(); out.file(u.apk)?.delete() }
         selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.DISCARDED)
         emit("selfupdate", JSONObject().put("id", id))
+    }
+
+    /** Nainstalovaná samoúprava (verze s příponou auto-<commit>), nebo null. */
+    private fun installedUpdate() = Regex("auto-([0-9a-f]{7})").find(BuildConfig.VERSION_NAME)?.groupValues?.get(1)?.let { tag -> selfUpdates.list().firstOrNull { it.commit.startsWith(tag) } }
+
+    /**
+     * „Vrátit poslední úpravu“: starší APK Android bez odinstalace nedovolí, proto se z pracovní větve sestaví NOVÁ verze
+     * (vyšší versionCode) bez samoúprav. Commit mění jen značku sestavení (bez ní by byl prázdný).
+     */
+    fun selfUpdateRollback(chat: String?) = submit {
+        jobArea = "selfupdate"
+        if (settings.airgap) throw ToolError("Air-gap je zapnutý – na GitHub nesahám.")
+        val prev = installedUpdate() ?: throw ToolError("Nainstalovaná verze není samoúprava – není co vracet.")
+        val g = gh(); val base = settings.ghBase; val baseSha = g.refSha(base)
+        val branch = cz.axiom.vega.selfupdate.Policy.branchName("vratit " + prev.task)
+        val stamp = "vega/src/main/assets/ui/build-stamp.txt"
+        val commit = g.commitFiles(baseSha, branch, mapOf(stamp to "návrat bez samoúpravy ${prev.commit.take(7)} · ${java.time.Instant.now()}\n"), "VEGA: vrátit samoúpravu ${prev.commit.take(7)}\n\nNová verze z pracovní větve $base bez úprav (${prev.task.take(120)}).")
+        val u = selfUpdates.create("Vrátit: ${prev.task}", branch, listOf(stamp), commit, "návrat").copy(diff = "# Návrat: sestaví se pracovní větev $base (${baseSha.take(7)}) BEZ samoúpravy ${prev.commit.take(7)} „${prev.task.take(120)}“.\n# Změněna jen značka sestavení $stamp.").also { selfUpdates.save(it) }
+        reply(chat, "Připravuji návrat: z pracovní větve se sestaví nová verze bez úpravy „${prev.task.take(80)}“. Až bude hotová, nainstaluješ ji jako běžnou aktualizaci (data zůstanou).", JSONObject().put("type", "selfupdate").put("id", u.id))
+        emit("selfupdate", JSONObject().put("id", u.id).put("status", u.status))
     }
 
     /** Po instalaci: verze s příponou auto-<commit> → úprava označena jako nainstalovaná. */
@@ -208,6 +239,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
 
     fun selfUpdatesJson(): JSONObject = JSONObject().put("hasToken", vault.has("github")).put("repo", settings.ghRepo).put("base", settings.ghBase).put("auto", settings.autoImprove)
+        .put("installed", installedUpdate()?.let { JSONObject().put("id", it.id).put("task", it.task).put("commit", it.commit.take(7)) } ?: JSONObject.NULL)
         .put("items", JSONArray().apply { selfUpdates.list().take(20).forEach { u -> put(JSONObject().put("id", u.id).put("task", u.task).put("branch", u.branch).put("status", u.status)
             .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files))
             .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("runUrl", u.runUrl).put("diffCut", u.diff.length > 40_000).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
