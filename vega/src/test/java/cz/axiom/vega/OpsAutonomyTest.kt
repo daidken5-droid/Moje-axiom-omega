@@ -51,3 +51,25 @@ class OpsAutonomyTest {
         assertTrue(o.projects().length() >= 1)
     }
 }
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class VaultAndProjectIdTest {
+    @Test fun vaultDropsKeyOnlyWhenPermanentlyUnreadable() {
+        assertTrue(Vault.dropOn(javax.crypto.AEADBadTagException("tag")))
+        assertTrue(Vault.dropOn(android.security.keystore.KeyPermanentlyInvalidatedException()))
+        // dočasné chyby Keystore (po restartu / zamčení) klíč NESMÍ smazat
+        assertTrue(!Vault.dropOn(java.security.KeyStoreException("busy")))
+        assertTrue(!Vault.dropOn(java.security.ProviderException("keystore")))
+        assertTrue(!Vault.dropOn(java.security.UnrecoverableKeyException("locked")))
+    }
+
+    @Test fun activeProjectIdCannotEscapeProjectsDir() {
+        val ctx = RuntimeEnvironment.getApplication()
+        val o = Ops(ctx, object : Vault(ctx) { override fun read(name: String): String? = null; override fun has(name: String) = false
+            override fun save(name: String, secret: String) {}; override fun remove(name: String) {} }) { _, _ -> }
+        for (bad in listOf("..", "../..", "a/b", "A", "")) assertTrue(bad, !o.validProjectId(bad))
+        o.settings.activeProject = "../.."
+        assertNull("podvržené id = žádný aktivní projekt", o.activeWorkspace())
+    }
+}

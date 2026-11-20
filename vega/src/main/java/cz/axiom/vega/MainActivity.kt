@@ -295,7 +295,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun newProject(name: String) = safe { JSONObject.quote(ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap())) }
     @JavascriptInterface fun demandSample() = safe { ops.demandSample() }
     @JavascriptInterface fun activate(id: String) = safe {
-        require(id.isBlank() || Regex("^[a-z0-9-]{1,48}$").matches(id)) { "Neplatný projekt" }
+        require(id.isBlank() || ops.validProjectId(id)) { "Neplatný projekt" }
         ops.settings.activeProject = id.ifBlank { null }
     }
     @JavascriptInterface fun file(id: String, path: String) = safe {

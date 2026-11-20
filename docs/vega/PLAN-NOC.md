@@ -167,7 +167,11 @@ Další pravidla:
   - **Testy:** 51 + 23 zelené.
 
 ## Další kolo 4 (pro další probuzení)
-- [ ] 19. Robolectric test na Vault: dočasná chyba ≠ smazání klíče; most `activate` s neplatným id
+- [x] 19. Robolectric test na Vault: dočasná chyba ≠ smazání klíče; most `activate` s neplatným id
+  - **Výsledek:** `Vault.dropOn()` je samostatná funkce, protože Robolectric neumí Android Keystore.
+  - **Kdy se klíč smaže:** jen při AEADBadTag, KeyPermanentlyInvalidated nebo poškozeném Base64. KeyStore, Provider a Unrecoverable výjimky klíč nechají.
+  - **Kontrola id projektu:** jedna funkce `validProjectId` pro most, `workspace()` i `activeWorkspace()`. Podvržené `../..` = žádný aktivní projekt.
+  - **Testy:** VaultAndProjectIdTest (2 testy), celkem 51 + 25 zelené.
 - [ ] 20. Red-team kolo 4: Workspace / CodeAgent (zápisy souborů projektu, isSecret, diff/undo, ZIP export, limity velikosti)
 
 ## Problémy

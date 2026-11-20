@@ -125,12 +125,16 @@ open class Vault(context: Context) {
             val c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.DECRYPT_MODE, key("vega-$name"), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
             String(c.doFinal(Base64.decode(data, Base64.NO_WRAP)))
-        } catch (e: javax.crypto.AEADBadTagException) { remove(name); null // data poškozená / jiný klíč
-        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) { remove(name); null
-        } catch (e: Exception) { null } // dočasná chyba Keystore (po restartu, zamčení): klíč NEMAZAT
+        } catch (e: Exception) { if (dropOn(e)) remove(name); null }
     }
 
     open fun has(name: String) = prefs.contains("$name.data")
+
+    companion object {
+        /** Smazat uložený klíč jen když je trvale nečitelný (poškozená data, zneplatněný klíč) – ne při dočasné chybě Keystore. */
+        fun dropOn(e: Throwable): Boolean = e is javax.crypto.AEADBadTagException || e is android.security.keystore.KeyPermanentlyInvalidatedException ||
+            e is IllegalArgumentException // poškozený Base64
+    }
     open fun remove(name: String) { prefs.edit().remove("$name.iv").remove("$name.data").apply() }
 }
 
