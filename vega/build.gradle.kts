@@ -94,6 +94,8 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     // ověřovač opory ve zdroji (ONNX v telefonu, bez sítě); váhy se do APK nebalí – instalují se jako balíček
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    // WiFi QR kód (offline generování obrázku)
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Virtuální karta VEGA: vlastní proprietární AID v kategorii „other“ (ne platby, ne přístup). -->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/hce_desc"
+    android:requireDeviceUnlock="false"
+    android:apduServiceBanner="@null">
+    <aid-group android:description="@string/hce_desc" android:category="other">
+        <aid-filter android:name="F05645474101" />
+    </aid-group>
+</host-apdu-service>

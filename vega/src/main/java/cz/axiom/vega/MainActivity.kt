@@ -3,9 +3,13 @@ package cz.axiom.vega
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.nfc.NdefMessage
+import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
+import android.nfc.tech.IsoDep
 import android.nfc.tech.Ndef
+import android.nfc.tech.NdefFormatable
 import android.nfc.tech.NfcA
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -185,20 +189,72 @@ class MainActivity : ComponentActivity() {
 
     // ------------------------------------------------------------------ NFC (reader mode jen na vyžádání)
 
-    fun nfcStart(chat: String?) {
-        nfcChat = chat
+    @Volatile private var nfcMode = "inspect"   // inspect | card | write
+    @Volatile private var pendingWrite: Pair<String, String>? = null  // (kind: text|url, content)
+
+    fun nfcStart(chat: String?, mode: String = "inspect") {
+        nfcChat = chat; nfcMode = mode
         val a = NfcAdapter.getDefaultAdapter(this)
         when {
-            a == null -> ops.onNfc(null, "Tenhle telefon nemá NFC – nástroj Čtení NDEF umí aspoň rozebrat soubor se záznamem.", chat)
-            !a.isEnabled -> { send("nfc.off", JSONObject()); ops.onNfc(null, "NFC je vypnuté. Zapni ho v Nastavení → Připojená zařízení (tlačítko níže) a zkus znovu.", chat) }
+            a == null -> dispatchNfcError("Tenhle telefon nemá NFC.")
+            !a.isEnabled -> { send("nfc.off", JSONObject()); dispatchNfcError("NFC je vypnuté. Zapni ho v Nastavení → Připojená zařízení (tlačítko níže) a zkus znovu.") }
             else -> runOnUiThread {
-                a.enableReaderMode(this, { tag -> readTag(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS, Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250) })
+                a.enableReaderMode(this, { tag -> onTag(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS, Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250) })
                 send("nfc.listening", JSONObject())
-                // čtečka neběží donekonečna: po 60 s ji vypnout a říct to
-                web.postDelayed({ if (nfcChat == chat && nfcActive) { nfcStop(); ops.onNfc(null, "Žádný štítek jsem do minuty nenačetl – zkus to znovu a podrž ho u zadní strany telefonu.", chat) } }, 60_000)
+                web.postDelayed({ if (nfcChat == chat && nfcActive) { nfcStop(); dispatchNfcError("Nic jsem do minuty nenačetl – zkus to znovu a podrž telefon u sebe.") } }, 60_000)
                 nfcActive = true
             }
         }
+    }
+
+    private fun dispatchNfcError(msg: String) = when (nfcMode) {
+        "card" -> ops.onCardRead(null, msg, nfcChat); "write" -> send("nfc.writeDone", JSONObject().put("error", msg)); else -> ops.onNfc(null, msg, nfcChat)
+    }
+
+    private fun onTag(tag: Tag) = when (nfcMode) {
+        "card" -> { readVirtualCard(tag); nfcStop() }
+        "write" -> { writeTag(tag); nfcStop() }
+        else -> readTag(tag)
+    }
+
+    /** Čtečka virtuální karty VEGA z druhého telefonu přes ISO-DEP (SELECT AID → READ → CardApdu.decode). */
+    private fun readVirtualCard(tag: Tag) {
+        val iso = IsoDep.get(tag) ?: return ops.onCardRead(null, "Tohle není karta VEGA (chybí ISO-DEP). Druhý telefon musí mít aktivní virtuální kartu.", nfcChat)
+        try {
+            iso.connect(); iso.timeout = 3000
+            val sel = iso.transceive(cz.axiom.vega.core.CardApdu.selectApdu())
+            if (cz.axiom.vega.core.CardApdu.splitSw(sel).second != cz.axiom.vega.core.CardApdu.SW_OK_INT)
+                return ops.onCardRead(null, "Druhý telefon nemá aktivní kartu VEGA (nebo ji právě deaktivoval).", nfcChat)
+            val read = iso.transceive(cz.axiom.vega.core.CardApdu.readApdu())
+            val (data, sw) = cz.axiom.vega.core.CardApdu.splitSw(read)
+            if (sw != cz.axiom.vega.core.CardApdu.SW_OK_INT) ops.onCardRead(null, "Karta přestala být aktivní během čtení.", nfcChat)
+            else ops.onCardRead(data, null, nfcChat)
+        } catch (e: Exception) { ops.onCardRead(null, "Spojení se přerušilo (${e.message ?: "telefon oddálen"}) – přilož telefony k sobě a zkus znovu.", nfcChat) }
+        finally { runCatching { iso.close() } }
+    }
+
+    fun nfcWriteStart(chat: String?, kind: String, content: String) { pendingWrite = kind to content; nfcStart(chat, "write") }
+
+    /** Zápis textu/URL na VLASTNÍ zapisovatelný štítek: před zápisem kapacita, po zápisu zpětné čtení. */
+    private fun writeTag(tag: Tag) {
+        val (kind, content) = pendingWrite ?: return send("nfc.writeDone", JSONObject().put("error", "Není co zapsat."))
+        val rec = if (kind == "url") NdefRecord.createUri(content) else NdefRecord.createTextRecord("cs", content)
+        val msg = NdefMessage(arrayOf(rec)); val size = msg.toByteArray().size
+        val ndef = Ndef.get(tag)
+        try {
+            if (ndef != null) {
+                ndef.connect()
+                if (!ndef.isWritable) return send("nfc.writeDone", JSONObject().put("error", "Štítek je jen pro čtení – na tenhle zapsat nejde."))
+                if (ndef.maxSize < size) return send("nfc.writeDone", JSONObject().put("error", "Na štítek se to nevejde (potřeba $size B, kapacita ${ndef.maxSize} B)."))
+                ndef.writeNdefMessage(msg)
+                val back = (ndef.ndefMessage ?: ndef.cachedNdefMessage)?.toByteArray()
+                send("nfc.writeDone", JSONObject().put("ok", true).put("size", size).put("verified", back != null && back.contentEquals(msg.toByteArray())))
+            } else {
+                val fmt = NdefFormatable.get(tag) ?: return send("nfc.writeDone", JSONObject().put("error", "Tenhle štítek neumím popsat (není NDEF)."))
+                fmt.connect(); fmt.format(msg); send("nfc.writeDone", JSONObject().put("ok", true).put("size", size).put("verified", true))
+            }
+        } catch (e: Exception) { send("nfc.writeDone", JSONObject().put("error", "Zápis selhal (${e.message ?: "štítek oddálen"}) – podrž štítek u telefonu.")) }
+        finally { runCatching { ndef?.close() }; pendingWrite = null }
     }
 
     @Volatile private var nfcActive = false
@@ -248,6 +304,81 @@ class MainActivity : ComponentActivity() {
             ops.onWifi(arr.toString(), info?.ssid, info?.bssid, null, chat)
         } catch (e: Exception) { ops.onWifi("[]", null, null, "WiFi sken se nepovedl (${e.message ?: "neznámá chyba"}).", chat) }
     }.start()
+
+    /** Dostupnost hardwaru pro UI (co má smysl nabídnout). */
+    fun hwCapabilities(): JSONObject {
+        val nfc = NfcAdapter.getDefaultAdapter(this)
+        val pm = packageManager
+        return JSONObject()
+            .put("nfc", nfc != null).put("nfcOn", nfc?.isEnabled == true)
+            .put("hce", pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_NFC_HOST_CARD_EMULATION))
+            .put("ble", pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE))
+    }
+
+    /** Diagnostika AKTUÁLNÍHO připojení – lokální, funguje i bez internetu. */
+    @SuppressLint("MissingPermission")
+    fun wifiLink(chat: String?) = Thread {
+        try {
+            val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            if (!wm.isWifiEnabled) return@Thread ops.onWifiLink("{}", "WiFi je vypnutá – zapni ji a zkus to znovu.", chat)
+            @Suppress("DEPRECATION") val info = wm.connectionInfo
+            if (info == null || info.networkId == -1) return@Thread ops.onWifiLink("{}", "Telefon teď není připojený k žádné WiFi.", chat)
+            val rssi = info.rssi
+            @Suppress("DEPRECATION") val ip = info.ipAddress.takeIf { it != 0 }?.let { "%d.%d.%d.%d".format(it and 0xFF, it shr 8 and 0xFF, it shr 16 and 0xFF, it shr 24 and 0xFF) }
+            val sec = if (android.os.Build.VERSION.SDK_INT >= 31) when (info.currentSecurityType) {
+                android.net.wifi.WifiInfo.SECURITY_TYPE_OPEN -> "Otevřená (bez hesla)"; android.net.wifi.WifiInfo.SECURITY_TYPE_WEP -> "WEP (slabé)"
+                android.net.wifi.WifiInfo.SECURITY_TYPE_PSK -> "WPA/WPA2"; android.net.wifi.WifiInfo.SECURITY_TYPE_SAE -> "WPA3"
+                android.net.wifi.WifiInfo.SECURITY_TYPE_EAP -> "WPA-Enterprise"; else -> "jiné / neuvedeno"
+            } else "neuvedeno (starší Android)"
+            val o = JSONObject().put("ssid", (info.ssid ?: "").trim('"').ifBlank { "neuvedeno (chybí oprávnění polohy)" })
+                .put("security", sec).put("rssi", rssi).put("quality", when { rssi >= -55 -> "výborný"; rssi >= -67 -> "dobrý"; rssi >= -75 -> "slabší"; else -> "slabý" })
+                .put("freq", info.frequency).put("band", if (info.frequency < 2500) "2,4 GHz" else if (info.frequency < 5955) "5 GHz" else "6 GHz")
+                .put("link", info.linkSpeed).put("ip", ip ?: "—").put("stale", false)
+            ops.onWifiLink(o.toString(), null, chat)
+        } catch (e: Exception) { ops.onWifiLink("{}", "Diagnostika selhala (${e.message ?: "neznámá chyba"}).", chat) }
+    }.start()
+
+    /** WiFi QR – vygeneruje obrázek offline, pošle ho JEN k zobrazení (ne do historie, logu ani exportu). */
+    fun wifiQr(ssid: String, password: String, type: String, hidden: Boolean): Boolean {
+        val payload = cz.axiom.vega.core.WifiTools.qrPayload(ssid, password, type, hidden)
+        val m = com.google.zxing.qrcode.QRCodeWriter().encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 512, 512)
+        val bmp = android.graphics.Bitmap.createBitmap(512, 512, android.graphics.Bitmap.Config.ARGB_8888)
+        for (x in 0 until 512) for (y in 0 until 512) bmp.setPixel(x, y, if (m.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+        val bos = java.io.ByteArrayOutputStream(); bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, bos)
+        val b64 = android.util.Base64.encodeToString(bos.toByteArray(), android.util.Base64.NO_WRAP)
+        runOnUiThread { send("wifiQr", JSONObject().put("img", "data:image/png;base64,$b64").put("ssid", ssid)) }
+        return true
+    }
+
+    private val askBle = registerForActivityResult(ActivityResultContracts.RequestPermission()) { g -> if (g) doBleScan(bleChat) else ops.onBle("[]", "Bez oprávnění Bluetooth nejde hledat zařízení. Povol ho v Nastavení → Aplikace → VEGA → Oprávnění.", bleChat) }
+    @Volatile private var bleChat: String? = null
+    fun bleScan(chat: String?) {
+        bleChat = chat
+        val bt = (getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
+        if (bt == null || !bt.isEnabled) return ops.onBle("[]", "Bluetooth je vypnuté – zapni ho a zkus to znovu.", chat)
+        if (android.os.Build.VERSION.SDK_INT >= 31 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            return askBle.launch(android.Manifest.permission.BLUETOOTH_SCAN)
+        doBleScan(chat)
+    }
+    @SuppressLint("MissingPermission")
+    private fun doBleScan(chat: String?) {
+        val sc = (getSystemService(android.content.Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter.bluetoothLeScanner
+            ?: return ops.onBle("[]", "Skener BLE není dostupný.", chat)
+        val found = java.util.concurrent.ConcurrentHashMap<String, JSONObject>()
+        val cb = object : android.bluetooth.le.ScanCallback() {
+            override fun onScanResult(type: Int, r: android.bluetooth.le.ScanResult) {
+                val name = runCatching { r.device.name }.getOrNull() ?: r.scanRecord?.deviceName
+                found[r.device.address] = JSONObject().put("name", name ?: "(bez názvu)").put("addr", r.device.address).put("rssi", r.rssi)
+            }
+        }
+        send("nfc.listening", JSONObject()) // sdílený „poslouchám“ indikátor
+        sc.startScan(cb)
+        web.postDelayed({
+            runCatching { sc.stopScan(cb) }; send("idle", JSONObject())
+            ops.onBle(JSONArray(found.values.sortedByDescending { it.optInt("rssi") }).toString(), null, chat)
+        }, 6000)
+    }
+
     fun pick() = runOnUiThread { pickFiles.launch(arrayOf("*/*")) }
     /** Balíček ověřovače citací (.zip) – instaluje se mimo chat, ověří otisky souborů. */
     private val pickVerifier = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -426,6 +557,23 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); JSONObject.quote(ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name) }
     @JavascriptInterface fun wifiScan(chat: String) = safe { a.wifiScan(chat.takeIf { it != "temp" }); true }
     @JavascriptInterface fun nfc(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }) }
+    // --- Hardware: virtuální karty VEGA ---
+    @JavascriptInterface fun hwJson() = safe { ops.hwJson() }
+    @JavascriptInterface fun hwCapabilities() = safe { a.hwCapabilities() }
+    @JavascriptInterface fun hwSaveCard(json: String) = safe { JSONObject.quote(ops.hwSaveCard(json)) }
+    @JavascriptInterface fun hwDeleteCard(id: String) = safe { ops.hwDeleteCard(id); true }
+    @JavascriptInterface fun hwActivate(id: String) = safe { JSONObject.quote(ops.hwActivate(id)) }
+    @JavascriptInterface fun hwDeactivate() = safe { ops.hwDeactivate(); true }
+    @JavascriptInterface fun nfcReadCard(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }, "card"); true }
+    @JavascriptInterface fun nfcWrite(chat: String, kind: String, content: String) = safe { require(content.isNotBlank()) { "Napiš, co se má zapsat." }; a.nfcWriteStart(chat.takeIf { it != "temp" }, kind, content); true }
+    // --- Hardware: WiFi diagnostika a QR ---
+    @JavascriptInterface fun wifiLink(chat: String) = safe { a.wifiLink(chat.takeIf { it != "temp" }); true }
+    @JavascriptInterface fun wifiQr(ssid: String, password: String, type: String, hidden: Boolean) = safe { a.wifiQr(ssid, password, type, hidden) }
+    @JavascriptInterface fun wifiCheckPw(pw: String, ssid: String) = safe { cz.axiom.vega.core.WifiTools.checkPassword(pw, ssid.ifBlank { null }).let { JSONObject().put("score", it.score).put("level", it.level).put("reason", it.reason) } }
+    @JavascriptInterface fun wifiGenPw() = safe { JSONObject.quote(cz.axiom.vega.core.WifiTools.passphrase()) }
+    @JavascriptInterface fun hwSaveMeasure(json: String) = safe { JSONObject.quote(ops.hwSaveMeasure(json)) }
+    // --- Hardware: BLE ---
+    @JavascriptInterface fun bleScan(chat: String) = safe { a.bleScan(chat.takeIf { it != "temp" }); true }
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }
     @JavascriptInterface fun demand(chat: String, json: String) = safe { ops.demand(chat.takeIf { it != "temp" }, JSONObject(json)) }
     @JavascriptInterface fun share(name: String) = safe { a.share(name) }

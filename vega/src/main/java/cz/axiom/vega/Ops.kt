@@ -1885,7 +1885,91 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     // ------------------------------------------------------------------ NFC
 
     /** Plný inspektor štítku: typ karty, UID, technologie + NDEF záznamy (jen čtení, nic se neklonuje). */
-    fun onNfcTag(uid: ByteArray, techs: List<String>, sak: Int?, atqa: Int?, ndefBytes: ByteArray?, chat: String?) = submit {
+    // ------------------------------------------------------------------ Hardware: virtuální karty VEGA
+    private fun hwCardsArr(): JSONArray = runCatching { JSONArray(kv.read("hw/cards.json") ?: "[]") }.getOrDefault(JSONArray())
+    /** Profily virtuálních karet + která je aktivní. Jen vlastní vybavení VEGA; žádné cizí/platební karty. */
+    fun hwJson(): JSONObject {
+        val arr = hwCardsArr()
+        return JSONObject().put("cards", arr).put("activeId", (0 until arr.length()).map { arr.getJSONObject(it) }.firstOrNull { it.optBoolean("active") }?.optString("id") ?: JSONObject.NULL)
+    }
+    fun hwSaveCard(json: String) = synchronized(this) {
+        val o = JSONObject(json); val arr = hwCardsArr()
+        val id = o.optString("id").ifBlank { "card" + System.currentTimeMillis().toString(36) }
+        o.put("id", id)
+        require(o.optString("name").isNotBlank()) { "Zadej název karty." }
+        val out = JSONArray().apply { (0 until arr.length()).map { arr.getJSONObject(it) }.filter { it.optString("id") != id }.forEach { put(it) }; put(o) }
+        kv.write("hw/cards.json", out.toString()); id
+    }
+    fun hwDeleteCard(id: String) = synchronized(this) {
+        if (hwCardsArr().let { (0 until it.length()).any { i -> it.getJSONObject(i).optString("id") == id && it.getJSONObject(i).optBoolean("active") } }) HceState.deactivate(context)
+        kv.write("hw/cards.json", JSONArray().apply { hwCardsArr().let { a -> (0 until a.length()).map { a.getJSONObject(it) }.filter { it.optString("id") != id }.forEach { put(it) } } }.toString())
+    }
+    /** Aktivace: do emulace jde JEN název, veřejný identifikátor a pole označená ke sdílení. Jen jedna karta aktivní. */
+    fun hwActivate(id: String): String = synchronized(this) {
+        val arr = hwCardsArr(); val card = (0 until arr.length()).map { arr.getJSONObject(it) }.firstOrNull { it.optString("id") == id } ?: throw ToolError("Karta neexistuje.")
+        val fields = LinkedHashMap<String, String>()
+        val shared = card.optJSONArray("shared")?.let { (0 until it.length()).map { i -> it.getString(i) } }?.toSet() ?: emptySet()
+        card.optJSONObject("fields")?.let { f -> f.keys().forEach { k -> if (k in shared) fields[k] = f.optString(k) } }
+        val payload = cz.axiom.vega.core.CardApdu.encode(cz.axiom.vega.core.CardApdu.Card(card.optString("name"), card.optString("publicId"), fields))
+        HceState.activate(context, payload)
+        (0 until arr.length()).forEach { arr.getJSONObject(it).put("active", arr.getJSONObject(it).optString("id") == id) }
+        kv.write("hw/cards.json", arr.toString())
+        "Karta „${card.optString("name")}“ je aktivní – přilož druhý telefon se čtečkou VEGA. Sdílí se jen: ${(listOf("název", "veřejný id") + fields.keys).joinToString(", ")}."
+    }
+    fun hwDeactivate() = synchronized(this) {
+        HceState.deactivate(context)
+        val arr = hwCardsArr(); (0 until arr.length()).forEach { arr.getJSONObject(it).put("active", false) }; kv.write("hw/cards.json", arr.toString())
+    }
+    /** Čtečka přečetla virtuální kartu z druhého telefonu (payload přes IsoDep). */
+    fun onCardRead(payload: ByteArray?, error: String?, chat: String?) = submit {
+        if (error != null) { reply(chat, error); return@submit }
+        val card = payload?.let { cz.axiom.vega.core.CardApdu.decode(it) } ?: run { reply(chat, "Karta se nepřečetla (prázdná nebo neznámý formát)."); return@submit }
+        reply(chat, buildString {
+            append("**Virtuální karta VEGA přečtena**\n- Název: ${card.name}\n- Veřejný identifikátor: ${card.publicId}\n")
+            card.fields.forEach { (k, v) -> append("- $k: $v\n") }
+            append("\n_(data pocházejí z aktivního profilu druhého telefonu, ne z UID)_")
+        })
+    }
+
+    // ------------------------------------------------------------------ Hardware: WiFi diagnostika připojení
+    fun onWifiLink(json: String, error: String?, chat: String?) = submit {
+        if (error != null) { reply(chat, error); return@submit }
+        val o = JSONObject(json)
+        val t = java.text.SimpleDateFormat("d. M. yyyy HH:mm:ss", java.util.Locale.forLanguageTag("cs")).format(java.util.Date())
+        fun v(k: String, unit: String = "") = o.opt(k)?.takeIf { it != JSONObject.NULL && it.toString().isNotBlank() }?.let { "$it$unit" } ?: "—"
+        reply(chat, buildString {
+            append("**Aktuální WiFi připojení** · změřeno $t\n")
+            append("- Síť (SSID): ${v("ssid")}\n- Zabezpečení: ${v("security")}\n- Signál: ${v("rssi", " dBm")} (${v("quality")})\n")
+            append("- Frekvence: ${v("freq", " MHz")} (${v("band")})\n- Linková rychlost: ${v("link", " Mb/s")}\n- IP: ${v("ip")}\n")
+            if (o.optBoolean("stale")) append("\n⚠ Údaje jsou z posledního skenu, ne živé.")
+            append("\n_(měřeno lokálně; funguje i bez internetu)_")
+        }, JSONObject().put("type", "wifiMeasure").put("data", o.put("at", t)))
+    }
+
+    /** BLE sken vlastních periferií: název, adresa, RSSI. Jen hledání – připojení a GATT je samostatný krok. */
+    fun onBle(json: String, error: String?, chat: String?) = submit {
+        if (error != null) { reply(chat, error); return@submit }
+        val arr = JSONArray(json)
+        if (arr.length() == 0) { reply(chat, "Žádné BLE zařízení v dosahu. Zapni hledání na periferii (párovací režim) a zkus to znovu."); return@submit }
+        reply(chat, buildString {
+            append("**Bluetooth zařízení v okolí: ${arr.length()}**\n\n| Název | Adresa | Signál |\n|---|---|---|\n")
+            (0 until arr.length()).map { arr.getJSONObject(it) }.take(25).forEach { o ->
+                val r = o.optInt("rssi"); val q = when { r >= -60 -> "blízko"; r >= -75 -> "střed"; else -> "daleko" }
+                append("| ${o.optString("name")} | `${o.optString("addr")}` | $q ($r dBm) |\n")
+            }
+            append("\n_(jen hledání a síla signálu; připojení a čtení GATT služeb je další krok)_")
+        })
+    }
+
+    /** Uložení měření do podkladů pro výzkum (původ, čas, jednotka, podmínky). Citlivá pole (SSID) se do exportu nedávají. */
+    fun hwSaveMeasure(json: String): String = synchronized(this) {
+        val o = JSONObject(json).put("savedAt", System.currentTimeMillis())
+        val arr = runCatching { JSONArray(kv.read("hw/measures.json") ?: "[]") }.getOrDefault(JSONArray())
+        arr.put(o); val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 500); for (i in from until arr.length()) trimmed.put(arr.get(i))
+        kv.write("hw/measures.json", trimmed.toString()); "Měření uloženo do podkladů (${o.optString("kind", "WiFi")})."
+    }
+
+    fun onNfcTag(uid: ByteArray, techs: List<String>, sak: Int?, atqa: Int?, ndefBytes: ByteArray?, chat: String?)= submit {
         val info = cz.axiom.vega.core.NfcTag.classify(uid, techs, sak, atqa)
         val records = ndefBytes?.let { runCatching { cz.axiom.vega.core.NdefParser.parse(it) }.getOrDefault(emptyList()) } ?: emptyList()
         val text = cz.axiom.vega.core.NdefParser.summary(info, records)

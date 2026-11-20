@@ -259,3 +259,8 @@ ol.steps code, .sheet code { font-family: ui-monospace, "Roboto Mono", monospace
 .drowwrap { display: flex; align-items: stretch; }
 .drowwrap .drow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dmore { background: none; border: 0; color: var(--ink2); min-width: 44px; font-size: 18px; cursor: pointer; border-radius: 10px; }
+/* Hardware sekce */
+.hwfield { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
+.chk { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--ink2); white-space: nowrap; }
+table.hwtab { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+table.hwtab th, table.hwtab td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }

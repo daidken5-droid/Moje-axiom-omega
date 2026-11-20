@@ -255,6 +255,86 @@ function renderChips() {
   go.setAttribute('aria-label', S.busy ? 'Zastavit' : empty ? 'Mluvit' : 'Odeslat');
   $('#input').placeholder = S.tool ? ((S.tool.input || []).includes('URL') ? 'Vlož adresu…' : 'Vlož text nebo přilož soubor…') : S.space.kind === 'project' ? 'Co se má v projektu udělat?' : 'Zeptej se VEGA';
 }
+/** Sekce Hardware: virtuální karta VEGA, NFC štítky, WiFi, QR, Bluetooth. Bez rootu, offline, jen vlastní vybavení. */
+function hardwareSheet() {
+  const caps = call('hwCapabilities') || {}; const hw = call('hwJson') || { cards: [] };
+  const cards = hw.cards || [];
+  const cardRow = c => `<div class="row stack"><span class="grow"><b>${esc(c.name)}${hw.activeId === c.id ? ' <span class="pill ok">aktivní</span>' : ''}</b><small>${esc(c.publicId || 'bez identifikátoru')} · sdílí ${((c.shared || []).length + 2)} údajů</small></span>
+    <span class="acts">${hw.activeId === c.id ? '<button class="btn" data-act="hwDeact">Deaktivovat</button>' : `<button class="btn primary" data-act="hwAct" data-id="${esc(c.id)}">Aktivovat</button>`}<button class="btn ghost" data-act="hwEdit" data-id="${esc(c.id)}">Upravit</button></span></div>`;
+  sheet(`<h2>Hardware</h2>
+    <p class="note">Bez rootu, offline. Vše jen pro tvoje vlastní vybavení – ne cizí, platební ani přístupové karty.</p>
+
+    <h3>Virtuální karta VEGA</h3>
+    <div class="note">${caps.hce ? 'Telefon se stane kartou (HCE) a druhý telefon s VEGA ji přečte.' : '⚠ Tenhle telefon neumí emulaci karty (HCE) – kartu nevytvoříš, ale cizí přečteš.'}</div>
+    <div class="list">${cards.map(cardRow).join('') || '<div class="row"><span class="grow note">Zatím žádná karta.</span></div>'}</div>
+    <div class="inline">${caps.hce ? '<button class="btn" data-act="hwNew">+ Nová karta</button>' : ''}<button class="btn" data-act="hwReadCard">Přečíst kartu z druhého telefonu</button></div>
+
+    <h3>NFC štítky</h3>
+    <div class="inline"><button class="btn" data-act="nfc">Přečíst štítek</button><button class="btn" data-act="ndefWrite">Zapsat text / URL</button></div>
+    <div class="note">${caps.nfc ? (caps.nfcOn ? '' : 'NFC je vypnuté – zapni ho v systému.') : '⚠ Telefon nemá NFC.'}</div>
+
+    <h3>WiFi</h3>
+    <div class="inline"><button class="btn" data-act="wifiLink">Moje připojení</button><button class="btn" data-act="wifi">Sítě v okolí</button><button class="btn" data-act="wifiTools">Heslo a QR</button></div>
+
+    <h3>Bluetooth</h3>
+    <div class="inline"><button class="btn" data-act="ble" ${caps.ble ? '' : 'disabled'}>Hledat zařízení</button></div>
+    ${caps.ble ? '' : '<div class="note">⚠ Telefon nemá Bluetooth LE.</div>'}
+
+    <details><summary>Co ještě jde a co ne (přehled kompatibility)</summary>
+      <table class="hwtab"><tr><th>Funkce</th><th>Stav</th></tr>
+      <tr><td>Virtuální karta VEGA (HCE) + čtečka</td><td>${caps.hce ? 'hotovo' : 'telefon neumí HCE'}</td></tr>
+      <tr><td>NFC štítky: čtení + zápis text/URL</td><td>${caps.nfc ? 'hotovo' : 'telefon nemá NFC'}</td></tr>
+      <tr><td>WiFi diagnostika, QR, kontrola hesla</td><td>hotovo</td></tr>
+      <tr><td>Bluetooth LE: hledání + RSSI</td><td>${caps.ble ? 'hotovo' : 'telefon nemá BLE'}</td></tr>
+      <tr><td>BLE připojení + GATT služby</td><td>chystá se</td></tr>
+      <tr><td>USB / sériový terminál</td><td>jen s doloženým adaptérem (zatím ne)</td></tr>
+      <tr><td>Infračervené ovládání</td><td>Pixel 9a nemá IR vysílač</td></tr>
+      <tr><td>Sub-GHz, 125 kHz RFID, iButton, GPIO</td><td>potřebuje externí hardware (zatím ne)</td></tr></table>
+      <p class="note">Samotná detekce USB/BLE zařízení nezaručuje podporu konkrétní operace – proto je zde přehled.</p>
+    </details>`, true);
+}
+
+function hwCardSheet(card) {
+  const c = card || { name: '', publicId: '', fields: {}, shared: [] };
+  const fk = Object.keys(c.fields || {});
+  const fieldRow = (i, k, v, on) => `<div class="hwfield"><input class="field" data-fk="${i}" placeholder="údaj (např. umístění)" value="${esc(k)}"><input class="field" data-fv="${i}" placeholder="hodnota" value="${esc(v)}"><label class="chk"><input type="checkbox" data-fs="${i}" ${on ? 'checked' : ''}> sdílet</label></div>`;
+  const rows = [0, 1, 2].map(i => fieldRow(i, fk[i] || '', fk[i] ? c.fields[fk[i]] : '', fk[i] && (c.shared || []).includes(fk[i])));
+  sheet(`<h2>${card ? 'Upravit kartu' : 'Nová virtuální karta'}</h2>
+    <p class="lede">Karta vlastního vybavení. Sdílí se jen název, veřejný identifikátor a pole, která zaškrtneš jako „sdílet“.</p>
+    <input type="hidden" id="hwId" value="${esc(c.id || '')}">
+    <label class="lbl">Název (sdílí se vždy)</label><input class="field" id="hwName" value="${esc(c.name)}" placeholder="např. Vrtačka Bosch">
+    <label class="lbl">Veřejný identifikátor (sdílí se vždy)</label><input class="field" id="hwPub" value="${esc(c.publicId)}" placeholder="např. INV-00123">
+    <label class="lbl">Doplňující údaje</label>${rows.join('')}
+    <div class="inline" style="margin-top:10px"><button class="btn primary" data-act="hwSave">Uložit</button>${card ? `<button class="btn ghost" data-act="hwDel" data-id="${esc(c.id)}">Smazat</button>` : ''}</div>`, true);
+}
+
+function wifiToolsSheet() {
+  sheet(`<h2>WiFi heslo a QR</h2>
+    <p class="lede">Zkontroluj sílu hesla nebo vyrob QR kód pro snadné připojení hostů. Heslo zůstane jen tady – neukládá se do historie ani jinam.</p>
+    <label class="lbl">Název sítě (SSID)</label><input class="field" id="qrSsid" placeholder="např. Doma_5G" autocomplete="off">
+    <label class="lbl">Heslo</label><div class="inline"><input class="field" id="qrPw" type="text" placeholder="heslo k WiFi" autocomplete="off" spellcheck="false"><button class="btn" data-act="wifiGen">Vymyslet silné</button></div>
+    <div class="status" id="pwCheck"></div>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="qrHidden"> skrytá síť</label>
+    <div class="inline" style="margin-top:10px"><button class="btn" data-act="wifiPwCheck">Zkontrolovat heslo</button><button class="btn primary" data-act="wifiQrGo">Vyrobit QR</button></div>
+    <div id="qrOut" style="text-align:center;margin-top:12px"></div>`, true);
+}
+
+function ndefWriteSheet() {
+  sheet(`<h2>Zapsat na NFC štítek</h2>
+    <p class="lede">Zapíše text nebo odkaz na TVŮJ vlastní zapisovatelný štítek. Před zápisem ověřím kapacitu, po zápisu přečtu zpět.</p>
+    <label class="lbl">Typ</label><select class="field" id="ndefKind"><option value="text">Text</option><option value="url">Odkaz (URL)</option></select>
+    <label class="lbl">Obsah</label><input class="field" id="ndefContent" placeholder="text nebo https://…" autocomplete="off">
+    <button class="btn primary wide" data-act="ndefWriteGo" style="margin-top:10px">Přiložit štítek a zapsat</button>`, true);
+}
+function wifiPwCheckNow() {
+  const pw = ($('#qrPw') || {}).value || ''; const ssid = ($('#qrSsid') || {}).value || '';
+  const el = $('#pwCheck'); if (!el) return;
+  if (!pw) { el.textContent = ''; return; }
+  const r = call('wifiCheckPw', pw, ssid) || {};
+  const cls = r.score >= 3 ? 'ok' : r.score >= 2 ? '' : 'bad';
+  el.innerHTML = `<span class="pill ${cls}">${esc(r.level || '')}</span> ${esc(r.reason || '')}`;
+}
+
 /** Domů = úvodní obrazovka s pozdravem. Když je nejnovější chat prázdný, použije ho (nehromadí prázdné chaty), jinak založí nový. */
 function goHome() {
   closeSheet(true); S.tool = null; S.toolInput = null;
@@ -325,6 +405,7 @@ function plusSheet() {
     <button class="row" data-act="tools"><b>⌘</b><span class="grow"><b>Nástroje</b><small>diff, kontrolní součty, inspektory, čtení URL…</small></span></button>
     <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek – inspektor</b><small>typ karty, UID, technologie, obsah (jen čtení)</small></span></button>
     <button class="row" data-act="wifi"><b>📶</b><span class="grow"><b>WiFi kolem mě</b><small>kanály, signál, kontrola zabezpečení tvé sítě</small></span></button>
+    <button class="row" data-act="hw"><b>🛠</b><span class="grow"><b>Hardware</b><small>virtuální karta, NFC štítky, WiFi, QR, Bluetooth</small></span></button>
     <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
   </div>`);
 }
@@ -793,6 +874,12 @@ window.vega = {
         else toast(d.message, 6000); S.home = null; break; }
       case 'nfc.start': B.nfc(chatId()); break;
       case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
+      case 'nfc.writeDone': { S.nfc = false; render();
+        if (d.error) toast(d.error, 8000);
+        else toast(`Zapsáno (${d.size} B)${d.verified ? ' a ověřeno zpětným čtením ✓' : ' – zpětné čtení se nepovedlo, zkontroluj štítek'}.`, 8000); break; }
+      case 'wifiQr': { const out = $('#qrOut');
+        const html = `<img src="${d.img}" alt="WiFi QR" style="width:220px;height:220px;border-radius:12px;background:#fff;padding:8px"><p class="note">Naskenuj fotoaparátem telefonu hosta. Síť: ${esc(d.ssid)}. QR se nikam neukládá.</p>`;
+        if (out) out.innerHTML = html; else sheet(`<h2>WiFi QR</h2>${html}`, true); break; }
       case 'nfc.off': S.nfc = false; render(); sheet(`<h2>NFC je vypnuté</h2><p class="lede">Zapni ho v systému a zkus to znovu.</p><button class="btn primary wide" data-act="nfcSettings">Otevřít nastavení NFC</button>`); break;
     }
   },
@@ -867,6 +954,37 @@ function act(a, d) {
     case 'wifi': if (busyGuard()) return; closeSheet(true);
       if (!B.wifiScan) { toast('WiFi analyzátor v této verzi není.'); break; }
       S.busy = true; S.busyChat = chatId(); B.wifiScan(chatId() || 'temp'); render(); toast('Projíždím WiFi kolem… (Android může požádat o polohu)', 6000); break;
+    // --- Hardware ---
+    case 'hw': if (!B.hwJson) { toast('Sekce Hardware v této verzi není.'); break; } hardwareSheet(); break;
+    case 'hwNew': hwCardSheet(null); break;
+    case 'hwEdit': { const hw = call('hwJson') || { cards: [] }; const c = (hw.cards || []).find(x => x.id === d.id); if (c) hwCardSheet(c); break; }
+    case 'hwSave': {
+      const name = ($('#hwName') || {}).value || ''; if (!name.trim()) { toast('Zadej název karty.'); break; }
+      const fields = {}; const shared = [];
+      [0, 1, 2].forEach(i => { const k = ($(`[data-fk="${i}"]`) || {}).value; const v = ($(`[data-fv="${i}"]`) || {}).value; const on = ($(`[data-fs="${i}"]`) || {}).checked;
+        if (k && k.trim()) { fields[k.trim()] = (v || '').trim(); if (on) shared.push(k.trim()); } });
+      const card = { id: ($('#hwId') || {}).value || '', name: name.trim(), publicId: (($('#hwPub') || {}).value || '').trim(), fields, shared };
+      if (call('hwSaveCard', JSON.stringify(card)) !== null) { closeSheet(true); hardwareSheet(); toast('Karta uložená.'); } break;
+    }
+    case 'hwDel': if (!confirm('Smazat kartu?')) break; if (call('hwDeleteCard', d.id) !== null) { closeSheet(true); hardwareSheet(); toast('Smazáno.'); } break;
+    case 'hwAct': { const r = call('hwActivate', d.id); if (r) { hardwareSheet(); toast(r, 7000); } break; }
+    case 'hwDeact': call('hwDeactivate'); hardwareSheet(); toast('Karta deaktivovaná – už se nesdílí.'); break;
+    case 'hwReadCard': if (busyGuard()) return; closeSheet(true); S.nfc = true; S.busy = true; S.busyChat = chatId(); B.nfcReadCard(chatId() || 'temp'); render(); toast('Přilož druhý telefon s aktivní kartou VEGA zády k sobě…', 7000); break;
+    case 'ndefWrite': ndefWriteSheet(); break;
+    case 'ndefWriteGo': {
+      const kind = ($('#ndefKind') || {}).value || 'text'; const content = (($('#ndefContent') || {}).value || '').trim();
+      if (!content) { toast('Napiš, co se má na štítek zapsat.'); break; }
+      closeSheet(true); S.nfc = true; render(); call('nfcWrite', chatId() || 'temp', kind, content); toast('Přilož vlastní zapisovatelný štítek k telefonu…', 7000); break;
+    }
+    case 'wifiLink': if (busyGuard()) return; closeSheet(true); S.busy = true; S.busyChat = chatId(); B.wifiLink(chatId() || 'temp'); render(); break;
+    case 'wifiTools': wifiToolsSheet(); break;
+    case 'wifiGen': { const g = call('wifiGenPw'); if (g) { const el = $('#qrPw'); if (el) el.value = g; wifiPwCheckNow(); } break; }
+    case 'wifiPwCheck': wifiPwCheckNow(); break;
+    case 'wifiQrGo': {
+      const ssid = (($('#qrSsid') || {}).value || '').trim(); if (!ssid) { toast('Zadej název sítě (SSID).'); break; }
+      call('wifiQr', ssid, ($('#qrPw') || {}).value || '', 'WPA', !!($('#qrHidden') || {}).checked); break;
+    }
+    case 'ble': if (busyGuard()) return; closeSheet(true); S.nfc = true; S.busy = true; S.busyChat = chatId(); B.bleScan(chatId() || 'temp'); render(); toast('Hledám Bluetooth zařízení (6 s)…', 6000); break;
     case 'demand': if (busyGuard()) return; { const smp = call('demandSample'); if (smp) demandSheet(smp); } break;
     case 'demandForm': demandSheet(JSON.parse(d.s)); break;
     case 'demandGo': {
