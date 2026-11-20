@@ -12,7 +12,10 @@ object Topic {
         "ahoj|cau|dik|diky|dekuji|dekuju|ok|okej|super|jasne|dobre|dobry|dobra|ano|ne|test|pomoc|help|hi|hello|thanks|nevim|aha|hmm|jo|" +
         // navazující povely a pozdravy (bez historie by z nich vznikla rešerše o slově „pokračuj“)
         "pokracuj|pokracovat|dal|dale|rozved|rozvin|zopakuj|znovu|zkrat|prodluz|anglicky|cesky|nemecky|slovensky|prelozit|souhlasim|nesouhlasim|presne|spravne|" +
-        "zdravim|nashle|nashledanou|dobrou|noc|rano|vecer|cus|cauky|hotovo|stop|konec|dalsi|jeste|vic|mene|kratsi|delsi|priklad|vysvetleni)\\b")
+        "zdravim|nashle|nashledanou|dobrou|noc|rano|vecer|cus|cauky|hotovo|stop|konec|dalsi|jeste|vic|mene|kratsi|delsi|priklad|vysvetleni|" +
+        // pokyny a zájmena (laik píše „Přepiš to formálněji“, „Změň barvu…“, „Pomoz mi s výpisem“ – to není název tématu)
+        "uprav|zmen|prepis|pomoz|pomozte|vylepsi|oprav|zkontroluj|priprav|dej|rekni|ukaz|zjisti|pridej|odeber|smaz|uloz|zapamatuj|zapomen|vrat|zrus|" +
+        "zformuluj|preformuluj|naformatuj|seradi|serad|vyber|doplni|dopln|napoveda|poradi|porad|to|tohle|toto|tenhle|tahle|mi|me|mne|muj|moje|meho|tvuj|nas|vas)\\b")
     private val bad = Regex("[0-9+*/=<>@#{}\\[\\]|\\\\]")
 
     fun bare(prompt: String): String? {
