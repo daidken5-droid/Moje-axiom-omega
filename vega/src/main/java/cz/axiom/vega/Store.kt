@@ -63,6 +63,10 @@ class Settings(context: Context) {
     var ownOnly: Boolean get() = p.getBoolean("ownOnly", false); set(v) = p.edit().putBoolean("ownOnly", v).apply()
     /** Veřejný web (rešerše, čtení URL) – samostatná volba, nezávislá na výběru modelů. */
     var webAllowed: Boolean get() = p.getBoolean("webAllowed", true); set(v) = p.edit().putBoolean("webAllowed", v).apply()
+    // ---- SAMOÚPRAVY (vrstva C): repozitář se zdrojem VEGY, pracovní větev a samostatné zlepšování z deníku slabin
+    var ghRepo: String get() = p.getString("ghRepo", "daidken5-droid/Moje-axiom-omega")!!; set(v) = p.edit().putString("ghRepo", v.trim()).apply()
+    var ghBase: String get() = p.getString("ghBase", "claude/reverse-engineer-ai-app-o5jhyd")!!; set(v) = p.edit().putString("ghBase", v.trim()).apply()
+    var autoImprove: Boolean get() = p.getBoolean("autoImprove", true); set(v) = p.edit().putBoolean("autoImprove", v).apply()
     /** Jak oslovovat uživatele na úvodní obrazovce (např. „Lukáši“). */
     var userName: String get() = p.getString("userName", "")!!; set(v) = p.edit().putString("userName", v.trim().take(30)).apply()
 

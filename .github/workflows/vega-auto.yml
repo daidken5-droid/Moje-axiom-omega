@@ -1,0 +1,106 @@
+name: VEGA samoúprava (vega/auto-*)
+
+# Kód na těchto větvích napsala VEGA sama (model). Proto:
+#  - job „build“ sestaví a otestuje BEZ jakýchkoli secrets a bez podpisového klíče (kód nemá co ukrást),
+#  - job „sign“ jen podepíše hotové APK nástrojem apksigner – žádný kód z větve v něm neběží (žádný checkout),
+#  - hlídač cest: změna mimo vega/src a vegacore/src (nebo gradle, manifest, CI) = selhání.
+# Token v telefonu NEMÁ oprávnění Workflows → tento soubor z telefonu změnit nejde.
+# Spouští se pull requestem vega/auto-… → pracovní větev: běh PR smí obnovit cache cílové větve (náhradní podpisový
+# klíč), a uživatel má v PR přehled změny (sloučením ji přijme natrvalo).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vega-auto-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Testy + sestavení (bez klíčů)
+    if: startsWith(github.head_ref, 'vega/auto-') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Hlídač cest (jen vega/src a vegacore/src, nic chráněného)
+        run: |
+          git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | tee changed.txt
+          bad=$(grep -vE '^(vega|vegacore)/src/' changed.txt || true)
+          prot=$(grep -iE '(\.gradle(\.kts)?$|AndroidManifest\.xml$|/res/xml/|proguard|\.(jks|keystore|p12|pem|key)$|^\.github/)' changed.txt || true)
+          if [ -n "$bad$prot" ]; then echo "::error::Samoúprava změnila nepovolené soubory:"; echo "$bad$prot"; exit 1; fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Testy
+        run: ./gradlew :vegacore:test :vega:testDebugUnitTest --no-daemon
+      - name: Výsledky testů
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vega-test-results
+          path: |
+            vegacore/build/reports/tests/test
+            vega/build/reports/tests/testDebugUnitTest
+          retention-days: 7
+      - name: Sestavení (nepodepsané produkčním klíčem)
+        run: ./gradlew :vega:assembleRelease --no-daemon -PvegaVersionCode=$(( ( $(date +%s) - 1767225600 ) / 60 )) -PvegaVersionSuffix=auto-$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned
+          path: vega/build/outputs/apk/release/vega-release.apk
+          retention-days: 1
+
+  sign:
+    name: Podpis (bez kódu z větve)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned
+      - name: Release keystore (z GitHub Secrets)
+        env:
+          KEYSTORE_B64: ${{ secrets.OMEGA_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/omega.jks"; echo "KS=$RUNNER_TEMP/omega.jks" >> "$GITHUB_ENV"
+          else echo "FALLBACK=1" >> "$GITHUB_ENV"; fi
+      - name: Náhradní podpisový klíč (stejná cache jako hlavní sestavení)
+        if: env.FALLBACK == '1'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.avior-signing
+          key: avior-signing-v1
+          fail-on-cache-miss: true
+      - name: Podepsat, otisky
+        env:
+          SECRET_STORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.OMEGA_KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.OMEGA_KEY_PASSWORD }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          H=$(echo ${{ github.event.pull_request.head.sha }} | cut -c1-7)
+          mkdir -p dist; OUT="dist/VEGA-auto-$H.apk"
+          if [ "$FALLBACK" = "1" ]; then
+            P="$(cat ~/.avior-signing/pass)"; echo "::add-mask::$P"
+            "$BT/apksigner" sign --ks ~/.avior-signing/key.p12 --ks-type PKCS12 --ks-key-alias avior --ks-pass "pass:$P" --key-pass "pass:$P" --out "$OUT" vega-release.apk
+          else
+            "$BT/apksigner" sign --ks "$KS" --ks-key-alias "$SECRET_KEY_ALIAS" --ks-pass "pass:$SECRET_STORE_PASSWORD" --key-pass "pass:$SECRET_KEY_PASSWORD" --out "$OUT" vega-release.apk
+          fi
+          rm -f dist/*.idsig
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          "$BT/apksigner" verify --print-certs "$OUT" | tee dist/SIGNING.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VEGA-APK
+          path: dist/
+          retention-days: 30

@@ -3,7 +3,7 @@ name: Build VEGA APK
 # VEGA = samostatná aplikace vedle AVIORu (cz.axiom.vega). Bez llama.cpp → sestavení za pár minut.
 on:
   push:
-    branches: ["**"]
+    branches: ["**", "!vega/auto-**"] # samoúpravy VEGY: vega-auto.yml přes pull request (bez klíčů v jobu s jejich kódem)
     paths: ["vega/**", "vegacore/**", "build.gradle.kts", "settings.gradle.kts", ".github/workflows/build-vega.yml"]
   workflow_dispatch:
 
@@ -75,7 +75,7 @@ jobs:
           else
             export OMEGA_KEYSTORE_PASSWORD="$SECRET_STORE_PASSWORD" OMEGA_KEY_ALIAS="$SECRET_KEY_ALIAS" OMEGA_KEY_PASSWORD="$SECRET_KEY_PASSWORD"
           fi
-          ./gradlew :vega:assembleRelease :vega:assembleDebug --no-daemon
+          ./gradlew :vega:assembleRelease :vega:assembleDebug --no-daemon -PvegaVersionCode=$(( ( $(date +%s) - 1767225600 ) / 60 ))
       - name: Pojmenování, otisky, podpis
         run: |
           mkdir -p dist

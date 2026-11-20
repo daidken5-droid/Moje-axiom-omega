@@ -276,5 +276,12 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
 - [ ] 33. Red-team kolo 9: závěrečná kontrola celého nočního diffu (bezpečnost, správnost, mrtvý kód), regresní testy.
 - [ ] 34. Teprve teď: finální APK + shrnutí všech 9 kol pro uživatele
 
+## Vrstva C (uživatel: „chci, aby se aplikace mohla kompletně sama upravovat“)
+- [x] 35. Samoúpravy aplikace 1.5.0
+  - **Postup:** GitHub klient → pravidla cest → úprava modelem → commit `vega/auto-…` + PR → CI bez klíčů s odděleným podpisem → APK s ověřeným otiskem → instalace s kontrolou balíčku, certifikátu a verze.
+  - **Spuštění:** z chatu, z karty, nebo samo 1× denně z deníku slabin.
+  - **Testy:** SelfUpdateTest (4 testy: pravidla, výběr souborů, sled API a pojistka větve, stav), celkem 70 + 25 zelené.
+  - **NEOVĚŘENO:** celý tok proti skutečnému GitHubu a instalace na telefonu (chybí token; CI `vega-auto.yml` poběží až s prvním PR).
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

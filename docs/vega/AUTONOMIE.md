@@ -84,4 +84,42 @@ Rozšíření běží jen v sandboxu Workeru: bez sítě a bez přístupu k apli
 | deník signálů slabin (`SelfTune.observe`) | ✓ hotovo (1.4.0) |
 | vrstva A: návrh a ověření příkladů routeru, karta „Vylepšení“ s historií a návratem | ✓ hotovo (1.4.0) |
 | vrstva B: rozšíření jako JS nástroje v sandboxu + registr | ✓ hotovo (1.4.0) |
-| vrstva C: zadání změny → větev → CI → nabídka aktualizace + návrat | ☐ krok 4 (vyžaduje token od uživatele) |
+| vrstva C: zadání změny → větev → CI → nabídka aktualizace + návrat | ✓ hotovo (1.5.0) – čeká jen na token uživatele |
+
+
+## Vrstva C v 1.5.0 – jak to funguje a jak to zapnout
+
+**Spuštění:**
+- větou v chatu: „vylepši se: …“ / „uprav aplikaci, aby …“;
+- tlačítkem v Menu → Vylepšení → Úpravy aplikace;
+- samo jednou denně z opakované slabiny v deníku (≥ 3× za týden, jde vypnout).
+
+**Postup:**
+1. VEGA načte zdroj z GitHubu.
+2. Model navrhne úpravu v izolované kopii.
+3. **Pravidla cest:** měnit jde jen `vega/src` a `vegacore/src`, nikdy gradle, manifest, `res/xml`, CI ani klíče.
+4. VEGA udělá commit na `vega/auto-…` a založí pull request.
+5. **CI `vega-auto.yml`:**
+   - job 1 testuje a sestavuje BEZ klíčů a secrets;
+   - job 2 jen podepíše, nespouští žádný kód z větve;
+   - hlídač cest ověří změněné soubory.
+6. VEGA stáhne APK a ověří otisk ze SHA256SUMS.
+7. **Instalace:** stejný balíček, stejný certifikát, vyšší verze. Potvrzení dá uživatel v systémovém dialogu.
+
+**Návrat:**
+- zahodit úpravu (smaže větev i PR);
+- nainstalovat předchozí APK;
+- nebo zadat novou úpravu.
+
+Sloučením PR se změna přijme natrvalo.
+
+**Token (fine-grained, jen jeden repozitář):**
+
+| Oprávnění | Úroveň |
+|---|---|
+| Contents | Read and write |
+| Pull requests | Read and write |
+| Actions | Read |
+| **Workflows** | **Nepovolovat** – GitHub pak z telefonu odmítne každou změnu CI, takže kód napsaný modelem se nikdy nedostane k podpisovému klíči |
+
+**Verze:** CI předává rostoucí versionCode (minuty od 1. 1. 2026). Každé sestavení, i samoúprava, jde nainstalovat přes předchozí.

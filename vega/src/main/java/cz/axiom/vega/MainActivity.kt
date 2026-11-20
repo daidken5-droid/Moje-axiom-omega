@@ -225,6 +225,32 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, ops.out.uri(f)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), name))
     }
 
+    /**
+     * Instalace samoúpravy: APK musí být STEJNÝ balíček, podepsaný STEJNÝM certifikátem a s vyšší verzí.
+     * Instalaci potvrdí uživatel v systémovém dialogu (Android jinak nedovolí). Vrací null = dialog otevřen, jinak důvod.
+     */
+    fun installUpdate(name: String): String? {
+        val f = ops.out.file(name) ?: return "APK úpravy už v telefonu není – zkontroluj sestavení znovu."
+        val pm = packageManager
+        @Suppress("DEPRECATION") val flags = if (android.os.Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES
+        val arch = pm.getPackageArchiveInfo(f.absolutePath, flags) ?: return "Soubor není platné APK."
+        if (arch.packageName != packageName) return "APK je jiná aplikace (${arch.packageName}) – neinstaluji."
+        fun certs(pi: android.content.pm.PackageInfo): Set<String> {
+            @Suppress("DEPRECATION") val sigs = if (android.os.Build.VERSION.SDK_INT >= 28) pi.signingInfo?.apkContentsSigners?.toList().orEmpty() else pi.signatures?.toList().orEmpty()
+            return sigs.map { java.security.MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { b -> "%02x".format(b) } }.toSet()
+        }
+        val mine = pm.getPackageInfo(packageName, flags)
+        if (certs(arch).isEmpty() || certs(arch) != certs(mine)) return "APK je podepsané jiným klíčem než VEGA – neinstaluji."
+        @Suppress("DEPRECATION") val newer = if (android.os.Build.VERSION.SDK_INT >= 28) arch.longVersionCode > mine.longVersionCode else arch.versionCode > mine.versionCode
+        if (!newer) return "APK není novější než nainstalovaná verze."
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !pm.canRequestPackageInstalls()) {
+            runCatching { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
+            return "Povol VEGA instalovat aplikace (otevřel jsem nastavení) a klepni na Nainstalovat znovu."
+        }
+        return runCatching { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(ops.out.uri(f), "application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)); null }
+            .getOrElse { "Instalaci nejde spustit: ${it.message}" }
+    }
+
     fun open(name: String) {
         val f = ops.out.file(name) ?: return
         val mime = when (f.extension.lowercase()) { "pdf" -> "application/pdf"; "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; "csv" -> "text/csv"; else -> "*/*" }
@@ -281,6 +307,17 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun runProcedure(chat: String, id: String, input: String) = safe { ops.runProcedure(chat.takeIf { it != "temp" }, id, JSONObject(input)) }
     @JavascriptInterface fun memory() = safe { ops.memoryJson() }
     @JavascriptInterface fun improvements() = safe { ops.improvementsJson() }
+    @JavascriptInterface fun selfUpdates() = safe { ops.selfUpdatesJson() }
+    @JavascriptInterface fun selfUpdateStart(task: String) = safe { require(task.isNotBlank()) { "Napiš, co mám na sobě změnit." }; ops.selfUpdateStart(null, task.take(1000)); "true" }
+    @JavascriptInterface fun selfUpdateAction(id: String, action: String) = safe {
+        val u = ops.selfUpdates.get(id) ?: throw IllegalArgumentException("Úprava neexistuje")
+        when (action) {
+            "poll" -> { ops.selfUpdatePoll(id); "true" }
+            "discard" -> { ops.selfUpdateDiscard(id); "true" }
+            "install" -> a.installUpdate(u.apk)?.let { JSONObject.quote(it) } ?: "true"
+            else -> throw IllegalArgumentException("Neznámá akce")
+        }
+    }
     @JavascriptInterface fun improvementAction(id: String, action: String) = safe { ops.improvementAction(id, action)?.let { JSONObject.quote(it) } ?: "true" }
     @JavascriptInterface fun memoryRevert(id: String) = safe { ops.memory.revert(id)?.text?.let { JSONObject.quote(it) } }
     @JavascriptInterface fun memoryForget(id: String) = safe { ops.memory.forget(id).size }
@@ -335,6 +372,9 @@ class Bridge(private val a: MainActivity) {
             "airgap" -> s.airgap = value == "true"
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
+            "ghRepo" -> { require(value.isBlank() || Regex("^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$").matches(value.trim())) { "Repozitář zadej jako vlastník/název." }; s.ghRepo = value }
+            "ghBase" -> { require(Regex("^[A-Za-z0-9._/-]{1,120}$").matches(value.trim()) && !value.trim().startsWith("vega/auto-")) { "Neplatná větev." }; s.ghBase = value }
+            "autoImprove" -> s.autoImprove = value == "true"
             "userName" -> s.userName = value
             "ownUrl" -> {
                 if (value.isNotBlank()) cz.axiom.vega.net.Http.requireAllowed(value.trim())
@@ -351,7 +391,7 @@ class Bridge(private val a: MainActivity) {
         }
     }
     @JavascriptInterface fun saveKey(provider: String, key: String) = safe {
-        require(provider in ops.engines.PROVIDERS || provider == "own") { "Neznámý poskytovatel" }
+        require(provider in ops.engines.PROVIDERS || provider == "own" || provider == "github") { "Neznámý poskytovatel" }
         val k = normalizeKey(provider, key)
         // stejný klíč v obou slotech Gemini = „zdarma“ by čerpal placený projekt bez stropu
         if (k.isNotEmpty() && provider.startsWith("gemini")) {
@@ -362,7 +402,7 @@ class Bridge(private val a: MainActivity) {
         require(k.isEmpty() || (k.length in (if (provider == "own") 1 else 16)..400 && k.none { it.isWhitespace() })) { "Tohle nevypadá jako API klíč (mezery nebo špatná délka)." }
         if (provider == "gemini" && k.isNotEmpty()) ops.settings.geminiFreeConfirmed = true // UI potvrzení „projekt bez fakturace“ proběhlo před uložením
         ops.vault.save(provider, k)
-        if (k.isNotEmpty()) Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start()
+        if (k.isNotEmpty() && provider != "github") Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start()
         true
     }
     @JavascriptInterface fun checkKey(provider: String) = safe { Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }

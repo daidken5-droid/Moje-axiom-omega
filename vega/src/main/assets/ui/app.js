@@ -194,6 +194,7 @@ function card(c, isLast) {
     case 'nfcWait': return isLast && S.nfc ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span></div>` : '';
     case 'memRevert': return `<button class="pill sig" data-act="memRevert" data-id="${esc(c.id)}">Vrátit předchozí verzi</button>`;
     case 'memory': return `<button class="pill" data-act="library" data-tab="memory">Otevřít paměť ›</button>`;
+    case 'selfupdate': return `<button class="pill" data-act="library" data-tab="improve">Úpravy aplikace – stav a instalace ›</button>`;
     default: return '';
   }
 }
@@ -318,6 +319,28 @@ function drawer() {
     </div></nav>`;
 }
 
+/** Úpravy aplikace (vrstva C): VEGA upravuje vlastní kód → PR → CI bez klíčů → podepsané APK → instalace s potvrzením. */
+function selfUpdateHtml() {
+  const u = call('selfUpdates') || { items: [] };
+  const setup = `<details ${u.hasToken ? '' : 'open'}><summary class="note">Nastavení GitHubu${u.hasToken ? ' ✓' : ''}</summary>
+      <p class="note">Fine-grained token jen pro repozitář ${esc(u.repo)}: <b>Contents</b> a <b>Pull requests</b> zápis, <b>Actions</b> čtení. <b>Workflows NEPOVOLUJ</b> – pak úprava nikdy nezmění CI ani podpis. Token zůstane v trezoru telefonu.</p>
+      <input class="field" id="ghTok" type="password" autocomplete="off" placeholder="${u.hasToken ? 'token uložen – nový přepíše' : 'github_pat_…'}">
+      <div class="inline" style="margin-top:6px"><input class="field" id="ghRepo" value="${esc(u.repo)}" aria-label="Repozitář"><input class="field" id="ghBase" value="${esc(u.base)}" aria-label="Pracovní větev"></div>
+      <button class="btn" data-act="suSave" style="margin-top:6px">Uložit</button></details>`;
+  const items = u.items.map(x => `<div class="row stack"><span class="grow"><b>${esc(x.task.slice(0, 120))} <span class="pill ${x.status === 'READY' || x.status === 'INSTALLED' ? 'ok' : x.status === 'FAILED' ? 'bad' : ''}">${esc(x.label)}</span></b>
+      <small>${esc(x.origin)} · ${x.files.length} souborů${x.pr ? ' · PR #' + x.pr : ''}${x.note ? ' · ' + esc(x.note) : ''}</small><small>${x.files.map(f => esc(f.split('/').pop())).join(', ')}</small></span>
+      <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
+      ${x.status === 'READY' ? `<button class="btn primary" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Nainstalovat</button>` : ''}
+      ${!['INSTALLED', 'DISCARDED'].includes(x.status) ? `<button class="btn ghost" data-act="suAct" data-id="${esc(x.id)}" data-a="discard">Zahodit</button>` : ''}</span></div>`).join('');
+  return `<h3>Úpravy aplikace (měním sama sebe)</h3>
+    <p class="note">Napiš, co mám na sobě změnit. Úpravu napíšu, CI ji otestuje a podepíše; instalaci vždy potvrdíš ty. Měnit smím jen kód VEGY – ne sestavení, oprávnění ani klíče.</p>
+    ${setup}
+    ${u.hasToken ? `<textarea class="field" id="suTask" rows="2" placeholder="Např. „ať je tlačítko Odeslat větší“ nebo „přidej převod palců na centimetry“"></textarea>
+    <div class="inline" style="margin-top:6px"><button class="btn primary" data-act="suStart">Upravit se</button>
+    <label class="note" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="suAuto" data-act="suAuto" ${u.auto ? 'checked' : ''}> sama 1× denně z opakovaných slabin</label></div>` : ''}
+    <div class="list" style="margin-top:10px">${items || '<div class="row"><span class="grow note">Zatím žádná úprava.</span></div>'}</div>`;
+}
+
 function library(tab) {
   S.libTab = tab || S.libTab;
   const T = { projects: 'Projekty', procs: 'Moje nástroje', memory: 'Paměť', improve: 'Vylepšení' };
@@ -341,6 +364,7 @@ function library(tab) {
         <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts">${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
         ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</span></div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
+      ${selfUpdateHtml()}
       <h3>Rozšíření (nástroje, které jsem napsala)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row stack"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
         <small>${esc(e.description)} · bez sítě · ${esc(e.tests || 'testy prošly')}</small><small>${e.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts"><button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
@@ -580,6 +604,7 @@ window.vega = {
       case 'done': S.busy = false; if (d.cancelled) S.nfc = false; if (d.cancelled) toast('Zastaveno. Hotové kroky zůstaly.'); render(); break;
       case 'error': S.busy = false; S.nfc = false; S.stream = ''; render(); toast(d.text, 7000); break;
       case 'toast': toast(d.text, 7000); break;
+      case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { S.busy = true; call('buttonTry', chatId(), ok[0].id); render(); } return; }
@@ -691,6 +716,11 @@ function act(a, d) {
     case 'share': B.share(d.f); break;
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
+    case 'suSave': { const t = ($('#ghTok') || {}).value || ''; const r1 = call('setSetting', 'ghRepo', ($('#ghRepo') || {}).value || ''); const r2 = call('setSetting', 'ghBase', ($('#ghBase') || {}).value || '');
+      const r3 = t ? call('saveKey', 'github', t) : true; if (r1 !== null && r2 !== null && r3 !== null) toast('Uloženo.'); library('improve'); break; }
+    case 'suStart': { const t = (($('#suTask') || {}).value || '').trim(); if (!t) { toast('Napiš, co mám na sobě změnit.'); break; } if (busyGuard()) return; S.busy = true; if (call('selfUpdateStart', t)) { closeSheet(true); toast('Připravuji úpravu sebe sama – výsledek přijde do chatu a do karty Vylepšení.', 6000); } render(); break; }
+    case 'suAuto': call('setSetting', 'autoImprove', String(!!($('#suAuto') || {}).checked)); break;
+    case 'suAct': { const r = call('selfUpdateAction', d.id, d.a); if (typeof r === 'string') toast(r, 7000); else toast({ poll: 'Kontroluji sestavení…', discard: 'Zahazuji úpravu (větev i PR).', install: 'Potvrď instalaci v systémovém dialogu.' }[d.a]); if (d.a !== 'install') setTimeout(() => library('improve'), 1500); break; }
     case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }
     case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.', extPropose: 'Píšu rozšíření v novém projektu – až testy projdou, napiš „ulož jako rozšíření“.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;

@@ -25,8 +25,9 @@ android {
         applicationId = "cz.axiom.vega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.4.6"
+        // CI předává rostoucí číslo (minuty od 1. 1. 2026) – každé sestavení, i samoúprava VEGY, jde nainstalovat přes předchozí
+        versionCode = (project.findProperty("vegaVersionCode") as String?)?.toIntOrNull() ?: 13
+        versionName = "1.5.0" + ((project.findProperty("vegaVersionSuffix") as String?)?.let { "-$it" } ?: "")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Pixel 9a = arm64; x86_64 jen pro emulátor (debug). Ušetří ~25 MB nativních knihoven OCR.
         ndk { abiFilters += listOf("arm64-v8a") }

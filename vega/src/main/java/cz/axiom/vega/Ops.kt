@@ -83,6 +83,112 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     val extensions = cz.axiom.vega.core.Extensions(kv)
     private val proposing = ConcurrentHashMap.newKeySet<String>()
 
+    // ------------------------------------------------------------------ samoúpravy (vrstva C)
+    val selfUpdates = cz.axiom.vega.selfupdate.SelfUpdateStore(kv)
+    private fun gh(): cz.axiom.vega.selfupdate.GitHub {
+        val t = vault.read("github") ?: throw ToolError("Chybí GitHub token – vlož ho v Menu → Vylepšení → Úpravy aplikace.")
+        val (o, r) = settings.ghRepo.split('/').takeIf { it.size == 2 } ?: throw ToolError("Repozitář zadej jako vlastník/název.")
+        return cz.axiom.vega.selfupdate.GitHub(o, r, t)
+    }
+    fun selfUpdateStart(chat: String?, task: String, origin: String = "uživatel") = submit { selfUpdate0(chat, task, origin) }
+
+    /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest → commit na vega/auto-… → pull request (spustí CI). */
+    private fun selfUpdate0(chat: String?, task: String, origin: String) {
+        if (settings.airgap) throw ToolError("Air-gap je zapnutý – na GitHub ani k modelu nesahám.")
+        val g = gh(); val base = settings.ghBase
+        val baseSha = g.refSha(base)
+        val tree = g.tree(baseSha)
+        val pick = cz.axiom.vega.selfupdate.Policy.pickFiles(tree, task)
+        if (pick.isEmpty()) throw ToolError("V kódu aplikace jsem nenašla nic, čeho by se zadání týkalo – popiš ho konkrétněji (obrazovka, funkce, text).")
+        val dir = File(context.cacheDir, "selfupd/" + System.currentTimeMillis()).apply { deleteRecursively() }
+        try {
+            val ws = Workspace.create(dir, "VEGA", pick.associateWith { g.file(it, baseSha).toByteArray() })
+            val listing = tree.keys.filter { cz.axiom.vega.selfupdate.Policy.editable(it) && !it.contains("/test/") }.sorted().take(400)
+            val (prompt, hashes) = CodeAgent.prompt(ws, task, extra = "Další soubory aplikace (můžeš je jen jmenovat; upravit jde to, co je výše, nebo založit nový soubor ve vega/src či vegacore/src):\n" + listing.joinToString("\n"))
+            val sys = CodeAgent.SYSTEM + "\n\nUPRAVUJEŠ SAMA SEBE – aplikaci VEGA pro Android (Kotlin, UI ve WebView: vega/src/main/assets/ui/app.js, app.css). " +
+                "Pravidla: měň jen vega/src a vegacore/src; NIKDY gradle, AndroidManifest, res/xml, CI ani klíče; malá a bezpečná změna; nic nerozbij; " +
+                "při změně logiky ve vegacore přidej nebo uprav test ve vegacore/src/test. Česky, tykání v textech pro uživatele."
+            val reply = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys), ChatMessage(Role.USER, prompt)),
+                consent = "selfupdate:${baseSha.take(8)}:${task.hashCode()}" to listOf("zdrojový kód aplikace VEGA (${pick.size} souborů z GitHubu)", "zadání úpravy"), maxTokens = 8000)
+            val plan = CodeAgent.parse(reply)
+            val refused = plan.edits.mapNotNull { e -> cz.axiom.vega.selfupdate.Policy.check(e.path)?.let { "${e.path} – $it" } }
+            val applied = CodeAgent.apply(ws, plan.copy(edits = plan.edits.filter { cz.axiom.vega.selfupdate.Policy.check(it.path) == null }), hashes, "samoúprava")
+            val changed = ws.diffFromBase().map { it.first }.filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
+            if (changed.isEmpty()) {
+                reply(chat, "Úpravu sebe sama jsem nepřipravila – model nenavrhl použitelnou změnu." + (if (refused.isNotEmpty()) " Odmítnuto: ${refused.joinToString("; ")}." else "") +
+                    (if (applied.failed.isNotEmpty()) " Nesedělo: ${applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" }}." else "")); return
+            }
+            val branch = cz.axiom.vega.selfupdate.Policy.branchName(task)
+            val commit = g.commitFiles(baseSha, branch, changed.associateWith { ws.read(it) }, "VEGA samoúprava: ${task.take(72)}\n\n${plan.explanation.take(3000)}")
+            val pr = try { g.createPull(branch, base, "VEGA samoúprava: ${task.take(80)}", "**Zadání:** $task\n\n**Původ:** $origin\n\n${plan.explanation.take(6000)}\n\n**Soubory:**\n" + changed.joinToString("\n") { "- `$it`" }) }
+                catch (e: Exception) { runCatching { g.deleteBranch(branch) }; throw ToolError("Pull request nevznikl (${e.message}). Token potřebuje Contents + Pull requests (zápis) a Actions (čtení).") }
+            val u = selfUpdates.create(task, branch, changed, commit, origin).copy(pr = pr).also { selfUpdates.save(it) }
+            reply(chat, "Připravila jsem úpravu sebe sama: ${plan.explanation.lines().firstOrNull { it.isNotBlank() }?.take(200) ?: task}\n" +
+                "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch, PR #$pr." +
+                (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechala: ${refused.joinToString("; ")}." else "") +
+                "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK podepsané, nabídnu instalaci (Menu → Vylepšení → Úpravy aplikace).",
+                JSONObject().put("type", "selfupdate").put("id", u.id))
+        } finally { dir.deleteRecursively() }
+    }
+
+    /** Stav CI; po úspěchu stáhne APK, ověří otisk ze SHA256SUMS a připraví ho k instalaci. */
+    fun selfUpdatePoll(id: String) = submit {
+        val u = selfUpdates.get(id) ?: throw ToolError("Úprava neexistuje.")
+        val g = gh(); val run = g.latestRun(u.branch)
+        val nu = when {
+            run == null -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.PUSHED, "CI zatím nezačalo")
+            run.status != "completed" -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.BUILDING, run.status) { it.copy(runUrl = run.url) }
+            run.conclusion != "success" -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "CI: ${run.conclusion}") { it.copy(runUrl = run.url) }
+            else -> {
+                val art = g.artifact(run.id, "VEGA-APK") ?: throw ToolError("Sestavení prošlo, ale APK v něm není (podpis selhal?).")
+                val dir = File(context.filesDir, "vega/selfupd").apply { mkdirs() }; val zip = File(dir, "$id.zip")
+                cz.axiom.vega.net.Http.download(g.artifactZipUrl(art), zip, 200_000_000L, g.headers)
+                var apkBytes: ByteArray? = null; var sums = ""
+                java.util.zip.ZipInputStream(zip.inputStream()).use { z -> while (true) { val e = z.nextEntry ?: break
+                    when { e.name.endsWith(".apk") && !e.name.contains("debug") -> apkBytes = cz.axiom.vega.net.Http.readAll(z, 150_000_000); e.name.endsWith("SHA256SUMS.txt") -> sums = String(cz.axiom.vega.net.Http.readAll(z, 100_000)) } } }
+                zip.delete()
+                val bytes = apkBytes ?: throw ToolError("V artefaktu není APK.")
+                val sha = cz.axiom.vega.core.Workspace.sha(bytes)
+                if (!sums.contains(sha)) throw ToolError("Otisk staženého APK nesedí se SHA256SUMS z CI – neinstaluji.")
+                val saved = out.save("VEGA-uprava-$id.apk", "application/vnd.android.package-archive", bytes)
+                selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY, "APK ${sha.take(12)}…") { it.copy(apk = saved.name, apkSha = sha, runUrl = run.url) }
+            }
+        }
+        emit("selfupdate", JSONObject().put("id", id).put("status", nu.status))
+        if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ je sestavená a podepsaná – instalaci najdeš v Menu → Vylepšení."))
+    }
+
+    fun selfUpdateDiscard(id: String) = submit {
+        val u = selfUpdates.get(id) ?: return@submit
+        runCatching { gh().deleteBranch(u.branch) } // zavře i pull request
+        if (u.apk.isNotBlank()) out.file(u.apk)?.delete()
+        selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.DISCARDED)
+        emit("selfupdate", JSONObject().put("id", id))
+    }
+
+    /** Po instalaci: verze s příponou auto-<commit> → úprava označena jako nainstalovaná. */
+    private fun selfUpdateMarkInstalled() = note {
+        val tag = Regex("auto-([0-9a-f]{7})").find(BuildConfig.VERSION_NAME)?.groupValues?.get(1) ?: return@note
+        selfUpdates.list().firstOrNull { it.commit.startsWith(tag) && it.status != "INSTALLED" }?.let { selfUpdates.mark(it, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.INSTALLED, BuildConfig.VERSION_NAME) }
+    }
+
+    /** Samostatné zlepšování: nejvýš jednou denně z opakované slabiny (≥ 3×) navrhne úpravu sebe sama. Instalaci vždy potvrzuje uživatel. */
+    private fun autoImproveTick() = note {
+        if (!settings.autoImprove || settings.airgap || !vault.has("github")) return@note
+        if (System.currentTimeMillis() - selfUpdates.lastAuto() < 24 * 3600_000L) return@note
+        if (selfUpdates.list().any { it.status in setOf("PUSHED", "BUILDING") }) return@note
+        val g = selftune.groups(days = 7, min = 3).firstOrNull { it.area != "model" && it.kind in setOf(SelfTune.Kind.ERROR, SelfTune.Kind.CORRECTION, SelfTune.Kind.WRONG_INTENT, SelfTune.Kind.REPHRASE) } ?: return@note
+        selfUpdates.setLastAuto()
+        val ex = g.examples.map { it.excerpt.ifBlank { it.detail } }.filter { it.isNotBlank() }.distinct().take(4)
+        selfUpdateStart(null, "Zlepši se v oblasti „${improvementLabel(g.area)}“: opakovaně ${g.kind.label} (${g.count}× za týden). Anonymizované příklady: " +
+            ex.joinToString(" | ") + ". Najdi příčinu v kódu a oprav ji malou bezpečnou změnou s testem.", "deník slabin (samostatně)")
+    }
+
+    fun selfUpdatesJson(): JSONObject = JSONObject().put("hasToken", vault.has("github")).put("repo", settings.ghRepo).put("base", settings.ghBase).put("auto", settings.autoImprove)
+        .put("items", JSONArray().apply { selfUpdates.list().take(20).forEach { u -> put(JSONObject().put("id", u.id).put("task", u.task).put("branch", u.branch).put("status", u.status)
+            .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files)).put("pr", u.pr)
+            .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("origin", u.origin).put("at", u.at)) } })
+
     private fun registerExtensions() {
         Tools.all().filter { it.id.startsWith("ext.") }.forEach { Tools.unregister(it.id) }
         extensions.list().filter { it.enabled }.forEach { e -> Tools.register(cz.axiom.vega.core.ToolDef("ext.${e.id}", e.name, e.description + " (rozšíření v${e.current}, bez sítě)",
@@ -177,7 +283,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     init {
         cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
         // úklid úložiště na výkonném vlákně (nesoupeří s běžící úlohou o stejné soubory)
-        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) }; retune() }
+        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) }; retune(); selfUpdateMarkInstalled() }
+        exec.execute { autoImproveTick() }
         runCatching { registerExtensions() }
     }
 
@@ -1131,6 +1238,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun decide(chat: String?, text: String, ws: Workspace?): Boolean {
         val scope = scopeOf(ws)
         if (ws != null && Regex("(?i)(ulož|uložit|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
+        // samoúprava: „vylepši se: …“, „uprav aplikaci, aby …“, „změň sebe – …“
+        Regex("(?i)^\\s*(vylepši se|uprav (aplikaci|sebe|vegu)|změň (aplikaci|sebe)|přeprogramuj se|naprogramuj se|samoúprava)(?!\\p{L})[\\s:,–-]*(.*)$").find(text)?.let { m ->
+            val task = m.groupValues[3].trim().ifBlank { throw ToolError("Napiš, co mám na sobě změnit – třeba „vylepši se: tlačítko Odeslat ať je větší“.") }
+            selfUpdate0(chat, task, "uživatel"); return true
+        }
         cz.axiom.vega.core.Econ.simpleProduct(text)?.let { reply(chat, it); return true }
         // bod zvratu
         val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
