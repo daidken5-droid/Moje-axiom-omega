@@ -31,4 +31,9 @@ class LaikTest {
         // běžná věta se slovem „hypotéka“ bez čísel = žádný výpočet
         assertEquals(null, Quick.answer("Jak funguje hypotéka?", now))
     }
+
+    @Test fun czechBankAmounts() {
+        assertEquals(-1234.5, CzNum.parse("\u2212 1\u00A0234,50 Kč")); assertEquals(-1234.5, CzNum.parse("\u20131 234,50"))
+        assertEquals(1234.5, CzNum.parse("1\u2009234,50 CZK")); assertEquals(-99.0, CzNum.parse("99,00-"))
+    }
 }

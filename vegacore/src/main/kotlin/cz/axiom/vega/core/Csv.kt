@@ -91,7 +91,7 @@ object CzNum {
      * [decimalComma]: true = česky (tečka = tisíce), false = tečka je desetinná.
      */
     fun parse(raw: String, decimalComma: Boolean = true): Double? {
-        var s = raw.trim().replace(currency, "").replace(' ', ' ').replace(' ', ' ').replace('−', '-').trim()
+        var s = raw.trim().replace(currency, "").replace(' ', ' ').replace(' ', ' ').replace('−', '-').replace(' ', ' ').let { if (it.startsWith('–')) "-" + it.drop(1) else it }.trim()
         if (s.isEmpty()) return null
         var neg = false
         if (s.startsWith("(") && s.endsWith(")")) { neg = true; s = s.substring(1, s.length - 1) }
