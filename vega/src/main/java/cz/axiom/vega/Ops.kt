@@ -100,7 +100,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest a citlivých API → commit na vega/auto-… (push spustí CI). */
     private fun selfUpdate0(chat: String?, task: String, origin: String) {
-        if (settings.airgap) throw ToolError("Air-gap je zapnutý – na GitHub ani k modelu nesahám.")
+        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – na GitHub ani k modelu nesahám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).")
         val g = gh(); val base = settings.ghBase
         val baseSha = g.refSha(base)
         val tree = g.tree(baseSha)
@@ -215,7 +215,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      */
     fun selfUpdateRollback(chat: String?) = submit {
         jobArea = "selfupdate"
-        if (settings.airgap) throw ToolError("Air-gap je zapnutý – na GitHub nesahám.")
+        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – na GitHub nesahám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).")
         val prev = installedUpdate() ?: throw ToolError("Nainstalovaná verze není samoúprava – není co vracet.")
         val g = gh(); val base = settings.ghBase; val baseSha = g.refSha(base)
         val branch = cz.axiom.vega.selfupdate.Policy.branchName("vratit " + prev.task)
@@ -365,7 +365,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val toolCtx get() = object : ToolCtx {
         override val cancel = this@Ops.cancel
         override fun fetch(url: String): String {
-            if (settings.airgap) throw ToolError("Air-gap: síť je vypnutá.", true)
+            if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).", true)
             if (!settings.webAllowed) throw ToolError("Veřejný web je vypnutý (Nastavení → Veřejný web).", true)
             return Web.fetchText(url, 20_000)
         }
@@ -380,6 +380,28 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (r.text.isBlank()) throw ToolError("V souboru jsem nenašel text.")
         index.add(b.name, r.text)
         Value.Text(r.text, b.name)
+    }
+
+    /**
+     * Text přílohy pro model: textové soubory přímo, PDF / fotka / Word / Excel přes čtečku s OCR (jinak by model dostal binární
+     * smetí). Výsledek se pamatuje podle obsahu – druhý dotaz na tentýž soubor už nečte znovu.
+     */
+    private val attTextCache = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, String>() { override fun removeEldestEntry(e: MutableMap.MutableEntry<String, String>?) = size > 8 })
+    private fun isTextual(b: Value.Bytes) = b.name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || (!Regex("(?i)\\.(pdf|docx?|xlsx?|pptx?|od[tsp]|jpe?g|png|webp|heic|zip)$").containsMatchIn(b.name) && cz.axiom.vega.core.Encoding.isUtf8(b.bytes.copyOf(minOf(b.bytes.size, 4096))))
+    private fun attText(b: Value.Bytes): String {
+        if (isTextual(b)) return b.asText()
+        val key = sha8(b.bytes) + b.name
+        return attTextCache[key] ?: run {
+            emit("phase", JSONObject().put("text", "Čtu ${b.name}…"))
+            val t = runCatching { files.read(b.name, b.mime, b.bytes).text }.getOrDefault("")
+            if (t.isBlank()) throw ToolError("Ze souboru „${b.name}“ jsem nepřečetla žádný text (prázdný sken, heslo nebo nepodporovaný formát). Zkus ostřejší fotku nebo PDF s textem.")
+            t.also { attTextCache[key] = it; runCatching { index.add(b.name, it) } }
+        }
+    }
+    /** Text přílohy do limitu + poznámka, když se nevešel celý (laik jinak netuší, že model viděl jen začátek). */
+    private fun attForModel(b: Value.Bytes, limit: Int): Pair<String, String?> {
+        val t = attText(b)
+        return if (t.length <= limit) t to null else t.take(limit) to "Ze souboru „${b.name}“ jsem modelu poslala jen začátek (${limit / 1000} z ${t.length / 1000} tisíc znaků). Pro celý dokument napiš „projdi celý dokument“."
     }
 
     fun submit(block: () -> Unit) {
@@ -802,9 +824,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Ukázka prvního spuštění: soubor → rozpoznání → upozornění → parser → ověření na vzorku → nabídka postupu. */
     private fun buildStatementTool(chat: String?) {
         val att = lastAttachment() ?: run { reply(chat, "Pošli mi soubor s výpisem (CSV z banky nebo účetnictví) – tlačítko 📎. Pak z něj udělám nástroj."); return }
+        if (!isTextual(att)) { reply(chat, "Výpis „${att.name}“ je ${att.name.substringAfterLast('.', "soubor").uppercase()} – ten spočítat neumím přesně. V internetovém bankovnictví si stáhni **export do CSV**:\n" +
+            "• **Česká spořitelna (George):** Pohyby → ⋯ → Exportovat → CSV\n• **ČSOB:** Historie transakcí → Export → CSV\n• **Fio:** Pohyby na účtu → Export → CSV\n• **KB:** Historie plateb → Export → CSV\n• **Air Bank / Raiffeisen:** Historie → Stáhnout → CSV\n" +
+            "Pak mi CSV pošli přes 📎. (Obsah PDF ti můžu shrnout – napiš „shrň mi to“.)"); return }
         val text = att.asText()
         val d = Statement.detect(text)
-        val spec = d.spec ?: run { reply(chat, "Formát „${att.name}“ nepoznám: ${d.warnings.joinToString(" ")} Otevři ho v Inspektoru CSV, ať vidíme proč."); return }
+        val spec = d.spec ?: run { reply(chat, "Ve výpisu „${att.name}“ jsem nenašla sloupce s datem a částkou. Je to export z banky ve formátu CSV? Když ano, otevřu ho v Inspektoru CSV a ukážu ti, co v něm je – napiš „zkontroluj CSV“."); return }
         val (ok, ver) = Statement.verify(text, spec)
         val steps = listOf(Step("statement.process", mapOf("spec" to spec.json())), Step("statement.months"))
         val r = Runner.start("Zpracovat výpis", steps, att, toolCtx) { saveRun(kv, it) }
@@ -825,7 +850,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     // ------------------------------------------------------------------ model (cloud) se souhlasem a cenou
 
-    private class NoEngine : Exception("Pro tuhle úlohu potřebuji model – v Nastavení přidej klíč Gemini (zdarma), případně Groq / Cerebras / OpenRouter. Ruční nástroje fungují i bez něj.")
+    /** Hláška podle skutečné příčiny: zapnutý režim „Pouze vlastní modely“ bez serveru ≠ chybějící klíč. */
+    private fun noEngineText() = when {
+        settings.ownOnly && !engines.ownConfigured() -> "Je zapnuté „Pouze vlastní modely“, ale vlastní server není nastavený – proto nikdo neodpovídá. Vypneš to nahoře: klepni na „VEGA ▾“ → Pouze vlastní modely (nebo v Nastavení doplň adresu serveru)."
+        settings.ownOnly -> "Je zapnuté „Pouze vlastní modely“ a tvůj server teď neodpovídá. Zkontroluj ho (Nastavení → Vlastní model → Vyzkoušet odpověď), nebo režim vypni nahoře v „VEGA ▾“."
+        else -> "Pro tohle potřebuji model. Zdarma ho zapneš za 2 minuty: na úvodní obrazovce klepni na „Zapnout rozhovor zdarma“ (klíč Gemini). Výpočty a nástroje fungují i bez něj."
+    }
+    private inner class NoEngine : Exception(noEngineText())
 
     private fun sha8(b: ByteArray) = Workspace.sha(b).take(8)
 
@@ -836,7 +867,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * (4) streamování; přerušená odpověď se uloží s poznámkou.
      */
     private fun llm(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, maxTokens: Int = 4096, calls: Int = 1, visible: Boolean = true): String {
-        if (settings.airgap) throw ToolError("Air-gap je zapnutý – model v cloudu nevolám. Ruční nástroje fungují.")
+        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – model v cloudu nevolám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Výpočty a nástroje fungují dál.")
         val chars = messages.sumOf { it.content.length }
         val pick = engines.pick() ?: approvePaid(chars, maxTokens, calls, "Bezplatného poskytovatele nemáš nastaveného.") ?: throw NoEngine()
         return try {
@@ -956,14 +987,17 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val style = when { intent.thinkingAloud -> "\nUživatel přemýšlí nahlas: nic neprováděj, pomoz mu s úvahou (otázka, protiargument, jedna možnost navíc)."; intent.creative -> "\nKreativní úloha: dej víc různých nápadů, krátce, s jedním doporučením."; else -> "" }
         val sys = SYSTEM_TALK + style + (memory.context(scope)?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val att = lastAttachment()
-        val user = if (att != null && intent.thinkingAloud.not()) "$text\n\n[Příloha ${att.name}:]\n${att.asText().take(20_000)}" else text
+        val attPart = if (att != null && intent.thinkingAloud.not()) attForModel(att, 20_000) else null
+        val user = if (attPart != null) "$text\n\n[Příloha ${att!!.name}:]\n${attPart.first}" else text
+        // dlouhý dokument se neořízne potichu: projde se celý po částech (stejně jako dlouhé vložené texty)
+        if (attPart?.second != null) { longTask0(chat, text, listOf(att!!), again = true); return } // again: zpráva uživatele už v chatu je
         // čistý výpočet / převod / datum: přesně a bez modelu (Quick vrací null, když si není jistý)
         if (att == null && text.length < 200) {
             offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
-            reply(chat, offline(text) ?: if (settings.airgap) "Air-gap je zapnutý – na tohle potřebuji model v cloudu. Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!)
+            reply(chat, offline(text) ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!)
             return
         }
         val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = att?.let { "att:${it.name}:${sha8(it.bytes)}" to listOf("příloha ${it.name} (${it.bytes.size} B)") })
@@ -984,7 +1018,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
         if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (model-pill → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
-        if (settings.airgap) { reply(chat, "Air-gap je zapnutý – rešerši na webu nedělám. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
+        if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
         for (v in variants.take(4)) { cancel.check(); runCatching { Web.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }
@@ -1010,7 +1044,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun longTask1(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean) {
         if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
         // přílohy jsou součást zadání (data, ne pokyny)
-        val text = text0 + att.joinToString("") { "\n\n[Příloha ${it.name}:]\n" + it.asText().take(60_000) }
+        val text = text0 + att.joinToString("") { "\n\n[Příloha ${it.name}:]\n" + attText(it).take(60_000) }
         // požadavky jen z textu UŽIVATELE (ne číslované články přílohy – ty by vytlačily jeho otázky)
         val subs = LongText.subQuestions(text0).take(20)
         if (engines.pick() == null && engines.pendingPaid().isEmpty()) throw NoEngine()
@@ -1414,7 +1448,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (ws != null && Regex("(?i)(ulož|uložit|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
         // samoúprava: „vylepši se: …“, „uprav aplikaci, aby …“, „změň sebe – …“
         // rozpoznání na textu bez diakritiky (stejně na JVM i v telefonu); zadání se vezme z původního textu (stejná délka)
-        Regex("(?s)^\\s*(vylepsi se|uprav (aplikaci|sebe|vegu)|zmen (aplikaci|sebe)|preprogramuj se|naprogramuj se)(?![a-z])[\\s:,–-]*").find(cz.axiom.vega.base.Text.fold(text).lowercase())?.takeIf { cz.axiom.vega.base.Text.fold(text).length == text.length }?.let { m ->
+        // samoúprava jen s nastaveným GitHubem a jen když jde o VEGU („Uprav aplikaci Word…“, „Vylepši se v psaní e-mailů“ jsou běžné prosby)
+        if (vault.has("github")) Regex("(?s)^\\s*(vylepsi se|uprav (aplikaci|sebe|vegu)|zmen (aplikaci|sebe)|preprogramuj se|naprogramuj se)(?=\\s*($|[:,–-]|at |aby ))[\\s:,–-]*").find(cz.axiom.vega.base.Text.fold(text).lowercase())?.takeIf { cz.axiom.vega.base.Text.fold(text).length == text.length }?.let { m ->
             val task = text.substring(m.range.last + 1).trim().ifBlank { throw ToolError("Napiš, co mám na sobě změnit – třeba „vylepši se: tlačítko Odeslat ať je větší“.") }
             selfUpdate0(chat, task, "uživatel"); return true
         }
@@ -1441,14 +1476,16 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         // tarif
         val tariff = kv.read(tariffKey(scope))?.let { cz.axiom.vega.core.Econ.Tariff.parse(it) }
-        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariff != null && (Regex("(?i)tarif|ročn|předplat|členst|vrát|refund|poměrn|závaz|výpověd").containsMatchIn(text) || Regex("(?i)(používat|platit|potřebovat)\\s+(ho|to|je)?\\s*\\d+\\s*měsíc").containsMatchIn(text))) {
+        // navázání na uložený tarif jen čerstvě (30 min) a s číslem / měsíci – „Jak vrátit zboží?“ za hodinu není dotaz na tarif
+        val tariffFresh = tariff != null && System.currentTimeMillis() - kv.modified(tariffKey(scope)) < 30 * 60_000L && Regex("(?i)\\d|měsíc|tarif").containsMatchIn(text)
+        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariffFresh && (Regex("(?i)tarif|ročn|předplat|členst|vrát|refund|poměrn|závaz|výpověd").containsMatchIn(text) || Regex("(?i)(používat|platit|potřebovat)\\s+(ho|to|je)?\\s*\\d+\\s*měsíc").containsMatchIn(text))) {
             cz.axiom.vega.core.Econ.parseTariff(text, if (cz.axiom.vega.core.Econ.isTariffQuestion(text) && Regex("\\d").containsMatchIn(text)) null else tariff)?.let { t ->
                 kv.write(tariffKey(scope), t.json()); reply(chat, cz.axiom.vega.core.Econ.tariffAnswer(t)); return true }
         }
         // důkazy: ≥ 2 texty a otázka na pravdivost, nebo další doklad k rozpracovanému hodnocení
         val ev = kv.read(evidenceKey(chat))?.let { runCatching { JSONArray(it) }.getOrNull() }
         val blocks = text.split(Regex("\\n-{3,}\\n")).drop(1).filter { it.isNotBlank() }
-        val newDocs = msgAtt.filter { !it.name.endsWith(".csv", true) && !it.name.endsWith(".tsv", true) }.map { cz.axiom.vega.core.Evidence.Doc(it.name, it.asText().take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
+        val newDocs = msgAtt.filter { !it.name.endsWith(".csv", true) && !it.name.endsWith(".tsv", true) }.map { cz.axiom.vega.core.Evidence.Doc(it.name, runCatching { attText(it) }.getOrDefault("").take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
         val start = newDocs.size >= 2 && cz.axiom.vega.core.Evidence.isQuestion(text)
         val add = ev != null && newDocs.isNotEmpty() && (cz.axiom.vega.core.Evidence.isAddition(text) || cz.axiom.vega.core.Evidence.isQuestion(text))
         if (start || add) {
@@ -1754,7 +1791,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * Instaluje se JEN balíček se známým otiskem modelu – podvržený soubor na serveru neprojde.
      */
     fun downloadVerifier() = submit {
-        if (settings.airgap) throw ToolError("Air-gap je zapnutý – balíček nestahuji. Nainstaluj ho ze souboru.")
+        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – balíček nestahuji (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Nainstaluj ho ze souboru.")
         emit("phase", JSONObject().put("text", "Stahuji ověřovač citací (asi 150 MB)…"))
         val zip = File(context.cacheDir, "verifier-dl.zip")
         try {

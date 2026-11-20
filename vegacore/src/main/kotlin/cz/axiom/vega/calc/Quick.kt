@@ -18,7 +18,7 @@ object Quick {
     }
 
     fun answer(raw: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): String? {
-        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ')
+        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
         if (Regex("^(kolik je hodin|kolik je cas|jaky je cas)$").matches(t)) return "Je %02d:%02d.".format(now.hour, now.minute)
         if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."
@@ -31,6 +31,7 @@ object Quick {
         weekday(t)?.let { return it }
         age(t, now.toLocalDate())?.let { return it }
         convert(t, raw.lowercase().trim().trimEnd('?', '.', '!', ' '))?.let { return it }
+        currency(t)?.let { return it }
         Regex("^(?:kolik je |spocitej |vypocitej )?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze)\\s*(\\d[\\d ]*(?:[.,]\\d+)?)$").find(t)?.let { m ->
             val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null; return "${fmt(p)} % z ${fmt(b)} je ${fmt(b * p / 100)}." }
         Regex("^(?:kolik je |spocitej )?(?:druha )?odmocnin[ay] (?:z |ze )?(\\d+(?:[.,]\\d+)?)$").find(t)?.let { m -> val v = num(m.groupValues[1]) ?: return null; return "√${fmt(v)} = ${fmt(Math.sqrt(v))}" }
@@ -123,6 +124,18 @@ object Quick {
         "s" to ("s" to 1.0), "sekund" to ("s" to 1.0), "min" to ("s" to 60.0), "minut" to ("s" to 60.0), "h" to ("s" to 3600.0), "hod" to ("s" to 3600.0), "hodin" to ("s" to 3600.0), "den" to ("s" to 86400.0), "dni" to ("s" to 86400.0), "dnu" to ("s" to 86400.0), "tydnu" to ("s" to 604800.0),
         // energie
         "kcal" to ("J" to 4184.0), "kj" to ("J" to 1000.0), "j" to ("J" to 1.0), "kwh" to ("J" to 3.6e6), "wh" to ("J" to 3600.0))
+    /** Měna: kurz offline neznám – s kurzem v dotazu („100 eur po 25,2“) spočítám, jinak řeknu, jak se zeptat. */
+    private fun currency(t: String): String? {
+        val cur = "(eur|euro|eura|eur[ua]?|usd|dolar[uy]?|dolaru|gbp|liber|libry|chf|frank[uy]?|pln|zlot[ye]ch|zlotych|kc|korun[ay]?|czk)"
+        Regex("^(?:kolik je |preved |prevod )?$N\\s*$cur\\s+(?:po|za|pri kurzu|kurz)\\s+$N(?:\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val a = num(m.groupValues[1]) ?: return null; val r = num(m.groupValues[3]) ?: return null
+            return "${fmt(a)} ${m.groupValues[2].uppercase().take(3)} po ${fmt(r)} = ${money(a * r)}."
+        }
+        if (Regex("^(?:kolik je |preved |prevod )?$N\\s*$cur\\s+(?:na|v|do)\\s+$cur$").containsMatchIn(t))
+            return "Aktuální kurz offline neznám. Napiš ho do dotazu, třeba „100 eur po 25,2“, a spočítám to přesně. (S modelem a zapnutým webem ti kurz dohledám.)"
+        return null
+    }
+
     private fun convert(t: String, orig: String = t): String? {
         val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(t.replace("²", "2").replace("³", "3")) ?: return null
         val v = num(m.groupValues[1]) ?: return null; val a = m.groupValues[2].removePrefix("°"); val b = m.groupValues[3].removePrefix("°")

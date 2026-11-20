@@ -36,4 +36,24 @@ class LaikTest {
         assertEquals(-1234.5, CzNum.parse("\u2212 1\u00A0234,50 Kč")); assertEquals(-1234.5, CzNum.parse("\u20131 234,50"))
         assertEquals(1234.5, CzNum.parse("1\u2009234,50 CZK")); assertEquals(-99.0, CzNum.parse("99,00-"))
     }
+
+    @Test fun everydaySentencesStayConversation() {
+        for (q in listOf("Napiš mi omluvný e-mail šéfovi kvůli projektu", "Napiš mi program na oslavu", "Vytvoř mi seznam nástrojů na zahradu", "Napiš projekt zahrady",
+                "Myslím, že mám chřipku, co dělat?", "Je pravda, že banány jsou zdravé?", "Jaký je rozdíl mezi verzí Windows 10 a 11?", "Proč Česko importuje plyn?",
+                "Dluží mi kamarád 2000, co mám dělat?", "Kde jsme byli loni na dovolené?", "Jak si nechat posílat výpis z účtu každý týden?", "Kde mi zpracují výpis z rejstříku?"))
+            assertTrue(Router.route(q, RouterTuning.NONE) is Router.Intent.Talk, "$q → ${Router.route(q, RouterTuning.NONE)}")
+        // výslovné žádosti fungují dál
+        assertTrue(Router.route("Napiš skript, který spočítá průměr ze souboru", RouterTuning.NONE) is Router.Intent.NewProject)
+        assertTrue(Router.route("Založ nový projekt kalkulačka", RouterTuning.NONE) is Router.Intent.NewProject)
+        assertTrue(Router.route("Napiš mi upomínku na nezaplacenou fakturu", RouterTuning.NONE) is Router.Intent.Demand)
+        assertTrue(Router.route("Mám teorii, že přistání na Měsíci bylo natočené", RouterTuning.NONE) is Router.Intent.Hypothesis)
+        // s přílohou je krátký popisek o souboru, ne rešerše
+        assertTrue(Router.route("faktura za elektřinu", RouterTuning.NONE.copy(hasAttachment = true, attachmentName = "f.pdf", attachments = 1)) !is Router.Intent.Research)
+    }
+
+    @Test fun percentWordAndCurrency() {
+        assertEquals("15 % z 2 400 je 360.", Quick.answer("kolik je 15 procent z 2400", now))
+        assertEquals("100 EUR po 25,2 = 2 520 Kč.", Quick.answer("100 eur po 25,2", now))
+        assertTrue(Quick.answer("100 eur na koruny", now)!!.contains("kurz offline neznám"))
+    }
 }

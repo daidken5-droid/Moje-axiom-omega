@@ -103,7 +103,7 @@ object Router {
         val text = raw.trim()
         val t = f(text)
         // --- navázání na práci (dřív než „pokračuj“ jako pouhé opakování)
-        if (has(t, "kde jsme (skoncili|prestali|minule skoncili)|navaz(at)? na (to,? co jsme delali|minulou praci|minule)|pokracuj(me)? (v (tom )?projektu|v praci|kde jsme)|kde jsme byli")) return Intent.Continue
+        if (has(t, "kde jsme (skoncili|prestali|minule skoncili)|navaz(at)? na (to,? co jsme delali|minulou praci|minule)|pokracuj(me)? (v (tom )?projektu|v praci|kde jsme)")) return Intent.Continue
         // --- tlačítko z hotové práce
         if (has(t, "(udelej|vytvor|uloz)( mi)?( z toho| to)? (jako )?(tlacitko|zkratk|nastroj na (jedno|1) klepnuti)|z toho (udelej )?tlacitko")) return Intent.MakeButton
         // --- oprava sloupce výpisu
@@ -132,30 +132,36 @@ object Router {
         // --- uložený postup podle jména („zpracuj výpis“)
         c.procedures?.find(text)?.let { p -> if (c.hasAttachment || p.inputKind == "TEXT") return Intent.RunProcedure(p) }
         // --- výpis → nástroj
-        if (has(t, "vypis") && has(t, "nastroj|kazdy tyden|pokazde|zpracuj|zpracovat|parser|z toho")) return Intent.BuildStatementTool
+        // bez přílohy / výsledku jen výslovné „udělej nástroj / parser“ („výpis z rejstříku“, „posílat výpis každý týden“ jsou otázky)
+        if (has(t, "vypis") && has(t, "nastroj|kazdy tyden|pokazde|zpracuj\\b|zpracovat|parser|z toho") && (c.hasAttachment || c.lastResult || has(t, "nastroj|parser"))) return Intent.BuildStatementTool
         // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu
         if (c.hasAttachment && has(t, "vypis|csv|export") && has(t, "spocitej|secti|kolik|prijm|vydaj|saldo|soucet|bilanc")) return Intent.BuildStatementTool
         // --- NFC
         if (has(t, "\\bnfc\\b|\\bndef\\b|\\b(precti|nacti|naskenuj|oskenuj)\\w* (nfc |ten |muj |tento )?(stitek|tag)\\b")) return Intent.Nfc
         // --- předžalobní výzva
-        if (has(t, "predzalobni|vyzv\\w* k (za)?placeni|upomink|dluzi mi|nezaplacen\\w* faktur")) return Intent.Demand
+        // formulář jen na výslovnou žádost o výzvu; „dluží mi kamarád, co dělat?“ je otázka pro rozhovor
+        if (has(t, "predzalobni|vyzv\\w* k (za)?placeni|nezaplacen\\w* faktur") || has(t, "^(napis|vytvor|priprav|sepis|posli|udelej)( mi)? (upomink|vyzv)")) return Intent.Demand
         // --- nástroje s přílohou nebo vstupem v textu
         val url = Regex("https?://\\S+").find(text)?.value
         if (url != null && has(t, "precti|otevri|shrn|co je na|stahni|nacti") ) return Intent.Tool("url.read", emptyMap(), "adresa v textu")
         if (has(t, "sha-?256|sha-?1|\\bmd5\\b|\\bcrc|kontrolni soucet|otisk souboru|checksum|\\bhash(e|em|i)?\\b")) return Intent.Tool("hash", Regex("\\b[0-9a-f]{32,128}\\b").find(t)?.let { mapOf("expect" to it.value) } ?: emptyMap(), "kontrolní součet")
         // porovnání TEXTŮ: dva soubory, oddělovač --- nebo zmínka o verzích/textech („porovnej ceny elektřiny“ je otázka pro model)
+        // „rozdíl mezi verzí Windows 10 a 11“ je otázka pro model – nástroj jen se dvěma texty / soubory
         if (has(t, "porovnej|rozdil mezi|\\bdiff\\b|co se zmenilo") && (c.attachments >= 2 || text.contains("\n---") || text.contains("\n===") ||
-                has(t, "verz|dva texty|dve texty|tyhle dv|tyto dv|soubor|dokument"))) return Intent.Tool("text.diff", emptyMap(), "porovnání")
+                has(t, "^porovnej (mi )?(tyhle|tyto|ty) (dv|verz|text|soubor|dokument)|dva texty|dve texty"))) return Intent.Tool("text.diff", emptyMap(), "porovnání")
         if (c.activeProject && has(t, "oprav|fix") && has(t, "\\blog(u|em|y|s)?\\b|\\bs?pad(l|la|lo|ne|a|u|aji|y)?\\b|crash|vyjimk|exception|stack ?trace|traceback")) return Intent.Code(text, CodeKind.FIX_FROM_LOG)
         if (has(t, "\\bs?pad(l|la|lo|ne|a|u|aji|y)?\\b|crash|vyjimk|exception|stack ?trace|traceback") && (c.hasAttachment || text.contains("\n\tat ") || text.contains("Traceback"))) return Intent.Tool("log.crash", emptyMap(), "rozbor pádu")
         Regex("(?:najdi|hledej|vyhledej)\\s+(?:v logu\\s+)?[„\"']?([^„\"'”“]+?)[“\"'”]?\\s+v logu|v logu\\s+(?:najdi|hledej)\\s+[„\"']?([^„\"'”“]+)").find(text.lowercase())?.let { m ->
             return Intent.Tool("log.search", mapOf("q" to (m.groupValues[1].ifBlank { m.groupValues[2] }).trim()), "hledání v logu")
         }
-        if (has(t, "\\bcsv\\b|import") && has(t, "rozbil|nefunguje|proc|chyba|spatn|divn|nesedi|zkontroluj|nacti|prohlédni|prohledni")) return Intent.Tool("csv.inspect", emptyMap(), "diagnostika CSV")
+        if ((has(t, "\\bcsv\\b") || (c.hasAttachment && has(t, "\\bimport"))) && has(t, "rozbil|nefunguje|proc|chyba|spatn|divn|nesedi|zkontroluj|nacti|prohlédni|prohledni")) return Intent.Tool("csv.inspect", emptyMap(), "diagnostika CSV")
         if (has(t, "\\bjson\\b") && (c.hasAttachment || text.trimStart().startsWith("{") || text.trimStart().startsWith("["))) return Intent.Tool("json.inspect", emptyMap(), "JSON")
         if (has(t, "najdi v (mych )?souborech|v mych souborech|v dokumentech najdi")) return Intent.Tool("index.search", emptyMap(), "lokální index")
         // --- programování
-        if (has(t, "^(zaloz|vytvor|udelej|napis)\\b.*\\b(projekt|program|skript|aplikaci|nastroj|parser|kalkulack|rozsireni)") && !c.activeProject) return Intent.NewProject(text)
+        // projekt s kódem jen u programátorského zadání: „napiš mi program na oslavu“ / „projekt zahrady“ / „e-mail kvůli projektu“ jsou texty
+        val codeWord = has(t, "skript|parser|kalkulack|rozsireni|aplikac|\\bkod\\b|javascript|\\bjs\\b|python|kotlin|funkc|naprogramuj|program(,| ktery| co) (spocita|prevede|vypocita|zpracuje|nacte|vytahne)")
+        val textGenre = has(t, "e-?mail|dopis|zprav[uy]|pozvank|prani|seznam|osnov|plan\\b|text\\b|program (na|pro|oslav|dne|vylet|svatb|vikend|vecir|akce)|projekt (zahrad|domu|koupeln|kuchyn|prace|do skoly)")
+        if (has(t, "^(zaloz|vytvor|udelej|napis|naprogramuj)\\b.*\\b(projekt|program|skript|aplikaci|nastroj|parser|kalkulack\\w*|rozsireni)\\b") && !c.activeProject && (codeWord || has(t, "^(zaloz|vytvor) (novy )?projekt")) && !textGenre) return Intent.NewProject(text)
         if (c.activeProject) {
             if (has(t, "^(vysvetli|co dela|jak funguje|popis)\\b")) return Intent.Code(text, CodeKind.EXPLAIN)
             if (has(t, "^(spust|pust|otestuj)\\b.*\\btest|^testy$|^spust testy")) return Intent.Code(text, CodeKind.TEST)
@@ -167,7 +173,8 @@ object Router {
         // --- navázání na zobrazený výsledek
         if (c.lastResult && has(t, "divn|nesedi|to je spatne|tohle ne|proc (tam|je tam)|chyba v tom|zvlastni")) return Intent.FollowUp(text)
         // --- neobvyklá hypotéza (spiknutí, „ve skutečnosti“, „je možné, že…“)
-        if (has(t, "^(je mozne|je pravda|myslim|co kdyz|co kdyby|mam teorii|teorie|hypotez)|ve skutecnosti|zatajuj|spiknut|konspirac|nikdo (ti|vam) nerekne|oficialni verze|je (to )?mozne,? ze") &&
+        // „Myslím, že mám chřipku“ / „Je pravda, že banány jsou zdravé?“ jsou běžné otázky, ne hypotéza k prověření
+        if (has(t, "^(je mozne|co kdyz|co kdyby|mam teorii|teorie|hypotez)|ve skutecnosti|zatajuj|spiknut|konspirac|nikdo (ti|vam) nerekne|oficialni verze|je (to )?mozne,? ze") &&
             !has(t, "^(co kdyby(ch)? (jsem|jsme)|co kdyz (to|ten|tu) (udelam|zkusim))")) return Intent.Hypothesis(text)
         // --- přemýšlení nahlas a kreativní zadání = rozhovor (ne akce, ne rešerše)
         val aloud = has(t, "^(premyslim|napada me|co kdyby|mozna bych|hmm|asi bych|zvazuju|nevim jestli)")
@@ -176,7 +183,8 @@ object Router {
         // --- naučená pravidla (jen místo obecného rozhovoru / rešerše)
         learnedMatch(text, c)?.let { return it }
         // --- holý název tématu → rešerše
-        cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
+        // s přílohou je krátký popisek („účtenka“, „faktura za elektřinu“) o souboru, ne téma k hledání na webu
+        if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
         return Intent.Talk(false, false)
     }
 }
