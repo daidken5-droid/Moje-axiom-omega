@@ -134,6 +134,8 @@ object CzNum {
     private val dateRx = listOf(
         Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})") to "dmy",
         Regex("^(\\d{4})-(\\d{2})-(\\d{2})") to "ymd",
+        // „1.2.26“ – dvoumístný rok (některé banky a ruční tabulky) = 20yy
+        Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{2})(?![\\d.])") to "dmy2",
         Regex("^(\\d{1,2})/(\\d{1,2})/(\\d{4})") to "dmy",
     )
 
@@ -143,7 +145,7 @@ object CzNum {
         for ((rx, kind) in dateRx) {
             val m = rx.find(s) ?: continue
             val (a, b, c) = m.destructured
-            val (y, mo, d) = if (kind == "ymd") Triple(a.toInt(), b.toInt(), c.toInt()) else Triple(c.toInt(), b.toInt(), a.toInt())
+            val (y, mo, d) = when (kind) { "ymd" -> Triple(a.toInt(), b.toInt(), c.toInt()); "dmy2" -> Triple(2000 + c.toInt(), b.toInt(), a.toInt()); else -> Triple(c.toInt(), b.toInt(), a.toInt()) }
             if (mo !in 1..12 || d !in 1..31) return null
             return runCatching { java.time.LocalDate.of(y, mo, d).toString() }.getOrNull()
         }

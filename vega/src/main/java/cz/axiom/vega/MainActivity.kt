@@ -45,6 +45,16 @@ class MainActivity : ComponentActivity() {
         ops = (application as VegaApp).ops(sinkRef)
         web = WebView(this)
         setContentView(web)
+        // Android 15 (targetSdk 35) kreslí od okraje k okraji a adjustResize nefunguje: odsazení podle systémových lišt
+        // a KLÁVESNICE ručně – jinak hlavička vjede pod stavový řádek a klávesnice zakryje pole pro psaní
+        web.setBackgroundColor(0xFF0B0D12.toInt()); window.decorView.setBackgroundColor(0xFF0B0D12.toInt()) // pruh pod lištami v barvě aplikace (ne bílý)
+        androidx.core.view.WindowCompat.getInsetsController(window, web).apply { isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
+            val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
         val loader = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
         web.settings.apply {
             javaScriptEnabled = true; domStorageEnabled = true
@@ -143,7 +153,7 @@ class MainActivity : ComponentActivity() {
                 arr.put(ops.attach(nameOf(u), contentResolver.getType(u), bytes))
             }.onFailure { arr.put(JSONObject().put("error", "${nameOf(u)}: ${it.message}")) }
         }
-        send("files", JSONObject().put("files", arr))
+        send("files", JSONObject().put("files", arr).put("skipped", maxOf(0, uris.size - 8)))
     }
 
     /** Import složky jako projektu (kopie – originál zůstane netknutý). */
@@ -295,6 +305,8 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun home() = safe { ops.home() }
     @JavascriptInterface fun tools() = safe { ops.toolsJson() }
     @JavascriptInterface fun chats() = safe { ops.chats() }
+    @JavascriptInterface fun deleteChat(id: String) = safe { ops.deleteChat(id); true }
+    @JavascriptInterface fun renameChat(id: String, title: String) = safe { ops.renameChat(id, title); true }
     // řetězcové výsledky jako JSON (JS je parsuje – holý text by se zahodil)
     @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }
     @JavascriptInterface fun messages(chat: String) = safe { ops.messages(chat) }

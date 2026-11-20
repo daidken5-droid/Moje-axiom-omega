@@ -256,3 +256,6 @@ ol.steps { padding-left: 22px; margin: 6px 0 12px; line-height: 1.5; }
 ol.steps li { margin-bottom: 6px; }
 ol.steps { list-style: decimal; } ol.steps li { display: list-item; border: 0; padding: 0; }
 ol.steps code, .sheet code { font-family: ui-monospace, "Roboto Mono", monospace; background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+.drowwrap { display: flex; align-items: stretch; }
+.drowwrap .drow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dmore { background: none; border: 0; color: var(--ink2); min-width: 44px; font-size: 18px; cursor: pointer; border-radius: 10px; }

@@ -512,6 +512,19 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun chatRev(chat: String): String = "${kv.modified(chatKey(chat))}:${chatWrites.get()}"
     /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
     private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
+    /** Smazat konverzaci (zprávy, rozpracovaný stav, důkazy) – citlivý rozhovor nesmí zůstat v telefonu natrvalo. */
+    @Synchronized fun deleteChat(id: String) {
+        require(Regex("^c[0-9a-z]{1,20}$").matches(id)) { "Tuhle konverzaci smazat nejde." }
+        val arr = chats(); val n = JSONArray(); for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("id") != id) n.put(it) }
+        kv.write("chats.json", n.toString())
+        kv.delete(chatKey(id)); kv.delete(evidenceKey(id)); kv.keys("resume/$id/").forEach { kv.delete(it) }; chatWrites.incrementAndGet()
+    }
+    @Synchronized fun renameChat(id: String, title: String) {
+        val t = title.trim().take(60); require(t.isNotEmpty()) { "Název nesmí být prázdný." }
+        val arr = chats(); for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("id") == id) it.put("title", t) }
+        kv.write("chats.json", arr.toString())
+    }
+
     @Synchronized fun newChat(): String {
         val id = "c" + System.currentTimeMillis().toString(36)
         val arr = chats(); val n = JSONArray().put(JSONObject().put("id", id).put("title", "Nový chat").put("at", System.currentTimeMillis()))
@@ -662,7 +675,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val r = run(runId) ?: throw ToolError("Výsledek už neexistuje")
         val v = if (step >= 0) r.results.getOrNull(step)?.value ?: r.last else r.last
         val (name, mime, bytes) = when (v) {
-            is Value.Table -> Triple("${v.name ?: "tabulka"}.csv", "text/csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(v, csvDelimiter()).toByteArray())
+            is Value.Table -> { val d = csvDelimiter()
+                // se středníkem = český Excel: desetinná ČÁRKA (jinak z „1.05“ udělá datum a „1234.50“ nejde sečíst)
+                val t = if (d == ';') v.copy(rows = v.rows.map { r -> r.map { c -> if (Regex("^-?\\d+\\.\\d+$").matches(c)) c.replace('.', ',') else c } }) else v
+                Triple("${v.name ?: "tabulka"}.csv", "text/csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d).toByteArray()) }
             is Value.Bytes -> Triple(v.name, v.mime ?: "application/octet-stream", v.bytes)
             is Value.Json -> Triple("vystup.json", "application/json", v.asText().toByteArray())
             is Value.DiffV -> Triple("zmeny.diff", "text/x-diff", v.asText().toByteArray())
@@ -761,7 +777,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             is Router.Intent.Code -> code(chatId, intent, ws)
             is Router.Intent.NewProject -> newProject(chatId, intent.spec)
             Router.Intent.Nfc -> { emit("nfc.start", JSONObject()); reply(chatId, "Přilož NFC štítek k zadní straně telefonu…", JSONObject().put("type", "nfcWait")) }
-            Router.Intent.Demand -> reply(chatId, "Předžalobní výzva: zadej fakturu a úhrady (předvyplnil jsem syntetický případ). Spočítám jistinu, úrok z prodlení k rozhodnému datu a vyrobím DOCX + PDF.", JSONObject().put("type", "demandForm").put("sample", demandJson(Demand.sample())))
+            Router.Intent.Demand -> reply(chatId, "Předžalobní výzva: vyplň fakturu a úhrady (šedé texty ve formuláři jsou jen ukázka). Spočítám jistinu, úrok z prodlení k rozhodnému datu a vyrobím DOCX + PDF.", JSONObject().put("type", "demandForm").put("sample", demandJson(Demand.sample())))
             is Router.Intent.Research -> research(chatId, intent.topic, intent.variants)
             is Router.Intent.FollowUp -> followUp(chatId, text)
             Router.Intent.Undo -> { val w = ws ?: throw ToolError("Není otevřený žádný projekt."); val c = w.undo(); reply(chatId, "Vráceno: změna v ${c.path}.", projectDiffCard(w, c.path)) }

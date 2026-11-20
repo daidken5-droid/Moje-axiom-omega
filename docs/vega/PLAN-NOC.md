@@ -520,5 +520,50 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     12. Vrácení změny po vypršení 30 s se už neprovede potichu a chyba se hlásí jen jednou.
   - **Odmítnuto:** „v obrazu llama.cpp není python3“. Je tam, `start.sh` párovací kód vypsal (ověřeno v chroot).
 
+
+## Kolo „laik“ (1.8.0) – deepscan z pohledu běžného uživatele
+- [x] 54. Vlastní průzkum (router na 50 běžných větách) + 2 nezávislí průzkumníci, celkem ~29 nálezů.
+  - **Router:**
+    - krátké pokyny („Přepiš to formálněji“, „Pomoz mi s výpisem“) už nejdou do rešerše;
+    - „Napiš mi e-mail kvůli projektu / program na oslavu / seznam nástrojů“ nezakládá projekt s kódem;
+    - „Myslím, že…“ a „Je pravda, že…“ nejsou hypotéza;
+    - „Rozdíl mezi Windows 10 a 11“ nevolá nástroj Rozdíl;
+    - „Proč Česko importuje plyn“ nespustí Inspektor CSV;
+    - „Dluží mi kamarád“ neotevře formulář výzvy;
+    - „Kde jsme byli loni“ neobnoví projekt;
+    - „výpis z rejstříku“ nespustí zpracování výpisu;
+    - s přílohou se krátký popisek nehledá na webu.
+    - Test `LaikTest` (25 vět).
+  - **Přílohy:**
+    - PDF, fotka účtenky a Word se při „Shrň“ opravdu přečtou (čtečka s OCR) – dřív šly k modelu binární data;
+    - dlouhý dokument se projde po částech místo tichého oříznutí na 20 000 znaků;
+    - výpis v PDF/XLSX dostane návod „jak stáhnout CSV“ pro ČS, ČSOB, Fio, KB, Air Bank a Raiffeisen.
+  - **Hlášky:**
+    - průvodce „Zapnout rozhovor zdarma“ (klíč Gemini ve 3 krocích);
+    - anglické výjimky nahradila česká hláška (Ops i most);
+    - „Bez sítě“ a „Pouze vlastní modely“ říkají, jak je vypnout;
+    - dialog o fakturaci Gemini je bez žargonu;
+    - po 20 s čekání se objeví vysvětlení a nabídka zastavit;
+    - chyby více souborů jsou v jedné hlášce včetně „vzala jsem 8 z N“.
+  - **Výpočty:** DPH ze sazby, dny do Vánoc/Silvestra/Velikonoc, splátka hypotéky, „15 procent z 2400“, „100 eur po 25,2“, jednotky s diakritikou.
+  - **Výpisy:**
+    - souhrnné řádky (Celkem, Konečný zůstatek) nejsou chyba;
+    - datum „1.2.26“ se přečte;
+    - částky s pomlčkou nebo tenkou mezerou fungují;
+    - export CSV pro český Excel s desetinnou čárkou;
+    - po uložení souboru se nabídne Otevřít / Sdílet a hláška říká, kde soubor skutečně je.
+  - **Ostatní:**
+    - konverzaci jde smazat a přejmenovat (⋯ v menu);
+    - Zpět z projektu vede do předchozí konverzace;
+    - formulář výzvy má ukázku jen jako šedou nápovědu (cizí jména se nedostanou do PDF);
+    - tarif „neunese“ pozdější dotazy;
+    - samoúprava se nespustí bez GitHubu ani na „Uprav aplikaci Word“;
+    - Android 15: odsazení podle systémových lišt a klávesnice (NEOVĚŘENO na zařízení).
+  - **Odloženo:**
+    - automatické doplnění z webu u dotazů na ceny;
+    - historie u hypotéz;
+    - rozdělení Nastavení na Základní / Pokročilé;
+    - XLSX s prázdnými buňkami a sériovými daty.
+
 ## Problémy
 - ~~DNS rebinding~~ – vyřešeno bodem 52 (kontrola skutečné adresy soketu před TLS); přes proxy jen kontrola překladu.

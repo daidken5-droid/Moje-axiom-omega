@@ -161,6 +161,8 @@ object Statement {
             }
             when {
                 r.all { it.isBlank() } -> {}
+                // souhrnné řádky banky („Celkem“, „Konečný zůstatek“, „Obrat“) nejsou chyba – jen se nepočítají
+                date == null && Regex("celkem|zustatek|soucet|obrat|pocatecni|konecn|suma\\b|total|balance").containsMatchIn(cz.axiom.vega.base.Text.fold(r.joinToString(" ")).lowercase()) -> {}
                 date == null -> failed += line to "neplatné datum „${r.getOrNull(spec.dateCol) ?: ""}“"
                 amt == null -> failed += line to "neplatná částka „${r.getOrNull(spec.amountCol) ?: ""}“"
                 else -> {

@@ -56,4 +56,12 @@ class LaikTest {
         assertEquals("100 EUR po 25,2 = 2 520 Kč.", Quick.answer("100 eur po 25,2", now))
         assertTrue(Quick.answer("100 eur na koruny", now)!!.contains("kurz offline neznám"))
     }
+
+    @Test fun bankSummaryRowsAndShortYear() {
+        assertEquals("2026-02-01", CzNum.date("1.2.26")); assertEquals("2026-02-01", CzNum.date("01.02.2026"))
+        val csv = "Datum;Částka;Popis\n1.2.26;-100,00;Pekárna\n3.2.26;2 000,00;Výplata\n;1 900,00;Celkem\nKonečný zůstatek;5 000,00;\n"
+        val spec = Statement.detect(csv).spec!!
+        val r = Statement.process(csv, spec)
+        assertEquals(2, r.table.rows.size, r.toString()); assertTrue(r.failed.isEmpty(), r.failed.toString())
+    }
 }

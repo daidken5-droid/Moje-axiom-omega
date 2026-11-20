@@ -212,7 +212,7 @@ function card(c, isLast) {
     case 'verification': { const v = c.verification; return `<div class="res"><div class="res-h">Ověření</div><div class="res-big">${v.kind !== 'run' && v.kind !== 'static' ? 'Neověřeno' : v.exitCode === 0 ? 'Prošlo' : 'Neprošlo'}</div><div class="res-sub">${esc(v.label)} · rev ${esc(v.revision)}</div><div class="res-a"><span class="grow"></span><button class="btn" data-act="showVer" data-ver='${esc(JSON.stringify(v))}'>Výstup</button></div></div>`; }
     case 'sources': return checksHtml(c) + `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${(c.candidates || []).length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
     case 'coverage': { const ok = c.items.filter(i => i.ok).length; return `<button class="pill ${ok === c.items.length ? 'ok' : 'bad'}" data-act="coverage" data-cov='${esc(JSON.stringify(c))}'>Pokryto ${ok}/${c.items.length} požadavků ›</button>`; }
-    case 'demandForm': return `<div class="res"><div class="res-h">Předžalobní výzva</div><div class="res-sub" style="padding-top:6px">Faktura a úhrady – předvyplněno syntetickým případem.</div><div class="res-a"><button class="btn primary" data-act="demandForm" data-s='${esc(JSON.stringify(c.sample))}'>Vyplnit a vyrobit</button></div></div>`;
+    case 'demandForm': return `<div class="res"><div class="res-h">Předžalobní výzva</div><div class="res-sub" style="padding-top:6px">Faktura a úhrady – vyplň svoje údaje (šedé texty jsou jen ukázka).</div><div class="res-a"><button class="btn primary" data-act="demandForm" data-s='${esc(JSON.stringify(c.sample))}'>Vyplnit a vyrobit</button></div></div>`;
     case 'demand': return `<div class="res"><div class="res-h">Předžalobní výzva <span class="pill ${c.verified ? 'ok' : 'bad'}">${c.verified ? 'sazba ověřena' : 'sazba neověřena'}</span></div>
       <div class="res-big">${fmt(c.total)} Kč</div><div class="res-sub">PDF zpětně zkontrolováno: ${c.checks.filter(k => k.ok).length}/${c.checks.length}</div>
       ${c.warnings.map(w => `<div class="res-body warn">⚠ ${esc(w)}</div>`).join('')}
@@ -280,7 +280,15 @@ function liveRender() {
   const ph = $('#phase'); if (ph) ph.textContent = 'Píšu…';
   if (S.stick) $('#stream').scrollTop = 1e9; else jumpPill(true);
 }
-function render() { S.home = null; renderStream(); renderTop(); }
+function render() { S.home = null; renderStream(); renderTop(); waitHint(); }
+/** Dlouhé čekání bez prvního slova: po 20 s říct, co se děje a že jde zastavit (laik jinak neví, jestli to nezamrzlo). */
+function waitHint() {
+  if (!S.busy) { clearTimeout(S.waitT); S.waitT = 0; S.waitSince = 0; return; }
+  if (!S.waitSince) S.waitSince = Date.now();
+  if (S.waitT) return;
+  S.waitT = setTimeout(() => { S.waitT = 0; const ph = $('#phase');
+    if (S.busy && !S.stream && ph && /Přemýšlím/.test(ph.textContent)) ph.textContent = 'Pořád čekám na odpověď modelu – u delších úloh to může trvat i minutu. Zastavit můžeš tlačítkem ■.'; }, 20000);
+}
 
 /* ------------------------------------------------------------------ listy */
 function sheet(html, full) {
@@ -360,7 +368,7 @@ function drawer() {
     <button class="drow strong" data-act="new">＋ Nová konverzace</button>
     <button class="drow" data-act="temp">Dočasný chat</button>
     <div class="dlabel">Nedávné</div>
-    <div class="dscroll">${cs.map(c => `<button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button>`).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
+    <div class="dscroll">${cs.map(c => `<div class="drowwrap"><button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button><button class="dmore" data-act="chatMenu" data-id="${esc(c.id)}" data-t="${esc(c.title)}" aria-label="Možnosti konverzace ${esc(c.title)}">⋯</button></div>`).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
     <div class="dfoot">
       <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
       <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
@@ -545,7 +553,8 @@ function saveOwn() {
 }
 
 function demandSheet(s) {
-  const f = (k, l, t = 'text') => `<label class="lbl">${l}</label><input class="field" data-dm="${k}" type="${t}" value="${esc(s[k])}">`;
+  // ukázka je jen ŠEDÁ nápověda (placeholder) – cizí jména a částky z ukázky nesmí skončit v tvém PDF
+  const f = (k, l, t = 'text') => `<label class="lbl">${l}</label><input class="field" data-dm="${k}" type="${t}" ${t === 'date' ? '' : `placeholder="např. ${esc(s[k])}"`}>`;
   sheet(`<h2>Předžalobní výzva</h2><p class="lede">Spočítám jistinu a úrok z prodlení k rozhodnému datu, u každé částky uvedu doklad a vyrobím DOCX i PDF.</p>
     <h3>Strany</h3>${f('creditor', 'Věřitel')}${f('creditorAddr', 'Adresa věřitele')}${f('debtor', 'Dlužník')}${f('debtorAddr', 'Adresa dlužníka')}
     <h3>Faktura</h3>${f('invoice', 'Číslo')}${f('subject', 'Za co')}${f('amount', 'Částka (Kč)', 'number')}${f('issued', 'Vystaveno', 'date')}${f('due', 'Splatnost', 'date')}
@@ -570,6 +579,7 @@ function send() {
 function autosize() { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, innerHeight * .34) + 'px'; }
 
 function setSpace(sp) {
+  if (S.space && S.space.kind === 'chat' && S.space.id && sp.kind !== 'chat') S.prevChat = S.space.id;
   S.space = sp; S.tool = null; S.toolInput = null; S.stream = ''; S.lastCard = null;
   call('activate', sp.kind === 'project' ? sp.id : '');
   if (!S.req) closeSheet(true); // otevřený souhlas nesmí tiše zmizet (úloha by čekala 5 minut)
@@ -727,7 +737,10 @@ window.vega = {
       case 'toast': toast(d.text, 7000); break;
       case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
-        const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
+        const ok = (d.files || []).filter(f => !f.error);
+        // všechny chyby v jedné hlášce (jinak by každá další přepsala předchozí) + kolik souborů se nevešlo
+        const errs = (d.files || []).filter(f => f.error).map(f => f.error).concat(d.skipped ? [`Vzala jsem prvních 8 souborů, ${d.skipped} dalších ne – pošli je zvlášť.`] : []);
+        if (errs.length) toast(errs.join(' · '), 9000);
         // přílohy vyhozené kvůli stropu paměti (150 MB) zmizí i z čipů – jinak by se tiše neposlaly
         const ev = new Set(ok.flatMap(f => f.evicted || [])); if (ev.size && S.files) { S.files = S.files.filter(f => !ev.has(f.id)); toast('Nejstarší příloha se už nevešla do paměti (strop 150 MB) – odebral jsem ji.', 6000); }
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { busyCall('buttonTry', chatId(), ok[0].id); render(); } return; }
@@ -774,7 +787,8 @@ window.vega = {
   back() {
     if ($('#layer').innerHTML) { closeSheet(); return true; }
     if (S.tool) { S.tool = null; S.toolInput = null; renderChips(); return true; }
-    if (S.space.kind !== 'chat') { setSpace({ kind: 'chat', id: null, name: 'Konverzace' }); return true; }
+    // zpět do konverzace, ze které uživatel přišel (ne do nejnovější)
+    if (S.space.kind !== 'chat') { setSpace(S.prevChat ? { kind: 'chat', id: S.prevChat, name: 'Konverzace' } : { kind: 'chat', id: null, name: 'Konverzace' }); return true; }
     return false;
   },
 };
@@ -810,6 +824,11 @@ function act(a, d) {
     case 'saveOwn': saveOwn(); break;
     case 'pairOwn': pairOwn(); break;
     case 'pickModel': modelSheet(); break;
+    case 'chatMenu': sheet(`<h2>${esc(d.t)}</h2><input class="field" id="chatTitle" value="${esc(d.t)}" aria-label="Název konverzace">
+        <div class="inline" style="margin-top:8px"><button class="btn" data-act="chatRename" data-id="${esc(d.id)}">Přejmenovat</button><button class="btn ghost" data-act="chatDelete" data-id="${esc(d.id)}">Smazat konverzaci</button></div>`); break;
+    case 'chatRename': if (call('renameChat', d.id, ($('#chatTitle') || {}).value || '') !== null) { closeSheet(true); drawer(); toast('Přejmenováno.'); } break;
+    case 'chatDelete': if (!confirm('Smazat celou konverzaci? Nejde to vrátit.')) break;
+      if (call('deleteChat', d.id) !== null) { closeSheet(true); if (S.space.kind === 'chat' && S.space.id === d.id) { S.mc = null; setSpace({ kind: 'chat', id: null }); } else render(); drawer(); toast('Konverzace smazána.'); } break;
     case 'freeSetup': freeSetup(); break;
     case 'freeDone': closeSheet(true); S.home = null; render(); { const i = $('#input') || $('textarea'); if (i) i.focus(); } break;
     case 'freeSave': { const v = (($('#freeKey') || {}).value || '').trim();
@@ -840,7 +859,7 @@ function act(a, d) {
       document.querySelectorAll('[data-dm]').forEach(i => {
         if (i.type === 'number' && i.validity.badInput) missing = missing || i.previousElementSibling.textContent + ' (číslo s desetinnou tečkou nebo čárkou)';
         o[i.dataset.dm] = i.type === 'number' ? (i.value === '' ? 0 : +i.value) : i.value;
-        if (['issued', 'due', 'asOf'].includes(i.dataset.dm) && !i.value) missing = missing || i.previousElementSibling.textContent;
+        if (['issued', 'due', 'asOf', 'creditor', 'debtor', 'amount'].includes(i.dataset.dm) && !i.value) missing = missing || i.previousElementSibling.textContent;
       });
       if (missing) { toast('Vyplň: ' + missing); return; }
       if (o.payAmount > 0 && !o.payDate) { toast('Doplň datum úhrady.'); return; }
@@ -875,7 +894,10 @@ function act(a, d) {
     case 'answer': { const ok = d.ok === '1'; const r = J(B.answer(S.req, JSON.stringify({ ok }))); S.req = null; closeSheet(true); if (r === false) toast('Žádost už vypršela – pošli zprávu znovu.'); break; }
     case 'chip': chipAct(d.v); break;
     case 'dropFile': S.files = S.files.filter(f => f.id !== d.id); if (B.dropAttachment) B.dropAttachment(d.id); renderChips(); break;
-    case 'export': { const r = call('export', d.run, -1); if (r) toast('Uloženo do Stažené/VEGA: ' + r.name); break; }
+    case 'export': { const r = call('export', d.run, -1); if (!r) break;
+      // kam se soubor opravdu uložil + rovnou Otevřít / Sdílet (laik ho jinak nenajde)
+      sheet(`<h2>Soubor je uložený</h2><p class="lede"><b>${esc(r.name)}</b><br>${r.public ? 'Najdeš ho i ve Stažených souborech → složka VEGA.' : 'Je uložený v aplikaci – otevřeš nebo pošleš ho tady.'}</p>
+        <div class="inline"><button class="btn primary" data-act="openOut" data-f="${esc(r.name)}">Otevřít</button><button class="btn" data-act="share" data-f="${esc(r.name)}">Sdílet / poslat</button></div>`); break; }
     case 'saveProc': { const r = call('saveProcedure', JSON.parse(d.save)); if (r) { if (d.run) S.savedRuns.add(d.run); S.procs = null; toast(`Nástroj „${r.name}“ uložen (v${r.version}). Nabídnu ho u dalšího souboru.`); closeSheet(true); render(); } break; }
     case 'resume': if (busyGuard()) return; busyCall('resume', chatId(), d.run, {}); render(); break;
     case 'runMenu': runMenu(d.run); break;
@@ -917,8 +939,8 @@ function saveKey(k) {
   if (!v.trim()) { toast('Vlož klíč.'); return; }
   if (k === 'gemini') {
     S.pendingKey = v;
-    sheet(`<h2>Je klíč z projektu bez fakturace?</h2><p class="lede">Do „zdarma“ patří klíč z projektu, kde není zapnutý Cloud Billing. Klíč z projektu s kreditem Pro by tu čerpal peníze bez stropu.</p>
-      <div class="list"><button class="row" data-act="isFree"><span class="grow"><b>Bez fakturace</b><small>uložit jako Gemini – zdarma</small></span></button><button class="row" data-act="toPro"><span class="grow"><b>S fakturací / kredit Pro</b><small>uložit jako Gemini – kredit Pro (hlídám strop)</small></span></button><button class="row" data-act="cancelKey"><span class="grow"><b>Zrušit</b></span></button></div>`);
+    sheet(`<h2>Zadával jsi u Googlu platební kartu?</h2><p class="lede">Klíč, který sis právě vytvořil v AI Studiu, je obvykle <b>zdarma</b>. Jen pokud máš u Googlu Cloud zapnuté placení (kartu nebo kredit), mohl by klíč čerpat peníze – pak ho dej do „kredit Pro“, kde hlídám limit.</p>
+      <div class="list"><button class="row" data-act="isFree"><span class="grow"><b>Ne, kartu jsem nezadával (doporučeno)</b><small>uložit jako Gemini zdarma</small></span></button><button class="row" data-act="toPro"><span class="grow"><b>Ano, mám u Googlu placení</b><small>uložit jako Gemini – kredit Pro (hlídám strop)</small></span></button><button class="row" data-act="cancelKey"><span class="grow"><b>Zrušit</b></span></button></div>`);
     return;
   }
   doSaveKey(k, v);
