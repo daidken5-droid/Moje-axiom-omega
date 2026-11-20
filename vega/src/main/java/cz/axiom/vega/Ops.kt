@@ -272,7 +272,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Nová stránka (obnova WebView, studený start): znovu ukázat otevřené dotazy a stav „pracuji“. */
     fun replay(skip: Set<String> = emptySet()) {
         if (busy) emit("busy", JSONObject())
-        pendingPayload.forEach { (id, td) -> if (td.first != "jstest" && id !in skip) emit(td.first, td.second) }
+        pendingPayload.forEach { (id, td) -> if (td.first != "jstest" && td.first != "extrun" && id !in skip) emit(td.first, td.second) }
     }
 
     // ------------------------------------------------------------------ chaty
@@ -788,7 +788,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun projects(): JSONArray = JSONArray().apply { projectsDir.listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.lastModified() }?.forEach { d ->
         val w = Workspace(d); put(JSONObject().put("id", d.name).put("name", w.name).put("files", w.files().size).put("active", settings.activeProject == d.name).put("next", nextStep(w)))
     } }
-    fun activeWorkspace(): Workspace? = settings.activeProject?.let { File(projectsDir, it) }?.takeIf { it.isDirectory }?.let { Workspace(it) }
+    fun activeWorkspace(): Workspace? = settings.activeProject?.takeIf { Regex("^[a-z0-9-]{1,48}$").matches(it) }?.let { File(projectsDir, it) }?.takeIf { it.isDirectory }?.let { Workspace(it) }
     fun workspace(id: String): Workspace {
         require(Regex("^[a-z0-9-]{1,48}$").matches(id)) { "Neplatný projekt" }
         return File(projectsDir, id).takeIf { it.isDirectory }?.let { Workspace(it) } ?: throw ToolError("Projekt neexistuje")

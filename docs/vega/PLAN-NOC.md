@@ -153,7 +153,21 @@ Další pravidla:
     - Oprava v chatu („ne, spočítej sha256…“) se zapíše jako CORRECTION u rozhovoru s výsledkem „nástroj:hash“.
     - Návrh rozšíření odmítne málo chyb i rozšíření a dvojité klepnutí ohlásí „už běží“. Selhání návrhu (bez modelu) nepřidá nástroji další chybu.
   - Hook pro Stop zůstává bez testu, protože vyžaduje běžící úlohu s modelem. Testy 51 + 23 zelené.
-- [ ] 18. Red-team kolo 3: Engines.kt a MainActivity.kt (most JS ↔ Kotlin, oprávnění, intenty, sdílení souborů)
+- [x] 18. Red-team kolo 3: Engines.kt a MainActivity.kt (most JS ↔ Kotlin, oprávnění, intenty, sdílení souborů)
+  - **Výsledek:** cestu, jak se cizí kód dostane k mostu, kontrola nenašla (CSP v hlavičce i v meta, žádné inline skripty, vše escapované). Opraveno 8 bodů:
+    - Po pádu rendereru se mrtvý WebView dál používal. Teď se odpojí a zničí a `extrun` se po obnově znovu nespouští, takže se pád neopakuje dokola.
+    - Sdílené soubory se po obnově aktivity přidávaly znovu.
+    - Dočasná chyba Keystore smazala uložený klíč. Teď se klíč maže jen u poškozených dat nebo trvale zneplatněného klíče.
+    - `activate("../..")` mohlo udělat z celého úložiště VEGY „projekt“ přístupný nástrojům modelu. Id se teď kontroluje v mostu i v Ops.
+    - Normalizace klíče rozbíjela tokeny `abc:def` a base64 `…==` (nové testy).
+    - Klíč vlastního serveru šel po změně adresy na jiný server. Při změně hostu se smaže.
+    - Sdílení 8 × 60 MB mohlo vyčerpat paměť. Strop je 120 MB celkem.
+    - Nedokončený zápis do Stažených po sobě nechával záznam. Teď se smaže.
+  - **Testy:** 51 + 23 zelené.
+
+## Další kolo 4 (pro další probuzení)
+- [ ] 19. Robolectric test na Vault: dočasná chyba ≠ smazání klíče; most `activate` s neplatným id
+- [ ] 20. Red-team kolo 4: Workspace / CodeAgent (zápisy souborů projektu, isSecret, diff/undo, ZIP export, limity velikosti)
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

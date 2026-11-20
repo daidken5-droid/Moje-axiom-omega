@@ -18,6 +18,9 @@ class VegaCostTest {
         assertEquals("AIzaSyD-abcdefghijklmnopqrstuvwxyz12345", normalizeKey("gemini", "export GEMINI_API_KEY=\"AIzaSyD-abcdefghijklmnopqrstuvwxyz12345\";"))
         assertEquals("gsk_abc123456789012345", normalizeKey("groq", "  'gsk_abc123456789012345'\n"))
         assertEquals("sk-ant-xyz1234567890123", normalizeKey("claude", "ANTHROPIC_API_KEY: sk-ant-xyz1234567890123"))
+        // token vlastního serveru: „abc:def“ ani base64 „…==“ se nesmí rozbít
+        assertEquals("abc:def", normalizeKey("own", "abc:def")); assertEquals("dGVzdA==", normalizeKey("own", "dGVzdA=="))
+        assertEquals("dGVzdA==", normalizeKey("own", "OWN_KEY=dGVzdA=="))
     }
 
     @Test fun sharedCapAndRunApprovalsDoNotLeak() {

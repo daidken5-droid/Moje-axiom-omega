@@ -125,7 +125,9 @@ open class Vault(context: Context) {
             val c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.DECRYPT_MODE, key("vega-$name"), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
             String(c.doFinal(Base64.decode(data, Base64.NO_WRAP)))
-        } catch (e: Exception) { remove(name); null }
+        } catch (e: javax.crypto.AEADBadTagException) { remove(name); null // data poškozená / jiný klíč
+        } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) { remove(name); null
+        } catch (e: Exception) { null } // dočasná chyba Keystore (po restartu, zamčení): klíč NEMAZAT
     }
 
     open fun has(name: String) = prefs.contains("$name.data")
@@ -158,8 +160,10 @@ class Out(private val context: Context) {
                     put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/VEGA"); put(MediaStore.Downloads.IS_PENDING, 1)
                 }
                 val uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v)!!
-                cr.openOutputStream(uri)!!.use { it.write(bytes) }
-                cr.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+                try {
+                    cr.openOutputStream(uri)!!.use { it.write(bytes) }
+                    cr.update(uri, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null)
+                } catch (e: Exception) { runCatching { cr.delete(uri, null, null) }; throw e } // nenechat nedokončený záznam ve Stažených
                 uri
             } else null
         }.getOrNull()

@@ -55,7 +55,12 @@ class MainActivity : ComponentActivity() {
                 // CSP i jako HTTP hlavička (platí spolehlivě i pro blob: Workery testů): žádná síť, žádné inline skripty
                 loader.shouldInterceptRequest(request.url)?.also { r -> r.responseHeaders = (r.responseHeaders ?: emptyMap()) + mapOf("Content-Security-Policy" to CSP, "X-Content-Type-Options" to "nosniff") }
             /** Renderer spadl (např. paměťová bomba v testech projektu) → nepadat s celou aplikací, jen znovu načíst UI. */
-            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean { runOnUiThread { recreate() }; return true }
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                // mrtvý WebView se nesmí dál používat: odpojit, zničit a teprve pak obnovit aktivitu
+                synchronized(early) { pageReady = false }
+                runOnUiThread { runCatching { (view.parent as? android.view.ViewGroup)?.removeView(view); view.destroy() }; recreate() }
+                return true
+            }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
                 if (u.host == "appassets.androidplatform.net" && u.scheme == "https") return false
@@ -72,7 +77,8 @@ class MainActivity : ComponentActivity() {
             }
         })
         web.loadUrl("https://appassets.androidplatform.net/assets/ui/index.html")
-        handleShare(intent)
+        // po recreate()/obnově procesu nesdílet tytéž soubory znovu
+        if (savedInstanceState == null) handleShare(intent)
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleShare(intent) }
@@ -114,7 +120,7 @@ class MainActivity : ComponentActivity() {
 
     /** Sdílené / vybrané soubory: jen content:// od CIZÍ aplikace (ne soukromá data VEGA, ne file://), čtení s limitem. */
     private fun attachUris(uris: List<Uri>) {
-        val arr = JSONArray()
+        val arr = JSONArray(); var sum = 0L
         for (u in uris.take(8)) {
             runCatching {
                 require(u.scheme == "content") { "Soubor nejde otevřít (jen přes systémový výběr / sdílení)." }
@@ -123,7 +129,9 @@ class MainActivity : ComponentActivity() {
                 require(size <= 60_000_000) { "Soubor je větší než 60 MB." }
                 val bytes = contentResolver.openInputStream(u)!!.use { s ->
                     val o = java.io.ByteArrayOutputStream(); val buf = ByteArray(64 * 1024); var total = 0L
-                    while (true) { val n = s.read(buf); if (n < 0) break; total += n; require(total <= 60_000_000) { "Soubor je větší než 60 MB." }; o.write(buf, 0, n) }
+                    while (true) { val n = s.read(buf); if (n < 0) break; total += n; require(total <= 60_000_000) { "Soubor je větší než 60 MB." }
+                        require(sum + total <= 120_000_000) { "Sdílené soubory dohromady přesahují 120 MB." }; o.write(buf, 0, n) }
+                    sum += total
                     o.toByteArray()
                 }
                 arr.put(ops.attach(nameOf(u), contentResolver.getType(u), bytes))
@@ -229,7 +237,8 @@ class MainActivity : ComponentActivity() {
 /** Obsah vložený do pole klíče: „export GEMINI_API_KEY="AIza…"“, uvozovky, středník, celý řádek → jen klíč. */
 fun normalizeKey(provider: String, raw: String): String {
     var k = raw.trim().removePrefix("export ").trim()
-    if (Regex("^[A-Za-z_][A-Za-z0-9_]*\\s*[=:]").containsMatchIn(k)) k = k.substringAfter('=').substringAfter(':').trim()
+    // jen „NÁZEV_PROMĚNNÉ=…“ (velká písmena) – token typu „abc:def“ nebo base64 „…==“ zůstane celý
+    Regex("^[A-Z_][A-Z0-9_]*\\s*[=:]\\s*").find(k)?.let { k = k.substring(it.range.last + 1) } // jen první oddělovač
     k = k.trim().trimEnd(';').trim().trim('"', '\'', '`').trim()
     if (provider.startsWith("gemini")) Regex("AIza[0-9A-Za-z_-]{30,}").find(raw)?.let { k = it.value }
     return k
@@ -285,7 +294,10 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun project(id: String) = safe { ops.projectInfo(id) }
     @JavascriptInterface fun newProject(name: String) = safe { JSONObject.quote(ops.createProject(name.ifBlank { "Nový projekt" }, emptyMap())) }
     @JavascriptInterface fun demandSample() = safe { ops.demandSample() }
-    @JavascriptInterface fun activate(id: String) = safe { ops.settings.activeProject = id.ifBlank { null } }
+    @JavascriptInterface fun activate(id: String) = safe {
+        require(id.isBlank() || Regex("^[a-z0-9-]{1,48}$").matches(id)) { "Neplatný projekt" }
+        ops.settings.activeProject = id.ifBlank { null }
+    }
     @JavascriptInterface fun file(id: String, path: String) = safe {
         // citlivý soubor: ani obsah, ani otisk (otisk by umožnil přepsat ho zástupným textem)
         if (cz.axiom.vega.core.Workspace.isSecret(path)) JSONObject().put("secret", true)
@@ -324,7 +336,13 @@ class Bridge(private val a: MainActivity) {
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
             "userName" -> s.userName = value
-            "ownUrl" -> { if (value.isNotBlank()) cz.axiom.vega.net.Http.requireAllowed(value.trim()); s.ownUrl = value }
+            "ownUrl" -> {
+                if (value.isNotBlank()) cz.axiom.vega.net.Http.requireAllowed(value.trim())
+                // klíč patří serveru: při změně serveru (host:port) ho neposílat jinam
+                fun hostOf(u: String) = runCatching { java.net.URI(u.trim()).let { "${it.host}:${it.port}" } }.getOrNull()
+                if (hostOf(value) != hostOf(s.ownUrl)) ops.vault.remove("own")
+                s.ownUrl = value
+            }
             "ownModel" -> { s.ownModel = value; s.setModel("own", value.trim()) }
             else -> when {
                 key.startsWith("allow.") -> s.setAllowed(key.removePrefix("allow."), value == "true")
