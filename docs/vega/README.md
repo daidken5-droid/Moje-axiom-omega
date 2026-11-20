@@ -2,7 +2,9 @@
 
 ## Kola 10–16 + vlastní server + ověřovač citací (1.5.2 → 1.6.0)
 
-**Testy:** jádro i aplikace zelené. Testovalo se jen na hostiteli (JVM + Robolectric, Chromium, chroot s obrazem llama.cpp). Na telefonu nic ověřeno není.
+**Finální APK:** `VEGA-10ae983.apk` (1.6.0, versionCode 465839), SHA-256 `acdb265ccbda147f0edef9b43d9c5a72b11b45591226897f9dd34ea92af4cc14`, certifikát `4557a2ce…cdb4` (instaluje se přes předchozí verze).
+
+**Testy:** 107 testů jádra i aplikace zelených. Testovalo se jen na hostiteli (JVM + Robolectric, Chromium, chroot s obrazem llama.cpp). Na telefonu nic ověřeno není.
 
 | Kolo | Oblast | Nejvážnější nález → oprava | Co uvidíš |
 |---|---|---|---|
