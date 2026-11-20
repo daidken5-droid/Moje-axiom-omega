@@ -81,3 +81,17 @@ class QuickPlusTest {
         assertNull(q("jaké je DPH na knihy v Česku"))
     }
 }
+
+class QuickUnitsTest {
+    private fun q(s: String) = cz.axiom.vega.calc.Quick.answer(s)
+    @Test fun moreConversions() {
+        assertTrue(q("převeď 2 ha na m2")!!.contains("20 000"), q("převeď 2 ha na m2"))
+        assertTrue(q("3 hrnky na dl")!!.contains("7,2"), q("3 hrnky na dl"))
+        assertTrue(q("2 lžíce na ml")!!.contains("30"), q("2 lžíce na ml"))
+        assertTrue(q("500 GB na GiB")!!.contains("465,66"), q("500 GB na GiB"))
+        assertTrue(q("90 min na h")!!.contains("1,5"), q("90 min na h"))
+        assertTrue(q("2000 kcal na kJ")!!.contains("8 368"), q("2000 kcal na kJ"))
+        assertTrue(q("10 m² na ft²")!!.contains("107,6391"), q("10 m² na ft²"))
+        assertNull(q("2 kg na km")) // různé veličiny
+    }
+}

@@ -270,7 +270,7 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
     - data: „za 30 dní“ / „před 2 týdny“ / „za 3 měsíce“ s dnem v týdnu, „jaký den v týdnu je 24. 12. 2026“, „kolik let je od 5. 3. 1990“ včetně dalšího výročí.
   - **Hranice:** běžné věty („pojedu za babičkou na 3 dny“, „jaké je DPH na knihy“) se nechytí. Jdou modelu, tam je potřeba úsudek.
   - **Testy:** QuickPlusTest prošel, celkem 62 + 25 zelené.
-  - **Nehotové:** převody dávek, plochy a objemu nechávám na kolo 7 podle toho, co laik reálně píše.
+  - **Doplněno později:** plocha (m², ha, ar, km², ft², akr), kuchyně (dl, cl, hrnek, lžíce, lžička, m³), data (kB–TB i KiB–TiB), čas (s, min, h, dny, týdny), energie (kcal, kJ, kWh). QuickUnitsTest prošel.
 - [ ] 31. Red-team kolo 7: skutečné toky laika end-to-end. Robolectric scénáře „první spuštění → klíč → dotaz → soubor → export → paměť → zapomenutí“: hledat místa, kde VEGA odpoví špatně nebo nesrozumitelně. Opravy a vylepšení odpovědí.
 - [ ] 32. Red-team kolo 8: výkon, baterie, úložiště a odolnost (velké soubory, dlouhé chaty, výpadky sítě uprostřed, restart procesu uprostřed úlohy). Měření před a po.
 - [ ] 33. Red-team kolo 9: závěrečná kontrola celého nočního diffu (bezpečnost, správnost, mrtvý kód), regresní testy.
