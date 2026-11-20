@@ -70,7 +70,12 @@ function busyGuard() { if (S.busy) { toast(BUSY_MSG); return true; } return fals
 function msgs() {
   if (S.space.kind === 'temp') return S.tempMsgs;
   if (S.space.kind === 'chat' && !S.space.id) { const cs = call('chats') || []; S.space.id = cs[0]?.id || call('newChat'); }
-  return call('messages', chatId()) || [];
+  // cache podle revize: překreslení (idle, done, busy…) nečte a neparsuje celý soubor chatu znovu, když se nezměnil
+  const id = chatId(), rev = B.chatRev ? B.chatRev(id) : '';
+  if (rev && S.mc && S.mc.id === id && S.mc.rev === rev) return S.mc.list;
+  const list = call('messages', id) || [];
+  S.mc = rev ? { id, rev, list } : null;
+  return list;
 }
 
 let msgsCount = 0;
@@ -822,7 +827,7 @@ function act(a, d) {
     case 'close': closeSheet(); break;
     case 'answer': { const ok = d.ok === '1'; const r = J(B.answer(S.req, JSON.stringify({ ok }))); S.req = null; closeSheet(true); if (r === false) toast('Žádost už vypršela – pošli zprávu znovu.'); break; }
     case 'chip': chipAct(d.v); break;
-    case 'dropFile': S.files = S.files.filter(f => f.id !== d.id); renderChips(); break;
+    case 'dropFile': S.files = S.files.filter(f => f.id !== d.id); if (B.dropAttachment) B.dropAttachment(d.id); renderChips(); break;
     case 'export': { const r = call('export', d.run, -1); if (r) toast('Uloženo do Stažené/VEGA: ' + r.name); break; }
     case 'saveProc': { const r = call('saveProcedure', JSON.parse(d.save)); if (r) { if (d.run) S.savedRuns.add(d.run); S.procs = null; toast(`Nástroj „${r.name}“ uložen (v${r.version}). Nabídnu ho u dalšího souboru.`); closeSheet(true); render(); } break; }
     case 'resume': if (busyGuard()) return; busyCall('resume', chatId(), d.run, {}); render(); break;

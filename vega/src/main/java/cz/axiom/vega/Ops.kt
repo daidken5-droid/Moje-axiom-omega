@@ -438,6 +438,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
     }
     fun messages(chat: String): JSONArray = readArray(chatKey(chat))
+    private val chatWrites = java.util.concurrent.atomic.AtomicLong(0)
+    /** Levná revize chatu (čas změny souboru + počítadlo zápisů v procesu): UI podle ní pozná, jestli musí zprávy znovu načíst. */
+    fun chatRev(chat: String): String = "${kv.modified(chatKey(chat))}:${chatWrites.get()}"
     /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
     private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
     @Synchronized fun newChat(): String {
@@ -450,7 +453,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (chat == null) return // dočasný chat: nic se neukládá
         val arr = messages(chat); arr.put(m.put("at", System.currentTimeMillis()))
         val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 300); for (i in from until arr.length()) trimmed.put(arr.get(i))
-        kv.write(chatKey(chat), trimmed.toString())
+        kv.write(chatKey(chat), trimmed.toString()); chatWrites.incrementAndGet()
         if (m.optString("role") == "user") {
             val cs = chats(); for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat && c.optString("title") == "Nový chat") { c.put("title", m.optString("text").take(40)); kv.write("chats.json", cs.toString()) } }
         }
@@ -473,10 +476,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     // ------------------------------------------------------------------ přílohy
 
+    /** Uživatel přílohu odebral v UI → uvolnit ji i tady (jinak by v paměti visela dál). */
+    fun dropAttachment(id: String) { synchronized(attachments) { attachments.remove(id) } }
+    private val ATTACH_MAX_BYTES = 150_000_000L
+
     fun attach(name: String, mime: String?, bytes: ByteArray): JSONObject {
         val id = "f" + System.nanoTime().toString(36)
         attachments[id] = Value.Bytes(name, bytes, mime)
-        synchronized(attachments) { while (attachments.size > 8) attachments.remove(attachments.keys.first()) }
+        // strop počtu I bajtů v paměti (8 × 60 MB by bylo 480 MB) – nejstarší ven
+        synchronized(attachments) { while (attachments.size > 8 || (attachments.size > 1 && attachments.values.sumOf { it.bytes.size.toLong() } > ATTACH_MAX_BYTES)) attachments.remove(attachments.keys.first()) }
         // do lokálního indexu (text a CSV hned, PDF/obrázek až nástrojem s OCR – nezdržovat výběr)
         val textual = name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || cz.axiom.vega.core.Encoding.isUtf8(bytes.copyOf(minOf(bytes.size, 4096)))
         // (české exporty bývají ve Windows-1250 – Encoding.decode to pozná)
@@ -1418,7 +1426,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val arr = messages(chat); var changed = false
             for (i in 0 until arr.length()) { val m = arr.getJSONObject(i); val t = cz.axiom.vega.base.Text.fold(m.optString("text")).lowercase()
                 if (texts.any { t.contains(it) }) { m.put("text", "[zapomenuto]"); changed = true } }
-            if (changed) kv.write(chatKey(chat), arr.toString())
+            if (changed) { kv.write(chatKey(chat), arr.toString()); chatWrites.incrementAndGet() }
         }
         reply(chat, "Zapomenuto: ${f.size} ${if (f.size == 1) "záznam" else if (f.size < 5) "záznamy" else "záznamů"} – i z indexu a z historie tohoto chatu; ze shrnutí se nevrátí" +
             (if (f.size > 1) ". Co si pamatuji dál, najdeš v Paměti." else "."))

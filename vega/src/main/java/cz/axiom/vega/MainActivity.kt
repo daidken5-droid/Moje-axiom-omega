@@ -29,6 +29,7 @@ const val CSP = "default-src 'none'; script-src 'self' 'unsafe-eval' blob:; work
 
 class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
+    private val sinkRef: (String, JSONObject) -> Unit = { t, d -> send(t, d) }
     lateinit var ops: Ops
     @Volatile private var nfcChat: String? = null
     /** Události před načtením stránky (studený start, sdílení) se drží a pošlou, až JS zavolá ready(). */
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ops = (application as VegaApp).ops(this::send)
+        ops = (application as VegaApp).ops(sinkRef)
         web = WebView(this)
         setContentView(web)
         val loader = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
@@ -99,7 +100,7 @@ class MainActivity : ComponentActivity() {
         val js = "window.vega && vega.on(${JSONObject.quote(type)}, ${data})"
         synchronized(early) {
             if (!pageReady) { early += js; if (early.size > 300) early.removeAt(0); return }
-            runOnUiThread { if (!isFinishing) web.evaluateJavascript(js, null) }
+            runOnUiThread { if (!isFinishing && !isDestroyed) web.evaluateJavascript(js, null) }
         }
     }
 
@@ -114,7 +115,12 @@ class MainActivity : ComponentActivity() {
         ops.replay(skip)
     }
 
-    override fun onDestroy() { synchronized(early) { pageReady = false }; super.onDestroy() }
+    override fun onDestroy() {
+        synchronized(early) { pageReady = false }
+        (application as VegaApp).detach(sinkRef)
+        if (::web.isInitialized) runCatching { web.stopLoading(); (web.parent as? android.view.ViewGroup)?.removeView(web); web.destroy() }
+        super.onDestroy()
+    }
 
     private fun nameOf(u: Uri) = runCatching { contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: u.lastPathSegment ?: "soubor"
 
@@ -128,7 +134,7 @@ class MainActivity : ComponentActivity() {
                 val size = runCatching { contentResolver.query(u, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L } }.getOrNull() ?: -1L
                 require(size <= 60_000_000) { "Soubor je větší než 60 MB." }
                 val bytes = contentResolver.openInputStream(u)!!.use { s ->
-                    val o = java.io.ByteArrayOutputStream(); val buf = ByteArray(64 * 1024); var total = 0L
+                    val o = java.io.ByteArrayOutputStream(if (size in 1..60_000_000) size.toInt() else 64 * 1024); val buf = ByteArray(64 * 1024); var total = 0L
                     while (true) { val n = s.read(buf); if (n < 0) break; total += n; require(total <= 60_000_000) { "Soubor je větší než 60 MB." }
                         require(sum + total <= 120_000_000) { "Sdílené soubory dohromady přesahují 120 MB." }; o.write(buf, 0, n) }
                     sum += total
@@ -282,6 +288,8 @@ class Bridge(private val a: MainActivity) {
     // řetězcové výsledky jako JSON (JS je parsuje – holý text by se zahodil)
     @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }
     @JavascriptInterface fun messages(chat: String) = safe { ops.messages(chat) }
+    @JavascriptInterface fun dropAttachment(id: String) = safe { ops.dropAttachment(id); true }
+    @JavascriptInterface fun chatRev(chat: String): String = runCatching { ops.chatRev(chat) }.getOrDefault("")
     @JavascriptInterface fun send(chat: String, text: String, ids: String) = safe {
         val f = runCatching { JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } } }.getOrDefault(emptyList())
         if (chat == "temp") ops.chatTemp(text, f) else if (text.length > 6000) ops.longTask(chat, text, f) else ops.chat(chat, text, f)

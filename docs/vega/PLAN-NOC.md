@@ -447,8 +447,17 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
 | 17:15–18:00 | 52 |
 | 18:00–19:00 | 53 |
 
-- [ ] 46. UI bez zbytečných reloadů: zprávy chatu v paměti JS (`message` jen přidá uzel, `idle`/`done` jen odstraní „přemýšlím“), plný reload jen při přepnutí chatu. Měření v Chromiu před a po.
-- [ ] 47. Paměť příloh: strop součtu bajtů (150 MB, nejstarší ven), `dropAttachment` uvolní přílohu i v Kotlinu, `ByteArrayOutputStream` se známou velikostí; aktivita po zničení: `clearSink` + `web.destroy()`; delty na pozadí jen poslední.
+- [x] 46. UI bez zbytečných reloadů: zprávy chatu v paměti JS (`message` jen přidá uzel, `idle`/`done` jen odstraní „přemýšlím“), plný reload jen při přepnutí chatu. Měření v Chromiu před a po.
+  - **Hotovo jinak a jednodušeji:** zprávy se cachují v JS podle levné revize chatu (čas změny souboru + počítadlo zápisů). Překreslení při idle/done/busy tak soubor chatu nečte ani neparsuje, po změně se načte jednou. Odpadá riziko rozjetí cache se stavem v Kotlinu.
+  - **Naměřeno** (Chromium, CPU 4×, 300 zpráv): 10 překreslení dřív znamenalo 10 čtení chatu přes most, teď 0. JS část klesla ze 7 na 4 ms na překreslení. Hlavní úspora je čtení a parsování souboru v Kotlinu na vlákně mostu, které v prohlížeči změřit nejde (NEOVĚŘENO v telefonu).
+- [x] 47. Paměť příloh: strop součtu bajtů (150 MB, nejstarší ven), `dropAttachment` uvolní přílohu i v Kotlinu, `ByteArrayOutputStream` se známou velikostí; aktivita po zničení: `clearSink` + `web.destroy()`; delty na pozadí jen poslední.
+  - Hotovo:
+    - strop 150 MB součtu příloh v paměti (nejstarší ven);
+    - `dropAttachment` z UI;
+    - `ByteArrayOutputStream` se známou velikostí (bez dvojnásobné špičky);
+    - `detach` sinku a `web.destroy()` v `onDestroy`;
+    - události do zničené aktivity se neposílají (`isDestroyed`).
+  - **Záměrně vynecháno:** „jen poslední delta na pozadí“. Delty jsou teď přírůstky (kolo 14), takže zahazovat je nejde, a po změně jsou malé.
 - [ ] 48. Úložiště: deník změn projektu ukládá obsahy nad 100 kB jako blob podle SHA (zpětně čitelný starý formát), `nextId` bez parsování; checkpoint běhu drží vstupní soubor jako odkaz, ne base64. Testy na starý i nový formát.
 - [ ] 49. Bezpečná instalace samoúpravy: APK v privátní složce, při instalaci znovu SHA-256 a stav READY; žádná sdílená složka výstupů.
 - [ ] 50. Navazující samoúpravy a návrat: úprava vychází z commitu nainstalované verze (pokud je to auto-větev, jinak z pracovní větve) a v diffu je uvedeno, proti čemu je; „Vrátit poslední úpravu“ = nový commit obsahu předchozí verze → nové sestavení s vyšším versionCode (bez odinstalace). Průběh po krocích v UI.
