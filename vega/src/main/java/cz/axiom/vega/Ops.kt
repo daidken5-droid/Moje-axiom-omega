@@ -126,8 +126,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             }
             val diff = ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
             // hlídač citlivých API: klíče, síť, procesy, most, sandbox, samoúpravy (stejný seznam kontroluje CI)
-            val sens = cz.axiom.vega.selfupdate.Policy.sensitiveAdditions(diff)
-            if (sens.isNotEmpty()) { reply(chat, "Úpravu jsem zahodila – sahala by na citlivá API (klíče, síť, most nebo samoúpravy), a to samoúprava nesmí:\n" + sens.take(5).joinToString("\n") { "• ${it.removePrefix("+").trim()}" } +
+            val sens = cz.axiom.vega.selfupdate.Policy.sensitiveChanges(diff) + changed.mapNotNull { p -> cz.axiom.vega.selfupdate.Policy.packageIssue(p, ws.read(p))?.let { "$p: $it" } }
+            if (diff.length > 60_000) { reply(chat, "Úpravu jsem zahodila – změna je moc velká na to, abys ji v telefonu opravdu prošel (${diff.length / 1000} kB diffu). Zadej menší krok."); return }
+            if (sens.isNotEmpty()) { reply(chat, "Úpravu jsem zahodila – sahala by na citlivá místa (klíče, síť, most, platby, souhlasy nebo samoúpravy), a to samoúprava nesmí:\n" + sens.take(5).joinToString("\n") { "• ${it.removePrefix("+").trim()}" } +
                 "\nTakovou změnu musí udělat člověk ve vývojovém prostředí."); return }
             val branch = cz.axiom.vega.selfupdate.Policy.branchName(task)
             val commit = g.commitFiles(baseSha, branch, changed.associateWith { ws.read(it) }, "VEGA samoúprava: ${task.take(72)}\n\nPůvod: $origin\n\n${plan.explanation.take(3000)}")
@@ -148,9 +149,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val nu = when {
             run == null -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.PUSHED, "CI zatím nezačalo")
             run.status != "completed" -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.BUILDING, run.status) { it.copy(runUrl = run.url) }
-            run.conclusion != "success" -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "CI: ${run.conclusion}") { it.copy(runUrl = run.url) }
+            run.conclusion != "success" -> selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED,
+                if (g.artifact(run.id, "unsigned") != null) "testy i sestavení prošly, ale PODPIS selhal – nejspíš chybí klíč v prostředí vega-sign (docs/vega/AUTONOMIE.md)"
+                else "CI: ${run.conclusion} – testy nebo hlídač úpravu odmítly (podrobnosti v odkazu)") { it.copy(runUrl = run.url) }
             else -> {
-                val art = g.artifact(run.id, "VEGA-APK") ?: throw ToolError("Sestavení prošlo, ale APK v něm není (podpis selhal?).")
+                val art = g.artifact(run.id, "VEGA-APK") ?: return@submit selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "sestavení prošlo, ale podepsané APK v něm není – zkontroluj klíč v prostředí vega-sign") { it.copy(runUrl = run.url) }.let { emit("selfupdate", JSONObject().put("id", id).put("status", it.status)) }
                 val dir = File(context.filesDir, "vega/selfupd").apply { mkdirs() }; val zip = File(dir, "$id.zip")
                 cz.axiom.vega.net.Http.download(g.artifactZipUrl(art), zip, 200_000_000L, g.headers)
                 // APK proudem na disk s otiskem (ne celé do paměti); strop velikosti = chyba, ne tiché oříznutí
@@ -173,6 +176,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             }
         }
         emit("selfupdate", JSONObject().put("id", id).put("status", nu.status))
+        if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED.name && u.status != nu.status) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ neprošla: ${nu.note.take(140)}"))
         if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ je sestavená – projdi si změny a nainstaluj v Menu → Vylepšení."))
     }
 
@@ -206,7 +210,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun selfUpdatesJson(): JSONObject = JSONObject().put("hasToken", vault.has("github")).put("repo", settings.ghRepo).put("base", settings.ghBase).put("auto", settings.autoImprove)
         .put("items", JSONArray().apply { selfUpdates.list().take(20).forEach { u -> put(JSONObject().put("id", u.id).put("task", u.task).put("branch", u.branch).put("status", u.status)
             .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files))
-            .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
+            .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("runUrl", u.runUrl).put("diffCut", u.diff.length > 40_000).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
 
     private fun registerExtensions() {
         Tools.all().filter { it.id.startsWith("ext.") }.forEach { Tools.unregister(it.id) }

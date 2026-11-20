@@ -3,8 +3,11 @@ name: VEGA samoúprava (vega/auto-*)
 # Kód na těchto větvích napsala VEGA sama (model). Proto:
 #  - spouští se PUSHEM na vega/auto-* (ne pull requestem): běh vidí jen cache své větve a výchozí větve, ne cache
 #    pracovní větve; workflow AVIORu (pull_request) se nespustí,
-#  - job „build“ testuje a sestavuje BEZ jakýchkoli secrets a bez klíče (kód nemá co ukrást),
-#  - hlídač: jen povolené cesty, bez přejmenování, jen běžné soubory (žádné symlinky), žádná citlivá API v přidaných řádcích,
+#  - hlídač, testy a sestavení jsou TŘI oddělené joby bez secrets; sestavení běží na čistém runneru a z čistého checkoutu
+#    bez spouštění testů (kód testů od modelu tak nemůže před sestavením přepsat chráněné soubory ani ~/.gradle),
+#  - hlídač: právě jeden commit nad chráněnou větví, jen povolené cesty, žádné skryté soubory (.gitattributes), jen běžné
+#    soubory (žádné symlinky), žádná citlivá místa v přidaných ANI smazaných řádcích (i po slepení řádků), žádné neviditelné
+#    znaky, balíček Kotlinu odpovídá složce (heuristika – poslední pojistkou je diff, který si uživatel přečte),
 #  - job „sign“ podepisuje JEN klíčem z prostředí „vega-sign“ (secrets prostředí nevidí job s kódem z větve)
 #    a nespouští žádný kód z větve (žádný checkout).
 # Token v telefonu NEMÁ oprávnění Workflows → tento soubor z telefonu změnit nejde.
@@ -20,26 +23,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Hlídač + testy + sestavení (bez klíčů)
+  guard:
+    name: Hlídač (cesty, typy, citlivá místa, jeden commit)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
-      - name: Hlídač cest, typů souborů a citlivých API
+      - name: Hlídač
         run: |
-          git diff --no-renames --name-only HEAD~1 HEAD | tee changed.txt
+          set -uo pipefail
+          G="git -c core.attributesFile=/dev/null"
+          fail() { echo "::error::Samoúprava porušila pravidla: $1"; exit 1; }
+          # právě jeden commit nad chráněnou větví (jinak by zakázaná změna mohla být v předposledním commitu)
+          [ -n "$(git branch -r --contains HEAD~1 | grep -v 'origin/vega/auto-' | grep -v -- '->' || true)" ] || fail "rodič commitu není na chráněné větvi (víc commitů nebo cizí historie)"
+          $G diff --no-renames --name-only HEAD~1 HEAD | tee changed.txt
           ok='^(vega/src/main/java/|vega/src/main/assets/ui/|vegacore/src/main/kotlin/|vegacore/src/test/kotlin/|vega/src/test/java/)'
           bad=$(grep -vE "$ok" changed.txt || true)
+          dot=$(grep -E '(^|/)\.|\.(/|$)| (/|$)' changed.txt || true)
           prot=$(grep -E '(/Store\.kt|/MainActivity\.kt|/net/Http\.kt|/core/Extensions\.kt|/VegaApp\.kt|/Engines\.kt)$|/selfupdate/|/web/|/llm/' changed.txt || true)
-          modes=$(git diff --no-renames --raw HEAD~1 HEAD | awk '{print $2}' | grep -vE '^(100644|000000)$' || true)
-          sens=$(git diff --no-renames -U0 HEAD~1 HEAD | grep -E '^\+[^+]' | grep -iE '(vault|keystore|getSharedPreferences|Http\.(open|request|download|get)|HttpURLConnection|URLConnection|java\.net\.|Socket|Runtime\.getRuntime|ProcessBuilder|addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch[[:space:]]*\(|new[[:space:]]+Worker|postMessage|eval[[:space:]]*\(|new[[:space:]]+Function|selfupdate|GitHub\(|gh\(\)|\.headers|Web\.|fetchText|toolCtx|engines\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\.loadLibrary|Class\.forName|reflect)' || true)
-          if [ -n "$bad$prot$modes$sens" ]; then
-            echo "::error::Samoúprava porušila pravidla."; echo "Mimo povolené cesty: $bad"; echo "Chráněné soubory: $prot"; echo "Nepovolený typ souboru: $modes"; echo "Citlivá API: $sens"; exit 1
+          modes=$($G diff --no-renames --raw HEAD~1 HEAD | awk '{print $2}' | grep -vE '^(100644|000000)$' || true)
+          # --text/--no-textconv/--no-ext-diff: .gitattributes (-diff, textconv) nesmí diff schovat; kontrolují se přidané I smazané řádky
+          D=$($G diff --no-renames --text --no-textconv --no-ext-diff -U0 HEAD~1 HEAD)
+          SENS='(vault|keystore|getSharedPreferences|Http\.(open|request|download|get)|HttpURLConnection|URLConnection|java\.net\.|Socket|Runtime\.getRuntime|ProcessBuilder|addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch[[:space:]]*\(|new[[:space:]]+Worker|postMessage|eval[[:space:]]*\(|new[[:space:]]+Function|selfupdate|GitHub\(|gh\(\)|\.headers|Web\.|fetchText|toolCtx|engines\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\.loadLibrary|Class\.forName|reflect|Intent[[:space:]]*\(|startActivity|sendBroadcast|ContentResolver|loadClass|getDeclared(Field|Method|Constructor)|getMethod[[:space:]]*\(|getField[[:space:]]*\(|java\.io\.|(^|[^[:alnum:]_])File[[:space:]]*\(|java\.nio\.file|Files\.(write|read|copy|move|delete|new)|import[[:space:]]+[[:alnum:]_.]+[[:space:]]+as[[:space:]]|typealias|Policy|capKc|MAX_RUN_USD|approvePaid|paidHelps|airgap|consent|CostGuard|budget)'
+          body=$(printf '%s\n' "$D" | grep -E '^[-+]' | grep -vE '^(\+\+\+|---) ' || true)
+          sens=$(printf '%s\n' "$body" | grep -iE "$SENS" || true)
+          joined=$(printf '%s\n' "$body" | grep -E '^\+' | sed 's/^+//; s/^[[:space:]]*//; s/[[:space:]]*$//' | tr -d '\n' | grep -oiE "$SENS" || true)
+          invis=$(printf '%s\n' "$body" | LC_ALL=C grep -P '\xE2\x80[\x8B-\x8F\xAA-\xAE]|\xE2\x81[\xA0-\xA9]|\xEF\xBB\xBF' || true)
+          pkg=""
+          while read -r f; do
+            case "$f" in *.kt) [ -f "$f" ] || continue ;; *) continue ;; esac
+            root=$(printf '%s' "$f" | grep -oE '^(vega/src/main/java/|vegacore/src/main/kotlin/|vegacore/src/test/kotlin/|vega/src/test/java/)' || true); [ -n "$root" ] || continue
+            exp=$(dirname "${f#$root}" | tr '/' '.'); [ "$exp" = "." ] && exp=""
+            decl=$(grep -m1 -oP '^\s*package\s+\K[\p{L}\p{N}_.]+' "$f" || true)
+            if [ "$decl" != "$exp" ] || printf '%s' "$decl" | grep -qE '^cz\.axiom\.vega\.(selfupdate|net|llm|web)(\.|$)'; then pkg="$pkg $f($decl)"; fi
+          done < changed.txt
+          if [ -n "$bad$dot$prot$modes$sens$joined$invis$pkg" ]; then
+            echo "Mimo povolené cesty: $bad"; echo "Skryté/zvláštní soubory: $dot"; echo "Chráněné soubory: $prot"; echo "Nepovolený typ souboru: $modes"
+            echo "Citlivá místa: $sens"; echo "Citlivé po slepení řádků: $joined"; echo "Neviditelné znaky: $invis"; echo "Balíček neodpovídá složce / chráněný: $pkg"
+            fail "viz výpis výše"
           fi
+
+  test:
+    name: Testy (bez klíčů, výsledek se dál nepoužije)
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,6 +93,24 @@ jobs:
             vegacore/build/reports/tests/test
             vega/build/reports/tests/testDebugUnitTest
           retention-days: 7
+
+  build:
+    # ČISTÝ runner a checkout téhož commitu, ŽÁDNÉ testy: kód testů nemůže nic přepsat na disku před sestavením
+    name: Sestavení z čistého checkoutu (bez testů, bez klíčů)
+    needs: [guard, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
       - name: Sestavení (bez produkčního klíče)
         run: ./gradlew :vega:assembleRelease --no-daemon -PvegaVersionCode=$(( ( $(date +%s) - 1767225600 ) / 60 )) -PvegaVersionSuffix=auto-${GITHUB_SHA::7}
       - uses: actions/upload-artifact@v4

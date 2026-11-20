@@ -394,7 +394,24 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
   - **Vylepšení z kola 11:** účtenka po placeném kroku („Zaplaceno: DeepSeek 1,20 Kč za tento krok · tento měsíc 41 z 500 Kč“).
   - **Testy:** Round13Test (2 testy) prošel a test pokrytí je opravený, celkem 78 + 25 zelené.
 - [ ] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace
-- [ ] 44. Kolo 15: samoúpravy, druhé kolo
+- [x] 44. Kolo 15: samoúpravy, druhé kolo
+  - **Kritické (opraveno):** testy od modelu běžely ve stejném jobu jako sestavení APK, takže mohly přepsat chráněné soubory (manifest, Store.kt…) nebo ~/.gradle. CI má teď 4 oddělené joby: hlídač → testy → sestavení na čistém runneru z čistého checkoutu, bez testů → podpis.
+  - **Hlídač (aplikace i CI shodně):**
+    - právě jeden commit nad chráněnou větví;
+    - žádné skryté soubory (`.gitattributes` uměl vypnout diff), diff se počítá s `--text --no-textconv --no-ext-diff`;
+    - kontrolují se přidané I smazané řádky (smazání brány plateb, souhlasu nebo air-gapu = odmítnuto) a také řádky slepené dohromady (rozdělené volání);
+    - nově hlídá Intent/startActivity, reflexi (loadClass, getDeclared*), soubory (`File(`, java.io, java.nio.file), alias importu, `typealias`, Policy, capKc, consent, CostGuard, budget a neviditelné/bidi znaky;
+    - balíček Kotlinu musí odpovídat složce a nesmí mířit do selfupdate/net/llm/web.
+    - Ověřeno na dočasném gitu: .gitattributes, rozdělené volání, smazaná brána, alias, cizí balíček, bidi znak i dva commity → odmítnuto; běžná změna i nový soubor → prošlo.
+  - **Aplikace:**
+    - diff nad 60 kB úpravu odmítne;
+    - selhání ukáže odkaz na běh v CI a rozliší „podpis selhal / chybí klíč ve vega-sign“ od „testy nebo hlídač odmítly“;
+    - při selhání přijde upozornění;
+    - zkrácený diff je zřetelně označený;
+    - text v UI říká „heuristika, ne záruka“;
+    - toast už neslibuje mazání neexistujícího PR.
+  - **Zbývá (NEVYŘEŠENO, vyžaduje tebe):** viz AUTONOMIE.md „Po kole 15“ – vyřadit `vega/auto-**` z workflow AVIORu, ruleset i na tagy, vlastní podpisový klíč a smazat cache se starým klíčem. Úpravy na sebe nenavazují (každá vychází z pracovní větve) a „Vrátit“ starší APK Android nedovolí – zapsáno jako známé omezení.
+  - **Vylepšení z kola 15 (uživatel uvidí):** srozumitelný důvod selhání samoúpravy s odkazem na běh a upozornění hned po selhání.
 - [ ] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí
 
 ## Problémy

@@ -24,6 +24,24 @@ class SelfUpdateTest {
         assertEquals(2, Policy.sensitiveAdditions(d).size)
     }
 
+    @Test fun round15GuardCatchesBypasses() {
+        // skryté soubory (.gitattributes vypne diff), tečky a mezery na konci
+        for (p in listOf("vega/src/main/java/.gitattributes", "vega/src/main/java/cz/.x/A.kt", "vega/src/main/assets/ui/app.js.", "vega/src/main/assets/ui/a.js "))
+            assertNotNull(Policy.check(p), p)
+        fun d(vararg l: String) = "--- a/x\n+++ b/x\n" + l.joinToString("\n")
+        // smazaná brána, rozdělené volání, alias importu, reflexe, únik přes Intent, soubor na disku, neviditelný znak
+        for (diff in listOf(d("-        if (settings.airgap) throw ToolError(\"x\")"), d("+val x = Http", "+    .get(url)"), d("+import cz.axiom.vega.net.Http as H"),
+                d("+javaClass.classLoader.loadClass(\"java.lang.Process\" + \"Builder\")"), d("+startActivity(Intent(ACTION_VIEW, Uri.parse(u)))"),
+                d("+File(\"/data/x\").writeText(s)"), d("+val s = \"a\u202Eb\""), d("-    val cap = capKc()")))
+            assertTrue(Policy.sensitiveChanges(diff).isNotEmpty(), diff)
+        assertTrue(Policy.sensitiveChanges(d("+val label = \"Odeslat\"", "-val label = \"Poslat\"", "+fun profile() = files.size")).isEmpty())
+        // balíček musí odpovídat složce a nesmí do chráněných
+        assertNull(Policy.packageIssue("vegacore/src/main/kotlin/cz/axiom/vega/calc/B.kt", "package cz.axiom.vega.calc\nfun a() = 1"))
+        assertNotNull(Policy.packageIssue("vegacore/src/main/kotlin/cz/axiom/vega/calc/B.kt", "package cz.axiom.vega.net\nfun a() = 1"))
+        assertNotNull(Policy.packageIssue("vegacore/src/main/kotlin/cz/axiom/vega/net/X.kt", "package cz.axiom.vega.net\n"))
+        assertNull(Policy.packageIssue("vega/src/main/assets/ui/app.js", "package x"))
+    }
+
     @Test fun pickFilesFollowsTaskWithinBudget() {
         val tree = mapOf("vega/src/main/assets/ui/app.js" to 30_000L, "vega/src/main/assets/ui/app.css" to 8_000L, "vegacore/src/main/kotlin/cz/axiom/vega/calc/Quick.kt" to 9_000L,
             "vega/build.gradle.kts" to 3_000L, "app/src/main/x.kt" to 100L, "vegacore/src/test/kotlin/T.kt" to 100L)

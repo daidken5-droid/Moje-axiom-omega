@@ -144,3 +144,15 @@ Rozšíření běží jen v sandboxu Workeru: bez sítě a bez přístupu k apli
 **Co kontrola NEZARUČÍ:** hlídač citlivých API je heuristika a testy může model upravit. Proto instalace vyžaduje projít změny. Kód, který mění logiku, nainstaluj, jen když mu rozumíš nebo mu věříš.
 
 **Bezpečnost dosud:** žádná samoúprava zatím neběžela (chybí token). Náhradní klíč tedy nebyl vystaven kódu z modelu.
+
+
+## Po kole 15 – co musíš udělat ty (bez toho hranice samoúprav není úplná)
+
+1. **Workflow AVIORu** (`build-apk.yml`, `build-library.yml`, `build-rag.yml`, `emulator.yml`) se dnes spustí i pushem do `vega/auto-*`.
+   - Doplň do nich `branches: ["**", "!vega/auto-**"]`.
+   - Hlavně `build-apk.yml` má produkční klíče `OMEGA_KEYSTORE_*`. Já jsem tyto soubory neměnil, protože patří AVIORu.
+2. **Ruleset** nastav i na tagy (`v*` spouští build-apk), nejen na větve.
+3. **Vlastní podpisový klíč** v prostředí `vega-sign` (viz výše) je povinný. Pak smaž v Actions → Caches cache `avior-signing-v1`, protože obsahuje dnešní náhradní klíč.
+4. **Známá omezení:**
+   - Každá úprava vychází z pracovní větve (`ghBase`), ne z naposledy nainstalované úpravy. Instalace úpravy B tak vrátí úpravu A, pokud A mezitím nebyla sloučena do pracovní větve.
+   - Návrat ke staršímu APK Android nedovolí bez odinstalace.

@@ -23,7 +23,39 @@ object Policy {
      */
     val SENSITIVE = Regex("(?i)(vault|keystore|getSharedPreferences|Http\\.(open|request|download|get)|HttpURLConnection|URLConnection|java\\.net\\.|Socket|Runtime\\.getRuntime|ProcessBuilder|" +
         "addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch\\s*\\(|new\\s+Worker|postMessage|eval\\s*\\(|new\\s+Function|" +
-        "selfupdate|GitHub\\(|gh\\(\\)|\\.headers|Web\\.|fetchText|toolCtx|engines\\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\\.loadLibrary|Class\\.forName|reflect)")
+        "selfupdate|GitHub\\(|gh\\(\\)|\\.headers|Web\\.|fetchText|toolCtx|engines\\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\\.loadLibrary|Class\\.forName|reflect|" +
+        // kolo 15: únik přes Intent/aktivitu, reflexe přes text, soubory na disku, alias importu, brány plateb/souhlasu/air-gapu
+        "Intent\\s*\\(|startActivity|sendBroadcast|ContentResolver|loadClass|getDeclared(Field|Method|Constructor)|getMethod\\s*\\(|getField\\s*\\(|java\\.io\\.|(^|[^\\p{L}\\p{N}_])File\\s*\\(|java\\.nio\\.file|Files\\.(write|read|copy|move|delete|new)|" +
+        "import\\s+[\\p{L}\\p{N}_.]+\\s+as\\s|typealias|Policy|capKc|MAX_RUN_USD|approvePaid|paidHelps|airgap|consent|CostGuard|budget)")
+    /** Neviditelné a obousměrné znaky (Trojan Source) – v kódu od modelu nemají co dělat. */
+    private val INVISIBLE = Regex("[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u2069\\uFEFF]")
+    /** Balíčky chráněného kódu: nový soubor se do nich nesmí „přihlásit“ a dostat se k internal členům. */
+    private val PROTECTED_PACKAGES = Regex("^cz\\.axiom\\.vega\\.(selfupdate|net|llm|web)(\\.|$)")
+
+    /**
+     * Citlivé změny v diffu: přidané I SMAZANÉ řádky (smazání brány je stejně nebezpečné jako přidání úniku),
+     * přidané řádky i slepené dohromady (obejití rozdělením volání na dva řádky) a neviditelné znaky.
+     */
+    fun sensitiveChanges(diff: String): List<String> {
+        val body = diff.lines().filter { (it.startsWith("+") && !it.startsWith("+++")) || (it.startsWith("-") && !it.startsWith("---")) }
+        val hits = body.filter { SENSITIVE.containsMatchIn(it) || INVISIBLE.containsMatchIn(it) }.map { (if (INVISIBLE.containsMatchIn(it)) "neviditelný znak: " else "") + it.take(160) }
+        if (hits.isNotEmpty()) return hits
+        val joined = body.filter { it.startsWith("+") }.joinToString("") { it.drop(1).trim() }
+        return SENSITIVE.find(joined)?.let { listOf("+… ${joined.substring(maxOf(0, it.range.first - 40), minOf(joined.length, it.range.last + 40))} (rozděleno na více řádků)") } ?: emptyList()
+    }
+
+    /** Řádek `package` v Kotlinu musí odpovídat složce a nesmí mířit do chráněného balíčku. null = v pořádku. */
+    fun packageIssue(path: String, text: String): String? {
+        if (!path.endsWith(".kt")) return null
+        val root = listOf("vega/src/main/java/", "vegacore/src/main/kotlin/", "vegacore/src/test/kotlin/", "vega/src/test/java/").firstOrNull { path.startsWith(it) } ?: return null
+        val expected = path.removePrefix(root).substringBeforeLast('/', "").replace('/', '.')
+        val declared = Regex("(?m)^\\s*package\\s+([\\p{L}\\p{N}_.]+)").find(text)?.groupValues?.get(1) ?: ""
+        return when {
+            declared != expected -> "balíček „$declared“ neodpovídá složce („$expected“)"
+            PROTECTED_PACKAGES.containsMatchIn(declared) -> "chráněný balíček $declared"
+            else -> null
+        }
+    }
 
     /** Přidané řádky (+) unifikovaného diffu, které sahají na citlivá API. */
     fun sensitiveAdditions(diff: String): List<String> = diff.lines().filter { it.startsWith("+") && !it.startsWith("+++") && SENSITIVE.containsMatchIn(it) }.map { it.take(160) }
@@ -31,6 +63,7 @@ object Policy {
     /** null = cesta je povolená; jinak důvod. */
     fun check(path: String): String? = when {
         path.contains("..") || path.startsWith("/") || path.contains('\\') || path.any { it.code < 32 || it.code > 126 } -> "neplatná cesta"
+        path.split('/').any { it.startsWith(".") || it.endsWith(".") || it.endsWith(" ") } -> "skrytý nebo zvláštní soubor (.gitattributes a podobné měnit nesmí)"
         ALLOWED.none { path.startsWith(it) } -> "mimo kód a UI VEGY (AVIOR, prostředky, manifest, CI ani sestavení měnit nesmí)"
         DENY.containsMatchIn(path) -> "chráněný soubor (sestavení, oprávnění, síťová politika, klíče)"
         PROTECTED_FILES.containsMatchIn(path) -> "chráněný soubor (trezor klíčů, most, síť nebo samoúpravy)"
