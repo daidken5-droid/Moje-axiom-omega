@@ -198,7 +198,13 @@ Další pravidla:
     - Bez důkazů česky.
   - **Dopad:** sloupec `1,500; 2,300; 12,000` se dřív četl jako 1,5 / 2,3 / 12, teď 1 500 / 2 300 / 12 000.
   - **Testy:** CzNumColumnTest prošel, celkem 56 + 25 zelené.
-- [ ] 23. CodeAgent: nespouštět úpravy uvnitř bloku `### NOVÝ` (dvojí aplikace) + test
+- [x] 23. CodeAgent: nespouštět úpravy uvnitř bloku `### NOVÝ` (dvojí aplikace) + test
+  - **Výsledek:** značka `### UPRAVIT` uvnitř obsahu nového souboru (např. dokumentace formátu) je text souboru, ne další úprava jiného souboru.
+  - **Testy:** CodeAgentParseTest prošel, celkem 57 + 25 zelené. Verze 1.4.3 (versionCode 9).
+
+## Další kolo 6 (pro další probuzení)
+- [ ] 24. Doručit APK 1.4.3 (CI), SHA-256
+- [ ] 25. Red-team kolo 5: Memory / Evidence / Econ / Grounding (paměť a její zapomínání, důkazy a nezávislost zdrojů, výpočty, ověřovač citací)
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

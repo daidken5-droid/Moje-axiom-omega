@@ -57,8 +57,11 @@ Moduly v JS používají module.exports a require('./soubor'). Na konci napiš j
     fun parse(reply0: String): Plan {
         val reply = reply0.take(200_000) // odpověď modelu nad rozumnou velikost se neparsuje celá
         val edits = ArrayList<Pair<Int, Edit>>()
-        editRx.findAll(reply).forEach { m -> edits += m.range.first to Edit.Replace(m.groupValues[1].trim('`'), m.groupValues[2], m.groupValues[3]) }
-        newRx.findAll(reply).forEach { m -> edits += m.range.first to Edit.Create(m.groupValues[1].trim('`'), m.groupValues[2] + "\n") }
+        val news = newRx.findAll(reply).toList()
+        news.forEach { m -> edits += m.range.first to Edit.Create(m.groupValues[1].trim('`'), m.groupValues[2] + "\n") }
+        // značka úpravy UVNITŘ obsahu nového souboru (např. dokumentace formátu) je text souboru, ne další úprava
+        editRx.findAll(reply).filter { e -> news.none { n -> e.range.first in n.range } }
+            .forEach { m -> edits += m.range.first to Edit.Replace(m.groupValues[1].trim('`'), m.groupValues[2], m.groupValues[3]) }
         val expl = reply.replace(editRx, "").replace(newRx, "").replace(Regex("\\n{3,}"), "\n\n").trim()
         return Plan(edits.sortedBy { it.first }.map { it.second }, expl, null)
     }

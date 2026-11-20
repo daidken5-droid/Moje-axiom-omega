@@ -61,3 +61,13 @@ class CzNumColumnTest {
         assertEquals(1.5, CzNum.parse("1,5", CzNum.usesDecimalComma(listOf("1,5", "2,25"))))
     }
 }
+
+class CodeAgentParseTest {
+    @Test fun editMarkersInsideNewFileAreContentNotEdits() {
+        val reply = "Přidávám návod.\n### NOVÝ: docs/format.md\n```md\nPříklad:\n### UPRAVIT: src/a.js\n<<<<<<< HLEDAT\nx\n=======\ny\n>>>>>>> NAHRADIT\n```\n" +
+            "### UPRAVIT: src/b.js\n<<<<<<< HLEDAT\nconst a = 1\n=======\nconst a = 2\n>>>>>>> NAHRADIT\n"
+        val p = CodeAgent.parse(reply)
+        assertEquals(listOf("docs/format.md", "src/b.js"), p.edits.map { it.path })
+        assertTrue((p.edits[0] as CodeAgent.Edit.Create).content.contains("### UPRAVIT: src/a.js"))
+    }
+}
