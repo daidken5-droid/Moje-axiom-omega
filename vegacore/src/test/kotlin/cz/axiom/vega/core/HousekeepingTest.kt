@@ -45,4 +45,13 @@ class HousekeepingTest {
         assertEquals(0, Housekeeping.run(kv).deleted)
         kv.write("chats.json", "{rozbité"); assertEquals(0, Housekeeping.run(kv).deleted)
     }
+
+    @Test fun projectChatsSurvive() {
+        val kv = MemKv(); kv.write("chats.json", """[{"id":"c1"}]""")
+        kv.write("chat/proj-abc.json", "[]"); kv.write("resume/proj-abc/r1.json", "{}"); kv.write("chat/proj-gone.json", "[]")
+        Housekeeping.run(kv, keepChat = { it == "proj-abc" })
+        kotlin.test.assertNotNull(kv.read("chat/proj-abc.json"), "konverzace existujícího projektu se nesmí mazat")
+        kotlin.test.assertNotNull(kv.read("resume/proj-abc/r1.json"))
+        kotlin.test.assertNull(kv.read("chat/proj-gone.json"), "projekt už neexistuje → smazat")
+    }
 }

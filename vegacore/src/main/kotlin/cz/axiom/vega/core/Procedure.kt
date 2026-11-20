@@ -170,7 +170,7 @@ object Runner {
                 StepResult(i, s.tool, null, e.message ?: e.javaClass.simpleName, (System.nanoTime() - t0) / 1_000_000)
             }
             cur = cur.copy(results = cur.results + res)
-            save(cur)
+            runCatching { save(cur) } // neuložitelný kontrolní bod (paměť, místo) nesmí shodit hotový výsledek
             if (res.error != null) break
         }
         return cur
@@ -186,4 +186,10 @@ object Runner {
 fun runsOf(kv: Kv): List<Run> = kv.keys("run/").mapNotNull { k -> runCatching { Run.fromJson(Json.parseToJsonElement(kv.read(k)!!).jsonObject) }.getOrNull() }.sortedByDescending { it.started }
 fun saveRun(kv: Kv, r: Run) = kv.write("run/${r.id}", r.toJson().toString())
 /** Držet posledních [keep] běhů (mezivýsledky mohou být velké) – volá se při startu nového běhu, ne po každém kroku. */
-fun pruneRuns(kv: Kv, keep: Int = 30) { runsOf(kv).drop(keep).forEach { kv.delete("run/${it.id}") } }
+/** Úklid starých běhů podle času souboru – bez parsování všech (velké běhy by se při každém startu načítaly celé). */
+fun pruneRuns(kv: Kv, keep: Int = 30) {
+    val keys = kv.keys("run/")
+    if (keys.size <= keep) return
+    val byTime = keys.sortedByDescending { kv.modified(it) }
+    if (byTime.all { kv.modified(it) == 0L }) runsOf(kv).drop(keep).forEach { kv.delete("run/${it.id}") } else byTime.drop(keep).forEach { kv.delete(it) }
+}

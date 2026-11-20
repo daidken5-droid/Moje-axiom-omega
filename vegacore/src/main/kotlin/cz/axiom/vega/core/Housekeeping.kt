@@ -22,7 +22,9 @@ object Housekeeping {
     private const val DAY = 86_400_000L
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun run(kv: Kv, now: Long = System.currentTimeMillis(), resumeDays: Int = 7, cacheDays: Int = 3, taskDays: Int = 30, tempDays: Int = 1): Report {
+    /** [keepChat] = chaty mimo seznam, které žijí jinde (konverzace projektu „proj-<id>“, dokud projekt existuje). */
+    fun run(kv: Kv, now: Long = System.currentTimeMillis(), resumeDays: Int = 7, cacheDays: Int = 3, taskDays: Int = 30, tempDays: Int = 1,
+            keepChat: (String) -> Boolean = { it.startsWith("proj-") }): Report {
         val del = LinkedHashMap<String, String>() // klíč → důvod (prefix)
         fun old(k: String, days: Int) = kv.modified(k).let { it > 0 && now - it > days * DAY }
 
@@ -33,7 +35,7 @@ object Housekeeping {
             fun chatOf(k: String, prefix: String) = k.removePrefix(prefix).substringBefore('/').removeSuffix(".json")
             for (prefix in listOf("chat/", "evidence/", "draft/button/", "resume/", "state/compare/"))
                 kv.keys(prefix).forEach { k -> val c = chatOf(k, prefix)
-                    if (c == "temp") { if (old(k, tempDays)) del[k] = prefix } else if (c !in live) del[k] = prefix }
+                    if (c == "temp") { if (old(k, tempDays)) del[k] = prefix } else if (c !in live && !keepChat(c)) del[k] = prefix }
         }
         // 2) podle stáří
         kv.keys("resume/").filter { old(it, resumeDays) }.forEach { del.putIfAbsent(it, "resume/") }

@@ -47,8 +47,9 @@ class OpenAiEngine(private val base: String, private val key: String?, val model
                     else { val b = rest.indexOf("<think>"); if (b < 0) { text.append(rest); onDelta(Delta(rest)); rest = "" } else { if (b > 0) { text.append(rest, 0, b); onDelta(Delta(rest.substring(0, b))) }; rest = rest.substring(b + 7); inThink = true } }
                 }
             }
+            var done = false
             Sse.read(c.inputStream, cancel) { data ->
-                if (data.trim() == "[DONE]") return@read false
+                if (data.trim() == "[DONE]") { done = true; return@read false }
                 val o = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull() ?: return@read true
                 (o["error"] as? JsonObject)?.let { throw EngineException("$vendor: ${(it["message"] as? JsonPrimitive)?.contentOrNull ?: "chyba streamu"}", retryable = true, billed = true) }
                 (o["model"] as? JsonPrimitive)?.contentOrNull?.let { served = it }
@@ -68,6 +69,8 @@ class OpenAiEngine(private val base: String, private val key: String?, val model
             }
             cancel.check()
             if (text.isBlank()) throw EngineException("$vendor nevrátil text (finish=${finish ?: "?"}).", retryable = true, billed = true)
+            // stream skončil bez [DONE] i bez finish_reason = spojení se přerušilo; neúplný text nevydávat za celou odpověď
+            if (!done && finish == null) throw EngineException("$vendor: spojení se přerušilo uprostřed odpovědi.", retryable = true, billed = true, cause = java.io.IOException("stream closed"))
             if (finish == "length") text.append("\n\n[Odpověď byla zkrácena limitem délky.]")
             return GenResult(text.toString().trim(), think.toString().trim(), served, finish, inTok, outTok, System.currentTimeMillis() - t0)
         } catch (e: CancelledException) { throw e

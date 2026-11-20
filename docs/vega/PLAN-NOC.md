@@ -305,5 +305,21 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
   - **Testy:** 71 + 25 zelené.
   - **Zablokováno bezpečnostní kontrolou prostředí:** workflow pro export náhradního klíče jako artefakt. Klíč do prostředí `vega-sign` musí nastavit uživatel (návod v AUTONOMIE.md).
 
+- [x] 37. Red-team kolo 8 (toky laika, odolnost) – opraveno (1.5.1):
+  - **REGRESE z mé noční změny:** úklid při startu mazal konverzace projektů (`proj-*` nejsou v seznamu chatů). Teď se drží, dokud projekt existuje. Regresní test přidán.
+  - **Ztráta práce:**
+    - Záznam „Pokračovat“ se ukládá PŘEDEM, takže zabití procesu nebo aplikace na pozadí uprostřed odpovědi nevadí. Po startu přijde karta „Pokračovat“ do chatu, kde chybí odpověď.
+    - „pokračuj, kde jsme skončili“ najde rozpracovaný požadavek.
+    - Jakákoli síťová chyba (reset, přerušení) = výpadek s kartou „Pokračovat“, ne anglický toast.
+    - Stream bez [DONE] se už nevydává za celou odpověď.
+  - **Chyby:**
+    - Chyby se ukládají i do chatu, ne jen 7 s toastu.
+    - Přihlašovací stránka Wi-Fi (SSL) a plné úložiště mají srozumitelné české hlášky.
+  - **Poškozená data:** poškozený `chats.json` nebo chat se odloží jako `.bad` a aplikace neuvízne. Poškozená paměť se odloží a příští „pamatuj si“ ji nepřepíše.
+  - **Velké soubory:** soubor nad 15 MB dostane v chatu srozumitelné odmítnutí místo pádu paměti. Neuložitelný kontrolní bod neshodí výsledek. Úklid běhů podle času souboru, bez parsování všech.
+  - **Výpočty:** „kolik je 15 % z 2400“ i s klíčem počítá telefon (dřív šlo modelu).
+  - **FileKv:** nedokončený zápis už nepřepíše cíl napůl a dočasný soubor se uklidí.
+  - **Testy:** 72 + 25 zelené.
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

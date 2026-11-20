@@ -75,6 +75,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val pending = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
+    /** Chat právě zpracovávané zprávy (pro uložení chyby do konverzace). */
+    @Volatile private var activeChat: String? = null
+    /** Právě běžící požadavek (jeho záznam „Pokračovat“ není „rozpracovaný“ pro jiné zprávy). */
+    @Volatile private var currentReq: String? = null
     /** Deník slabin (autonomie, krok 1): chyby, opravy od uživatele, Stop, pomalé kroky – jen lokálně, anonymizovaně. */
     val selftune = cz.axiom.vega.core.SelfTune(kv, BuildConfig.VERSION_NAME)
     /** Naučená pravidla routeru z deníku (vrstva A): zapnou se jen po kontrole, jdou vrátit. */
@@ -295,8 +299,14 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     init {
         cz.axiom.vega.net.Http.airgap = settings.airgap; cz.axiom.vega.core.Tools.register(extractTool())
         // úklid úložiště na výkonném vlákně (nesoupeří s běžící úlohou o stejné soubory)
-        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv).toString()) }; retune(); selfUpdateMarkInstalled() }
+        exec.execute { runCatching { android.util.Log.i("VEGA", cz.axiom.vega.core.Housekeeping.run(kv, keepChat = { c -> c.startsWith("proj-") && File(projectsDir, c.removePrefix("proj-")).isDirectory }).toString()) }; retune(); selfUpdateMarkInstalled() }
         exec.execute { autoImproveTick() }
+        // proces zabitý uprostřed odpovědi: rozpracovaný požadavek bez odpovědi → karta „Pokračovat“ do jeho chatu
+        exec.execute { note { kv.keys("resume/").map { it.removePrefix("resume/").substringBefore('/') }.distinct().filter { it != "temp" }.forEach { ch ->
+            val last = messages(ch).let { a -> if (a.length() > 0) a.getJSONObject(a.length() - 1) else null }
+            if (last != null && last.optString("role") == "user") pendingResume(ch)?.let { o ->
+                addMsg(ch, JSONObject().put("role", "vega").put("text", "Odpověď se nedokončila (aplikace byla ukončena). Zadání je uložené – klepni na **Pokračovat**.")
+                    .put("card", JSONObject().put("type", "resume").put("chat", ch).put("req", o.optString("req")).put("kind", o.optString("kind")).put("text", o.optString("text").take(200)))) } } } }
         // rozpracované úpravy po startu zkontrolovat (bez ručního klepnutí); po 48 h bez výsledku označit jako selhané
         exec.execute { note { selfUpdates.list().filter { it.status in setOf("PUSHED", "BUILDING") }.forEach { u ->
             if (System.currentTimeMillis() - u.at > 48 * 3600_000L) selfUpdates.mark(u, cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED, "bez výsledku 48 h") else if (vault.has("github") && !settings.airgap) selfUpdatePoll(u.id) } } }
@@ -334,11 +344,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             catch (e: Partial) { note { selftune.observe(SelfTune.Kind.ERROR, "model", detail = human(e.cause ?: e)) } }
             catch (e: CancelledException) { emit("done", JSONObject().put("cancelled", true)) }
             catch (e: Throwable) {
+                // chyba se uloží i do chatu (ne jen 7 s toastu) – otázka nezůstane bez odpovědi
+                activeChat?.let { ch -> note { addMsg(ch, JSONObject().put("role", "vega").put("text", "⚠ " + human(e))) } }
                 val model = e is cz.axiom.vega.llm.ChainEngine.ChainException || e is CostGuard.BudgetException
                 note { selftune.observe(SelfTune.Kind.ERROR, if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
                 emit("error", JSONObject().put("text", human(e)))
             }
-            finally { engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
+            finally { activeChat = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
         }
     }
 
@@ -364,6 +376,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             e is CostGuard.BudgetException -> e.message ?: "Placené volání zastaveno."
             chain.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení k internetu. Ruční nástroje fungují dál."
             chain.any { it is java.net.SocketTimeoutException } -> "Server neodpověděl včas – zkus to znovu (vstup zůstal zachovaný)."
+            chain.any { it is javax.net.ssl.SSLException } -> "Zabezpečené spojení selhalo – jsi možná na Wi-Fi s přihlašovací stránkou (hotel, vlak). Přihlas se v prohlížeči a zkus to znovu."
+            chain.any { it.message.orEmpty().contains("došlo místo") } -> "V telefonu došlo místo – uvolni úložiště a zkus to znovu."
             else -> e.message?.substringBefore(" [{")?.take(300) ?: e.javaClass.simpleName
         }
     }
@@ -400,8 +414,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     // ------------------------------------------------------------------ chaty
 
     private fun chatKey(id: String) = "chat/$id.json"
-    fun chats(): JSONArray = JSONArray(kv.read("chats.json") ?: "[]")
-    fun messages(chat: String): JSONArray = JSONArray(kv.read(chatKey(chat)) ?: "[]")
+    fun chats(): JSONArray = readArray("chats.json")
+    fun messages(chat: String): JSONArray = readArray(chatKey(chat))
+    /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
+    private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
     @Synchronized fun newChat(): String {
         val id = "c" + System.currentTimeMillis().toString(36)
         val arr = chats(); val n = JSONArray().put(JSONObject().put("id", id).put("title", "Nový chat").put("at", System.currentTimeMillis()))
@@ -574,7 +590,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Výpadek modelu (ne chyba vstupu): server neodpovídá, řetěz selhal, odpověď se přerušila. */
     private fun outage(e: Throwable): Boolean = e is Partial || e is cz.axiom.vega.llm.ChainEngine.ChainException && !e.billed ||
-        generateSequence(e) { it.cause }.any { it is java.net.ConnectException || it is java.net.SocketTimeoutException || it is java.net.UnknownHostException || it is java.io.IOException && it.message.orEmpty().contains("closed", true) } ||
+        (e is cz.axiom.vega.llm.EngineException && e.retryable && !e.billed) ||
+        // jakákoli síťová chyba v řetězci příčin (reset spojení, přerušení, captive portál…) = výpadek, ne konec
+        generateSequence(e) { it.cause }.any { it is java.io.IOException && it !is java.io.FileNotFoundException } ||
         e.message.orEmpty().let { Regex("HTTP 5\\d\\d|HTTP 429").containsMatchIn(it) }
 
     /**
@@ -582,12 +600,18 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * „Pokračovat“. Hotové části (výtahy pasáží, aplikované úpravy) se při opakování nedělají znovu.
      */
     private fun resumable(chat: String?, kind: String, text: String, att: List<Value.Bytes>, again: Boolean = false, req: String = "r" + System.nanoTime().toString(36), block: () -> Unit) {
-        try { block(); kv.delete(resumeKey(chat, req)) }
-        catch (e: Throwable) {
-            if (e is CancelledException || e is Handled || !outage(e)) throw e
+        fun save() {
             val files = JSONArray(); var size = 0
             att.forEach { a -> if (size + a.bytes.size < 4_000_000) { size += a.bytes.size; files.put(JSONObject().put("name", a.name).put("mime", a.mime ?: "").put("b64", java.util.Base64.getEncoder().encodeToString(a.bytes))) } }
             kv.write(resumeKey(chat, req), JSONObject().put("kind", kind).put("text", text).put("files", files).put("at", System.currentTimeMillis()).put("tries", (pendingResume(chat, req)?.optInt("tries") ?: 0) + 1).toString())
+        }
+        // záznam PŘEDEM: zabití procesu / aplikace na pozadí uprostřed odpovědi = po startu „Pokračovat“, ne ztracená práce
+        if (chat != null) runCatching { save() }
+        currentReq = req
+        try { block(); kv.delete(resumeKey(chat, req)) }
+        catch (e: Throwable) {
+            if (e is CancelledException || e is Handled || !outage(e)) { kv.delete(resumeKey(chat, req)); throw e }
+            save()
             val why = if (e is Partial) "Odpověď se přerušila (${human(e.cause ?: e).take(140)})." else human(e)
             reply(chat, "$why\n\nRozpracovaný stav je uložený – nic se neztratilo a na komerční API jsem nic neposlal${if (settings.ownOnly) " (režim Pouze vlastní modely)" else ""}. Až bude model zase dostupný, klepni na **Pokračovat**.",
                 JSONObject().put("type", "resume").put("chat", chat ?: "temp").put("req", req).put("kind", kind).put("text", text.take(200)))
@@ -612,7 +636,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Přílohy patří k jedné zprávě – po zpracování se uvolní (další věta nepoužije omylem starý soubor). */
     private fun chat0(chatId: String?, text: String, again: Boolean = false) {
-        lastUserText = text
+        lastUserText = text; activeChat = chatId
         val followUp = if (!again && chatId != null) runCatching { selftune.userTurn(text) }.getOrNull() else null
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
@@ -678,6 +702,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private fun toolFromChat(chat: String?, intent: Router.Intent.Tool, text: String) {
         val tool = Tools.get(intent.id)!!
+        // velký soubor v chatu: nástroj + uložený běh by se nevešly do paměti → srozumitelně, ne „Failed to allocate…“
+        lastAttachment()?.let { a -> if (a is Value.Bytes && a.bytes.size > 15_000_000 && intent.id != "hash") { reply(chat, "Soubor „${a.name}“ má ${a.bytes.size / 1_000_000} MB – v chatu zpracuji nejvýš 15 MB. Rozděl ho (třeba po měsících) nebo použij jen potřebné sloupce."); return } }
         // kontrolní součet BEZ souboru by spočítal otisk textu zprávy a hlásil „soubor se liší“ – zeptat se na soubor
         if (intent.id == "hash" && lastAttachment() == null) { reply(chat, "Přilož soubor, jehož kontrolní součet mám spočítat${intent.params["expect"]?.let { " a porovnat s ${it.take(12)}…" } ?: ""} (📎)."); return }
         // vstup: příloha, adresa nebo text zprávy po vynechání příkazu (stejná implementace jako ruční nabídka)
@@ -822,8 +848,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val sys = SYSTEM_TALK + style + (memory.context(scope)?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val att = lastAttachment()
         val user = if (att != null && intent.thinkingAloud.not()) "$text\n\n[Příloha ${att.name}:]\n${att.asText().take(20_000)}" else text
-        // čistý výpočet („kolik je 48 × 37“): přesně a bez modelu – model se v aritmetice plete, jádro ne
-        if (att == null && Regex("\\d\\s*[-+*/×·:^x]\\s*\\d|(?i)\\b(odmocnin|procent|kolik dní|převeď)").containsMatchIn(text) && text.length < 160) {
+        // čistý výpočet / převod / datum: přesně a bez modelu (Quick vrací null, když si není jistý)
+        if (att == null && text.length < 200) {
             offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
@@ -1104,6 +1130,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     /** „Pokračuj tam, kde jsme skončili“ – i po zabití aplikace: správný projekt, cíl, ověřený výsledek, rozdíl, otevřený krok. */
     private fun continueWork(chat: String?) {
+        kv.keys("resume/${chat ?: "temp"}/").filter { it.substringAfterLast('/').removeSuffix(".json") != currentReq?.filter { c -> c.isLetterOrDigit() }?.take(24) }.maxOrNull()
+            ?.let { k -> pendingResume(chat, k.substringAfterLast('/').removeSuffix(".json")) }?.let { o -> reply(chat, "Rozpracovaný je požadavek „${o.optString("text").take(120)}“ – klepni na **Pokračovat** a dokončím ho.",
+            JSONObject().put("type", "resume").put("chat", chat ?: "temp").put("req", o.optString("req")).put("kind", o.optString("kind")).put("text", o.optString("text").take(200))); return }
         val ids = projectsDir.listFiles()?.filter { it.isDirectory }?.map { it.name } ?: emptyList()
         val last = kv.read("state/lastProject")?.takeIf { it in ids }
             ?: ids.maxByOrNull { id -> kv.read("project/$id/state.json")?.let { runCatching { JSONObject(it).optLong("at") }.getOrNull() } ?: 0L }?.takeIf { kv.read("project/$it/state.json") != null }

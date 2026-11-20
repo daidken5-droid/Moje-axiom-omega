@@ -28,8 +28,9 @@ class FileKv(private val root: File) : Kv {
     @Synchronized override fun read(key: String) = f(key).takeIf { it.isFile }?.readText()
     @Synchronized override fun write(key: String, value: String) {
         val t = f(key); t.parentFile?.mkdirs()
-        val tmp = File(t.parentFile, ".${t.name}.tmp"); tmp.writeText(value)
-        if (!tmp.renameTo(t)) { t.writeText(value); tmp.delete() }
+        val tmp = File(t.parentFile, ".${t.name}.tmp")
+        try { tmp.writeText(value) } catch (e: java.io.IOException) { tmp.delete(); throw java.io.IOException(if (e.message.orEmpty().contains("ENOSPC") || e.message.orEmpty().contains("No space")) "V telefonu došlo místo – uvolni úložiště a zkus to znovu." else (e.message ?: "zápis selhal"), e) }
+        if (!tmp.renameTo(t)) { tmp.delete(); throw java.io.IOException("Soubor nejde uložit (přejmenování selhalo).") } // nikdy nepřepisovat cíl napůl
     }
     @Synchronized override fun delete(key: String) { f(key).delete() }
     override fun modified(key: String) = f(key).lastModified()
