@@ -203,7 +203,8 @@ Další pravidla:
   - **Testy:** CodeAgentParseTest prošel, celkem 57 + 25 zelené. Verze 1.4.3 (versionCode 9).
 
 ## Další kolo 6 (pro další probuzení)
-- [ ] 24. Doručit APK 1.4.3 (CI), SHA-256
+- [x] 24. Doručit APK 1.4.3 (CI), SHA-256
+  - **Výsledek:** `VEGA-fef8147.apk` (1.4.3, versionCode 9), SHA-256 `eae025c75e2ea8668912f349badaef21903144e989e041b9f291ce802872dd98`, certifikát `4557a2ce…cdb4`. Doručeno uživateli.
 - [ ] 25. Red-team kolo 5: Memory / Evidence / Econ / Grounding (paměť a její zapomínání, důkazy a nezávislost zdrojů, výpočty, ověřovač citací)
 
 ## Problémy
