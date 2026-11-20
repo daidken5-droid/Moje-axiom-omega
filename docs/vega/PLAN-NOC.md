@@ -237,7 +237,8 @@ Další pravidla:
 
 ## Další kolo 8 (pro další probuzení)
 - [ ] 28. Red-team kolo 6: Router + Statement + Procedure Runner (záměry na okrajových větách, zpracování výpisů různých bank, ukládané postupy)
-- [ ] 29. Ranní shrnutí noci pro uživatele v `docs/vega/README.md` (všechny verze 1.4.0–1.4.x, co je NEOVĚŘENO na telefonu, co čeká na rozhodnutí)
+- [x] 29. Ranní shrnutí noci pro uživatele v `docs/vega/README.md` (všechny verze 1.4.0–1.4.x, co je NEOVĚŘENO na telefonu, co čeká na rozhodnutí)
+  - **Výsledek:** tabulka verzí s otisky, seznam toho, co je NEOVĚŘENO na telefonu, a otevřená rozhodnutí na začátku README.
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

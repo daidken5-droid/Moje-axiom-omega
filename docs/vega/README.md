@@ -1,5 +1,33 @@
 # VEGA 1.4 – předávací přehled
 
+## Ranní shrnutí noci 19./20. 11. 2026 (1.4.0 → 1.4.5)
+
+**Kde se testovalo:** všechny testy běžely na hostiteli (JVM + Robolectric, Chromium). Nic se nezkoušelo na Pixelu 9a ani v emulátoru. Podrobnosti ke každému bodu jsou v `PLAN-NOC.md`.
+
+| Verze | APK (SHA-256, začátek) | Hlavní obsah |
+|---|---|---|
+| 1.3.1 | `806d6c8b…` | pád u každé zprávy na Androidu (regexový příznak `(?U)`) |
+| 1.4.0 | `0cde2a3a…` | **Nové jádro:** VEGA je bez AVIORu.<br>**Autonomie:** deník slabin, naučená pravidla routeru, rozšíření v sandboxu.<br>**Scan:** SSRF, rozpočet, úklid úložiště.<br>**UI a výkon:** kontrast, rychlejší chat. |
+| 1.4.1 | `f1d2dcc3…` | **Kontrola kolo 2 a 3:**<br>• souhlas a deník u návrhu rozšíření;<br>• pád rendereru;<br>• klíč při chybě Keystore;<br>• id projektu;<br>• klíč vlastního serveru;<br>• strop sdílení. |
+| 1.4.2 | `6aa5b63a…` | **Kontrola kolo 4:**<br>• klíče služebních účtů Google / Firebase a tajný obsah mimo model, testy i export;<br>• obejití `.env` mezerou;<br>• diff bez pádu paměti;<br>• windows-1250 bez poškození;<br>• lineární CSV;<br>• zámek projektu. |
+| 1.4.3 | `eae025c7…` | **Čtení čísel:** `1,500` = 1 500 (podle tvaru celého sloupce).<br>**CodeAgent:** úprava se neaplikuje dvakrát. |
+| 1.4.5 | `3e4e0f62…` | **Kontrola kolo 5:**<br>• tarif nad 12 měsíců;<br>• měsíční cena z ročního čísla;<br>• „a kdyby“ nepřepíše kalkulaci;<br>• kopie URL ≠ nezávislé zdroje;<br>• zapomenutí bez kopií a jen v aktuálním rozsahu;<br>• tajné údaje v paměti;<br>• ověřovač nevynechá popírající větu;<br>• Econ v haléřích. |
+
+Všechna APK mají stejný podpisový certifikát (`4557a2ce…cdb4`), takže jdou instalovat přes sebe. Počet testů: jádro 51 → 61, aplikace 21 → 25, všechny zelené.
+
+### Co je NEOVĚŘENO na telefonu
+- vzhled karty Vylepšení a tlačítka „Navrhnout rozšíření“ (ověřeno jen v Chromiu na 360 px);
+- sandbox rozšíření ve WebView telefonu (ověřeno v Chromiu);
+- `Ops.home()` a výkon na Pixelu;
+- ověřovač citací s novým oknem (logika ověřená čtením kódu, ne skutečným modelem).
+
+### Co čeká na rozhodnutí uživatele
+- **Vrstva C autonomie** (VEGA navrhne změnu aplikace → větev `vega/auto-*` → CI → APK): potřebuje GitHub token omezený na tyto větve.
+- **DNS rebinding** (známá mezera s nízkým rizikem): plná oprava znamená přechod síťové vrstvy na OkHttp s vlastním resolverem a test na telefonu.
+- **Rozdělení `Ops.kt`** (1 500 řádků) na menší soubory: bezpečné jen s možností vyzkoušet na telefonu.
+
+---
+
 ## Novinky 1.4.0 (noc 19./20. 11. 2026)
 
 **Prostředí:**
