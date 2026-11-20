@@ -6,6 +6,7 @@ import android.net.Uri
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
+import android.nfc.tech.NfcA
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings as AndroidSettings
@@ -32,6 +33,10 @@ class MainActivity : ComponentActivity() {
     private val sinkRef: (String, JSONObject) -> Unit = { t, d -> send(t, d) }
     lateinit var ops: Ops
     @Volatile private var nfcChat: String? = null
+    @Volatile private var wifiChat: String? = null
+    private val askLocation = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) doWifiScan(wifiChat) else ops.onWifi("[]", null, null, "Bez přístupu k poloze nemůžu přečíst okolní WiFi (Android to vyžaduje). Můžeš ho povolit v Nastavení telefonu → Aplikace → VEGA → Oprávnění.", wifiChat)
+    }
     /** Události před načtením stránky (studený start, sdílení) se drží a pošlou, až JS zavolá ready(). */
     private val early = java.util.ArrayList<String>()
     @Volatile private var pageReady = false
@@ -199,20 +204,50 @@ class MainActivity : ComponentActivity() {
     @Volatile private var nfcActive = false
     fun nfcStop() { nfcActive = false; runCatching { NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this) } }
 
+    /** Inspektor štítku: UID, technologie, u NFC-A hodnoty SAK/ATQA a veřejné NDEF. Jen čtení – nic se nezapisuje ani neklonuje. */
     private fun readTag(tag: Tag) {
-        val ndef = Ndef.get(tag)
-        if (ndef == null) { ops.onNfc(null, "Štítek nemá NDEF záznam (technologie: ${tag.techList.joinToString { it.substringAfterLast('.') }}).", nfcChat); nfcStop(); return }
-        try {
-            ndef.connect()
-            val msg = ndef.ndefMessage ?: ndef.cachedNdefMessage
-            if (msg == null) ops.onNfc(null, "Štítek je prázdný (žádná NDEF zpráva).", nfcChat) else ops.onNfc(msg.toByteArray(), null, nfcChat)
-        } catch (e: Exception) { ops.onNfc(null, "Čtení přerušeno (${e.message ?: "štítek oddálen"}) – přilož ho znovu a podrž.", nfcChat) }
-        finally { runCatching { ndef.close() }; nfcStop() }
+        val techs = tag.techList.map { it.substringAfterLast('.') }
+        val nfcA = runCatching { NfcA.get(tag) }.getOrNull()
+        val sak = nfcA?.sak?.toInt()?.and(0xFF)
+        val atqa = nfcA?.atqa?.let { if (it.size >= 2) (it[0].toInt() and 0xFF) or ((it[1].toInt() and 0xFF) shl 8) else null }
+        var ndefBytes: ByteArray? = null
+        Ndef.get(tag)?.let { ndef ->
+            try { ndef.connect(); ndefBytes = (ndef.ndefMessage ?: ndef.cachedNdefMessage)?.toByteArray() }
+            catch (_: Exception) {} finally { runCatching { ndef.close() } }
+        }
+        ops.onNfcTag(tag.id ?: ByteArray(0), techs, sak, atqa, ndefBytes, nfcChat)
+        nfcStop()
     }
 
     override fun onPause() { super.onPause(); nfcStop() }
 
     fun openNfcSettings() = startActivity(Intent(AndroidSettings.ACTION_NFC_SETTINGS))
+
+    /** WiFi analyzátor: pasivní sken okolí (co sítě samy vysílají). Vyžaduje polohu (Android) – požádáme o ni. */
+    fun wifiScan(chat: String?) {
+        wifiChat = chat
+        val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+        if (wm == null || !wm.isWifiEnabled) { ops.onWifi("[]", null, null, "WiFi je vypnutá. Zapni ji a zkus to znovu.", chat); return }
+        val lm = getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
+        if (lm != null && !androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)) { ops.onWifi("[]", null, null, "Zapni Polohu (systémové nastavení) – Android bez ní sken WiFi nepovolí. VEGA polohu nikam neposílá, jen díky ní vidí sítě.", chat); return }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            askLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION); return
+        }
+        doWifiScan(chat)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun doWifiScan(chat: String?) = Thread {
+        try {
+            val wm = applicationContext.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            runCatching { @Suppress("DEPRECATION") wm.startScan() }
+            val results = wm.scanResults ?: emptyList()
+            val arr = JSONArray()
+            for (r in results) arr.put(JSONObject().put("ssid", r.SSID ?: "").put("bssid", r.BSSID ?: "").put("rssi", r.level).put("freq", r.frequency).put("caps", r.capabilities ?: ""))
+            val info = runCatching { @Suppress("DEPRECATION") wm.connectionInfo }.getOrNull()
+            ops.onWifi(arr.toString(), info?.ssid, info?.bssid, null, chat)
+        } catch (e: Exception) { ops.onWifi("[]", null, null, "WiFi sken se nepovedl (${e.message ?: "neznámá chyba"}).", chat) }
+    }.start()
     fun pick() = runOnUiThread { pickFiles.launch(arrayOf("*/*")) }
     /** Balíček ověřovače citací (.zip) – instaluje se mimo chat, ověří otisky souborů. */
     private val pickVerifier = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -389,6 +424,7 @@ class Bridge(private val a: MainActivity) {
         }
     }
     @JavascriptInterface fun exportProject(id: String) = safe { val w = ops.workspace(id); JSONObject.quote(ops.out.save("${w.name}.zip", "application/zip", w.exportZip()).name) }
+    @JavascriptInterface fun wifiScan(chat: String) = safe { a.wifiScan(chat.takeIf { it != "temp" }); true }
     @JavascriptInterface fun nfc(chat: String) = safe { a.nfcStart(chat.takeIf { it != "temp" }) }
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }
     @JavascriptInterface fun demand(chat: String, json: String) = safe { ops.demand(chat.takeIf { it != "temp" }, JSONObject(json)) }

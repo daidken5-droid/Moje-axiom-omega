@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.NFC" />
+    <!-- WiFi analyzátor: čtení stavu WiFi a pasivní sken okolí (Android sken vyžaduje polohu); žádné připojování ani zásah -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- samoúpravy: nabídnout instalaci APK, které VEGA sama připravila (instalaci vždy potvrzuje uživatel v systémovém dialogu) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- NFC je volitelné: bez čipu se VEGA nainstaluje a nástroj řekne, že hardware chybí -->

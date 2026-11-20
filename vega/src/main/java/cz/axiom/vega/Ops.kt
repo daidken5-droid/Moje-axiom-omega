@@ -1856,12 +1856,46 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     // ------------------------------------------------------------------ NFC
 
+    /** Plný inspektor štítku: typ karty, UID, technologie + NDEF záznamy (jen čtení, nic se neklonuje). */
+    fun onNfcTag(uid: ByteArray, techs: List<String>, sak: Int?, atqa: Int?, ndefBytes: ByteArray?, chat: String?) = submit {
+        val info = cz.axiom.vega.core.NfcTag.classify(uid, techs, sak, atqa)
+        val records = ndefBytes?.let { runCatching { cz.axiom.vega.core.NdefParser.parse(it) }.getOrDefault(emptyList()) } ?: emptyList()
+        val text = cz.axiom.vega.core.NdefParser.summary(info, records)
+        if (ndefBytes != null && records.isNotEmpty()) {
+            // záznamy jdou předat dál (URL → otevřít, text → hledat) – proto i karta s během
+            val r = Runner.start("Čtení NFC", listOf(Step("ndef.parse")), Value.Bytes("nfc.ndef", ndefBytes), toolCtx) { saveRun(kv, it) }
+            lastResultRun = r.id
+            reply(chat, text, runCard(r).put("ndefRun", r.id))
+        } else reply(chat, text)
+    }
+
+    /** WiFi analyzátor: sítě z pasivního skenu → kanály, zabezpečení, rady (hlavně pro vlastní síť). Žádný zásah do sítí. */
+    fun onWifi(netsJson: String, mySsid: String?, myBssid: String?, error: String?, chat: String?) = submit {
+        if (error != null) { reply(chat, error); return@submit }
+        val arr = JSONArray(netsJson)
+        val nets = (0 until arr.length()).map { arr.getJSONObject(it) }.map {
+            cz.axiom.vega.core.WifiScan.Net(it.optString("ssid"), it.optString("bssid"), it.optInt("rssi"), it.optInt("freq"), it.optString("caps"))
+        }
+        if (nets.isEmpty()) { reply(chat, "Nenašel jsem žádné WiFi sítě. Zapni WiFi a polohu (sken WiFi ji na Androidu vyžaduje) a zkus to znovu."); return@submit }
+        val rep = cz.axiom.vega.core.WifiScan.analyze(nets, mySsid, myBssid)
+        val text = buildString {
+            append("**WiFi v okolí: ${rep.nets.size} ${if (rep.nets.size == 1) "síť" else if (rep.nets.size < 5) "sítě" else "sítí"}**\n\n")
+            rep.advice.forEach { append("- $it\n") }
+            append("\n| Síť | Pásmo | Kanál | Signál | Zabezpečení |\n|---|---|---|---|---|\n")
+            rep.nets.take(20).forEach { n ->
+                val sig = when { n.rssi >= -55 -> "výborný"; n.rssi >= -67 -> "dobrý"; n.rssi >= -75 -> "slabší"; else -> "slabý" }
+                append("| ${if (n.mine) "**${n.ssid}** 📍" else n.ssid} | ${n.band} | ${n.channel} | $sig (${n.rssi} dBm) | ${n.security}${if (n.weak != null) " ⚠" else ""} |\n")
+            }
+        }
+        reply(chat, text)
+    }
+
     fun onNfc(bytes: ByteArray?, error: String?, chat: String?) = submit {
         if (error != null) { reply(chat, error); return@submit }
         val r = Runner.start("Čtení NFC", listOf(Step("ndef.parse")), Value.Bytes("nfc.ndef", bytes!!), toolCtx) { saveRun(kv, it) }
         lastResultRun = r.id
         val card = runCard(r).put("ndefRun", r.id)
-        reply(chat, if (r.done) "Štítek přečten (${(r.last as Value.Ndef).records.size} záznamů). Vyber záznam a nástroj, kterému ho předám." else "Štítek se nepodařilo přečíst: ${r.results.last().error}", card)
+        reply(chat, if (r.done) "Štítek přečten (${(r.last as Value.Ndef).records.size} záznamů). Vyber záznam a nástroj, kterému ho předám." else "Štítek se nepodařilo přečíst:${r.results.last().error}", card)
     }
 
     // ------------------------------------------------------------------ předžalobní výzva

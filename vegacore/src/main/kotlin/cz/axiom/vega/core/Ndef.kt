@@ -116,6 +116,17 @@ object NdefParser {
         return o.toByteArray()
     }
 
+    /** Lidský souhrn štítku pro chat: rodina, UID, norma, technologie, poznámka + případné NDEF záznamy. */
+    fun summary(info: NfcTag.Info, records: List<NdefRecord>): String = buildString {
+        append("**${info.family}**\n")
+        append("- UID: `${info.uid}` (${info.uidLen} B)\n")
+        append("- Norma: ${info.standard}\n")
+        append("- Technologie: ${info.techs.joinToString(", ")}\n")
+        if (records.isEmpty()) append("- NDEF: žádný čitelný záznam\n")
+        else { append("- NDEF (${records.size}):\n"); records.take(10).forEach { append("    • ${it.typeLabel}: ${it.display.take(200)}\n") } }
+        append("\n").append(info.note)
+    }
+
     fun textPayload(text: String, lang: String = "cs"): ByteArray = byteArrayOf(lang.length.toByte()) + lang.toByteArray() + text.toByteArray(Charsets.UTF_8)
     fun uriPayload(uri: String): ByteArray {
         val (code, rest) = URI_PREFIX.withIndex().drop(1).filter { uri.startsWith(it.value) }.maxByOrNull { it.value.length }?.let { it.index to uri.removePrefix(it.value) } ?: (0 to uri)

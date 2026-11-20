@@ -313,7 +313,8 @@ function plusSheet() {
   sheet(`<h2>Přidat</h2><div class="list">
     <button class="row" data-act="pick"><b>📎</b><span class="grow"><b>Soubor</b><small>CSV, log, JSON, PDF, fotka dokumentu…</small></span></button>
     <button class="row" data-act="tools"><b>⌘</b><span class="grow"><b>Nástroje</b><small>diff, kontrolní součty, inspektory, čtení URL…</small></span></button>
-    <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek</b><small>přečte text nebo adresu</small></span></button>
+    <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek – inspektor</b><small>typ karty, UID, technologie, obsah (jen čtení)</small></span></button>
+    <button class="row" data-act="wifi"><b>📶</b><span class="grow"><b>WiFi kolem mě</b><small>kanály, signál, kontrola zabezpečení tvé sítě</small></span></button>
     <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
   </div>`);
 }
@@ -851,6 +852,9 @@ function act(a, d) {
       if (S.space.kind === 'temp') { toast('Přilož štítek k zadní straně telefonu…'); B.nfc('temp'); return; }
       busyCall('send', chatId(), 'Načti NFC štítek', []); render(); break;
     case 'nfcSettings': B.nfcSettings(); closeSheet(true); break;
+    case 'wifi': if (busyGuard()) return; closeSheet(true);
+      if (!B.wifiScan) { toast('WiFi analyzátor v této verzi není.'); break; }
+      S.busy = true; S.busyChat = chatId(); B.wifiScan(chatId() || 'temp'); render(); toast('Projíždím WiFi kolem… (Android může požádat o polohu)', 6000); break;
     case 'demand': if (busyGuard()) return; { const smp = call('demandSample'); if (smp) demandSheet(smp); } break;
     case 'demandForm': demandSheet(JSON.parse(d.s)); break;
     case 'demandGo': {
