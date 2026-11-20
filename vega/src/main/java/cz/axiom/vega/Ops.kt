@@ -988,6 +988,33 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         cz.axiom.vega.calc.Quick.answer(text)
     }.getOrNull()
 
+    /** Kurzovní lístek ČNB (stažený max. 1× denně, pak z cache). null = nejde o převod / nemám síť. */
+    private fun cnbTable(): cz.axiom.vega.calc.CnbRates.Table? {
+        if (settings.airgap) return null
+        val today = java.time.LocalDate.now().toString()
+        kv.read("rates/cnb.txt")?.let { c -> if (kv.read("rates/cnb.day") == today) return runCatching { cz.axiom.vega.calc.CnbRates.parse(c) }.getOrNull() }
+        return runCatching {
+            val txt = cz.axiom.vega.net.Http.get("https://www.cnb.cz/cs/financni-trhy/devizovy-trh/kurzy-devizoveho-trhu/kurzy-devizoveho-trhu/denni_kurz.txt", maxBytes = 200_000).let { String(it.body, Charsets.UTF_8) }
+            val t = cz.axiom.vega.calc.CnbRates.parse(txt)
+            kv.write("rates/cnb.txt", txt); kv.write("rates/cnb.day", today); t
+        }.getOrElse { kv.read("rates/cnb.txt")?.let { runCatching { cz.axiom.vega.calc.CnbRates.parse(it) }.getOrNull() } } // při výpadku poslední známý
+    }
+
+    /** „100 eur na koruny“, „kolik je 50 USD v Kč“, „200 euro na dolary“ → kurz ČNB. null = není to převod. */
+    private fun currencyOnline(text: String): String? {
+        val t = cz.axiom.vega.base.Text.fold(text).lowercase().trim().trimEnd('?', '.', '!', ' ')
+        val cur = "(eur|euro|eura|euru|usd|dolar\\w*|gbp|libr\\w*|chf|frank\\w*|pln|zlot\\w*|huf|forint\\w*|jpy|jen\\w*|kc|korun\\w*|czk)"
+        val m = Regex("^(?:kolik je |preved |prevod |spocitej )?(\\d[\\d ]*(?:[.,]\\d+)?)\\s*$cur\\s+(?:na|v|do|je|=)\\s*$cur$").find(t) ?: return null
+        val value = cz.axiom.vega.calc.Quick.num(m.groupValues[1]) ?: return null
+        val from = cz.axiom.vega.calc.CnbRates.code(m.groupValues[2]) ?: return null
+        val to = cz.axiom.vega.calc.CnbRates.code(m.groupValues[3]) ?: return null
+        if (from == to) return null
+        val tab = cnbTable() ?: return if (settings.airgap) "Kurz offline neznám (režim Bez sítě). Napiš ho sám, třeba „$value ${m.groupValues[2]} po 25,2“, a spočítám to přesně." else null
+        val res = cz.axiom.vega.calc.CnbRates.convert(tab, value, from, to) ?: return null
+        val fmt = { v: Double -> cz.axiom.vega.calc.Quick.fmtPublic(v) }
+        return "${fmt(value)} $from = ${fmt(res)} $to\n\n_(kurz ČNB k ${tab.date}; je to referenční fixing, v bance bývá o pár procent horší)_"
+    }
+
     private val SYSTEM_TALK0 = """Jsi VEGA – osobní český parťák a kapesní sada nástrojů. Tykej, piš přirozeně a věcně.
 Začni výsledkem. Bez úvodních pochval, hraných emocí a automatických otázek na konci. Odděl cíl uživatele od jeho předpokladu:
 když chybný předpoklad mění výsledek, pojmenuj ho v první větě, ukaž rozhodující výpočet nebo důkaz a pokračuj opravenou variantou.
@@ -1010,6 +1037,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // čistý výpočet / převod / datum: přesně a bez modelu (Quick vrací null, když si není jistý)
         if (att == null && text.length < 200) {
             offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
+            currencyOnline(text)?.let { reply(chat, it); return }
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {

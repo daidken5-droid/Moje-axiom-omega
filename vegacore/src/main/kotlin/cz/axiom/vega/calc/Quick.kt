@@ -10,6 +10,8 @@ import java.time.temporal.ChronoUnit
  * jednotek, počet dní mezi daty, čas a datum. Jen když si je odpověď jistá – jinak null (rozhodne model nebo nic).
  */
 object Quick {
+    /** Veřejné formátování čísla (mezery v tisících, desetinná čárka) pro jiné moduly. */
+    fun fmtPublic(v: Double) = fmt(v)
     private fun fmt(v: Double): String {
         val r = Math.round(v * 1e6) / 1e6
         val s = if (r == Math.rint(r) && kotlin.math.abs(r) < 1e15) String.format(java.util.Locale.ROOT, "%.0f", r) else String.format(java.util.Locale.ROOT, "%.6f", r).trimEnd('0').trimEnd('.')
@@ -105,7 +107,7 @@ object Quick {
         return "Od ${d.dayOfMonth}. ${d.monthValue}. ${d.year} uplynulo $y ${if (y == 1) "rok" else if (y in 2..4) "roky" else "let"}; další výročí ${dmy(next)} (za ${ChronoUnit.DAYS.between(today, next)} dní)."
     }
 
-    private fun num(s: String) = s.replace(" ", "").replace(',', '.').toDoubleOrNull()
+    fun num(s: String) = s.replace(" ", "").replace(',', '.').toDoubleOrNull()
 
     private val UNITS = mapOf(
         "km" to ("m" to 1000.0), "m" to ("m" to 1.0), "cm" to ("m" to 0.01), "mm" to ("m" to 0.001), "mi" to ("m" to 1609.344), "mile" to ("m" to 1609.344), "mil" to ("m" to 1609.344),

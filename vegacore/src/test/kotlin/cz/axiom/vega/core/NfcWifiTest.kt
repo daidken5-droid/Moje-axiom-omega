@@ -55,3 +55,30 @@ class NfcWifiTest {
         assertNull(r.nets.first().weak)
     }
 }
+
+class CnbRatesTest {
+    private val sample = """
+        20.11.2026 #224
+        země|měna|množství|kód|kurz
+        EMU|euro|1|EUR|25,340
+        USA|dolar|1|USD|23,456
+        Japonsko|jen|100|JPY|15,120
+        Polsko|zlotý|1|PLN|5,842
+    """.trimIndent()
+
+    @org.junit.Test fun parsesAndConverts() {
+        val t = cz.axiom.vega.calc.CnbRates.parse(sample)
+        kotlin.test.assertEquals("20.11.2026", t.date)
+        kotlin.test.assertEquals(2534.0, cz.axiom.vega.calc.CnbRates.toCzk(t, 100.0, "EUR"))
+        kotlin.test.assertEquals(15.12, cz.axiom.vega.calc.CnbRates.toCzk(t, 100.0, "JPY")) // množství 100
+        kotlin.test.assertEquals(100.0, cz.axiom.vega.calc.CnbRates.toCzk(t, 100.0, "CZK"))
+        kotlin.test.assertNull(cz.axiom.vega.calc.CnbRates.toCzk(t, 1.0, "XXX"))
+        // EUR → USD přes CZK
+        val eurUsd = cz.axiom.vega.calc.CnbRates.convert(t, 100.0, "EUR", "USD")!!
+        kotlin.test.assertTrue(kotlin.math.abs(eurUsd - 2534.0 / 23.456) < 0.01)
+        kotlin.test.assertEquals("EUR", cz.axiom.vega.calc.CnbRates.code("euro"))
+        kotlin.test.assertEquals("USD", cz.axiom.vega.calc.CnbRates.code("dolaru"))
+        kotlin.test.assertEquals("GBP", cz.axiom.vega.calc.CnbRates.code("gbp"))
+        kotlin.test.assertNull(cz.axiom.vega.calc.CnbRates.code("banán"))
+    }
+}
