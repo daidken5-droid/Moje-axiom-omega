@@ -339,5 +339,15 @@ Kola 1–5 jsou hotová, kolo 6 běží (bod 28). Každé kolo = kontrola, oprav
 - [x] 34. Finální APK + shrnutí všech 9 kol
   - **Výsledek:** `VEGA-46851df.apk` (1.5.2), SHA-256 `51d3595e8cff0f0df1c50cc687804ecac9dc8e22089c6d894d1db1e456e22b47`. Shrnutí je na začátku README.
 
+## Uživatel: dalších 7 kol (10–16)
+Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživatel pozná.
+- [ ] 39. Kolo 10: UI (app.js) – stav, přístupnost, XSS, chování na telefonu
+- [ ] 40. Kolo 11: modely a peníze – Engines, poskytovatelé, souhlasy, CostGuard, přepínání
+- [ ] 41. Kolo 12: projekty s kódem a rozšíření – celý tok
+- [ ] 42. Kolo 13: kvalita odpovědí – rešerše, web, důkazy, citace
+- [ ] 43. Kolo 14: výkon, paměť, baterie – měření a optimalizace
+- [ ] 44. Kolo 15: samoúpravy, druhé kolo
+- [ ] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
