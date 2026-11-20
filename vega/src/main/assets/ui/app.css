@@ -244,3 +244,7 @@ pre.diff { white-space: pre-wrap; word-break: break-word; font: 12px/1.45 var(--
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 button.pill { min-height: 40px; padding: 8px 12px; }
 .jump { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; z-index: 5; padding: 10px 16px; border-radius: 999px; background: var(--signal-strong); color: #fff; font-weight: 600; box-shadow: var(--shadow); }
+/* výběr modulu / poskytovatele na úvodní obrazovce */
+.hello .pill.pick { margin: 10px auto 0; font-size: 13px; font-weight: 500; border: 1px solid var(--line); background: var(--sheet); color: var(--ink2); cursor: pointer; }
+.hello .pill.pick b { color: var(--ink); margin-left: 2px; }
+.row.sel { border-color: var(--signal2, var(--line-strong)); background: var(--signal-soft); }

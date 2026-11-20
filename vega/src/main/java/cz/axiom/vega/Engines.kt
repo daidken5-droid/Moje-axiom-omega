@@ -94,8 +94,11 @@ class Engines(private val settings: Settings, private val vault: Vault) {
     fun pick(): Pick? {
         // POUZE VLASTNÍ MODELY: jediný člen = vlastní server; žádná záloha na komerční API (ani při výpadku)
         if (settings.ownOnly) return member("own")?.let { m -> Pick(engineOf(listOf(m)), "own", m.model, false, listOf(m.provider.name to m.model), listOf(m.provider.dataNote), emptyList()) }
-        // vlastní server (je-li nastavený) jde první – je zdarma a soukromý
-        val chain = (listOf("own") + CHAIN).mapNotNull { member(it) }.filter { usable(it) }
+        // vybraný poskytovatel (úvodní obrazovka) jde první, pokud je použitelný; jinak vlastní server (zdarma a soukromý) a dál řetěz
+        val pref = settings.preferredProvider
+        if (pref == "claude" && vault.has("claude") && (runApprovals.containsKey("claude") || autoAllowed("claude"))) return single("claude")
+        val order = listOf("own") + CHAIN
+        val chain = (if (pref in order) listOf(pref) + (order - pref) else order).mapNotNull { member(it) }.filter { usable(it) }
         if (chain.isNotEmpty()) {
             val f = chain.first()
             return Pick(engineOf(chain), f.provider.id, f.model, chain.any { it.provider.paid }, chain.map { it.provider.name to it.model },
@@ -103,6 +106,20 @@ class Engines(private val settings: Settings, private val vault: Vault) {
         }
         if (vault.has("claude") && (runApprovals.containsKey("claude") || autoAllowed("claude"))) return single("claude")
         return null
+    }
+
+    /** Nabídka pro výběr na úvodní obrazovce: kdo je nastavený, co stojí, kdo teď odpovídá. */
+    fun choices(): org.json.JSONArray {
+        val active = runCatching { pick()?.provider }.getOrNull()
+        return org.json.JSONArray().apply {
+            (listOf("own") + PROVIDERS).forEach { id ->
+                val ready = if (id == "own") ownConfigured() else vault.has(id)
+                val paid = id in PAID
+                val model = when (id) { "claude" -> settings.claudeModel; "own" -> settings.model("own") ?: settings.ownModel; else -> settings.model(id) ?: Providers.provider(id)?.let { Providers.pickModel(it, emptyList()) } ?: "" }
+                put(org.json.JSONObject().put("id", id).put("name", if (id == "own") "Vlastní server" else name(id)).put("model", model).put("ready", ready).put("paid", paid)
+                    .put("allowed", !paid || autoAllowed(id)).put("active", id == active).put("preferred", id == settings.preferredProvider))
+            }
+        }
     }
 
     /** Jen jeden konkrétní poskytovatel (schválený placený běh). */

@@ -498,6 +498,12 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
   - Přes proxy se to ověřit nedá a zůstává kontrola překladu jména.
   - **Test RebindingTest:** soket na 127.0.0.1 se jménem „evil.example“ je odmítnut a zavřen.
   - NEOVĚŘENO na telefonu (Android HttpsURLConnection vrství TLS stejnou metodou `createSocket(socket, host, port, autoClose)`).
+- [x] 52b. (přání uživatele) Výběr modulu / poskytovatele na úvodní obrazovce.
+  - Pod pozdravem je tlačítko „Odpovídá: X ▾“, které otevře „Kdo odpovídá“.
+  - Na výběr je „Automaticky (doporučeno)“, vlastní server, Gemini zdarma, Groq, Cerebras, OpenRouter, kredit Pro, DeepSeek a Claude, u každého model, cena a „teď odpovídá“. Nenastavené vedou do Nastavení.
+  - Vybraný poskytovatel jde v řetězu první, ostatní zůstávají jako záloha při výpadku.
+  - Placený se bez povolení do limitu nepoužije, odpovídá dál zdarma a nic se neutratí potají. „Pouze vlastní modely“ má přednost.
+  - **Test** `preferredProviderGoesFirstButPaidNeedsApproval`; snímky z Chromia v pořádku.
 - [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
 
 ## Problémy

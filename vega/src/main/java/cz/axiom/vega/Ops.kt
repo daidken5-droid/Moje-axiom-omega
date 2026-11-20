@@ -1842,7 +1842,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         .put("usdKc", settings.usdKc).put("shadowKc", settings.shadowUsd() * settings.usdKc)
         .put("models", JSONObject().apply { engines.PROVIDERS.forEach { p -> settings.model(p)?.let { put(p, it) } } })
         .put("claudeModel", settings.claudeModel).put("indexed", index.list().size)
-        .put("ownUrl", settings.ownUrl).put("ownModel", settings.model("own") ?: settings.ownModel).put("ownKey", vault.has("own")).put("ownOnly", settings.ownOnly).put("webAllowed", settings.webAllowed)
+        .put("ownUrl", settings.ownUrl).put("ownModel", settings.model("own") ?: settings.ownModel).put("ownKey", vault.has("own")).put("ownOnly", settings.ownOnly).put("preferredProvider", settings.preferredProvider).put("webAllowed", settings.webAllowed)
         .put("verifier", groundingStatus().first).put("verifierReady", groundingStatus().second)
         .put("userName", settings.userName).put("requests", JSONObject().put("own", settings.requests("own")).put("commercial", settings.commercialRequests()))
 

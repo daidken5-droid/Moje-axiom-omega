@@ -62,6 +62,8 @@ class Settings(context: Context) {
     var ownUrl: String get() = p.getString("ownUrl", "")!!; set(v) = p.edit().putString("ownUrl", v.trim().trimEnd('/')).apply()
     var ownModel: String get() = p.getString("ownModel", "")!!; set(v) = p.edit().putString("ownModel", v.trim()).apply()
     /** Režim „Pouze vlastní modely“: žádné komerční modelové API pro celý požadavek (i pomocné kroky a opakování). */
+    /** Poskytovatel vybraný na úvodní obrazovce („“ = automaticky: vlastní server, pak zdarma, pak placené). Ostatní zůstanou jako záloha. */
+    var preferredProvider: String get() = p.getString("preferredProvider", "")!!; set(v) = p.edit().putString("preferredProvider", v.trim()).apply()
     var ownOnly: Boolean get() = p.getBoolean("ownOnly", false); set(v) = p.edit().putBoolean("ownOnly", v).apply()
     /** Veřejný web (rešerše, čtení URL) – samostatná volba, nezávislá na výběru modelů. */
     var webAllowed: Boolean get() = p.getBoolean("webAllowed", true); set(v) = p.edit().putBoolean("webAllowed", v).apply()

@@ -111,6 +111,7 @@ function emptyState() {
   if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
   const noModel = !h.engine && !h.own;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
+    ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá">Odpovídá: <b>${esc(h.airgap ? 'nikdo (bez sítě)' : h.model || 'automaticky')}</b> ▾</button>` : ''}
     ${noModel ? `<div class="quiet">Rozhovor potřebuje model – <button class="linkbtn" data-act="settings">Gemini zdarma nebo vlastní server</button>. Nástroje fungují i bez něj.</div>` : ''}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
 }
@@ -491,10 +492,20 @@ function settingsSheet() {
     <p class="note" style="margin-top:24px">VEGA 1.3 · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
 }
 
-/** Rychlá volba z model-pillu: kdo odpovídá a kam smí data. Stejné přepínače jako v Nastavení. */
+/** Výběr modulu / poskytovatele: „Automaticky“ nebo konkrétní; ostatní nastavení zůstanou jako záloha při výpadku. */
+function providerList(s) {
+  const ch = call('providerChoices') || [];
+  const pref = s.preferredProvider || '';
+  const row = (id, name, sub, ok, sel) => `<button class="row${sel ? ' sel' : ''}" data-act="${ok ? 'setProvider' : 'settings'}" data-id="${esc(id)}" aria-pressed="${sel}"><span class="grow"><b>${sel ? '● ' : '○ '}${esc(name)}</b><small>${sub}</small></span>${ok ? '' : '<span class="end">nastavit ›</span>'}</button>`;
+  return `<div class="list">${row('', 'Automaticky (doporučeno)', 'vlastní server, pak zdarma, placené jen se schválením', true, !pref)}` +
+    ch.map(c => row(c.id, c.name, esc([c.model, c.paid ? (c.allowed ? 'placený, povolený do limitu' : 'placený – před použitím schválíš') : 'zdarma', c.active ? 'teď odpovídá' : ''].filter(Boolean).join(' · ')), c.ready, pref === c.id)).join('') + '</div>' +
+    (s.ownOnly ? '<p class="note warn">Zapnuté „Pouze vlastní modely“ – výběr platí, až ho vypneš.</p>' : '');
+}
 function modelSheet() {
   const s = call('settings') || {}; const h = call('home') || {};
   sheet(`<h2>Kdo odpovídá</h2><p class="lede">Teď: <b>${esc(h.model || 'bez modelu')}</b></p>
+    <h3>Modul / poskytovatel</h3>${providerList(s)}
+    <h3>Soukromí</h3>
     <label class="switch"><span><b>Pouze vlastní modely</b><small>${s.ownUrl ? esc(s.ownUrl) : 'server zatím není nastavený'}</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
     <label class="switch"><span><b>Veřejný web</b><small>rešerše, zdroje, odkazy</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
     <label class="switch"><span><b>Bez sítě (air-gap)</b><small>jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
@@ -775,6 +786,8 @@ function act(a, d) {
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;
     case 'pairOwn': pairOwn(); break;
+    case 'pickModel': modelSheet(); break;
+    case 'setProvider': if (call('setSetting', 'preferredProvider', d.id || '') !== null) { S.home = null; renderTop(); modelSheet(); toast(d.id ? 'Odpovídat bude vybraný poskytovatel (ostatní jen jako záloha při výpadku).' : 'Automatický výběr.'); } break;
     case 'testOwn': { const st = $('#kc-own'); if (st) st.textContent = 'Ptám se serveru (u usnutého Space může první odpověď trvat i minuty)…'; call('testOwn'); break; }
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
     case 'stop': B.stop(); break;
