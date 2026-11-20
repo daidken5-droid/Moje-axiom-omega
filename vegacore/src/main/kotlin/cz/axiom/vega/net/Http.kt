@@ -95,7 +95,8 @@ object Http {
         override fun createSocket(host: String?, port: Int, la: InetAddress?, lp: Int) = check(d.createSocket(host, port, la, lp))
         override fun createSocket(host: InetAddress?, port: Int) = check(d.createSocket(host, port))
         override fun createSocket(a: InetAddress?, port: Int, la: InetAddress?, lp: Int) = check(d.createSocket(a, port, la, lp))
-        override fun createSocket(): java.net.Socket = d.createSocket()
+        /** Nepřipojený soket zkontrolovat nejde → odmítnout; JVM HttpsClient pak použije připojenou variantu (kontrolovanou). */
+        override fun createSocket(): java.net.Socket = throw java.net.SocketException("Unconnected sockets not implemented")
         override fun getDefaultCipherSuites(): Array<String> = d.defaultCipherSuites
         override fun getSupportedCipherSuites(): Array<String> = d.supportedCipherSuites
     }

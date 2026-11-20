@@ -191,7 +191,7 @@ private fun sha256(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-
 fun saveRun(kv: Kv, r: Run) = kv.write("run/${r.id}", r.toJson { v ->
     if (v is Value.Bytes && v.bytes.size >= RUN_BLOB_MIN) {
         val sha = sha256(v.bytes)
-        if (kv.read("runblob/$sha") == null) kv.write("runblob/$sha", java.util.Base64.getEncoder().encodeToString(v.bytes))
+        if (kv.modified("runblob/$sha") <= 0L) kv.write("runblob/$sha", java.util.Base64.getEncoder().encodeToString(v.bytes))
         buildJsonObject { put("k", "bytesRef"); put("name", v.name); v.mime?.let { put("mime", it) }; put("sha", sha) }
     } else Value.toJson(v)
 }.toString())

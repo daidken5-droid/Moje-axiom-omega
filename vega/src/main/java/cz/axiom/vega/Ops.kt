@@ -106,8 +106,14 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val tree = g.tree(baseSha)
         // navazování: nainstalovaná samoúprava se do nové přenese (jinak by ji instalace další úpravy potichu vrátila)
         val prev = installedUpdate()
-        val carried: Map<String, String> = prev?.files.orEmpty().filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
-            .mapNotNull { f -> runCatching { f to g.file(f, prev!!.commit) }.getOrNull() }.toMap()
+        // jen soubory, které se na pracovní větvi od vzniku předchozí úpravy NEZMĚNILY (jinak by přenos přepsal novější práci)
+        val prevBase = prev?.let { runCatching { g.parentSha(it.commit) }.getOrNull() }
+        val skippedCarry = ArrayList<String>()
+        val carried: Map<String, String> = if (prev == null || prevBase == null) emptyMap() else prev.files.filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
+            .mapNotNull { f ->
+                val then = runCatching { g.file(f, prevBase) }.getOrNull(); val now = runCatching { g.file(f, baseSha) }.getOrNull()
+                if (prevBase != baseSha && then != now) { skippedCarry += f; null } else runCatching { f to g.file(f, prev.commit) }.getOrElse { skippedCarry += f; null }
+            }.toMap()
         val pick = (cz.axiom.vega.selfupdate.Policy.pickFiles(tree, task) + carried.keys.filter { it in tree }).distinct()
         if (pick.isEmpty()) throw ToolError("V kódu aplikace jsem nenašla nic, čeho by se zadání týkalo – popiš ho konkrétněji (obrazovka, funkce, text).")
         val dir = File(context.cacheDir, "selfupd/" + System.currentTimeMillis()).apply { deleteRecursively() }
@@ -125,12 +131,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             val refused = plan.edits.mapNotNull { e -> cz.axiom.vega.selfupdate.Policy.check(e.path)?.let { "${e.path} – $it" } }
             val applied = CodeAgent.apply(ws, plan.copy(edits = plan.edits.filter { cz.axiom.vega.selfupdate.Policy.check(it.path) == null }), hashes, "samoúprava")
             val changed = ws.diffFromBase().map { it.first }.filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
-            if (changed.isEmpty()) {
+            if (changed.isEmpty() || applied.changes.isEmpty()) { // přenesená předchozí úprava sama o sobě není nová úprava
                 reply(chat, "Úpravu sebe sama jsem nepřipravila – model nenavrhl použitelnou změnu." + (if (refused.isNotEmpty()) " Odmítnuto: ${refused.joinToString("; ")}." else "") +
                     (if (applied.failed.isNotEmpty()) " Nesedělo: ${applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" }}." else "")); return
             }
             val diff = (if (carried.isNotEmpty()) "# Proti pracovní větvi $base; obsahuje i nainstalovanou úpravu „${prev?.task?.take(80)}“ (${prev?.commit?.take(7)}).\n" else "# Proti pracovní větvi $base.\n") +
-                ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
+                ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "diff --git a/$p b/$p\n--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
             // hlídač citlivých API: klíče, síť, procesy, most, sandbox, samoúpravy (stejný seznam kontroluje CI)
             val sens = cz.axiom.vega.selfupdate.Policy.sensitiveChanges(diff) + changed.mapNotNull { p -> cz.axiom.vega.selfupdate.Policy.packageIssue(p, ws.read(p))?.let { "$p: $it" } }
             if (diff.length > 60_000) { reply(chat, "Úpravu jsem zahodila – změna je moc velká na to, abys ji v telefonu opravdu prošel (${diff.length / 1000} kB diffu). Zadej menší krok."); return }
@@ -143,6 +149,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             reply(chat, "Připravila jsem úpravu sebe sama: ${plan.explanation.lines().firstOrNull { it.isNotBlank() }?.take(200) ?: task}\n" +
                 "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
                 (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechala: ${refused.joinToString("; ")}." else "") +
+                (if (skippedCarry.isNotEmpty()) "\nZ nainstalované úpravy jsem NEPŘENESLA ${skippedCarry.joinToString(", ") { it.substringAfterLast('/') }} – na pracovní větvi se mezitím změnily (instalací by se tahle část předchozí úpravy vrátila)." else "") +
                 "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK hotové, ukážu ti změny a teprve potom nabídnu instalaci (Menu → Vylepšení → Úpravy aplikace).",
                 JSONObject().put("type", "selfupdate").put("id", u.id))
         } finally { dir.deleteRecursively() }
@@ -200,7 +207,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
 
     /** Nainstalovaná samoúprava (verze s příponou auto-<commit>), nebo null. */
-    private fun installedUpdate() = Regex("auto-([0-9a-f]{7})").find(BuildConfig.VERSION_NAME)?.groupValues?.get(1)?.let { tag -> selfUpdates.list().firstOrNull { it.commit.startsWith(tag) } }
+    private fun installedUpdate() = Regex("auto-([0-9a-f]{7})").find(BuildConfig.VERSION_NAME)?.groupValues?.get(1)?.let { tag -> selfUpdates.list().firstOrNull { it.commit.startsWith(tag) && it.origin != "návrat" } }
 
     /**
      * „Vrátit poslední úpravu“: starší APK Android bez odinstalace nedovolí, proto se z pracovní větve sestaví NOVÁ verze
@@ -242,7 +249,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         .put("installed", installedUpdate()?.let { JSONObject().put("id", it.id).put("task", it.task).put("commit", it.commit.take(7)) } ?: JSONObject.NULL)
         .put("items", JSONArray().apply { selfUpdates.list().take(20).forEach { u -> put(JSONObject().put("id", u.id).put("task", u.task).put("branch", u.branch).put("status", u.status)
             .put("label", runCatching { cz.axiom.vega.selfupdate.SelfUpdateStore.Status.valueOf(u.status).label }.getOrDefault(u.status)).put("files", JSONArray(u.files))
-            .put("apk", u.apk).put("apkSha", u.apkSha).put("note", u.note).put("runUrl", u.runUrl).put("diffCut", u.diff.length > 40_000).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
+            .put("apk", u.apk).put("apkHere", u.apk.isNotBlank() && selfUpdateApk(u.apk) != null).put("apkSha", u.apkSha).put("note", u.note).put("runUrl", u.runUrl).put("diffCut", u.diff.length > 40_000).put("origin", u.origin).put("at", u.at).put("diff", u.diff.take(40_000))) } })
 
     private fun registerExtensions() {
         Tools.all().filter { it.id.startsWith("ext.") }.forEach { Tools.unregister(it.id) }
@@ -391,7 +398,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 note { selftune.observe(SelfTune.Kind.ERROR, jobArea ?: if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
                 emit("error", JSONObject().put("text", human(e)))
             }
-            finally { activeChat = null; jobArea = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
+            finally { activeChat = null; jobArea = null; liveText = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
         }
     }
 
@@ -447,8 +454,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun answer(req: String, data: JSONObject): Boolean = pending[req]?.complete(data) == true
 
     /** Nová stránka (obnova WebView, studený start): znovu ukázat otevřené dotazy a stav „pracuji“. */
+    /** Rozepsaná odpověď (pro novou stránku po reloadu / otočení – dostane ji celou, ne jen další přírůstek). */
+    @Volatile private var liveText: Pair<String, String>? = null
     fun replay(skip: Set<String> = emptySet()) {
         if (busy) emit("busy", JSONObject())
+        if (busy) liveText?.let { (c, t) -> emit("delta", JSONObject().put("chat", c).put("from", 0).put("text", t)) }
         pendingPayload.forEach { (id, td) -> if (td.first != "jstest" && td.first != "extrun" && id !in skip) emit(td.first, td.second) }
     }
 
@@ -516,12 +526,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val id = "f" + System.nanoTime().toString(36)
         attachments[id] = Value.Bytes(name, bytes, mime)
         // strop počtu I bajtů v paměti (8 × 60 MB by bylo 480 MB) – nejstarší ven
-        synchronized(attachments) { while (attachments.size > 8 || (attachments.size > 1 && attachments.values.sumOf { it.bytes.size.toLong() } > ATTACH_MAX_BYTES)) attachments.remove(attachments.keys.first()) }
+        val evicted = JSONArray()
+        synchronized(attachments) { while (attachments.size > 8 || (attachments.size > 1 && attachments.values.sumOf { it.bytes.size.toLong() } > ATTACH_MAX_BYTES)) attachments.keys.first().let { evicted.put(it); attachments.remove(it) } }
         // do lokálního indexu (text a CSV hned, PDF/obrázek až nástrojem s OCR – nezdržovat výběr)
         val textual = name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || cz.axiom.vega.core.Encoding.isUtf8(bytes.copyOf(minOf(bytes.size, 4096)))
         // (české exporty bývají ve Windows-1250 – Encoding.decode to pozná)
         if (bytes.size < 5_000_000 && textual && !name.endsWith(".pdf", true)) runCatching { index.add(name, cz.axiom.vega.core.Encoding.decode(bytes)) }
-        return JSONObject().put("id", id).put("name", name).put("size", bytes.size).put("mime", mime ?: "")
+        return JSONObject().put("id", id).put("name", name).put("size", bytes.size).put("mime", mime ?: "").put("evicted", evicted)
     }
     private fun lastAttachment() = msgAtt.lastOrNull()
     /** Vezme (a odebere) přílohy patřící k odesílané zprávě. */
@@ -870,12 +881,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
         // pojistka: režim „Pouze vlastní modely“ zapnutý během čekání na souhlas → řetěz sestavený dřív nesmí odejít jinam
         if (settings.ownOnly && pick.provider != "own") throw ToolError("Režim Pouze vlastní modely: tento požadavek by šel na ${pick.provider} – neodesláno.")
-        val sb = StringBuilder(); var last = 0L; var sent = 0
+        val sb = StringBuilder(); var last = 0L; var sent = 0; var lastFull = System.currentTimeMillis()
         val paidBefore = pick.paidIds.associateWith { settings.spentUsd(it) }
         val res = try {
             pick.engine.generate(messages, GenOptions(maxTokens = maxTokens, effort = "medium", temperature = 0.4f), cancel) { d ->
                 if (!d.reasoning) { sb.append(d.text); val now = System.currentTimeMillis(); if (visible && now - last > 90) { last = now
                     // jen PŘÍRŮSTEK od posledního odeslání (dřív celý text při každé aktualizaci → kvadratická cena u dlouhých odpovědí)
+                    // jednou za 2 s celý text (from 0): stránka po reloadu / přepnutí chatu / zahozené události se srovná
+                    val full = now - lastFull > 2000; if (full) { lastFull = now; sent = 0 }
+                    liveText = (chat ?: "temp") to sb.toString()
                     emit("delta", JSONObject().put("chat", chat ?: "temp").put("from", sent).put("text", sb.substring(sent))); sent = sb.length } }
             }
         } catch (e: Exception) {
@@ -1165,9 +1179,12 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Ruční „vrátit“ z UI: ve frontě s úlohami (nepřekříží běžící úpravu) a s novým snímkem stavu – jinak by se vrácení tvářilo jako cizí ruční změna. */
     fun undoChange(projectId: String, change: Int?): String {
         if (busy) throw ToolError("Právě běží úloha – změnu vrátíš po jejím dokončení (nechci ji překřížit).")
-        val done = java.util.concurrent.CompletableFuture<String>()
-        submit { try { val ws = workspace(projectId); val p = ws.undo(change).path; saveState(ws, null, null, null, absorbManual = false); done.complete(p) } catch (e: Throwable) { done.completeExceptionally(e); throw e } }
-        return try { done.get(30, java.util.concurrent.TimeUnit.SECONDS) } catch (e: java.util.concurrent.ExecutionException) { throw e.cause ?: e }
+        val done = java.util.concurrent.CompletableFuture<String>(); val abandoned = java.util.concurrent.atomic.AtomicBoolean(false)
+        // chybu hlásí jen most (žádný druhý toast ze submit); po vypršení se úloha ve frontě už neprovede
+        submit { if (abandoned.get()) return@submit; try { val ws = workspace(projectId); val p = ws.undo(change).path; saveState(ws, null, null, null, absorbManual = false); done.complete(p) } catch (e: Throwable) { done.completeExceptionally(e) } }
+        return try { done.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+            catch (e: java.util.concurrent.ExecutionException) { throw e.cause ?: e }
+            catch (e: java.util.concurrent.TimeoutException) { abandoned.set(true); throw ToolError("Vrácení se do 30 s nestihlo (pokud už začalo, dokončí se) – zkontroluj seznam změn.") }
     }
 
     fun keepChanges(chat: String?, projectId: String, task: List<Int>, keep: List<Int>) = submit {
@@ -1738,12 +1755,16 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         try {
             cz.axiom.vega.net.Http.download(VERIFIER_URL, zip, 220_000_000L)
             emit("phase", JSONObject().put("text", "Kontroluji otisky a instaluji…"))
+            // celý balíček připnutý otiskem (i manifest se štítky a slovník – ne jen model)
+            val zsha = zip.inputStream().use { s -> val md = java.security.MessageDigest.getInstance("SHA-256"); val buf = ByteArray(1 shl 16); while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) }; md.digest().joinToString("") { "%02x".format(it) } }
+            if (zsha != VERIFIER_ZIP_SHA) throw ToolError("Stažený balíček nemá očekávaný otisk – neinstaluji ho.")
             val msg = zip.inputStream().use { installVerifier(it, requireKnown = true) }
             emit("verifier", JSONObject().put("message", msg).put("ready", grounding.ready))
         } catch (e: cz.axiom.vega.net.NetException) {
             throw ToolError("Balíček se nepodařilo stáhnout (${e.message}). Zkus to na Wi-Fi znovu, nebo ho nainstaluj ze souboru.")
         } finally { zip.delete(); File(zip.path + ".part").delete() }
     }
+    private val VERIFIER_ZIP_SHA = "c22ba304e1e68166b5937c0aadd188744d56338763f550233297e6d60213ec96"
     private val VERIFIER_URL = "https://github.com/daidken5-droid/Moje-axiom-omega/releases/download/overovac-referencni-1/referencni.zip"
 
     fun removeVerifier() { synchronized(groundingLock) { (groundingCache as? java.io.Closeable)?.close(); groundingCache = null; verifierDir.deleteRecursively() } }

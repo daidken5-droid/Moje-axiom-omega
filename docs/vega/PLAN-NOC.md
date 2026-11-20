@@ -504,7 +504,21 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
   - Vybraný poskytovatel jde v řetězu první, ostatní zůstávají jako záloha při výpadku.
   - Placený se bez povolení do limitu nepoužije, odpovídá dál zdarma a nic se neutratí potají. „Pouze vlastní modely“ má přednost.
   - **Test** `preferredProviderGoesFirstButPaidNeedsApproval`; snímky z Chromia v pořádku.
-- [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
+- [x] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
+  - **Nálezy a opravy:**
+    1. **VYSOKÉ:** řádek „++i; eval(…)“ je v diffu „+++i“ a hlídač (aplikace i CI) ho bral jako hlavičku. Opraveno, hlavičky se poznají jen mezi „diff --git“ a prvním @@ (aplikace i awk v CI). Ověřeno testem i na dočasném gitu.
+    2. Podvržený odkaz na blob (`\0blob:../..`) mohl číst cizí soubor a chybějící blob vést ke smazání souboru při vrácení. Opraveno: odkaz jen 64 hex znaků, obsah se značkou se vždy ukládá jako blob, chybějící blob = konflikt. Test.
+    3. Přenos nainstalované úpravy mohl přepsat novější práci na pracovní větvi. Opraveno: přenášejí se jen soubory, které se od vzniku úpravy na větvi nezměnily (ostatní se vyjmenují), a „model nic nezměnil“ se počítá bez přenesených souborů.
+    4. Streamování po reloadu, otočení nebo přepnutí chatu mohlo ukázat text s dírou. Opraveno: mezera se nelepí, každé 2 s přijde celý text, nová stránka ho dostane hned a text jiného chatu se nestane prefixem. Ověřeno v Chromiu.
+    5. Stažený ověřovač měl připnutý jen otisk modelu. Opraveno: připnutý je otisk celého zipu.
+    6. Přílohy vyhozené stropem zmizí i z čipů a VEGA to oznámí.
+    7. Existence blobu běhu se zjišťuje přes čas souboru (dřív se kvůli tomu načítal celý blob).
+    8. Návrat se už netváří jako samoúprava.
+    9. U READY úpravy bez APK (po aktualizaci) jde znovu „Zkontrolovat sestavení“.
+    10. PeerCheck odmítne nepřipojený soket, takže JVM použije kontrolovanou variantu.
+    11. `deploy_hf.py` vygeneruje klíč u nového Space; adresa Space s tečkou.
+    12. Vrácení změny po vypršení 30 s se už neprovede potichu a chyba se hlásí jen jednou.
+  - **Odmítnuto:** „v obrazu llama.cpp není python3“. Je tam, `start.sh` párovací kód vypsal (ověřeno v chroot).
 
 ## Problémy
 - ~~DNS rebinding~~ – vyřešeno bodem 52 (kontrola skutečné adresy soketu před TLS); přes proxy jen kontrola překladu.

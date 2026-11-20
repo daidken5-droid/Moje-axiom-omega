@@ -47,4 +47,19 @@ class StorageTest {
         assertTrue((loadRun(kv, "old")!!.input as Value.Bytes).bytes.contentEquals(bytes))
         kv.delete("run/run-x"); kv.delete("run/old"); pruneRunBlobs(kv); assertEquals(0, kv.keys("runblob/").size)
     }
+
+    @Test fun forgedBlobRefCannotReadOtherFilesAndMissingBlobIsConflict() {
+        val root = Files.createTempDirectory("st").toFile().resolve("p")
+        File(root.parentFile, "tajne.txt").writeText("TAJNÉ")
+        val w = Workspace.create(root, "p", mapOf("a.txt" to "\u0000blob:../../tajne.txt".toByteArray()))
+        w.write("a.txt", "nový", w.hash("a.txt"))
+        assertEquals("\u0000blob:../../tajne.txt", w.changes().last().before, "podvržený odkaz se nesmí rozbalit")
+        w.undo(); assertEquals("\u0000blob:../../tajne.txt", w.read("a.txt"))
+        // chybějící blob: vrácení = konflikt, ne smazání souboru
+        val big = "z".repeat(200_000); w.write("a.txt", big, w.hash("a.txt"))
+        w.write("a.txt", "malý", w.hash("a.txt"))
+        File(root, "meta/blob").listFiles()!!.forEach { it.delete() }
+        kotlin.test.assertFailsWith<Workspace.Conflict> { w.undo() }
+        assertEquals("malý", w.read("a.txt"))
+    }
 }

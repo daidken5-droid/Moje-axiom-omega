@@ -380,7 +380,7 @@ function selfUpdateHtml() {
       <button class="btn" data-act="suSave" style="margin-top:6px">Uložit</button></details>`;
   const items = u.items.map(x => `<div class="row stack"><span class="grow"><b>${esc(x.task.slice(0, 120))} <span class="pill ${x.status === 'READY' || x.status === 'INSTALLED' ? 'ok' : x.status === 'FAILED' ? 'bad' : ''}">${esc(x.label)}</span></b>
       <small>${esc(x.origin)} · ${x.files.length} souborů${x.note ? ' · ' + esc(x.note) : ''}${x.runUrl && /^https:\/\/github\.com\//.test(x.runUrl) ? ` · <a href="${esc(x.runUrl)}" target="_blank" rel="noopener">běh v CI</a>` : ''}</small><small>${x.files.map(f => esc(f.split('/').pop())).join(', ')}</small></span>
-      <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
+      <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) || (x.status === 'READY' && !x.apkHere) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
       ${x.diff ? `<button class="btn ${x.status === 'READY' ? 'primary' : ''}" data-act="suDiff" data-id="${esc(x.id)}">${x.status === 'READY' ? 'Projít změny a nainstalovat' : 'Zobrazit změny'}</button>` : ''}
       ${!['INSTALLED', 'DISCARDED'].includes(x.status) ? `<button class="btn ghost" data-act="suAct" data-id="${esc(x.id)}" data-a="discard">Zahodit</button>` : ''}</span></div>`).join('');
   return `<h3>Úpravy aplikace (měním sama sebe)</h3>
@@ -699,7 +699,10 @@ window.vega = {
         break;
       case 'delta': if (d.chat === chatId()) {
           // přírůstek: from = délka, na kterou navazuje (0 = nové volání modelu); starší tvar bez from = celý text
-          S.stream = typeof d.from === 'number' ? S.stream.slice(0, Math.min(d.from, S.stream.length)) + d.text : d.text;
+          // mezera (reload, přepnutí chatu, zahozená událost): nelepit – do 2 s přijde celý text od začátku
+          if (S.streamChat !== d.chat) { S.stream = ''; S.streamChat = d.chat; } // text jiného chatu se nesmí stát prefixem
+          if (typeof d.from === 'number' && d.from > S.stream.length) break;
+          S.stream = typeof d.from === 'number' ? S.stream.slice(0, d.from) + d.text : d.text;
           if ($('#live')) liveSoon(); else { S.live = null; render(); if (!S.stick) jumpPill(true); } } break;
       case 'phase': { const ph = $('#phase'); if (ph) ph.textContent = d.text; break; }
       case 'busy': S.busy = true; render(); break;
@@ -710,6 +713,8 @@ window.vega = {
       case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
         const ok = (d.files || []).filter(f => !f.error); (d.files || []).filter(f => f.error).forEach(f => toast(f.error));
+        // přílohy vyhozené kvůli stropu paměti (150 MB) zmizí i z čipů – jinak by se tiše neposlaly
+        const ev = new Set(ok.flatMap(f => f.evicted || [])); if (ev.size && S.files) { S.files = S.files.filter(f => !ev.has(f.id)); toast('Nejstarší příloha se už nevešla do paměti (strop 150 MB) – odebral jsem ji.', 6000); }
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { busyCall('buttonTry', chatId(), ok[0].id); render(); } return; }
         if (S.awaitProc) { // soubor vybraný pro uložený nástroj patří jen jemu
           const id = S.awaitProc; S.awaitProc = null;

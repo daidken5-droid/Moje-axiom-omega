@@ -43,6 +43,8 @@ class GitHub(val owner: String, val repo: String, private val token: String, pri
     }
     private fun s(o: JsonObject?, k: String) = (o?.get(k) as? JsonPrimitive)?.contentOrNull
 
+    /** První rodič commitu (základ, ze kterého úprava vznikla). */
+    fun parentSha(commit: String): String? = ((call("GET", "/git/commits/$commit")?.get("parents") as? JsonArray)?.firstOrNull() as? JsonObject)?.let { s(it, "sha") }
     fun refSha(branch: String): String = s(call("GET", "/git/ref/heads/$branch")?.get("object") as? JsonObject, "sha") ?: throw NetException("Větev $branch nemá commit.")
 
     /** Soubory stromu (cesta → velikost). */

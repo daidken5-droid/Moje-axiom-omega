@@ -37,7 +37,17 @@ object Policy {
      * přidané řádky i slepené dohromady (obejití rozdělením volání na dva řádky) a neviditelné znaky.
      */
     fun sensitiveChanges(diff: String): List<String> {
-        val body = diff.lines().filter { (it.startsWith("+") && !it.startsWith("+++")) || (it.startsWith("-") && !it.startsWith("---")) }
+        // hlavička souboru (---/+++) jen PŘED prvním @@ daného souboru – uvnitř hunku je i „+++i“ přidaný řádek „++i“ (dřív by prošel bez kontroly)
+        // Soubory odděluje řádek „diff --git“ (uvnitř hunku začíná každý řádek +, - nebo mezerou, takže ho nejde podvrhnout).
+        var inHunk = false
+        val body = diff.lines().filter { l ->
+            when {
+                l.startsWith("diff --git ") -> { inHunk = false; false }
+                l.startsWith("@@") -> { inHunk = true; false }
+                !inHunk -> false // hlavička souboru (---/+++, index…)
+                else -> l.startsWith("+") || l.startsWith("-")
+            }
+        }
         val hits = body.filter { SENSITIVE.containsMatchIn(it) || INVISIBLE.containsMatchIn(it) }.map { (if (INVISIBLE.containsMatchIn(it)) "neviditelný znak: " else "") + it.take(160) }
         if (hits.isNotEmpty()) return hits
         val joined = body.filter { it.startsWith("+") }.joinToString("") { it.drop(1).trim() }

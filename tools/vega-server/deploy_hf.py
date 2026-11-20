@@ -35,11 +35,14 @@ def main(argv=None):
     api = HfApi(token=token)
     user = api.whoami()["name"]
     repo = f"{user}/{a.space}"
+    existed = api.repo_exists(repo, repo_type="space")
     api.create_repo(repo, repo_type="space", space_sdk="docker", private=False, exist_ok=True)
+    if not existed and not key:
+        key = secrets.token_urlsafe(32)  # nový Space bez VEGA_KEY by nenastartoval
     if key:
         api.add_space_secret(repo, "VEGA_KEY", key)
     api.upload_folder(repo_id=repo, repo_type="space", folder_path=str(here), allow_patterns=FILES, commit_message="VEGA server")
-    url = f"https://{user.lower()}-{a.space.lower().replace('_', '-')}.hf.space/v1"
+    url = f"https://{user.lower().replace('_', '-').replace('.', '-')}-{a.space.lower().replace('_', '-').replace('.', '-')}.hf.space/v1"
     print(f"Hotovo: https://huggingface.co/spaces/{repo}\nAdresa pro VEGA: {url}")
     print("Párovací kód najdeš v Logs Space po startu (1–3 min)." + (f"\n\nVEGA_KEY (vlož do VEGA → Klíč serveru, ukazuji jen teď):\n{key}" if key else
           "\nVEGA_KEY zůstal beze změny (nový: --new-key)."))

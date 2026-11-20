@@ -40,6 +40,9 @@ class Workspace(val root: File) {
     companion object {
         private const val BLOB_MIN = 100_000
         private const val BLOB_REF = "\u0000blob:"
+        private val SHA_HEX = Regex("[0-9a-f]{64}")
+        /** Rozbalení selhalo (blob chybí) – nikdy to není skutečný obsah, protože pack takový text vždy uloží jako blob. */
+        private const val BLOB_MISSING = "\u0000blob-missing:"
         /** Soubory, které se nikdy nečtou do kontextu modelu (klíče, osobní data). */
         /** Kontroluj vždy NORMALIZOVANOU cestu ([isSecret]) – „.env/“ nebo „cfg\\.env“ by surový výraz obešly. */
         val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|pfx|jks|keystore|ovpn)|id_(rsa|ed25519|ecdsa|dsa).*|secrets?\\.(json|ya?ml|properties|toml)|.*credentials.*\\.json|.*service[-_.]?account.*\\.json|client_secret.*\\.json|.*firebase-adminsdk.*\\.json|token\\.json|google-services\\.json|GoogleService-Info\\.plist|local\\.properties|keystore\\.properties|gradle\\.properties|\\.npmrc|\\.netrc|\\.pypirc|\\.git-credentials|\\.htpasswd)$", RegexOption.IGNORE_CASE)
@@ -102,11 +105,12 @@ class Workspace(val root: File) {
         val l = runCatching { json.decodeFromString(ListSerializer(Change.serializer()), logFile.readText()) }.getOrDefault(emptyList())
         rawCache = Triple(stamp.first, stamp.second, l); return l
     }
-    private fun pack(t: String?): String? = if (t == null || t.length < BLOB_MIN) t else {
+    private fun pack(t: String?): String? = if (t == null || (t.length < BLOB_MIN && !t.startsWith("\u0000blob"))) t else {
         val sha = java.security.MessageDigest.getInstance("SHA-256").digest(t.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         File(blobDir, sha).let { f -> if (!f.isFile) atomicWrite(f, t) }; BLOB_REF + sha
     }
-    private fun unpack(t: String?): String? = if (t != null && t.startsWith(BLOB_REF)) runCatching { File(blobDir, t.removePrefix(BLOB_REF)).readText() }.getOrNull() else t
+    /** Odkaz jen ve tvaru 64 hex znaků (žádné „../“); chybějící blob zůstane jako odkaz → vrácení skončí konfliktem, ne smazáním souboru. */
+    private fun unpack(t: String?): String? = if (t != null && t.startsWith(BLOB_REF)) t.removePrefix(BLOB_REF).takeIf { SHA_HEX.matches(it) }?.let { File(blobDir, it).takeIf { f -> f.isFile }?.readText() } ?: (BLOB_MISSING + t) else t
     fun changes(): List<Change> = raw().map { c -> if (c.before?.startsWith(BLOB_REF) == true || c.after?.startsWith(BLOB_REF) == true) c.copy(before = unpack(c.before), after = unpack(c.after)) else c }
     private fun log(c: Change) {
         val l = (raw() + c.copy(before = pack(c.before), after = pack(c.after))).takeLast(300)
@@ -180,6 +184,7 @@ class Workspace(val root: File) {
         val all = changes()
         val c = (if (id == null) all.lastOrNull { !it.op.startsWith("undo") && all.none { u -> u.op == "undo#${it.id}" } } else all.firstOrNull { it.id == id }) ?: throw Conflict("Není co vrátit.")
         if (c.op.startsWith("undo") || all.any { it.op == "undo#${c.id}" }) throw Conflict("Změna #${c.id} už je vrácená.")
+        if (c.before?.startsWith(BLOB_MISSING) == true || c.after?.startsWith(BLOB_MISSING) == true) throw Conflict("Obsah změny #${c.id} už není uložený – vrátit ji nejde.")
         val f = file(c.path)
         val cur = if (f.exists()) f.readText() else null
         val restored: String? = when {

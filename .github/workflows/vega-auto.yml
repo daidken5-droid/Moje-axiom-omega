@@ -48,7 +48,8 @@ jobs:
           # --text/--no-textconv/--no-ext-diff: .gitattributes (-diff, textconv) nesmí diff schovat; kontrolují se přidané I smazané řádky
           D=$($G diff --no-renames --text --no-textconv --no-ext-diff -U0 HEAD~1 HEAD)
           SENS='(vault|keystore|getSharedPreferences|Http\.(open|request|download|get)|HttpURLConnection|URLConnection|java\.net\.|Socket|Runtime\.getRuntime|ProcessBuilder|addJavascriptInterface|evaluateJavascript|loadUrl|XMLHttpRequest|WebSocket|EventSource|importScripts|fetch[[:space:]]*\(|new[[:space:]]+Worker|postMessage|eval[[:space:]]*\(|new[[:space:]]+Function|selfupdate|GitHub\(|gh\(\)|\.headers|Web\.|fetchText|toolCtx|engines\.|REQUEST_INSTALL|PackageInstaller|DexClassLoader|System\.loadLibrary|Class\.forName|reflect|Intent[[:space:]]*\(|startActivity|sendBroadcast|ContentResolver|loadClass|getDeclared(Field|Method|Constructor)|getMethod[[:space:]]*\(|getField[[:space:]]*\(|java\.io\.|(^|[^[:alnum:]_])File[[:space:]]*\(|java\.nio\.file|Files\.(write|read|copy|move|delete|new)|import[[:space:]]+[[:alnum:]_.]+[[:space:]]+as[[:space:]]|typealias|Policy|capKc|MAX_RUN_USD|approvePaid|paidHelps|airgap|consent|CostGuard|budget)'
-          body=$(printf '%s\n' "$D" | grep -E '^[-+]' | grep -vE '^(\+\+\+|---) ' || true)
+          # hlavičky (---/+++) jen mezi „diff --git“ a prvním @@ – uvnitř hunku je „+++ x“ přidaný řádek „++ x“ a kontroluje se
+          body=$(printf '%s\n' "$D" | awk '/^diff --git /{h=1; next} /^@@/{h=0; next} h{next} /^[-+]/{print}' || true)
           sens=$(printf '%s\n' "$body" | grep -iE "$SENS" || true)
           joined=$(printf '%s\n' "$body" | grep -E '^\+' | sed 's/^+//; s/^[[:space:]]*//; s/[[:space:]]*$//' | tr -d '\n' | grep -oiE "$SENS" || true)
           invis=$(printf '%s\n' "$body" | LC_ALL=C grep -P '\xE2\x80[\x8B-\x8F\xAA-\xAE]|\xE2\x81[\xA0-\xA9]|\xEF\xBB\xBF' || true)
