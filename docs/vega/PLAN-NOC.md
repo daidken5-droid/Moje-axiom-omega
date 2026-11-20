@@ -434,5 +434,27 @@ Každé kolo = kontrola, opravy s testy a aspoň jedno vylepšení, které uživ
 - [x] 45. Kolo 16: závěrečná kontrola celku a regrese, finální APK a shrnutí
   - Plný regresní běh testů (jádro + aplikace) zelený po každém kole; verze 1.6.0; shrnutí v docs/vega/README.md.
 
+
+## Kola 17+ – dokončení všeho, co zbylo (plán 20. 11. 2026, čas Praha)
+Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) vezme první nezaškrtnutý bod odsud. Po bodu 53 se vypne.
+
+| Čas | Bod |
+|---|---|
+| 13:10–14:00 | 46, 47 |
+| 14:00–15:00 | 48 |
+| 15:00–16:30 | 49, 50 |
+| 16:30–17:15 | 51 |
+| 17:15–18:00 | 52 |
+| 18:00–19:00 | 53 |
+
+- [ ] 46. UI bez zbytečných reloadů: zprávy chatu v paměti JS (`message` jen přidá uzel, `idle`/`done` jen odstraní „přemýšlím“), plný reload jen při přepnutí chatu. Měření v Chromiu před a po.
+- [ ] 47. Paměť příloh: strop součtu bajtů (150 MB, nejstarší ven), `dropAttachment` uvolní přílohu i v Kotlinu, `ByteArrayOutputStream` se známou velikostí; aktivita po zničení: `clearSink` + `web.destroy()`; delty na pozadí jen poslední.
+- [ ] 48. Úložiště: deník změn projektu ukládá obsahy nad 100 kB jako blob podle SHA (zpětně čitelný starý formát), `nextId` bez parsování; checkpoint běhu drží vstupní soubor jako odkaz, ne base64. Testy na starý i nový formát.
+- [ ] 49. Bezpečná instalace samoúpravy: APK v privátní složce, při instalaci znovu SHA-256 a stav READY; žádná sdílená složka výstupů.
+- [ ] 50. Navazující samoúpravy a návrat: úprava vychází z commitu nainstalované verze (pokud je to auto-větev, jinak z pracovní větve) a v diffu je uvedeno, proti čemu je; „Vrátit poslední úpravu“ = nový commit obsahu předchozí verze → nové sestavení s vyšším versionCode (bez odinstalace). Průběh po krocích v UI.
+- [ ] 51. Vlastní server: tlačítko „Vyzkoušet odpověď“ (krátký dotaz, změřená doba a rychlost), srozumitelné hlášky pro usnutý Space (probouzení 1–3 min), skript `deploy-hf.sh` pro nahrání do Space tvým tokenem (běží u tebe, token nikam neukládá).
+- [ ] 52. Síť: DNS rebinding – stahování přes ověřenou IP (připojení na IP z kontroly + SNI/Host), test se zlým resolverem.
+- [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
+
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
