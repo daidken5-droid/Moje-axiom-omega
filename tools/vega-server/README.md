@@ -35,6 +35,15 @@ Tvůj vlastní jazykový model: otevřený **Qwen3-4B-Instruct-2507** (licence A
    - Vygeneruješ je třeba příkazem `python3 -c "import secrets;print(secrets.token_urlsafe(32))"`.
 4. Počkej na stav **Running** a otevři **Logs**. Uvidíš tam blok **PÁROVACÍ KÓD PRO VEGA**.
 
+**Rychleji jedním příkazem** (u tebe na PC, token Write z huggingface.co → Settings → Access Tokens):
+
+```
+pip install huggingface_hub
+HF_TOKEN=hf_... python3 deploy_hf.py vega-server --new-key
+```
+
+Skript založí Space, nastaví nový VEGA_KEY (vypíše ho jednou) a nahraje soubory. Token nikam neukládá.
+
 ### B) Tvoje PC (Docker Desktop)
 
 ```
@@ -57,6 +66,11 @@ docker compose logs -f      # počkej na „listening“, nahoře je párovací 
 3. Volitelně zapni **Pouze vlastní modely**.
 
 Klíč v párovacím kódu záměrně **není**, protože kód je vidět v logu.
+
+Tlačítko **Vyzkoušet odpověď** pošle pevnou otázku („Jaké je hlavní město Česka?“, žádná tvoje data) a ukáže dobu a rychlost.
+
+- Když Space spí, VEGA napíše, že se probouzí. Zkus to za 1–3 minuty.
+- Špatný klíč, špatnou adresu (bez /v1) i nedostupný server VEGA pojmenuje.
 
 ## Výměna modelu
 

@@ -483,7 +483,16 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
     - CI hlídač takový commit propustí (ověřeno na dočasném gitu).
     - Vrací se k pracovní větvi bez všech samoúprav.
   - Průběh: stav + poznámka + odkaz na běh (kolo 15). Podrobnější kroky z CI NEUDĚLÁNO (token má jen čtení Actions, kroky by šlo číst – na později).
-- [ ] 51. Vlastní server: tlačítko „Vyzkoušet odpověď“ (krátký dotaz, změřená doba a rychlost), srozumitelné hlášky pro usnutý Space (probouzení 1–3 min), skript `deploy-hf.sh` pro nahrání do Space tvým tokenem (běží u tebe, token nikam neukládá).
+- [x] 51. Vlastní server: tlačítko „Vyzkoušet odpověď“ (krátký dotaz, změřená doba a rychlost), srozumitelné hlášky pro usnutý Space (probouzení 1–3 min), skript `deploy-hf.sh` pro nahrání do Space tvým tokenem (běží u tebe, token nikam neukládá).
+  - **Hotovo:**
+    - tlačítko „Vyzkoušet odpověď“ (pevná otázka, doba a tokeny/s);
+    - `Pairing.hint` pojmenuje špatný klíč (401/403), chybějící /v1 (404), usnutý nebo startující Space (502/503/504, HTML stránka, timeout), neznámou adresu a nedostupný server;
+    - `deploy_hf.py` založí Space, nastaví nový VEGA_KEY a nahraje soubory.
+  - **Ověřeno:**
+    - hlášky testem;
+    - skript nanečisto a bez tokenu;
+    - názvy parametrů huggingface_hub proti nainstalované knihovně.
+  - **NEOVĚŘENO:** skutečné nasazení (vyžaduje tvůj token).
 - [ ] 52. Síť: DNS rebinding – stahování přes ověřenou IP (připojení na IP z kontroly + SNI/Host), test se zlým resolverem.
 - [ ] 53. Red-team kontrola bodů 46–52 (nezávislý subagent), opravy nálezů, APK 1.7.0, shrnutí uživateli, vypnout automatické obnovení.
 

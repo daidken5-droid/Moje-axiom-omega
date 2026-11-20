@@ -25,6 +25,14 @@ class OwnServerTest {
             assertFailsWith<Exception>(bad) { Pairing.parse(bad) }
     }
 
+    @Test fun hintsExplainTypicalFailures() {
+        assertTrue(Pairing.hint(cz.axiom.vega.llm.EngineException("server HTTP 401: Invalid API Key")).contains("VEGA_KEY"))
+        assertTrue(Pairing.hint(cz.axiom.vega.llm.EngineException("server HTTP 503: <html>Space is building")).contains("probouzí"))
+        assertTrue(Pairing.hint(RuntimeException("x", java.net.SocketTimeoutException("read timed out"))).contains("probouzí"))
+        assertTrue(Pairing.hint(java.net.ConnectException("refused")).contains("Wi-Fi"))
+        assertTrue(Pairing.hint(cz.axiom.vega.llm.EngineException("server HTTP 404: not found")).contains("/v1"))
+    }
+
     /** Živý test: VEGA_OWN_URL=http://127.0.0.1:7860/v1 VEGA_OWN_KEY=… ./gradlew :vegacore:test --tests '*OwnServerTest*' */
     @Test fun liveServerAnswersInCzech() {
         val url = System.getenv("VEGA_OWN_URL") ?: return

@@ -13,6 +13,22 @@ import kotlinx.serialization.json.intOrNull
 object Pairing {
     data class Pair(val url: String, val model: String)
 
+    /** Srozumitelná hláška, proč vlastní server neodpověděl (usnutý Space, klíč, adresa, síť). */
+    fun hint(e: Throwable): String {
+        val chain = generateSequence(e) { it.cause }.toList()
+        val msg = chain.joinToString(" ") { it.message.orEmpty() }
+        val code = Regex("HTTP (\\d{3})").find(msg)?.groupValues?.get(1)?.toIntOrNull()
+        return when {
+            code == 401 || code == 403 -> "Server odmítl klíč – v poli Klíč serveru musí být přesně tvůj VEGA_KEY."
+            code == 404 -> "Na adrese není OpenAI API – zkontroluj, že adresa končí na /v1."
+            code in setOf(502, 503, 504) || msg.contains("<html", true) || chain.any { it is java.net.SocketTimeoutException } ->
+                "Server se probouzí nebo startuje (Hugging Face Space po nečinnosti 1–3 min, první stažení modelu i déle) – zkus to za chvíli."
+            chain.any { it is java.net.UnknownHostException } -> "Adresu serveru nejde najít – zkontroluj ji (u Hugging Face: https://jmeno-space.hf.space/v1)."
+            chain.any { it is java.net.ConnectException } -> "Server neběží nebo není v dosahu (doma: stejná Wi-Fi, správná IP a port 7860)."
+            else -> "Server neodpovídá: ${e.message?.substringBefore(" [{")?.take(140)}"
+        }
+    }
+
     fun parse(code: String): Pair {
         val raw = code.trim().replace(Regex("\\s+"), "")
         require(raw.startsWith("VEGA-PAIR:")) { "Tohle není párovací kód VEGA (začíná „VEGA-PAIR:“)." }

@@ -135,6 +135,17 @@ class Engines(private val settings: Settings, private val vault: Vault) {
 
     data class KeyCheck(val ok: Boolean, val message: String, val model: String?, val models: Int)
 
+    /** „Vyzkoušet odpověď“: krátký pevný dotaz (žádná tvoje data) na vlastní server – změřená doba a rychlost. */
+    fun testOwn(): KeyCheck = try {
+        require(ownConfigured()) { "Nejdřív zadej adresu serveru." }
+        val m = settings.model("own") ?: settings.ownModel.ifBlank { OpenAiEngine.listModels(settings.ownUrl, vault.read("own")).firstOrNull() ?: "default" }
+        val r = OpenAiEngine(settings.ownUrl, vault.read("own"), m, "own").generate(
+            listOf(cz.axiom.vega.llm.ChatMessage(cz.axiom.vega.llm.Role.SYSTEM, "Odpovídej česky, jednou krátkou větou."), cz.axiom.vega.llm.ChatMessage(cz.axiom.vega.llm.Role.USER, "Jaké je hlavní město Česka?")),
+            cz.axiom.vega.llm.GenOptions(maxTokens = 40, temperature = 0.2f), cz.axiom.vega.llm.CancelToken()) { }
+        val tps = r.outputTokens?.takeIf { it > 0 && r.millis > 0 }?.let { " · ${"%.1f".format(it * 1000.0 / r.millis)} tokenů/s" } ?: ""
+        KeyCheck(r.text.isNotBlank(), "Odpověď za ${"%.1f".format(r.millis / 1000.0)} s$tps: „${r.text.trim().take(120)}“", m, 0)
+    } catch (e: Exception) { KeyCheck(false, cz.axiom.vega.llm.Pairing.hint(e), null, 0) }
+
     /**
      * OVĚŘENÍ KLÍČE hned po uložení (bez útraty: jen seznam modelů): funguje? který model bude odpovídat?
      * U Gemini řekne, jestli klíč už má Gemini 4 Hydrogen (Google ho zpřístupňuje postupně).
@@ -146,7 +157,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
             val m = settings.ownModel.takeIf { it.isNotBlank() && list.any { x -> x.equals(it, true) } } ?: list.firstOrNull() ?: settings.ownModel
             settings.setModel("own", m)
             KeyCheck(true, "Vlastní server odpovídá · model $m (${list.size} v nabídce).", m, list.size)
-        } catch (e: Exception) { KeyCheck(false, "Server neodpovídá: ${e.message?.substringBefore(" [{")?.take(140)}", null, 0) }
+        } catch (e: Exception) { KeyCheck(false, cz.axiom.vega.llm.Pairing.hint(e), null, 0) }
         val key = vault.read(provider) ?: return KeyCheck(false, "Klíč není uložený.", null, 0)
         settings.countRequest(provider) // i výpis modelů je požadavek na API poskytovatele (počítadlo musí sedět)
         return try {

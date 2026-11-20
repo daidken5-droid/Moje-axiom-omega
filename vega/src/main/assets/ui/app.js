@@ -458,7 +458,7 @@ function settingsSheet() {
       <label class="lbl">Adresa serveru</label><input class="field" id="ownUrl" value="${esc(s.ownUrl || '')}" placeholder="http://192.168.1.20:8080/v1" inputmode="url" autocomplete="off">
       <label class="lbl">Model (prázdné = první, který server nabízí)</label><input class="field" id="ownModel" value="${esc(s.ownModel || '')}" placeholder="např. qwen2.5-7b-instruct" autocomplete="off">
       <label class="lbl">Klíč serveru (nepovinné)</label><input class="field" type="password" id="ownKey" placeholder="${s.ownKey ? 'uloženo – nový přepíše' : 'jen když ho server vyžaduje'}" autocomplete="off">
-      <button class="btn primary wide" data-act="saveOwn" style="margin-top:10px">Uložit a ověřit</button><div class="status" id="kc-own"></div></div>
+      <div class="inline" style="margin-top:10px"><button class="btn primary" data-act="saveOwn">Uložit a ověřit</button>${s.ownUrl ? '<button class="btn" data-act="testOwn">Vyzkoušet odpověď</button>' : ''}</div><div class="status" id="kc-own"></div></div>
     <label class="switch"><span><b>Pouze vlastní modely</b><small>celý požadavek jen na tvém serveru – žádné komerční API ani při výpadku</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
     <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}</p>
     <h3>Ověřovač citací</h3>
@@ -775,6 +775,7 @@ function act(a, d) {
     case 'profile': settingsSheet(); break;
     case 'saveOwn': saveOwn(); break;
     case 'pairOwn': pairOwn(); break;
+    case 'testOwn': { const st = $('#kc-own'); if (st) st.textContent = 'Ptám se serveru (u usnutého Space může první odpověď trvat i minuty)…'; call('testOwn'); break; }
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
     case 'stop': B.stop(); break;
     case 'plus': plusSheet(); break;
