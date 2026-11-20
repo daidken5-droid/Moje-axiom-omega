@@ -1437,7 +1437,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun verify(ws: Workspace): Workspace.Verification {
         if (CodeAgent.testPlan(ws) != "js") return ws.staticCheck()
         // soubory s klíči do testů nejdou (test by je mohl vypsat do výstupu, který čte model)
-        val js = JSONObject(); ws.files().filter { (it.endsWith(".js") || it.endsWith(".json")) && !Workspace.isSecret(it) }.forEach { js.put(it, ws.read(it)) }
+        val js = JSONObject(); ws.files().filter { (it.endsWith(".js") || it.endsWith(".json")) && !ws.isSecretFile(it) }.forEach { js.put(it, ws.read(it)) }
         val r = ask("jstest", JSONObject().put("files", js).put("timeoutMs", 10_000), 25, throwOnTimeout = false) // Stop → CancelledException, nic se nezapíše
         val out = r.optString("output").take(20_000).let { o -> Mem.looksSecret(o).let { if (it) o.replace(Regex("(?i)(gsk_|csk-|sk-|AIza|ghp_|xai-|ya29\\.)[A-Za-z0-9_.-]{8,}"), "[skryto]") else o } }
         val v = if (r.has("exitCode")) Workspace.Verification("run", "vega-test (WebView Worker, bez sítě, limit 10 s): " + r.optString("command", "*.test.js"), r.getInt("exitCode"), out, ws.revision())

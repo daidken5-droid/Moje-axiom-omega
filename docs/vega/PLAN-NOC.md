@@ -172,7 +172,26 @@ Další pravidla:
   - **Kdy se klíč smaže:** jen při AEADBadTag, KeyPermanentlyInvalidated nebo poškozeném Base64. KeyStore, Provider a Unrecoverable výjimky klíč nechají.
   - **Kontrola id projektu:** jedna funkce `validProjectId` pro most, `workspace()` i `activeWorkspace()`. Podvržené `../..` = žádný aktivní projekt.
   - **Testy:** VaultAndProjectIdTest (2 testy), celkem 51 + 25 zelené.
-- [ ] 20. Red-team kolo 4: Workspace / CodeAgent (zápisy souborů projektu, isSecret, diff/undo, ZIP export, limity velikosti)
+- [x] 20. Red-team kolo 4: Workspace / CodeAgent (zápisy souborů projektu, isSecret, diff/undo, ZIP export, limity velikosti)
+  - **Výsledek – VÁŽNÉ:** klíče služebního účtu Google / Firebase (`serviceAccountKey.json`, `client_secret_*.json`, `*-firebase-adminsdk-*.json`, `token.json`) prošly filtrem podle jména. V malém projektu tak šly celé do zadání modelu a do testů.
+    - Filtr jmen je rozšířený.
+    - Nově se kontroluje i OBSAH: privátní klíč, `private_key`, `client_secret`, `refresh_token` a vzory API klíčů. Platí pro kontext modelu, testy, export i konfiguraci.
+  - **Další opravy:**
+    - Obejití přes mezeru: `.env ` nebo ` .env` přes most vrátilo skutečný `.env`. Normalizace je teď stejná jako u cest.
+    - Diff se 3 000 změněnými řádky potřeboval asi 290 MB a shodil aplikaci. Nad 32 MB se ukáže „celý obsah nahrazen“.
+    - Úprava souboru ve windows-1250 by nevratně zničila diakritiku. Teď se odmítne s vysvětlením.
+    - CSV s uvozovkami uprostřed polí se zpracovávalo kvadraticky. Teď lineárně, s nejvýš 100 hlášeními.
+    - Soubor větší než limit zabral celý kontext modelu. Teď se vynechá.
+    - Souběžná ruční úprava a úprava agentem šly bez zámku, takže hrozila ztracená změna nebo duplicitní id. Teď zámek na projekt.
+    - Soubory s CRLF nešly upravit. Teď ano.
+    - Název projektu mohl v ZIPu vytvořit cestu `../`.
+  - **Testy:** WorkspaceScanTest (4 testy), celkem 55 + 25 zelené. Verze 1.4.2 (versionCode 8).
+  - **Ponecháno:** číslo `1,500` (americký zápis tisíců) se čte jako 1,5. Rozhodnutí podle celého sloupce je samostatná změna parseru.
+
+## Další kolo 5 (pro další probuzení)
+- [ ] 21. Doručit APK 1.4.2 (CI), SHA-256
+- [ ] 22. CzNum: desetinná čárka vs. americké tisíce rozhodnout podle celého sloupce (`1,500` vs. `1,5`) + testy
+- [ ] 23. CodeAgent: nespouštět úpravy uvnitř bloku `### NOVÝ` (dvojí aplikace) + test
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).

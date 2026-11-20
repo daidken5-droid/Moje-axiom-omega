@@ -12,6 +12,9 @@ import java.security.MessageDigest
  * deníku změn → návrat jedné změny nezničí jiné úpravy uživatele.
  */
 class Workspace(val root: File) {
+    private val lock: Any = LOCKS.computeIfAbsent(root.absolutePath) { Any() }
+    /** Tajný podle jména NEBO podle obsahu (prvních 64 kB) – do modelu, testů ani exportu nepatří. */
+    fun isSecretFile(p: String): Boolean = isSecret(p) || runCatching { file(p).let { f -> f.isFile && f.inputStream().use { s -> looksSecretContent(String(s.readNBytes(65_536), Charsets.UTF_8)) } } }.getOrDefault(false)
     val work = File(root, "work")
     private val base = File(root, "base")
     private val meta = File(root, "meta").apply { mkdirs() }
@@ -37,10 +40,11 @@ class Workspace(val root: File) {
     companion object {
         /** Soubory, které se nikdy nečtou do kontextu modelu (klíče, osobní data). */
         /** Kontroluj vždy NORMALIZOVANOU cestu ([isSecret]) – „.env/“ nebo „cfg\\.env“ by surový výraz obešly. */
-        val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|pfx|jks|keystore|ovpn)|id_(rsa|ed25519|ecdsa|dsa).*|secrets?\\.(json|ya?ml|properties|toml)|.*credentials.*\\.json|service-account.*\\.json|google-services\\.json|GoogleService-Info\\.plist|local\\.properties|keystore\\.properties|gradle\\.properties|\\.npmrc|\\.netrc|\\.pypirc|\\.git-credentials|\\.htpasswd)$", RegexOption.IGNORE_CASE)
+        val SECRET = Regex("(^|/)(\\.env(\\..*)?|.*\\.(pem|key|p12|pfx|jks|keystore|ovpn)|id_(rsa|ed25519|ecdsa|dsa).*|secrets?\\.(json|ya?ml|properties|toml)|.*credentials.*\\.json|.*service[-_.]?account.*\\.json|client_secret.*\\.json|.*firebase-adminsdk.*\\.json|token\\.json|google-services\\.json|GoogleService-Info\\.plist|local\\.properties|keystore\\.properties|gradle\\.properties|\\.npmrc|\\.netrc|\\.pypirc|\\.git-credentials|\\.htpasswd)$", RegexOption.IGNORE_CASE)
 
         fun isSecret(path: String): Boolean {
-            val n = path.replace('\\', '/').split('/').filter { it.isNotEmpty() && it != "." }.joinToString("/")
+            // stejná normalizace jako safe() (i ořezání mezer): „.env “ musí být tajné stejně jako „.env“
+            val n = path.replace('\\', '/').split('/').map { it.trim() }.filter { it.isNotEmpty() && it != "." }.joinToString("/")
             return SECRET.containsMatchIn(n) || SECRET.containsMatchIn(path)
         }
         private val SKIP = Regex("(^|/)(\\.git|node_modules|build|\\.gradle|dist|__pycache__|\\.idea)(/|$)")
@@ -54,6 +58,12 @@ class Workspace(val root: File) {
             files.forEach { (p, b) -> val safe = w.safe(p); if (!SKIP.containsMatchIn(safe) && b.size <= MAX_FILE) { File(w.work, safe).apply { parentFile.mkdirs() }.writeBytes(b); File(w.base, safe).apply { parentFile.mkdirs() }.writeBytes(b) } }
             return w
         }
+
+        /** Obsah, který vypadá jako klíč (privátní klíč, JSON služebního účtu, API klíče) – i když jméno souboru nevadí. */
+        private val SECRET_CONTENT = Regex("-----BEGIN [A-Z ]*PRIVATE KEY-----|\"private_key\"\\s*:|\"client_secret\"\\s*:|\"refresh_token\"\\s*:")
+        fun looksSecretContent(s: String) = SECRET_CONTENT.containsMatchIn(s) || Mem.looksSecret(s)
+        /** Zámek na projekt napříč instancemi (most i výkonné vlákno vytvářejí vlastní Workspace). */
+        private val LOCKS = java.util.concurrent.ConcurrentHashMap<String, Any>()
 
         fun sha(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
     }
@@ -89,23 +99,32 @@ class Workspace(val root: File) {
     }
 
     /** Zapíše celý soubor. [expectedHash] = otisk, který viděl ten, kdo změnu navrhl (null = nový soubor). */
-    fun write(p: String, content: String, expectedHash: String?, note: String = ""): Change {
+    fun write(p: String, content: String, expectedHash: String?, note: String = ""): Change = synchronized(lock) {
         val f = file(p)
         val cur = hash(p)
         if (cur != expectedHash) throw Conflict(if (cur == null) "Soubor $p mezitím zmizel." else if (expectedHash == null) "Soubor $p už existuje – načti ho a navrhni úpravu." else "Soubor $p se mezitím změnil (jiná úprava) – načítám znovu, nic nepřepisuji.")
+        if (f.exists()) requireUtf8(f, p)
         val before = if (f.exists()) f.readText() else null
         atomicWrite(f, content)
         return Change(nextId(), safe(p), if (before == null) "create" else "write", before, content, note = note).also { log(it) }
     }
 
+    /** Soubor v jiném kódování (např. windows-1250) by úprava přes UTF-8 nevratně poškodila (diakritika → �). */
+    private fun requireUtf8(f: File, p: String) { if (!Encoding.isUtf8(f.readBytes())) throw Conflict("Soubor $p není v UTF-8 (nejspíš windows-1250) – neupravuji ho, poškodila by se diakritika. Převeď ho na UTF-8.") }
+
     /**
      * PŘESNÁ ÚPRAVA: nahradí jediný výskyt [search]. Víc výskytů nebo žádný → chyba (žádné hádání).
      * Zbytek souboru – včetně nesouvisejících úprav uživatele – zůstane beze změny.
      */
-    fun patch(p: String, search: String, replace: String, expectedHash: String? = null, note: String = ""): Change {
+    fun patch(p: String, search0: String, replace0: String, expectedHash: String? = null, note: String = ""): Change = synchronized(lock) {
         val f = file(p)
         require(f.exists()) { "Soubor $p neexistuje" }
+        requireUtf8(f, p)
         val cur = f.readText()
+        // soubor s CRLF: model vrací úsek s \n → porovnat ve stejných koncích řádků
+        val crlf = cur.contains("\r\n") && !search0.contains("\r\n")
+        val search = if (crlf) search0.replace("\n", "\r\n") else search0
+        val replace = if (crlf) replace0.replace("\r\n", "\n").replace("\n", "\r\n") else replace0
         if (expectedHash != null && sha(cur.toByteArray()) != expectedHash) {
             // soubor se změnil, ale hledaný úsek je stále jednoznačný → úprava je bezpečná (jiná změna jinde)
             if (Regex.escape(search).toRegex().findAll(cur).count() != 1) throw Conflict("Soubor $p se mezitím změnil a upravovaný úsek už nesedí.")
@@ -120,7 +139,7 @@ class Workspace(val root: File) {
 
     private fun countOf(s: String, sub: String): Int { if (sub.isEmpty()) return 0; var i = 0; var n = 0; while (true) { i = s.indexOf(sub, i); if (i < 0) return n; n++; i += sub.length } }
 
-    fun delete(p: String, expectedHash: String?): Change {
+    fun delete(p: String, expectedHash: String?): Change = synchronized(lock) {
         val f = file(p); val cur = hash(p) ?: throw Conflict("Soubor $p neexistuje")
         if (expectedHash != null && cur != expectedHash) throw Conflict("Soubor $p se mezitím změnil.")
         val before = f.readText(); f.delete()
@@ -131,7 +150,8 @@ class Workspace(val root: File) {
      * NÁVRAT ZMĚNY: vrátí změnu [id] tak, aby ostatní úpravy zůstaly. Přesná úprava se vrací obráceně (replace → search)
      * jen v jejím úseku; celý zápis jen tehdy, když soubor od té doby nikdo nezměnil.
      */
-    fun undo(id: Int? = null): Change {
+    fun undo(id: Int? = null): Change = synchronized(lock) { undo0(id) }
+    private fun undo0(id: Int?): Change {
         val all = changes()
         val c = (if (id == null) all.lastOrNull { !it.op.startsWith("undo") && all.none { u -> u.op == "undo#${it.id}" } } else all.firstOrNull { it.id == id }) ?: throw Conflict("Není co vrátit.")
         if (c.op.startsWith("undo") || all.any { it.op == "undo#${c.id}" }) throw Conflict("Změna #${c.id} už je vrácená.")
@@ -193,14 +213,14 @@ class Workspace(val root: File) {
 
     /** Konfigurace projektu (build, balíčky) – nikdy soubory s klíči. */
     fun config(): Map<String, String> = files().filter { p ->
-        !isSecret(p) && p.substringAfterLast('/') in setOf("package.json", "build.gradle", "build.gradle.kts", "settings.gradle.kts", "pyproject.toml", "requirements.txt", "tsconfig.json", "Cargo.toml", "go.mod", "pom.xml", "vega.json")
+        !isSecretFile(p) && p.substringAfterLast('/') in setOf("package.json", "build.gradle", "build.gradle.kts", "settings.gradle.kts", "pyproject.toml", "requirements.txt", "tsconfig.json", "Cargo.toml", "go.mod", "pom.xml", "vega.json")
     }.associateWith { read(it).take(8_000) }
 
     /** Soubory relevantní k zadání (jména symbolů/souborů ve větě) – pro kontext modelu, v limitu znaků. */
     fun relevant(task: String, maxChars: Int = 24_000): List<String> {
         val words = cz.axiom.vega.base.Text.words(task, 3).map { it.lowercase() }.toSet()
         val syms = symbols()
-        val scored = files().filter { !isSecret(it) && it.substringAfterLast('.').lowercase() in TEXT_EXT }.map { p ->
+        val scored = files().filter { !isSecretFile(it) && it.substringAfterLast('.').lowercase() in TEXT_EXT && file(it).length() <= maxChars }.map { p ->
             val n = p.lowercase()
             var s = words.count { n.contains(it) } * 5
             s += syms.count { it.path == p && it.name.lowercase() in words } * 4
@@ -216,7 +236,8 @@ class Workspace(val root: File) {
     fun exportZip(): ByteArray {
         val o = java.io.ByteArrayOutputStream()
         // soubory s klíči do exportu (veřejné Stažené) nepatří
-        java.util.zip.ZipOutputStream(o).use { z -> files().filter { !isSecret(it) }.forEach { p -> z.putNextEntry(java.util.zip.ZipEntry("$name/$p")); z.write(file(p).readBytes()); z.closeEntry() } }
+        val dir = name.replace(Regex("[^\\p{L}\\p{Nd} ._-]"), "_").replace(Regex("\\.{2,}"), "_").trim('.', ' ').ifBlank { "projekt" } // název nesmí udělat „../“ v ZIPu
+        java.util.zip.ZipOutputStream(o).use { z -> files().filter { !isSecretFile(it) }.forEach { p -> z.putNextEntry(java.util.zip.ZipEntry("$dir/$p")); z.write(file(p).readBytes()); z.closeEntry() } }
         return o.toByteArray()
     }
 

@@ -37,7 +37,10 @@ object Diff {
         val v = IntArray(2 * max + 2)
         val trace = ArrayList<IntArray>()
         var found = false
+        // paměť stopy roste s D·(N+M): nad ~32 MB raději „celý obsah nahrazen“ než pád aplikace
+        val cap = 8_000_000L
         for (d in 0..max) {
+            if ((d + 1).toLong() * v.size > cap) return List(n) { '-' } + List(m) { '+' }
             trace += v.copyOf()
             var k = -d
             while (k <= d) {

@@ -32,6 +32,9 @@ object Csv {
         var start = 1
         var i = 0
         var quotedField = false
+        // řádek pro hlášení: z předpočítaných začátků řádků (ne opakované procházení textu = kvadratická složitost) a max. 100 hlášení
+        val starts by lazy { val l = ArrayList<Int>(); l += 0; text.forEachIndexed { j, ch -> if (ch == '\n') l += j + 1 }; l }
+        fun lineAt(n: Int): String { if ((issues?.size ?: 0) >= 100) return ""; val st = starts.getOrNull(n - 1) ?: return ""; val e = text.indexOf('\n', st).let { if (it < 0) text.length else it }; return text.substring(st, e).trimEnd('\r') }
         while (i < text.length) {
             val c = text[i]
             if (inQ) {
@@ -40,7 +43,7 @@ object Csv {
                 } else { if (c == '\n') line++; field.append(c) }
             } else when {
                 c == '"' && field.isEmpty() && !quotedField -> { inQ = true; quotedField = true }
-                c == '"' -> { field.append(c); issues?.add(Issue(line, "uvozovka uprostřed pole (neuzavřené nebo chybně escapované uvozovky)", text.lineSequence().drop(line - 1).firstOrNull() ?: "")) }
+                c == '"' -> { field.append(c); if ((issues?.size ?: 0) < 100) issues?.add(Issue(line, "uvozovka uprostřed pole (neuzavřené nebo chybně escapované uvozovky)", lineAt(line))) }
                 c == d -> { row.add(field.toString()); field = StringBuilder(); quotedField = false }
                 c == '\r' -> {}
                 c == '\n' -> {
@@ -52,7 +55,7 @@ object Csv {
             }
             i++
         }
-        if (inQ) issues?.add(Issue(start, "neuzavřené uvozovky až do konce souboru", text.lineSequence().drop(start - 1).firstOrNull() ?: ""))
+        if (inQ) issues?.add(Issue(start, "neuzavřené uvozovky až do konce souboru", lineAt(start)))
         if (field.isNotEmpty() || row.isNotEmpty()) { row.add(field.toString()); if (!(row.size == 1 && row[0].isEmpty())) out += start to row }
         return out
     }
