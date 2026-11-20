@@ -255,6 +255,16 @@ function renderChips() {
   go.setAttribute('aria-label', S.busy ? 'Zastavit' : empty ? 'Mluvit' : 'Odeslat');
   $('#input').placeholder = S.tool ? ((S.tool.input || []).includes('URL') ? 'Vlož adresu…' : 'Vlož text nebo přilož soubor…') : S.space.kind === 'project' ? 'Co se má v projektu udělat?' : 'Zeptej se VEGA';
 }
+/** Domů = úvodní obrazovka s pozdravem. Když je nejnovější chat prázdný, použije ho (nehromadí prázdné chaty), jinak založí nový. */
+function goHome() {
+  closeSheet(true); S.tool = null; S.toolInput = null;
+  if (S.space.kind === 'chat' && S.space.id && !(call('messages', S.space.id) || []).length) { render(); const i = $('#input'); if (i) i.focus(); return; }
+  const cs = call('chats') || [];
+  const empty = cs.find(c => !(call('messages', c.id) || []).length);
+  setSpace({ kind: 'chat', id: empty ? empty.id : call('newChat'), name: 'Konverzace' });
+  const i = $('#input'); if (i) i.focus();
+}
+
 function renderTop() {
   const h = S.home || call('home') || {};
   $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name : 'VEGA';
@@ -892,6 +902,7 @@ function act(a, d) {
     case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.', extPropose: 'Píšu rozšíření v novém projektu – až testy projdou, napiš „ulož jako rozšíření“.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
     case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
+    case 'home': goHome(); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;
     case 'openChat': setSpace({ kind: 'chat', id: d.id, name: 'Konverzace' }); break;
     case 'newProject': { const name = ($('#pname') || {}).value || 'Nový projekt'; const id = call('newProject', name); if (id) setSpace({ kind: 'project', id, name }); break; }
