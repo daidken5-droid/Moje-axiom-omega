@@ -98,3 +98,15 @@ class Round5Test {
         assertEquals(1, m.forget("středník", "project:a").size)
     }
 }
+
+class Round5bTest {
+    @Test fun econRoundingAndSentenceSplitterSpeed() {
+        val r = Econ.unitAnswer(Econ.Unit(0.3, 0.1, 1000.0, 5000.0))!!
+        assertTrue(r.text.contains("nulový zisk") && r.text.contains("≥"), r.text)
+        assertFalse(r.text.contains("první celý kus"), "přesný bod zvratu bez falešného zbytku: ${r.text}")
+        val long = "a.".repeat(40_000)
+        val t0 = System.currentTimeMillis(); Grounding.sentences(long)
+        assertTrue(System.currentTimeMillis() - t0 < 3_000, "dělič vět nesmí být kvadratický")
+        assertEquals(listOf("Platí to [1].", "Další věta [2][3]."), Grounding.sentences("Platí to [1]. Další věta [2][3]."))
+    }
+}

@@ -506,7 +506,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             is Router.Intent.FixColumn -> fixColumn(chatId, intent)
             is Router.Intent.Hypothesis -> hypothesis(chatId, intent.text)
             is Router.Intent.CompareFiles -> compareStart(chatId, msgAtt)
-            is Router.Intent.Forget -> { val f = memory.forget(intent.query, ws?.let { "project:${it.root.name}" }); reply(chatId, if (f.isEmpty()) "Nic takového si nepamatuji." else "Zapomenuto (i z indexu, ze shrnutí se to nevrátí):\n" + f.joinToString("\n") { "• ${it.text}" }) }
+            is Router.Intent.Forget -> forgetCmd(chatId, intent.query, ws)
             Router.Intent.WhatDoYouRemember -> reply(chatId, memory.explain(ws?.let { "project:${it.root.name}" }), JSONObject().put("type", "memory"))
             is Router.Intent.Tool -> toolFromChat(chatId, intent, text)
             Router.Intent.BuildStatementTool -> buildStatementTool(chatId)
@@ -1175,6 +1175,23 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             exportChat(chat, lastResultRun!!); return true
         }
         return false
+    }
+
+    /** Zapomenutí bez kopií: text se neopakuje, z historie chatu (kontext modelu) se vyřadí, navázaná kalkulace se smaže. */
+    private fun forgetCmd(chat: String?, query: String, ws: Workspace?) {
+        val f = memory.forget(query, ws?.let { "project:${it.root.name}" })
+        if (f.isEmpty()) { reply(chat, "Nic takového si nepamatuji."); return }
+        val ids = f.map { it.id }.toSet()
+        kv.keys("econ/").filter { it.endsWith(".mem") && kv.read(it)?.trim() in ids }.forEach { k -> kv.delete(k); kv.delete(k.removeSuffix(".mem")) }
+        val texts = f.map { cz.axiom.vega.base.Text.fold(it.text).lowercase() }.filter { it.length >= 4 }
+        if (chat != null) synchronized(this) {
+            val arr = messages(chat); var changed = false
+            for (i in 0 until arr.length()) { val m = arr.getJSONObject(i); val t = cz.axiom.vega.base.Text.fold(m.optString("text")).lowercase()
+                if (texts.any { t.contains(it) }) { m.put("text", "[zapomenuto]"); changed = true } }
+            if (changed) kv.write(chatKey(chat), arr.toString())
+        }
+        reply(chat, "Zapomenuto: ${f.size} ${if (f.size == 1) "záznam" else if (f.size < 5) "záznamy" else "záznamů"} – i z indexu a z historie tohoto chatu; ze shrnutí se nevrátí" +
+            (if (f.size > 1) ". Co si pamatuji dál, najdeš v Paměti." else "."))
     }
 
     private fun saveEcon(scope: String, u: cz.axiom.vega.core.Econ.Unit) {

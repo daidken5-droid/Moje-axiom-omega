@@ -24,6 +24,13 @@ object Grounding {
     private val causal = Regex("(?i),?\\s+(protože|neboť|jelikož|aby|kvůli tomu, že|kvůli|z důvodu|za účelem)\\s+")
     private val ABBR = setOf("např", "tzv", "tj", "č", "str", "resp", "mj", "apod", "atd", "aj", "př", "sv", "ing", "mgr", "dr", "prof", "p", "s", "r", "o", "vč", "cca", "max", "min", "mil", "mld", "tis", "kč", "e", "g", "i", "vs", "jr", "st", "no", "fig", "etc")
 
+    /** Délka „ [12]“ začínajícího přesně na [j] (mezery + 1–2 číslice v hranatých závorkách), jinak 0. */
+    private fun citeAt(t: String, j: Int): Int {
+        var k = j; while (k < t.length && t[k].isWhitespace() && t[k] != '\n') k++
+        if (k >= t.length || t[k] != '[') return 0
+        var d = k + 1; while (d < t.length && d - k <= 2 && t[d].isDigit()) d++
+        return if (d > k + 1 && d < t.length && t[d] == ']') d + 1 - j else 0
+    }
     /** Věty: konec jen na . ! ? následované velkým písmenem / koncem; citace [n] hned za tečkou patří k předchozí větě. */
     fun sentences(text: String): List<String> {
         val t = text.replace(Regex("\\*\\*|__|`"), "")
@@ -33,9 +40,10 @@ object Grounding {
             if (ch == '\n') { if (i > start) out += t.substring(start, i); start = i + 1; i++; continue }
             if (ch == '.' || ch == '!' || ch == '?') {
                 var j = i + 1
-                while (true) { val m = Regex("^\\s*\\[\\d{1,2}]").find(t.substring(j)) ?: break; j += m.value.length }  // [n] za tečkou → patří sem
+                while (true) { val n = citeAt(t, j); if (n == 0) break; j += n }  // [n] za tečkou → patří sem (kontrola jen na místě, lineárně)
                 var k = j; while (k < t.length && t[k] == ' ') k++
-                val word = Regex("([\\p{L}\\d]+)$").find(t.substring(start, i))?.groupValues?.get(1).orEmpty()
+                var w0 = i; while (w0 > start && t[w0 - 1].isLetterOrDigit()) w0--
+                val word = t.substring(w0, i)
                 val nextUpper = k >= t.length || t[k] == '\n' || t[k].isUpperCase() || t[k] == '„' || t[k] == '"'
                 val domain = ch == '.' && k == i + 1 && i + 1 < t.length && t[i + 1].isLetterOrDigit()
                 val ordinal = ch == '.' && word.all { it.isDigit() } && word.isNotEmpty() && !(k < t.length && t[k].isUpperCase() && word.length > 2)
@@ -172,17 +180,21 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker, java.io.Closeabl
     }
 
     /** Okno pasáže: celé, když se vejde; jinak věty s největším překryvem s tvrzením. Klíčové údaje tvrzení musí zůstat. */
-    private fun window(claim: String, passage: String, maxTok: Int): Triple<String, Int, Int> {
+    private data class Win(val text: String, val start: Int, val end: Int, val droppedRisk: Boolean = false)
+    private val NEG = Regex("(?<!\\p{L})(ne\\p{L}*|nikdy|zadn\\p{L}*|popřel\\p{L}*|popiral\\p{L}*|vyvrátil\\p{L}*|vyvratil\\p{L}*|not|never|no|denied|false)(?!\\p{L})", RegexOption.IGNORE_CASE)
+    private fun window(claim: String, passage: String, maxTok: Int): Win {
         val t = tok!!; val budget = maxTok - 4 - t.tokenize(claim).size
-        if (t.tokenize(passage).size <= budget) return Triple(passage, 0, passage.length)
+        if (t.tokenize(passage).size <= budget) return Win(passage, 0, passage.length)
         val sents = Regex("[^.!?]+[.!?]?").findAll(passage).toList()
         val cw = words(claim)
         val ranked = sents.indices.sortedByDescending { i -> words(sents[i].value).intersect(cw).size }
         val pick = sortedSetOf<Int>(); var used = 0
         for (i in ranked) { val n = t.tokenize(sents[i].value).size; if (used + n > budget) continue; pick += i; used += n }
-        if (pick.isEmpty()) return Triple(passage, 0, passage.length)
+        if (pick.isEmpty()) return Win(passage, 0, passage.length)
         val s = sents[pick.first()].range.first; val e = sents[pick.last()].range.last + 1
-        return Triple(pick.joinToString(" ") { sents[it].value.trim() }, s, e)
+        // vynechaná věta s negací a se slovy tvrzení může výrok popírat → bez ní nelze poctivě říct PODPORUJE
+        val risk = sents.indices.any { it !in pick && NEG.containsMatchIn(sents[it].value) && words(sents[it].value).intersect(cw).size >= 2 }
+        return Win(pick.joinToString(" ") { sents[it].value.trim() }, s, e, risk)
     }
     private fun words(s: String) = Regex("[\\p{L}\\d]{3,}").findAll(s.lowercase()).map { it.value.take(5) }.toSet()
     /** Údaje, bez kterých nejde rozhodnout: čísla a vlastní jména (velké písmeno uprostřed věty). */
@@ -192,8 +204,9 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker, java.io.Closeabl
         val s = session ?: return Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = status)
         val m = manifest!!
         return try {
-            val (win, ws, we) = window(claim, passage, m.maxLen)
+            val wv = window(claim, passage, m.maxLen); val win = wv.text; val ws = wv.start; val we = wv.end
             val (ids, cut) = tok!!.encodePair(win, claim, m.maxLen)
+            if (wv.droppedRisk) return Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = "mimo okno modelu zůstala věta, která tvrzení může popírat", windowStart = ws, windowEnd = we)
             if (cut || win.length < passage.length && keyFacts(passage).let { kf -> keyFacts(claim).any { f -> f in kf && !win.lowercase().contains(f) } })
                 return Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = "rozhodující kontext se nevešel do okna modelu (${m.maxLen} tokenů)", windowStart = ws, windowEnd = we)
             val shape = longArrayOf(1, ids.size.toLong())

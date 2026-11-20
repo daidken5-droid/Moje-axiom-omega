@@ -25,8 +25,8 @@ android {
         applicationId = "cz.axiom.vega"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.4.4"
+        versionCode = 11
+        versionName = "1.4.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Pixel 9a = arm64; x86_64 jen pro emulátor (debug). Ušetří ~25 MB nativních knihoven OCR.
         ndk { abiFilters += listOf("arm64-v8a") }

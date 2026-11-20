@@ -55,7 +55,9 @@ object Econ {
         if (!u.complete) return null
         val price = u.price!!; val variable = u.variable!!; val fixed = u.fixed!!
         if (price < 0 || variable < 0 || fixed < 0 || (u.qty ?: 0.0) < 0) return UnitResult(Double.NaN, 0.0, null, "Cena, náklady i počet kusů musí být nezáporné – zkontroluj zadání.")
-        val c = price - variable
+        // haléře: 0,3 − 0,1 = 0,19999… by jinak dalo „<“ u nulového zisku a falešný „zbytek“ u bodu zvratu
+        fun r2(x: Double) = Math.round(x * 100) / 100.0
+        val c = r2(price - variable)
         val bep = if (c > 0) (if (fixed > 0) maxOf(1.0, kotlin.math.ceil(fixed / c - 1e-9)) else 0.0) else null
         val q = u.qty
         val sb = StringBuilder()
@@ -66,11 +68,11 @@ object Econ {
             sb.append("Při ${plainKc(q)} kusech máš $word").append(if (wrong) (if (claim == 1) " – nejsi v plusu." else " – nejsi ve ztrátě.") else ".")
             if (insisting) sb.append(" Bez nových čísel výsledek platí; změní ho jen jiná cena, jiné náklady nebo jiný počet kusů.")
             sb.append(" Každý kus přispěje ${kc(c)} na fixní náklady (${plainKc(price)} − ${plainKc(variable)}); ${plainKc(q)} × ${plainKc(c)} = ${kc(q * c)} ")
-            sb.append(if (q * c >= fixed) "≥" else "<").append(" fixní náklady ${kc(fixed)}.")
+            sb.append(if (r2(q * c) >= r2(fixed)) "≥" else "<").append(" fixní náklady ${kc(fixed)}.")
         } else sb.append("Každý kus přispěje ${kc(c)} na fixní náklady ${kc(fixed)}.")
         when {
             bep == null -> sb.append(" Cena nepokryje ani variabilní náklad – bod zvratu neexistuje.")
-            else -> sb.append(" Bod zvratu je ${plainKc(bep)} kusů").append(if (fixed % c != 0.0) " (${plainKc(fixed / c)} → první celý kus v plusu)." else ".")
+            else -> sb.append(" Bod zvratu je ${plainKc(bep)} kusů").append(if (kotlin.math.abs(fixed / c - Math.rint(fixed / c)) > 1e-9) " (${plainKc(fixed / c)} → první celý kus v plusu)." else ".")
         }
         return UnitResult(profit, c, bep, sb.toString())
     }

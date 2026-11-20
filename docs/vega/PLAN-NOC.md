@@ -220,12 +220,19 @@ Další pravidla:
 
 ## Další kolo 7 (pro další probuzení)
 - [ ] 26. Doručit APK 1.4.4 (CI), SHA-256
-- [ ] 27. Zbytek kola 5:
+- [x] 27. Zbytek kola 5:
   - po zapomenutí nenechat kopii v historii chatu (neopakovat zapomenutý text, vyřadit ho z kontextu modelu);
   - smazat navázané `econ` / `tariff`;
   - Grounding: když okno vynechá větu s negací nebo s obsahovými slovy tvrzení, vrátit NEVYHODNOCENO;
   - dělič vět nesmí být kvadratický;
   - Econ: porovnávat zaokrouhlené hodnoty.
+  - **Výsledek:**
+    - Zapomenutí zapomenutý text neopakuje a v historii chatu (kontext modelu) ho nahradí „[zapomenuto]“. Navázaná kalkulace (`econ/*.json`) se smaže.
+    - Ověřovač: když mimo okno modelu zůstane věta s negací a aspoň 2 slovy tvrzení, výsledek je NEVYHODNOCENO, ne PODPORUJE.
+    - Dělič vět je lineární: dřív kopíroval zbytek textu a pak ho prohledával u každé tečky, teď 80 000 teček pod 3 s.
+    - Econ počítá v haléřích: 0,3 − 0,1 už nedá „<“ u nulového zisku ani falešný zbytek u bodu zvratu.
+  - **Testy:** Round5bTest prošel, celkem 61 + 25 zelené. Verze 1.4.5 (versionCode 11).
+  - **NEOVĚŘENO:** okno ověřovače s modelem, protože skutečný model v testech nemám (logika je pokrytá jen čtením kódu).
 
 ## Problémy
 - DNS rebinding: Http ověří adresy jména, ale HttpURLConnection jméno překládá znovu (TOCTOU). Plné řešení = připojení na ověřenou IP s SNI; zatím nízké riziko (útočník musí ovládat DNS a VEGA musí stáhnout jeho stránku).
