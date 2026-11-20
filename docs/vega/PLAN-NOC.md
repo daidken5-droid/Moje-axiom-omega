@@ -236,7 +236,25 @@ Další pravidla:
   - **NEOVĚŘENO:** okno ověřovače s modelem, protože skutečný model v testech nemám (logika je pokrytá jen čtením kódu).
 
 ## Další kolo 8 (pro další probuzení)
-- [ ] 28. Red-team kolo 6: Router + Statement + Procedure Runner (záměry na okrajových větách, zpracování výpisů různých bank, ukládané postupy)
+- [x] 28. Red-team kolo 6: Router + Statement + Procedure Runner (záměry na okrajových větách, zpracování výpisů různých bank, ukládané postupy)
+  - **Výsledek – TIŠE ŠPATNÉ SOUČTY, opraveno:**
+    - Uložený postup na souboru se změněnou hlavičkou četl ze staré pozice třeba zůstatek. Teď se postup zastaví s vysvětlením.
+    - Různé měny se sčítaly dohromady (−100 EUR + −2 000 CZK = −2 100). Teď jsou součty po měnách, hlavní měna zvlášť a měsíce po měnách.
+    - Stejný soubor dvakrát v porovnání zdvojil CELKEM. Teď se počítá podle otisku jen jednou.
+    - KB: „Originální měna“ se brala jako měna účtu.
+  - **Router a postupy:**
+    - „porovnej ceny elektřiny“ se už nespouští jako porovnání textů;
+    - „hashtag“ už nespustí kontrolní součet;
+    - „cenový štítek“ už nespustí NFC;
+    - „Zpět k receptu“ už nevrací změnu;
+    - „případ“ / „padesát“ už není „pád“;
+    - uložené postupy se hledají podle celých slov („fakt dobrý nápad“ ≠ „Faktury“, „nezpracovávej“ ≠ „zpracovat“).
+  - **Další opravy:**
+    - Kontrolní součet bez souboru se zeptá na soubor (dřív hlásil „soubor se liší“).
+    - Regex rozboru pádu přetékal zásobník a Runner teď chytá i Error.
+    - Tlačítko s výchozím názvem přepsalo cizí postup. Teď dostane nový název.
+    - Nový je návrat postupu na předchozí verzi (`ProcedureStore.revert`).
+  - **Testy:** Round6Test (4 testy), celkem 66 + 25 zelené. Verze 1.4.6 (versionCode 12).
 - [x] 29. Ranní shrnutí noci pro uživatele v `docs/vega/README.md` (všechny verze 1.4.0–1.4.x, co je NEOVĚŘENO na telefonu, co čeká na rozhodnutí)
   - **Výsledek:** tabulka verzí s otisky, seznam toho, co je NEOVĚŘENO na telefonu, a otevřená rozhodnutí na začátku README.
 

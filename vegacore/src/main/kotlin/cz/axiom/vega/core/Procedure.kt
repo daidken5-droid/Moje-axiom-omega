@@ -91,11 +91,24 @@ class ProcedureStore(private val kv: Kv) {
 
     /** Postup podle slov v chatu („zpracuj výpis“ → „Zpracovat výpis“). */
     fun find(text: String): Procedure? {
-        val f = cz.axiom.vega.base.Text.fold(text).lowercase()
+        // celá slova (shodný začátek slova, ne podřetězec): „fakt dobrý nápad“ ≠ „Faktury“, „nezpracovávej“ ≠ „zpracovat“
+        val tw = cz.axiom.vega.base.Text.words(cz.axiom.vega.base.Text.fold(text).lowercase(), 3)
         return list().firstOrNull { p ->
-            val words = cz.axiom.vega.base.Text.fold(p.name).lowercase().split(' ').filter { it.length >= 3 }
-            words.isNotEmpty() && words.all { w -> f.contains(w.take(minOf(w.length, maxOf(4, w.length - 4)))) }
+            val words = cz.axiom.vega.base.Text.words(cz.axiom.vega.base.Text.fold(p.name).lowercase(), 3)
+            fun hit(w: String) = tw.any { x -> val k = maxOf(5, minOf(w.length, x.length) - 3).coerceAtMost(w.length); x.length >= k && w.length >= k && x.take(k) == w.take(k) }
+            words.isNotEmpty() && (words.size >= 2 || tw.size <= 6) && words.all { hit(it) }
         }
+    }
+
+    /** Návrat na předchozí uloženou verzi postupu (historie proc-hist); vrátí obnovenou verzi s novým číslem. */
+    fun revert(id: String): Procedure? {
+        val cur = get(id) ?: return null
+        val prevKey = kv.keys("proc-hist/$id/").maxByOrNull { it.substringAfterLast('/').toIntOrNull() ?: 0 } ?: return null
+        val prev = runCatching { json.decodeFromString(Procedure.serializer(), kv.read(prevKey)!!) }.getOrNull() ?: return null
+        kv.write("proc-hist/$id/${cur.version}", json.encodeToString(Procedure.serializer(), cur))
+        kv.delete(prevKey)
+        val p = prev.copy(version = cur.version + 1, updated = System.currentTimeMillis(), changelog = cur.changelog + "v${cur.version + 1}: vráceno na v${prev.version}", uses = cur.uses, pinned = cur.pinned)
+        kv.write("proc/$id", json.encodeToString(Procedure.serializer(), p)); return p
     }
 
     private fun slug(n: String): String {
@@ -153,7 +166,7 @@ object Runner {
                 StepResult(i, s.tool, tool.run(cur.last, s.params, ctx), null, (System.nanoTime() - t0) / 1_000_000)
             } catch (e: cz.axiom.vega.llm.CancelledException) {
                 StepResult(i, s.tool, null, "Zrušeno – pokračuj od kroku ${i + 1}", (System.nanoTime() - t0) / 1_000_000)
-            } catch (e: Exception) {
+            } catch (e: Throwable) { // i StackOverflowError / OutOfMemoryError z nástroje = selhaný krok s kontrolním bodem, ne pád úlohy
                 StepResult(i, s.tool, null, e.message ?: e.javaClass.simpleName, (System.nanoTime() - t0) / 1_000_000)
             }
             cur = cur.copy(results = cur.results + res)

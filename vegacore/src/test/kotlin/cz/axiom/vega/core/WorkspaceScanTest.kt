@@ -110,3 +110,53 @@ class Round5bTest {
         assertEquals(listOf("Platí to [1].", "Další věta [2][3]."), Grounding.sentences("Platí to [1]. Další věta [2][3]."))
     }
 }
+
+class Round6Test {
+    private val none = Router.Ctx(false, null, false, false, null)
+    private fun area(s: String, c: Router.Ctx = none) = SelfTune.area(Router.route(s, c))
+
+    @Test fun routerDoesNotHijackOrdinarySentences() {
+        assertEquals("záměr:Talk", area("porovnej ceny elektřiny u ČEZ a E.ON"))
+        assertFalse(area("vymysli hashtag na Instagram").contains("hash"))
+        assertFalse(area("cenový štítek na zboží").contains("Nfc"))
+        assertFalse(area("Zpět k tomu receptu – kolik tam bylo mouky?").contains("Undo"))
+        assertEquals("nástroj:hash", area("spočítej sha256 tohohle souboru"))
+        assertEquals("záměr:Nfc", area("přečti NFC štítek"))
+        assertEquals("záměr:Undo", area("vrať to"))
+    }
+
+    @Test fun procedureFindMatchesWholeWords() {
+        val kv = MemKv(); val st = ProcedureStore(kv)
+        st.save("Faktury", listOf(Step("csv.inspect")), "d", Kind.TEXT, "", Kind.TABLE)
+        st.save("Zpracovat výpis", listOf(Step("csv.inspect")), "d", Kind.TEXT, "", Kind.TABLE)
+        assertEquals(null, st.find("To je fakt dobrý nápad"))
+        assertEquals(null, st.find("Nezpracovávej ten výpis, jen se zeptám"))
+        assertEquals("Zpracovat výpis", st.find("zpracuj výpis")?.name)
+        assertEquals("Faktury", st.find("faktury")?.name)
+        // návrat na předchozí verzi
+        st.save("Faktury", listOf(Step("json.inspect")), "d2", Kind.TEXT, "", Kind.TABLE)
+        val back = st.revert(st.find("faktury")!!.id)!!
+        assertEquals("csv.inspect", back.steps.first().tool); assertEquals(3, back.version)
+    }
+
+    @Test fun statementCurrenciesAndChangedHeader() {
+        val csv = "Datum;Částka;Měna;Popis\n1.1.2026;-100,00;EUR;Hotel\n2.1.2026;-2000,00;CZK;Nákup\n3.1.2026;-500,00;CZK;Benzín\n"
+        val spec = Statement.detect(csv).spec!!
+        val r = Statement.process(csv, spec)
+        assertEquals(-2500.0, r.expense, 0.001) // jen hlavní měna CZK, EUR se nepřičte
+        assertTrue(r.table.notes.any { it.contains("víc měn") && it.contains("EUR") }, r.table.notes.toString())
+        val m = Statement.byMonth(r.table); assertTrue(m.headers.contains("Měna") && m.rows.size == 2, m.toString())
+        // uložený postup na jiné hlavičce: částka zmizela, zůstatek je na jejím místě → chyba, ne tichý součet zůstatků
+        val saved = Statement.detect("Datum;Částka;Zůstatek;Popis\n1.1.2026;-10,00;990,00;A\n2.1.2026;-20,00;970,00;B\n3.1.2026;5,00;975,00;C\n").spec!!
+        val changed = "Datum;Zůstatek;Částka v CZK;Popis\n1.1.2026;990,00;-10,00;A\n2.1.2026;970,00;-20,00;B\n"
+        assertTrue(runCatching { Statement.process(changed, saved) }.exceptionOrNull() is ToolError)
+        // KB: měna účtu vs. originální měna
+        val kb = "Datum;Částka;Originální měna;Měna účtu;Popis\n1.1.2026;-250,00;EUR;CZK;Platba\n2.1.2026;-100,00;CZK;CZK;Kafe\n3.1.2026;50,00;CZK;CZK;Vratka\n"
+        assertTrue(Statement.process(kb, Statement.detect(kb).spec!!).table.rows.all { it[2] == "CZK" })
+    }
+
+    @Test fun crashRegexDoesNotOverflow() {
+        val long = "x." .repeat(8_000) + "Foo"
+        LogTool.crash(long + "\njava.lang.IllegalStateException: boom\n\tat a.b.C.d(C.kt:1)")
+    }
+}

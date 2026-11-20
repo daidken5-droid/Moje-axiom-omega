@@ -127,7 +127,7 @@ object LogTool {
 
     data class Crash(val exception: String, val message: String, val causes: List<String>, val frames: List<String>, val ownFrames: List<String>, val line: Int)
 
-    private val exRx = Regex("((?:[a-zA-Z_$][\\w$]*\\.)+[A-Z][\\w$]*(?:Exception|Error|Throwable))(?::\\s*(.*))?")
+    private val exRx = Regex("((?:[a-zA-Z_$][\\w$]{0,80}\\.){1,30}[A-Z][\\w$]{0,80}(?:Exception|Error|Throwable))(?::\\s*(.*))?")
     private val pyRx = Regex("^(\\w+(?:Error|Exception)):\\s*(.*)$")
     private val frameRx = Regex("^\\s*at\\s+([\\w.$<>]+)\\(([^)]*)\\)")
     private val pyFrame = Regex("^\\s*File \"([^\"]+)\", line (\\d+), in (\\S+)")
@@ -144,9 +144,9 @@ object LogTool {
             val m = lines.getOrNull(i)?.trim()?.let { pyRx.find(it) }
             return Crash(m?.groupValues?.get(1) ?: "Error", m?.groupValues?.get(2) ?: "", emptyList(), frames.reversed(), frames.reversed().filter { f -> ownPkg == null || f.contains(ownPkg) }, tb + 1)
         }
-        val at = lines.indexOfFirst { exRx.containsMatchIn(it) && (it.contains("Exception") || it.contains("Error")) && !it.trimStart().startsWith("at ") }
+        val at = lines.indexOfFirst { exRx.containsMatchIn(it.take(4000)) && (it.contains("Exception") || it.contains("Error")) && !it.trimStart().startsWith("at ") }
         if (at < 0) return null
-        val m = exRx.find(lines[at])!!
+        val m = exRx.find(lines[at].take(4000))!!
         val frames = ArrayList<String>(); val causes = ArrayList<String>()
         var i = at + 1
         while (i < lines.size) {

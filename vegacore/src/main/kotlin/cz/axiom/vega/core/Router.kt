@@ -123,7 +123,8 @@ object Router {
         }
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
         if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
-        if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to)\\b")) return Intent.Undo
+        // jen samotný povel („zpět k tomu receptu“ ani „vrátím se zítra“ není vrácení změny)
+        if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to|vrat zmenu)( prosim)?[.!]*$")) return Intent.Undo
         // --- víc výpisů najednou → porovnání (zadání v revizích)
         if (c.attachments >= 2 && has(t, "porovnej|srovnej|secti|dohromady|celkem|soucet|saldo|bilanc")) return Intent.CompareFiles(null)
         // --- uložený postup podle jména („zpracuj výpis“)
@@ -133,16 +134,18 @@ object Router {
         // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu
         if (c.hasAttachment && has(t, "vypis|csv|export") && has(t, "spocitej|secti|kolik|prijm|vydaj|saldo|soucet|bilanc")) return Intent.BuildStatementTool
         // --- NFC
-        if (has(t, "\\bnfc\\b|stitek|ndef|\\btag\\b")) return Intent.Nfc
+        if (has(t, "\\bnfc\\b|\\bndef\\b|\\b(precti|nacti|naskenuj|oskenuj)\\w* (nfc |ten |muj |tento )?(stitek|tag)\\b")) return Intent.Nfc
         // --- předžalobní výzva
         if (has(t, "predzalobni|vyzv\\w* k (za)?placeni|upomink|dluzi mi|nezaplacen\\w* faktur")) return Intent.Demand
         // --- nástroje s přílohou nebo vstupem v textu
         val url = Regex("https?://\\S+").find(text)?.value
         if (url != null && has(t, "precti|otevri|shrn|co je na|stahni|nacti") ) return Intent.Tool("url.read", emptyMap(), "adresa v textu")
-        if (has(t, "sha-?256|sha-?1|md5|crc|kontrolni soucet|otisk souboru|checksum|hash")) return Intent.Tool("hash", Regex("\\b[0-9a-f]{32,128}\\b").find(t)?.let { mapOf("expect" to it.value) } ?: emptyMap(), "kontrolní součet")
-        if (has(t, "porovnej|rozdil mezi|diff\\b|co se zmenilo")) return Intent.Tool("text.diff", emptyMap(), "porovnání")
-        if (c.activeProject && has(t, "oprav|fix") && has(t, "\\blog\\w*|pad\\w*|crash|vyjimk|exception|stack ?trace|traceback")) return Intent.Code(text, CodeKind.FIX_FROM_LOG)
-        if (has(t, "\\bpad\\w*|crash|vyjimk|exception|stack ?trace|traceback") && (c.hasAttachment || text.contains("\n\tat ") || text.contains("Traceback"))) return Intent.Tool("log.crash", emptyMap(), "rozbor pádu")
+        if (has(t, "sha-?256|sha-?1|\\bmd5\\b|\\bcrc|kontrolni soucet|otisk souboru|checksum|\\bhash(e|em|i)?\\b")) return Intent.Tool("hash", Regex("\\b[0-9a-f]{32,128}\\b").find(t)?.let { mapOf("expect" to it.value) } ?: emptyMap(), "kontrolní součet")
+        // porovnání TEXTŮ: dva soubory, oddělovač --- nebo zmínka o verzích/textech („porovnej ceny elektřiny“ je otázka pro model)
+        if (has(t, "porovnej|rozdil mezi|\\bdiff\\b|co se zmenilo") && (c.attachments >= 2 || text.contains("\n---") || text.contains("\n===") ||
+                has(t, "verz|dva texty|dve texty|tyhle dv|tyto dv|soubor|dokument"))) return Intent.Tool("text.diff", emptyMap(), "porovnání")
+        if (c.activeProject && has(t, "oprav|fix") && has(t, "\\blog(u|em|y|s)?\\b|\\bs?pad(l|la|lo|ne|a|u)?\\b|crash|vyjimk|exception|stack ?trace|traceback")) return Intent.Code(text, CodeKind.FIX_FROM_LOG)
+        if (has(t, "\\bs?pad(l|la|lo|ne|a|u)?\\b|crash|vyjimk|exception|stack ?trace|traceback") && (c.hasAttachment || text.contains("\n\tat ") || text.contains("Traceback"))) return Intent.Tool("log.crash", emptyMap(), "rozbor pádu")
         Regex("(?:najdi|hledej|vyhledej)\\s+(?:v logu\\s+)?[„\"']?([^„\"'”“]+?)[“\"'”]?\\s+v logu|v logu\\s+(?:najdi|hledej)\\s+[„\"']?([^„\"'”“]+)").find(text.lowercase())?.let { m ->
             return Intent.Tool("log.search", mapOf("q" to (m.groupValues[1].ifBlank { m.groupValues[2] }).trim()), "hledání v logu")
         }

@@ -103,6 +103,42 @@ object Http {
         throw NetException("Příliš mnoho přesměrování.")
     }
 
+    /** Požadavek s tělem (API): bez automatického přesměrování, odpověď do [maxBytes]. */
+    fun request(method: String, url: String, headers: Map<String, String> = emptyMap(), body: ByteArray? = null, maxBytes: Int = 4_000_000, readMs: Int = 60_000): Response {
+        val c = open(url, if (method == "GET") "GET" else "POST", readMs = readMs)
+        if (method != "GET" && method != "POST") { c.requestMethod = method }
+        headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+        try {
+            if (body != null) { c.doOutput = true; c.outputStream.use { it.write(body) } }
+            val code = c.responseCode
+            val stream = if (code in 200..299) c.inputStream else c.errorStream
+            return Response(code, url, c.contentType.orEmpty(), if (code in 300..399) (c.getHeaderField("Location") ?: "").toByteArray() else readAll(stream, maxBytes))
+        } finally { c.disconnect() }
+    }
+
+    /**
+     * Stažení velkého souboru (APK) rovnou na disk se stropem velikosti. Přesměrování se ověřují ručně; hlavičky
+     * (token) jdou jen na původní server – podepsaný odkaz úložiště je dostane bez nich.
+     */
+    fun download(url: String, target: java.io.File, maxBytes: Long, headers: Map<String, String> = emptyMap()) {
+        var cur = url
+        repeat(6) {
+            val c = open(cur, readMs = 120_000, publicOnly = true)
+            if (URI(cur).host.equals(URI(url).host, true)) headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
+            try {
+                val code = c.responseCode
+                if (code in 300..399) { cur = URI(cur).resolve(c.getHeaderField("Location") ?: throw NetException("Přesměrování bez cíle.")).toString(); return@repeat }
+                if (code !in 200..299) throw NetException("Stažení selhalo: HTTP $code")
+                val tmp = java.io.File(target.parentFile, target.name + ".part")
+                c.inputStream.use { s -> tmp.outputStream().use { o -> val buf = ByteArray(64 * 1024); var total = 0L
+                    while (true) { val n = s.read(buf); if (n < 0) break; total += n; if (total > maxBytes) { tmp.delete(); throw NetException("Soubor je větší než povolený limit.") }; o.write(buf, 0, n) } } }
+                if (!tmp.renameTo(target)) { tmp.copyTo(target, true); tmp.delete() }
+                return
+            } finally { c.disconnect() }
+        }
+        throw NetException("Příliš mnoho přesměrování.")
+    }
+
     fun readAll(input: InputStream?, maxBytes: Int = 2_000_000): ByteArray {
         if (input == null) return ByteArray(0)
         input.use { s ->

@@ -65,7 +65,9 @@ object Statement {
         if (amountCol < 0) { amountCol = findCol(p.headers, creditNames); debitCol = findCol(p.headers, debitNames) }
         if (amountCol < 0) amountCol = p.headers.indices.firstOrNull { c -> c != dateCol && p.rows.take(20).count { CzNum.parse(it.getOrElse(c) { "" }) != null } >= minOf(3, p.rows.size) } ?: -1
         val descCols = p.headers.indices.filter { c -> c != dateCol && c != amountCol && c != debitCol && descNames.any { f(p.headers[c]).contains(f(it)) } }.take(3)
-        val currencyCol = findCol(p.headers, currencyNames)
+        // „Originální měna“ (KB) je měna transakce před převodem – částka je v měně účtu
+        val currencyCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("mena", "currency", "mena uctu") }
+            ?: p.headers.indices.firstOrNull { c -> f(p.headers[c]).let { h -> currencyNames.any { h.contains(f(it)) } && !Regex("origin|puvodn").containsMatchIn(h) } } ?: -1
         if (dateCol < 0) warnings += "Nenašel jsem sloupec s datem."
         if (amountCol < 0) warnings += "Nenašel jsem sloupec s částkou."
         // průběžný zůstatek vypadá jako částka (čísla v každém řádku) – výsledek by byl tiše špatně → říct a nabídnout opravu větou
@@ -99,7 +101,12 @@ object Statement {
         fun idx(role: String, def: Int) = spec.columns[role]?.let { name -> h.indexOf(name).takeIf { it >= 0 } } ?: def
         val date = spec.columns["date"]?.let { h.indexOf(it) } ?: -1
         val amount = spec.columns["amount"]?.let { h.indexOf(it) } ?: -1
-        if (date < 0 || amount < 0) return spec // jiný formát hlavičky → nehádat
+        if (date < 0 || amount < 0) {
+            // hlavička je poznat (některé uložené názvy sedí), ale datum/částka zmizely → staré pozice by tiše četly jiný sloupec (např. zůstatek)
+            val known = spec.columns.values.count { it in h }
+            if (known > 0) throw ToolError("Hlavička souboru se změnila – chybí sloupec „${spec.columns[if (amount < 0) "amount" else "date"]}“. Nepočítám ze staré pozice (mohl bych sečíst zůstatek). Napiš třeba „částka je ve sloupci …“.")
+            return spec // bez rozpoznatelné hlavičky (soubor bez názvů sloupců) → uložené pozice
+        }
         val descs = spec.columns.keys.filter { it.startsWith("desc") }.sorted().mapNotNull { k -> h.indexOf(spec.columns[k]).takeIf { it >= 0 } }
         return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1))
     }
@@ -139,6 +146,7 @@ object Statement {
         val out = ArrayList<List<String>>()
         val failed = ArrayList<Pair<Int, String>>()
         var inc = 0.0; var exp = 0.0
+        val perCur = LinkedHashMap<String, DoubleArray>() // měna → [příjmy, výdaje, počet]
         p.rows.forEachIndexed { i, r ->
             val line = p.rowLines.getOrElse(i) { i + 2 } + offset
             val date = r.getOrNull(spec.dateCol)?.let { CzNum.date(it) }
@@ -152,14 +160,22 @@ object Statement {
                 date == null -> failed += line to "neplatné datum „${r.getOrNull(spec.dateCol) ?: ""}“"
                 amt == null -> failed += line to "neplatná částka „${r.getOrNull(spec.amountCol) ?: ""}“"
                 else -> {
-                    if (amt >= 0) inc += amt else exp += amt
+                    val cur = r.getOrNull(spec.currencyCol)?.trim()?.uppercase()?.ifBlank { null } ?: "CZK"
+                    perCur.getOrPut(cur) { DoubleArray(3) }.let { a -> if (amt >= 0) a[0] += amt else a[1] += amt; a[2] += 1.0 }
                     val desc = spec.descCols.mapNotNull { r.getOrNull(it)?.trim()?.takeIf { s -> s.isNotEmpty() } }.joinToString(" · ")
-                    out += listOf(date, String.format(java.util.Locale.ROOT, "%.2f", amt), r.getOrNull(spec.currencyCol)?.trim()?.ifBlank { null } ?: "CZK", desc)
+                    out += listOf(date, String.format(java.util.Locale.ROOT, "%.2f", amt), cur, desc)
                 }
             }
         }
+        // různé měny se nesčítají: součty za hlavní měnu (nejvíc pohybů), ostatní zvlášť
+        val main = perCur.maxByOrNull { it.value[2] }?.key ?: "CZK"
+        perCur[main]?.let { inc = it[0]; exp = it[1] }
         val notes = buildList {
-            add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)} · ${out.size} pohybů")
+            if (perCur.size > 1) {
+                add("Výpis obsahuje víc měn – nesčítám je dohromady. " + perCur.entries.joinToString(" · ") { (c, a) -> "$c: příjmy ${CzNum.format(a[0])}, výdaje ${CzNum.format(a[1])}, saldo ${CzNum.format(a[0] + a[1])} (${a[2].toInt()} pohybů)" })
+                add("Součty níže jsou jen v $main.")
+            }
+            add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)}${if (perCur.size > 1) " $main" else ""} · ${out.size} pohybů")
             if (failed.isNotEmpty()) add("Nezpracováno ${failed.size} řádků: " + failed.take(5).joinToString("; ") { "ř. ${it.first} ${it.second}" })
         }
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
@@ -203,12 +219,14 @@ object Statement {
 
     /** Součty po měsících (navazující nástroj). */
     fun byMonth(t: Value.Table): Value.Table {
-        val di = t.col("Datum"); val ai = t.col("Částka")
-        val g = t.rows.groupBy { it[di].take(7) }.toSortedMap()
+        val di = t.col("Datum"); val ai = t.col("Částka"); val ci = t.headers.indexOf("Měna")
+        val multi = ci >= 0 && t.rows.map { it.getOrNull(ci) }.distinct().size > 1
+        val g = t.rows.groupBy { it[di].take(7) + if (multi) " " + it[ci] else "" }.toSortedMap()
         val rows = g.map { (m, rs) ->
             val a = rs.mapNotNull { it[ai].toDoubleOrNull() }
-            listOf(m, CzNum.format(a.filter { it > 0 }.sum()), CzNum.format(a.filter { it < 0 }.sum()), CzNum.format(a.sum()), rs.size.toString())
+            val (month, cur) = if (multi) m.substringBefore(' ') to m.substringAfter(' ') else m to null
+            listOfNotNull(month, cur, CzNum.format(a.filter { it > 0 }.sum()), CzNum.format(a.filter { it < 0 }.sum()), CzNum.format(a.sum()), rs.size.toString())
         }
-        return Value.Table(listOf("Měsíc", "Příjmy", "Výdaje", "Saldo", "Pohybů"), rows, name = "měsíce")
+        return Value.Table(if (multi) listOf("Měsíc", "Měna", "Příjmy", "Výdaje", "Saldo", "Pohybů") else listOf("Měsíc", "Příjmy", "Výdaje", "Saldo", "Pohybů"), rows, name = "měsíce")
     }
 }

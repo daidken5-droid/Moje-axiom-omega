@@ -556,6 +556,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     private fun toolFromChat(chat: String?, intent: Router.Intent.Tool, text: String) {
         val tool = Tools.get(intent.id)!!
+        // kontrolní součet BEZ souboru by spočítal otisk textu zprávy a hlásil „soubor se liší“ – zeptat se na soubor
+        if (intent.id == "hash" && lastAttachment() == null) { reply(chat, "Přilož soubor, jehož kontrolní součet mám spočítat${intent.params["expect"]?.let { " a porovnat s ${it.take(12)}…" } ?: ""} (📎)."); return }
         // vstup: příloha, adresa nebo text zprávy po vynechání příkazu (stejná implementace jako ruční nabídka)
         val input: Value = lastAttachment()?.takeIf { tool.accepts(it) } ?: when (intent.id) {
             "url.read" -> Value.Url(Regex("https?://\\S+").find(text)!!.value)
@@ -1079,7 +1081,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val verified = d.getJSONArray("verifiedOn").let { a -> (0 until a.length()).map { a.getString(it) } }
         if (verified.size < 2) throw ToolError("Nejdřív tlačítko ověř na jiném souboru.")
         val steps = stepsOf(d.getJSONArray("steps"))
-        val nm = name.trim().ifBlank { d.getString("name") }.take(40)
+        var nm = name.trim().ifBlank { d.getString("name") }.take(40)
+        // výchozí název („Zpracovat výpis“) u jiného postupu = jiná banka → nepřepsat cizí kroky, nový název
+        if (name.isBlank()) { val old = procedures.list().firstOrNull { it.name.equals(nm, true) }
+            if (old != null && old.steps != steps) { var k = 2; while (procedures.list().any { it.name.equals("$nm ($k)", true) }) k++; nm = "$nm ($k)" } }
         val ik = Kind.valueOf(d.getString("inputKind"))
         val p = procedures.save(nm, steps, "Uloženo z hotové práce (${java.time.LocalDate.now()}); ověřeno na: ${verified.joinToString(", ")}", ik,
             describeParams(steps.first()).take(160), Kind.valueOf(d.optString("outputKind", "TABLE")), "tlačítko z hotové práce", pinned = true, verifiedOn = verified)
@@ -1253,7 +1258,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun compareStart(chat: String?, att: List<Value.Bytes>) {
         val id = "cmp" + System.currentTimeMillis().toString(36)
         val t = cz.axiom.vega.core.RevTask(kv, id)
-        val r = t.start(att.map { keepFile(it) })
+        // stejný soubor dvakrát („leden.csv“ + „leden (1).csv“) by CELKEM zdvojil → podle otisku jen jednou
+        val all = att.map { keepFile(it) }; val inputs = all.distinctBy { it.sha }
+        if (inputs.size < all.size) reply(chat, "Soubory ${all.groupBy { it.sha }.values.filter { it.size > 1 }.joinToString("; ") { g -> g.joinToString(" = ") { it.name } }} mají stejný obsah – počítám je jen jednou.")
+        val r = t.start(inputs)
         kv.write(compareKey(chat), id)
         t.log(r.n, "zadání", "*", "revize 1: ${att.size} souborů")
         compareRun(chat, id)
