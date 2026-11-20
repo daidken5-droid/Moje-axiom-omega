@@ -120,7 +120,11 @@ Další pravidla:
   - **Ponecháno (zapsáno v Problémech):** DNS rebinding.
 
 ## Další kolo (pro další probuzení)
-- [ ] 12. Hloubková kontrola `Ops.kt` (přes 1 400 řádků): mrtvé větve, duplicity, chyby v souběhu (`@Volatile` vs. složené operace), rozdělení na menší soubory bez změny chování + testy
+- [x] 12. Hloubková kontrola `Ops.kt` (přes 1 400 řádků): mrtvé větve, duplicity, chyby v souběhu (`@Volatile` vs. složené operace), rozdělení na menší soubory bez změny chování + testy
+  - **Mrtvý kód:** žádný. Všechny funkce aplikace mají volajícího, čtyři nálezy byly jen přepsání systémových metod.
+  - **Souběh – dočasný chat:** `clearTemp()` mazal `ArrayList` historie z vlákna mostu, zatímco ji výkonné vlákno procházelo (hrozila ConcurrentModificationException). Teď maže na výkonném vlákně.
+  - **Souběh – úlohy s revizemi:** „zkontroluj, pak přidej“ u běžících úloh šlo ve dvou krocích, takže dvě souběžné revize mohly spustit dva výpočty téže úlohy. Teď atomické `add()`.
+  - **Rozdělení na soubory:** záměrně NEPROVEDENO. Přesun 1 500 řádků v noci bez možnosti vyzkoušet na telefonu je riziko bez přínosu pro uživatele. Testy 51 + 21 zelené.
 - [ ] 13. DNS rebinding: připojit se na ověřenou IP. Buď vlastní `SocketFactory` + SNI / `HostnameVerifier`, nebo zdokumentovaný důvod, proč ne. Test s lokálním serverem.
 - [ ] 14. Vylepšení → u opakované chyby nástroje nabídnout „Navrhnout rozšíření“ (zadání z anonymizovaných příkladů → nový projekt). Jen na klepnutí.
 - [ ] 15. Red-team kolo 2 nad body 12–14

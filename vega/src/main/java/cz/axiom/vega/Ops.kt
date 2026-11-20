@@ -507,7 +507,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         tempTurns += text to a; if (tempTurns.size > 20) tempTurns.removeAt(0)
         reply(null, a)
     }
-    fun clearTemp() = tempTurns.clear()
+    /** Na výkonném vlákně: tempTurns čte jen ono (souběžné mazání z mostu by shodilo procházení historie). */
+    fun clearTemp() = exec.execute { tempTurns.clear() }
 
     /**
      * PRAVIDLO PROJEKTU × GLOBÁLNÍ PREFERENCE: „tady používej středník“ = jen otevřený projekt; „vždy…“ = všude.
@@ -1236,7 +1237,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val running = id in runningTasks
         reply(chat, "Zaznamenal jsem **revizi ${r.n}** zadání: ${r.change}. " + (if (wide) "Závislost nejde spolehlivě určit – přepočítám všechny soubory." else "Platné mezivýsledky zachovám a zopakuji jen kroky závislé na změně.") +
             if (running) " Rozpracovaná odpověď ke staré revizi se nezobrazí." else "", JSONObject().put("type", "revision").put("rev", r.n).put("change", r.change))
-        if (!running) { runningTasks += id; submit { compareRun(chat, id) } } else idleIfFree()
+        // add() = atomické „zkontroluj a přidej“: dvě souběžné revize nesmí spustit dva výpočty téže úlohy
+        if (!running && runningTasks.add(id)) submit { compareRun(chat, id) } else idleIfFree()
     }
 
     /** Který starý soubor nová verze nahrazuje podle jména (bez čísel verzí a slov „oprava/nový“). */
@@ -1321,7 +1323,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         } finally {
             runningTasks -= id
             // revize, která přišla mezi zveřejněním a koncem běhu, se nesmí ztratit (po chybě se neopakuje donekonečna)
-            if (clean && !t.upToDate() && id !in runningTasks) { runningTasks += id; submit { compareRun(chat, id) } }
+            if (clean && !t.upToDate() && runningTasks.add(id)) submit { compareRun(chat, id) }
         }
     }
     private fun scopeKey(scope: String?): String? { if (scope == null) return "all"; val f = cz.axiom.vega.base.Text.fold(scope).lowercase()
