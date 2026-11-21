@@ -425,6 +425,8 @@ function sheet(html, full) {
   // přístupnost: dialog pojmenovaný nadpisem, fokus do dialogu, po zavření zpět
   S.prevFocus = prev;
   const h = $('#layer .sheet h2'); if (h) { h.id = 'sheetTitle'; h.tabIndex = -1; $('#layer .sheet').setAttribute('aria-labelledby', 'sheetTitle'); h.focus({ preventScroll: true }); }
+  // popisek .lbl nad polem → název pole pro čtečku obrazovky (jinak TalkBack řekne jen „editační pole“)
+  document.querySelectorAll('#layer label.lbl').forEach(l => { const f = l.nextElementSibling; if (f && /^(INPUT|SELECT|TEXTAREA)$/.test(f.tagName) && !f.getAttribute('aria-label')) f.setAttribute('aria-label', l.textContent.trim()); });
 }
 /** Zavření listu s otevřeným dotazem (souhlas / schválení) = odpověď „ne“ – úloha nečeká 5 minut. */
 function closeSheet(silent) {
@@ -586,8 +588,8 @@ function settingsSheet() {
   const s = Object.assign({ keys: {}, allowed: {}, budgets: {}, spent: {}, models: {} }, call('settings') || {});
   ['keys', 'allowed', 'budgets', 'spent', 'models'].forEach(k => { s[k] = s[k] || {}; });
   const keyRow = (k, name, hint) => `<div class="card"><div class="inline"><b class="grow">${name}</b>${s.keys[k] ? '<span class="pill ok">uloženo</span>' : ''}</div><div class="note">${hint}</div>
-    <div class="inline" style="margin-top:8px"><input class="field" type="password" id="key-${k}" placeholder="${s.keys[k] ? 'Nový klíč přepíše uložený' : 'Vlož API klíč'}" autocomplete="off"><button class="btn primary" data-act="saveKey" data-k="${k}">Uložit</button></div>
-    <div class="status" id="kc-${k}">${s.models[k] ? 'Odpovídá: ' + esc(s.models[k]) : ''}${s.keys[k] ? ` <button class="btn ghost" data-act="checkKey" data-k="${k}" style="min-height:0;padding:0 6px">Ověřit</button>` : ''}</div></div>`;
+    <div class="inline" style="margin-top:8px"><input class="field" type="password" id="key-${k}" placeholder="${s.keys[k] ? 'Nový klíč (přepíše)' : 'Vlož API klíč'}" autocomplete="off"><button class="btn primary" data-act="saveKey" data-k="${k}">Uložit</button></div>
+    <div class="status" id="kc-${k}">${s.models[k] ? 'Odpovídá: ' + esc(s.models[k]) : ''}${s.keys[k] ? ` <button class="btn ghost" data-act="checkKey" data-k="${k}" style="min-height:36px;padding:0 10px">Ověřit</button>` : ''}</div></div>`;
   sheet(`<h2>Nastavení</h2>
     <h3>Ty</h3>
     <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>

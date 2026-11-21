@@ -194,6 +194,7 @@ body.chatting::before { opacity: .35; }
 .hello p { font-size: 15px; color: var(--muted); margin: 10px 0 0; }
 .hello .quiet { margin-top: 22px; font-size: 14px; color: var(--muted); }
 .hello .quiet button, .linkbtn { color: var(--signal2); font-size: 14px; }
+.linkbtn { min-height: 36px; padding: 0 4px; } /* dotykový cíl na telefonu */
 .btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 26px; max-width: 520px; }
 .btnchip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: var(--sheet); border: 1px solid var(--line); font-size: 14px; font-weight: 500; }
 .btnchip i { font-style: normal; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 10px var(--signal); }
@@ -205,8 +206,10 @@ body.chatting::before { opacity: .35; }
 /* ---------- horní lišta: menu · model · nový chat · avatar ---------- */
 .top { display: flex; align-items: center; gap: 4px; padding: calc(6px + env(safe-area-inset-top)) 8px 4px; }
 .model { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; font-size: 17px; font-weight: 500; color: var(--ink); max-width: 56vw; }
-.model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.model small { font-size: 13px; color: var(--muted); font-weight: 400; }
+/* úzký displej: zkracuje se název modelu, ne „VEGA“ (dřív „V…“ a model na dva řádky) */
+.model span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 0 auto; max-width: 38vw; }
+.model small { font-size: 13px; color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+.sheet h2:focus { outline: none; } /* fokus jen kvůli čtečce – nadpis není ovládací prvek */
 .model:active { background: var(--sunk); }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; color: #fff; background: linear-gradient(135deg, #3b6cf0, #8b5cf6); margin: 0 4px; flex: none; }
 
