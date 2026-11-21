@@ -458,6 +458,7 @@ class MainActivity : ComponentActivity() {
      * Instalaci potvrdí uživatel v systémovém dialogu (Android jinak nedovolí). Vrací null = dialog otevřen, jinak důvod.
      */
     fun installUpdate(u: cz.axiom.vega.selfupdate.SelfUpdateStore.Upd): String? {
+        if (!BuildConfig.SELF_INSTALL) return "Ve verzi z Google Play se aplikace aktualizuje jen přes Obchod Play – úpravu dostaneš s příští aktualizací."
         if (u.status != cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) return "Úprava není připravená k instalaci (${u.status})."
         val f = ops.selfUpdateApk(u.apk) ?: return "APK úpravy už v telefonu není – zkontroluj sestavení znovu."
         // otisk znovu těsně před instalací: soubor musí být přesně ten, který prošel kontrolou po stažení

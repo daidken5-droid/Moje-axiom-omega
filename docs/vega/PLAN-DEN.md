@@ -59,3 +59,9 @@ Výsledky každé fáze zapisuji sem + commit.
 ### Vloženo: ASTRAEA CORE 3.0 (zadání uživatele)
 - Řídicí jádro podle důkazů v `vegacore/.../astraea/` zapojené do skutečné rešerše a rozboru hypotéz (`Ops.governed`).
 - 14 referenčních testů + 12 vlastních (jádro, adaptéry) + výpočtové případy zadání; dokumentace `docs/astraea/`.
+
+### Fáze F – hotovo (podrobně `docs/vega/PLAY.md`)
+- **targetSdk/compileSdk 36** – Google Play od 31. 8. 2026 jinak blokuje aktualizace (nejzávažnější nález).
+- Build **`play`**: bez `REQUEST_INSTALL_PACKAGES`, samoúprava nestahuje ani neinstaluje APK (aktualizace jen přes Play).
+- Vysvětlení před žádostí o polohu (WiFi); AAB pro Play v CI jako samostatný artefakt; CI doinstaluje platformu 36.
+- Podpis a applicationId beze změny.

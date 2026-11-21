@@ -26,6 +26,8 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+      - name: Android SDK platforma 36 (cílení pro Google Play)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null
       - name: Release keystore (volitelné, z GitHub Secrets)
         env:
           KEYSTORE_B64: ${{ secrets.OMEGA_KEYSTORE_B64 }}
@@ -88,4 +90,30 @@ jobs:
         with:
           name: VEGA-APK
           path: dist/
+          retention-days: 30
+      # Google Play: balíček AAB z buildu „play“ (bez REQUEST_INSTALL_PACKAGES, bez instalace samoúprav).
+      # Samostatný krok a artefakt – selhání nesmí zablokovat APK výše ani samoúpravy (ty čtou jen VEGA-APK).
+      - name: Balíček pro Google Play (AAB)
+        id: play
+        continue-on-error: true
+        env:
+          SECRET_STORE_PASSWORD: ${{ secrets.OMEGA_KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.OMEGA_KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.OMEGA_KEY_PASSWORD }}
+        run: |
+          if [ "$OMEGA_FALLBACK_SIGNING" = "1" ]; then
+            P="$(cat ~/.avior-signing/pass)"; echo "::add-mask::$P"
+            export OMEGA_KEYSTORE_PASSWORD="$P" OMEGA_KEY_ALIAS=avior OMEGA_KEY_PASSWORD="$P"
+          else
+            export OMEGA_KEYSTORE_PASSWORD="$SECRET_STORE_PASSWORD" OMEGA_KEY_ALIAS="$SECRET_KEY_ALIAS" OMEGA_KEY_PASSWORD="$SECRET_KEY_PASSWORD"
+          fi
+          ./gradlew :vega:bundlePlay --no-daemon -PvegaVersionCode=$(( ( $(date +%s) - 1767225600 ) / 60 ))
+          mkdir -p dist-play
+          cp vega/build/outputs/bundle/play/vega-play.aab "dist-play/VEGA-${GITHUB_SHA::7}-play.aab"
+          (cd dist-play && sha256sum *.aab > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - if: steps.play.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VEGA-PLAY-AAB
+          path: dist-play/
           retention-days: 30

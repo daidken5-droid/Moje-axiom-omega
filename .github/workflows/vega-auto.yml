@@ -83,6 +83,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: true
+      - name: Android SDK platforma 36 (cílení pro Google Play)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null
       - name: Testy
         run: ./gradlew :vegacore:test :vega:testDebugUnitTest --no-daemon
       - name: Výsledky testů
@@ -112,6 +114,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-disabled: true
+      - name: Android SDK platforma 36 (cílení pro Google Play)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null
       - name: Sestavení (bez produkčního klíče)
         run: ./gradlew :vega:assembleRelease --no-daemon -PvegaVersionCode=$(( ( $(date +%s) - 1767225600 ) / 60 )) -PvegaVersionSuffix=auto-${GITHUB_SHA::7}
       - uses: actions/upload-artifact@v4
