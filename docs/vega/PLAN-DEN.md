@@ -65,3 +65,10 @@ Výsledky každé fáze zapisuji sem + commit.
 - Build **`play`**: bez `REQUEST_INSTALL_PACKAGES`, samoúprava nestahuje ani neinstaluje APK (aktualizace jen přes Play).
 - Vysvětlení před žádostí o polohu (WiFi); AAB pro Play v CI jako samostatný artefakt; CI doinstaluje platformu 36.
 - Podpis a applicationId beze změny.
+
+### Fáze G – hotovo
+- Čistá regrese: 163 testů (0 selhání, 2 přeskočené bez ONNX balíčku), 9 UI scénářů, `git diff --check` čistý.
+- Sestavení release, play a AAB lokálně i v CI (běh #72 pro `52505a6`, zeleně); záznam v README.md.
+- Na telefonu NEOVĚŘENO: diktování v Bez sítě, Android 16 (edge-to-edge, predictive back), WiFi vysvětlení, výkon.
+- Otevřené: novější AGP pro compileSdk 36 (sdílí kořenový build s AVIORem), ruční přepínač „Rychle/Ověřit/Hloubkový“,
+  panel „Hypothesis Compare“, test „plánováno ≠ proběhlo“ se skutečným ověřovačem.
