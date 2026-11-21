@@ -14,11 +14,24 @@ import java.util.zip.CRC32
 object JsonTool {
     private val lenient = Json { isLenient = true; ignoreUnknownKeys = true }
 
+    /** Nejhlubší vnoření [ { mimo řetězce – parser je rekurzivní, příliš hluboký vstup by přetekl zásobník (pád aplikace). */
+    private fun depth(text: String): Int {
+        var d = 0; var max = 0; var inStr = false; var esc = false
+        for (c in text) {
+            if (inStr) { if (esc) esc = false else if (c == '\\') esc = true else if (c == '"') inStr = false; continue }
+            when (c) { '"' -> inStr = true; '[', '{' -> { d++; if (d > max) max = d }; ']', '}' -> if (d > 0) d-- }
+        }
+        return max
+    }
+
     fun parse(text: String): Pair<JsonElement?, String?> = try {
-        lenient.parseToJsonElement(text) to null
+        if (depth(text) > 200) null to "JSON je příliš hluboko vnořený (víc než 200 úrovní) – nezpracuji ho, aby aplikace nespadla."
+        else lenient.parseToJsonElement(text) to null
+    } catch (e: StackOverflowError) {
+        null to "JSON je příliš složitý na zpracování v telefonu."
     } catch (e: Exception) {
-        // poloha chyby pro uživatele (řádek/sloupec)
-        val m = Regex("at (?:path: .*? )?(?:offset|index) (\\d+)").find(e.message ?: "")
+        // poloha chyby pro uživatele (řádek/sloupec); zpráva knihovny obsahuje kus vstupu → regex jen nad krátkým výřezem
+        val m = Regex("at (?:path: [^\\n]{0,200}? )?(?:offset|index) (\\d+)").find((e.message ?: "").take(600))
         val off = m?.groupValues?.get(1)?.toIntOrNull()
         val where = off?.let { o -> val before = text.take(o); " na řádku ${before.count { it == '\n' } + 1}, sloupci ${o - before.lastIndexOf('\n')}" } ?: ""
         null to "Neplatný JSON$where: ${e.message?.lineSequence()?.firstOrNull()?.take(160)}"

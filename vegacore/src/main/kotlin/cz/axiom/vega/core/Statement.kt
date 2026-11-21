@@ -25,6 +25,8 @@ object Statement {
          * zpracuje i výpis s PŘEHÁZENÝMI sloupci; pozice výše jsou jen záloha pro soubory bez hlavičky.
          */
         val columns: Map<String, String> = emptyMap(),
+        /** Sloupec se SMĚREM pohybu (Debet/Kredit, Příchozí/Odchozí) u bank, které píšou částku bez znaménka; -1 = není. */
+        val directionCol: Int = -1,
     ) {
         fun json() = Json.encodeToString(serializer(), this)
         companion object { fun parse(s: String) = Json.decodeFromString(serializer(), s) }
@@ -40,6 +42,16 @@ object Statement {
     private val currencyNames = listOf("měna", "mena", "currency")
 
     private fun f(s: String) = cz.axiom.vega.base.Text.fold(s).lowercase().trim()
+    // jen jednoznačné hodnoty (ne „platba“, „vklad“ – mohou být v popisu a otočily by znaménko příjmu)
+    private val DEBIT = setOf("debet", "debit", "odchozi", "vydaj", "odepsano", "d", "dr", "-", "odchozi platba", "outgoing")
+    private val CREDIT = setOf("kredit", "credit", "prichozi", "prijem", "pripsano", "c", "cr", "+", "prichozi platba", "incoming")
+    /** Výdaj podle sloupce se směrem (hodnota „Debet“, „Odchozí“…). */
+    fun isDebit(v: String?) = v != null && f(v) in DEBIT
+    /** Sloupec, jehož hodnoty jsou skoro jen Debet/Kredit (aspoň jeden výdaj) – jinak by kladné částky byly všechny „příjmy“. */
+    private fun directionColumn(rows: List<List<String>>, skip: Set<Int>, width: Int): Int = (0 until width).firstOrNull { c ->
+        c !in skip && rows.take(200).mapNotNull { it.getOrNull(c)?.takeIf { v -> v.isNotBlank() }?.let { v -> f(v) } }.let { v ->
+            v.size >= 1 && v.count { it in DEBIT || it in CREDIT } >= v.size * 0.8 && v.any { it in DEBIT } }
+    } ?: -1
     private fun findCol(headers: List<String>, names: List<String>): Int {
         val h = headers.map { f(it) }
         names.forEach { n -> h.indexOfFirst { it == f(n) }.takeIf { it >= 0 }?.let { return it } }
@@ -64,7 +76,9 @@ object Statement {
         var debitCol = -1
         if (amountCol < 0) { amountCol = findCol(p.headers, creditNames); debitCol = findCol(p.headers, debitNames) }
         if (amountCol < 0) amountCol = p.headers.indices.firstOrNull { c -> c != dateCol && p.rows.take(20).count { CzNum.parse(it.getOrElse(c) { "" }) != null } >= minOf(3, p.rows.size) } ?: -1
-        val descCols = p.headers.indices.filter { c -> c != dateCol && c != amountCol && c != debitCol && descNames.any { f(p.headers[c]).contains(f(it)) } }.take(3)
+        val directionCol = if (debitCol < 0 && amountCol >= 0) directionColumn(p.rows, setOf(dateCol, amountCol), p.headers.size) else -1
+        if (directionCol >= 0) warnings += "Směr pohybu beru ze sloupce „${p.headers[directionCol]}“ (Debet/Odchozí = výdaj)."
+        val descCols = p.headers.indices.filter { c -> c != dateCol && c != amountCol && c != debitCol && c != directionCol && descNames.any { f(p.headers[c]).contains(f(it)) } }.take(3)
         // „Originální měna“ (KB) je měna transakce před převodem – částka je v měně účtu
         val currencyCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("mena", "currency", "mena uctu") }
             ?: p.headers.indices.firstOrNull { c -> f(p.headers[c]).let { h -> currencyNames.any { h.contains(f(it)) } && !Regex("origin|puvodn").containsMatchIn(h) } } ?: -1
@@ -81,7 +95,8 @@ object Statement {
         if (p.delimiter == ';') warnings += "Oddělovač je středník (český Excel)."
         if (p.issues.isNotEmpty()) warnings += "${p.issues.size} problémových řádků (např. řádek ${p.issues[0].line}: ${p.issues[0].message})."
         val spec = if (dateCol >= 0 && amountCol >= 0) ParserSpec(p.delimiter.toString(), decimalComma, dateCol, amountCol, descCols, currencyCol, debitCol,
-            headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16), columns = namesOf(p.headers, dateCol, amountCol, descCols, currencyCol, debitCol)) else null
+            headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16), columns = namesOf(p.headers, dateCol, amountCol, descCols, currencyCol, debitCol) +
+                (p.headers.getOrNull(directionCol)?.let { mapOf("direction" to f(it)) } ?: emptyMap()), directionCol = directionCol) else null
         return Detection(spec, p.headers, warnings, p.rows.take(5))
     }
 
@@ -109,7 +124,7 @@ object Statement {
             return spec // bez rozpoznatelné hlavičky (soubor bez názvů sloupců) → uložené pozice
         }
         val descs = spec.columns.keys.filter { it.startsWith("desc") }.sorted().mapNotNull { k -> h.indexOf(spec.columns[k]).takeIf { it >= 0 } }
-        return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1))
+        return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1), directionCol = idx("direction", -1))
     }
 
     /** Oprava od uživatele („částka je ve sloupci Pohyb“): role → sloupec podle názvu. Null = sloupec neexistuje. */
@@ -159,6 +174,8 @@ object Statement {
                 val deb = r.getOrNull(spec.debitCol)?.let { CzNum.parse(it, spec.decimalComma) }
                 amt = when { amt != null && amt != 0.0 -> amt; deb != null -> -kotlin.math.abs(deb); else -> amt }
             }
+            // částka bez znaménka + sloupec se směrem: výdaj (Debet/Odchozí) je záporný
+            if (spec.directionCol >= 0 && amt != null && amt > 0 && isDebit(r.getOrNull(spec.directionCol))) amt = -amt
             when {
                 r.all { it.isBlank() } -> {}
                 // souhrnné řádky banky („Celkem“, „Konečný zůstatek“, „Obrat“) nejsou chyba – jen se nepočítají
