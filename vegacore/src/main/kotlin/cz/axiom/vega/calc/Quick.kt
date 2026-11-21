@@ -62,10 +62,15 @@ object Quick {
             if (v.isInfinite() || v > 1e15) return null
             return "${fmt(b)}^$e = ${fmt(v)}" }
         Regex("^(?:kolik je |spocitej )?(?:druha )?odmocnin[ay] (?:z |ze )?(\\d+(?:[.,]\\d+)?)$").find(t)?.let { m -> val v = num(m.groupValues[1]) ?: return null; return "√${fmt(v)} = ${fmt(Math.sqrt(v))}" }
-        val expr = t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()
-        if (Regex("^[\\d\\s.,+\\-*/×·:÷^()%x]+$").matches(expr) && Regex("\\d\\s*[+\\-*/×·:÷^x]\\s*[\\d(]").containsMatchIn(expr)) {
+        // slovní operace („5 mínus 8“, „12 krát 199“, „100 děleno 4“) → znaky; měna na konci se jen připíše k výsledku
+        val money = Regex("\\s*(kc|korun\\w*)$").containsMatchIn(t)
+        val expr = t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").replace(Regex("\\s*(kc|korun\\w*)$"), "")
+            .replace(Regex(" (plus) "), " + ").replace(Regex(" (minus) "), " - ").replace(Regex(" (krat|nasobeno) "), " * ").replace(Regex(" (deleno|lomeno) "), " / ").trim()
+        if (Regex("^[\\d\\s.,+\\-*/×·:÷^()%x]+$").matches(expr) && Regex("\\d\\s*[+\\-*/×·:÷^x]\\s*[\\d(-]").containsMatchIn(expr)) {
             val v = runCatching { Expr(expr).parse() }.getOrNull() ?: return null
+            if (v.isInfinite() && Regex("[/:÷]\\s*0+(?:[.,]0+)?\\s*(?:$|[+\\-*/)])").containsMatchIn(expr)) return "Nulou dělit nejde – výsledek není definovaný."
             if (v.isNaN() || v.isInfinite()) return null
+            if (money || expr != t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()) return "${expr.replace("*", "×")} = ${fmt(v)}${if (money) " Kč" else ""}"
             return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ')} = ${fmt(v)}"
         }
         return null

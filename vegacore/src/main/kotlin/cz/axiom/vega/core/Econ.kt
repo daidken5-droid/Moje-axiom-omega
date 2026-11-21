@@ -35,9 +35,9 @@ object Econ {
     fun parseUnit(raw: String): Unit {
         // „za 1 kus“, „na 1 měsíc“, „za 12 měsíců“ jsou jednotky/období, ne hodnoty
         val t = f(raw).replace(Regex("\\b(za|na|pro)\\s+(1|jeden|jednu|jedno)\\s+(kus\\w*|ks|jednotk\\w*|mesic\\w*|rok\\w*)"), " ").replace(Regex("\\b(za|na)\\s+\\d+\\s+(mesic\\w*|let|rok\\w*|dn\\w*)"), " ")
-        val variable = near(t, "variabiln\\w*(?: nakla\\w*)?|nakla\\w* na (?:kus|jednotku|vyrobek)|jednotkov\\w* nakla\\w*|(?:vyroba|vyrobeni|material|nakup|porizeni|suroviny)(?: na| jednoho| jedne)?(?: kus\\w*| vyrob\\w*| jednotk\\w*)?(?: me| mne| mi)? (?:stoji|vyjde|je|vychazi)(?: na)?|(?:jeden|jedna|jedno) (?:kus\\w* )?(?:me |mne |mi )?(?:stoji|vyjde|vychazi)(?: na)?")
-        val fixed = near(t, "fixn\\w* nakla\\w*|fixn\\w*|fixy|pevn\\w* nakla\\w*|rezi\\w*")
-        val price = near(t, "(?:prodejni |jednotkova )?cen[aeuy]\\w*|prodav\\w*(?: [a-z]+){0,3}? (?:za|po)|prodej\\w* (?:za|po)|(?:za kus|kus) prodavam")
+        val variable = near(t, "variabiln\\w*(?: nakla\\w*)?|nakla\\w* na (?:kus|jednotku|vyrobek)|jednotkov\\w* nakla\\w*|(?:vyroba|vyrobeni|vyrobit|vyrobim|material|nakup|porizeni|suroviny)(?: na| jednoho| jedne)?(?: kus\\w*| vyrob\\w*| jednotk\\w*)?(?: me| mne| mi)? (?:stoji|vyjde|je|vychazi)(?: na)?|(?:jeden|jedna|jedno) (?:kus\\w* )?(?:me |mne |mi )?(?:stoji|vyjde|vychazi)(?: na)?|nakupni cen\\w*|(?<![a-z] )(?<!fixni )(?<!pevne )(?<!fixnich )(?<!pevnych )(?<!ostatni )naklad(?: na kus)?(?= \\d| je \\d)")
+        val fixed = near(t, "fixn\\w* nakla\\w*|fixn\\w*|fixy|pevn\\w* nakla\\w*|rezi\\w*|najem\\w*|pronajem\\w*|provozni nakla\\w*")
+        val price = near(t, "(?:prodejni |jednotkova )?cen[aeuy]\\w*|prodav\\w*(?: [a-z]+){0,3}? (?:za|po)|prodej\\w* (?:za|po)|(?:za kus|kus) prodavam|proda(?:m|me|vam)(?: \\S+){0,3}? po|(?:kus\\w*|ks) po")
         val qty = Regex("(?:po|pri|prodam|prodal\\w*|vyrobim|za)\\s+$NUM\\s*(?:ks|kus)").find(t)?.let { num(it.groupValues[1]) }
             ?: Regex("$NUM\\s*(?:ks|kus\\w*)").find(t)?.let { num(it.groupValues[1]) }
         return Unit(price, variable, fixed, qty)

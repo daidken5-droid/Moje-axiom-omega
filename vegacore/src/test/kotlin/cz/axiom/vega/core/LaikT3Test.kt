@@ -62,4 +62,28 @@ class LaikT3Test {
         // offline kalkulačka u téhož dotazu řekne, jak zadat kurz (online se dřív kvůli ní kurz ČNB nikdy nepoužil – pořadí v Ops.talk)
         assertNotNull(q("100 € v Kč"))
     }
+
+    @Test fun breakEvenFromLaikWording() {
+        fun u(s: String) = Econ.unitAnswer(Econ.parseUnit(s))?.text
+        assertTrue(u("prodávám za 250, vyrobit stojí 150, fixní náklady 8000, prodám 60 kusů")!!.startsWith("Při 60 kusech máš ztrátu 2 000 Kč"))
+        assertTrue(u("kolik musím prodat kusů abych byl v plusu cena 100 náklad 60 fixy 2000")!!.contains("Bod zvratu je 50 kusů"))
+        val r = u("když prodám 100 kusů po 50 Kč a výroba kusu stojí 30 a nájem 1500, vydělám?")!!
+        assertTrue(r, r.startsWith("Při 100 kusech máš zisk 500 Kč"))
+        // „fixní náklady“ se nesmí přečíst jako náklad na kus
+        assertEquals(Econ.Unit(250.0, 150.0, 8000.0, 60.0), Econ.parseUnit("cena 250, náklad na kus 150, fixní náklady 8000, 60 kusů"))
+    }
+
+    @Test fun wordArithmeticNegativesAndDivisionByZero() {
+        assertEquals("5 - 8 = −3", q("kolik je 5 mínus 8"))
+        assertEquals("12 × 199 = 2 388 Kč", q("kolik je 12 krát 199 korun"))
+        assertEquals("100 / 4 = 25", q("100 děleno 4"))
+        assertEquals("-5 * -5 = 25", q("-5 * -5"))
+        assertEquals("Nulou dělit nejde – výsledek není definovaný.", q("100 / 0"))
+        assertEquals("2+2*2 = 6", q("2+2*2"))
+    }
+
+    @Test fun appCommandsWithoutResultAreNotWebResearch() {
+        for (s in listOf("spusť testy", "uložit jako csv", "exportuj do excelu", "stáhni to", "vytiskni to"))
+            assertTrue("$s → ${route(s)}", route(s) !is Router.Intent.Research)
+    }
 }

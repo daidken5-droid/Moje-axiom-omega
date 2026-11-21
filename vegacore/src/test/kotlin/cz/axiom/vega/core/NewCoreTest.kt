@@ -39,7 +39,8 @@ class NewCoreTest {
         assertTrue(Quick.answer("20 °C na F")!!.contains("68 °F"))
         assertTrue(Quick.answer("kolik dní od 1. 1. 2025 do 1. 3. 2025")!!.contains("59 dní"))
         assertNull(Quick.answer("v 10:30 mám schůzku, co si vzít?"))
-        assertNull(Quick.answer("1 / 0"))
+        // dělení nulou: jistá odpověď (dřív null → bez modelu laik dostal jen „potřebuji model“); kolo testů T3
+        assertEquals("Nulou dělit nejde – výsledek není definovaný.", Quick.answer("1 / 0"))
     }
 
     @Test fun topicAndLongText() {

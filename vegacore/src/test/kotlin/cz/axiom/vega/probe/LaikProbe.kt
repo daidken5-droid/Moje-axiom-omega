@@ -14,7 +14,12 @@ class LaikProbe {
         java.io.File(System.getProperty("probeFile")).readLines().filter { it.isNotBlank() && !it.startsWith("#") }.forEach { q ->
             val r = runCatching { Router.route(q, ctx) }.fold({ it.javaClass.simpleName + (if (it is Router.Intent.Tool) ":" + it.id else if (it is Router.Intent.Talk) "" else "") }, { "PÁD " + it })
             val a = runCatching { Quick.answer(q, now) }.getOrElse { "PÁD $it" }
-            println("PROBE|$q|$r|${a?.replace("\n", " ⏎ ")?.take(150) ?: "-"}")
+            val E = cz.axiom.vega.core.Econ
+            val e = runCatching { E.simpleProduct(q) ?: (if (E.isUnitQuestion(q)) E.unitAnswer(E.parseUnit(q), E.claim(q))?.text ?: "unit?neúplné:" + E.parseUnit(q) else null)
+                ?: (if (E.isTariffQuestion(q)) E.parseTariff(q)?.let { E.tariffAnswer(it) } ?: "tarif?nerozpoznán" else null) }.getOrElse { "PÁD $it" }
+            val ctxs = listOf("příl" to Router.Ctx(true, "vypis.csv", false, false, null), "proj" to Router.Ctx(false, null, true, false, null), "výsl" to Router.Ctx(false, null, false, true, null))
+            val rc = ctxs.joinToString(" ") { (n, c) -> n + "=" + runCatching { Router.route(q, c).javaClass.simpleName }.getOrElse { "PÁD" } }
+            println("PROBE|$q|$r|${a?.replace("\n", " ⏎ ")?.take(110) ?: "-"}|${e?.replace("\n", " ")?.take(110) ?: "-"}|$rc")
         }
     }
 }
