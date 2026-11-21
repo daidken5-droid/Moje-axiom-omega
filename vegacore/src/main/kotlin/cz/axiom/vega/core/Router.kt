@@ -189,8 +189,10 @@ object Router {
         // --- holý název tématu → rešerše
         // s přílohou je krátký popisek („účtenka“, „faktura za elektřinu“) o souboru, ne téma k hledání na webu
         // co spočítá kalkulačka v telefonu (datum, převod, procenta), nikdy nejde na web – i když to vypadá jako „název“
-        if (!c.hasAttachment && runCatching { cz.axiom.vega.calc.Quick.answer(text) }.getOrNull() == null)
-            cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
+        // (nejdřív levný test názvu – 3 až 60 znaků –, kalkulačka až pak; dlouhé vložené texty se jí vůbec netýkají)
+        if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic ->
+            if (runCatching { cz.axiom.vega.calc.Quick.answer(text) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
+        }
         return Intent.Talk(false, false)
     }
 }
