@@ -72,3 +72,15 @@ Výsledky každé fáze zapisuji sem + commit.
 - Na telefonu NEOVĚŘENO: diktování v Bez sítě, Android 16 (edge-to-edge, predictive back), WiFi vysvětlení, výkon.
 - Otevřené: novější AGP pro compileSdk 36 (sdílí kořenový build s AVIORem), ruční přepínač „Rychle/Ověřit/Hloubkový“,
   panel „Hypothesis Compare“, test „plánováno ≠ proběhlo“ se skutečným ověřovačem.
+
+## Odpoledne: celodenní testy a opravy (na žádost – bez nových funkcí)
+| Kolo | Metoda | Skutečné chyby nalezené a opravené |
+|---|---|---|
+| T1 | Android lint | Poloha pro WiFi na Androidu 12+ by se nezeptala (FINE bez COARSE); BLE na Androidu 8–11 bez oprávnění a polohy |
+| T2 | UI audit 30 obrazovek/dialogů v Chromiu, 360 px (`tools/ui-tests/audit.cjs`) | Pole bez názvu pro čtečku; malé dotykové cíle; lišta „V…“; rámeček nadpisu; tabulka Hardware posouvala panel do strany; pád dialogu Kontrola úplnosti |
+| T3 | ~150 laických dotazů proti routeru, kalkulačce a ekonomice | Kurz ČNB se online nikdy nepoužil; výpočty, „díkec“, slovenština a povely aplikace šly na webovou rešerši; sleva, zlomek, mocnina, úrok, dny mezi daty, týdny, Celsius/palce/libry, DPH oba směry; bod zvratu z laických vět; slovní operace, záporná čísla, dělení nulou |
+| T4 | Fuzz (pevný seed, limit 1,5 s/volání) + 15 tvarů bankovních výpisů | Výpis s částkou bez znaménka a sloupcem Debet/Kredit počítal vše jako příjem; JsonTool padal na StackOverflowError |
+| T5 | Revize kódu (XSS, výjimky, souběh) | Deaktivace virtuální karty nepřežila restart při selhání mazání; NFC „štítek se vzdálil“ hlášeno jako prázdný štítek; vyhozená příloha zůstávala v draftech |
+| T6 | Přijímací testy celé cesty zprávy (Ops) | Potvrzení oprav v reálném toku (`OpsDayTest`) |
+
+Testy: 163 → 187 (0 selhání; 4 přeskočené = 2 bez ONNX balíčku + 2 průzkumné `probe`). Na telefonu NEOVĚŘENO.
