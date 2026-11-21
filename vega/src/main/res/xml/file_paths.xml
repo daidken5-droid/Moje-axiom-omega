@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path name="out" path="vega/out/" />
+    <!-- APK samoúprav: soukromá složka, kam nic jiného nezapisuje (ne sdílené výstupy) -->
+    <files-path name="upd" path="vega/selfupd/apk/" />
+</paths>

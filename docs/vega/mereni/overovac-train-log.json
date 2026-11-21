@@ -1,0 +1,31 @@
+{
+ "base_repo": "MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli",
+ "base_rev": null,
+ "seed": 20261119,
+ "args": {
+  "out": "runs/pilot",
+  "epochs": 8,
+  "lr": 3e-05,
+  "bs": 8,
+  "train_layers": 2,
+  "resume": true,
+  "max_steps": 0
+ },
+ "log": [
+  {
+   "epoch": 7,
+   "loss": 0.48973286048225734,
+   "s": 2.4
+  },
+  {
+   "epoch": 8,
+   "loss": 0.3612959607787754,
+   "s": 4.5
+  }
+ ],
+ "labels": [
+  "PODPORUJE",
+  "NEDOSTAČUJE",
+  "ODPORUJE"
+ ]
+}

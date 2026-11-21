@@ -1,0 +1,329 @@
+{
+ "pozor": "Štítky jsou NÁVRHY modelu bez lidské kontroly → měření PŘEDBĚŽNÉ.",
+ "referencni_NLI": {
+  "prah": 0.91,
+  "jak": "precision≥0.9",
+  "validace": {
+   "cs→cs": {
+    "n": 12,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      5,
+      1,
+      0
+     ],
+     [
+      0,
+      3,
+      0
+     ],
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    "falesne_podpory": "0/6",
+    "precision_PODPORUJE": "5/5",
+    "recall_PODPORUJE": "5/6",
+    "NEVYHODNOCENO": "0/12"
+   },
+   "en→cs": {
+    "n": 11,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      2,
+      0,
+      2
+     ],
+     [
+      0,
+      2,
+      0
+     ],
+     [
+      0,
+      1,
+      4
+     ]
+    ],
+    "falesne_podpory": "0/7",
+    "precision_PODPORUJE": "2/2",
+    "recall_PODPORUJE": "2/4",
+    "NEVYHODNOCENO": "0/11"
+   },
+   "vše": {
+    "n": 23,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      7,
+      1,
+      2
+     ],
+     [
+      0,
+      5,
+      0
+     ],
+     [
+      0,
+      2,
+      6
+     ]
+    ],
+    "falesne_podpory": "0/13",
+    "precision_PODPORUJE": "7/7",
+    "recall_PODPORUJE": "7/10",
+    "NEVYHODNOCENO": "0/23"
+   }
+  },
+  "zaverecna": {
+   "cs→cs": {
+    "n": 19,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      6,
+      1,
+      0
+     ],
+     [
+      1,
+      2,
+      2
+     ],
+     [
+      2,
+      1,
+      4
+     ]
+    ],
+    "falesne_podpory": "3/12",
+    "precision_PODPORUJE": "6/9",
+    "recall_PODPORUJE": "6/7",
+    "NEVYHODNOCENO": "0/19"
+   },
+   "en→cs": {
+    "n": 17,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      3,
+      2,
+      2
+     ],
+     [
+      0,
+      4,
+      1
+     ],
+     [
+      0,
+      3,
+      2
+     ]
+    ],
+    "falesne_podpory": "0/10",
+    "precision_PODPORUJE": "3/3",
+    "recall_PODPORUJE": "3/7",
+    "NEVYHODNOCENO": "0/17"
+   },
+   "vše": {
+    "n": 36,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      9,
+      3,
+      2
+     ],
+     [
+      1,
+      6,
+      3
+     ],
+     [
+      2,
+      4,
+      6
+     ]
+    ],
+    "falesne_podpory": "3/22",
+    "precision_PODPORUJE": "9/12",
+    "recall_PODPORUJE": "9/14",
+    "NEVYHODNOCENO": "0/36"
+   }
+  }
+ },
+ "kandidat": {
+  "prah": 0.62,
+  "jak": "precision≥0.9",
+  "validace": {
+   "cs→cs": {
+    "n": 12,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      5,
+      1,
+      0
+     ],
+     [
+      0,
+      3,
+      0
+     ],
+     [
+      0,
+      0,
+      3
+     ]
+    ],
+    "falesne_podpory": "0/6",
+    "precision_PODPORUJE": "5/5",
+    "recall_PODPORUJE": "5/6",
+    "NEVYHODNOCENO": "0/12"
+   },
+   "en→cs": {
+    "n": 11,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      2,
+      0,
+      2
+     ],
+     [
+      0,
+      2,
+      0
+     ],
+     [
+      0,
+      2,
+      3
+     ]
+    ],
+    "falesne_podpory": "0/7",
+    "precision_PODPORUJE": "2/2",
+    "recall_PODPORUJE": "2/4",
+    "NEVYHODNOCENO": "0/11"
+   },
+   "vše": {
+    "n": 23,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      7,
+      1,
+      2
+     ],
+     [
+      0,
+      5,
+      0
+     ],
+     [
+      0,
+      2,
+      6
+     ]
+    ],
+    "falesne_podpory": "0/13",
+    "precision_PODPORUJE": "7/7",
+    "recall_PODPORUJE": "7/10",
+    "NEVYHODNOCENO": "0/23"
+   }
+  },
+  "zaverecna": {
+   "cs→cs": {
+    "n": 19,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      6,
+      1,
+      0
+     ],
+     [
+      1,
+      3,
+      1
+     ],
+     [
+      2,
+      1,
+      4
+     ]
+    ],
+    "falesne_podpory": "3/12",
+    "precision_PODPORUJE": "6/9",
+    "recall_PODPORUJE": "6/7",
+    "NEVYHODNOCENO": "0/19"
+   },
+   "en→cs": {
+    "n": 17,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      4,
+      0,
+      3
+     ],
+     [
+      1,
+      3,
+      1
+     ],
+     [
+      0,
+      2,
+      3
+     ]
+    ],
+    "falesne_podpory": "1/10",
+    "precision_PODPORUJE": "4/5",
+    "recall_PODPORUJE": "4/7",
+    "NEVYHODNOCENO": "0/17"
+   },
+   "vše": {
+    "n": 36,
+    "matice_zamen (řádek=pravda, sloupec=předpověď; P/N/O)": [
+     [
+      10,
+      1,
+      3
+     ],
+     [
+      2,
+      6,
+      2
+     ],
+     [
+      2,
+      3,
+      7
+     ]
+    ],
+    "falesne_podpory": "4/22",
+    "precision_PODPORUJE": "10/14",
+    "recall_PODPORUJE": "10/14",
+    "NEVYHODNOCENO": "0/36"
+   }
+  }
+ },
+ "rozdil_kandidat_minus_referencni": {
+  "cs→cs": {
+   "rozdil_falesnych_podpor_95CI": [
+    0.0,
+    0.0
+   ],
+   "rozdil_recall_95CI": [
+    0.0,
+    0.0
+   ]
+  },
+  "en→cs": {
+   "rozdil_falesnych_podpor_95CI": [
+    0.0,
+    0.25
+   ],
+   "rozdil_recall_95CI": [
+    0.0,
+    0.3333333333333333
+   ]
+  }
+ }
+}

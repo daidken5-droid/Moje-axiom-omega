@@ -1,0 +1,15 @@
+# Vlastní AI server pro VEGA na tvém PC (Windows/Mac/Linux s Docker Desktop).
+#   1) vedle tohoto souboru vytvoř .env:  VEGA_KEY=<aspoň 24 náhodných znaků>
+#                                         VEGA_PUBLIC_URL=http://<IP PC v síti>:7860
+#   2) docker compose up -d   → v logu (docker compose logs) je párovací kód
+services:
+  vega-server:
+    build: .
+    ports: ["7860:7860"]
+    env_file: .env
+    environment:
+      LLAMA_CACHE: /models
+    volumes: ["vega-models:/models"]   # model se stahuje jen jednou
+    restart: unless-stopped
+volumes:
+  vega-models: {}

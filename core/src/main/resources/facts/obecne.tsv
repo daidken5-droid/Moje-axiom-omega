@@ -1,0 +1,143 @@
+(kolik|pocet) (obyvatel|lidi|lidu)\w* (ma |zije |je |bydli )?(v )?(cr|cesk\w*|ceske republi\w*)\b|kolik (ma )?(cr|cesko|ceska republika) obyvatel	Česko má přibližně **10,9 milionu obyvatel** (ČSÚ, 2025).
+(rozloha|jak (velka|velke|velky) je|velikost|plocha) (cr|cesk\w*|ceske republiky|ceska republika)\b	Rozloha Česka je **78 871 km²**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(prah\w*|praze)\b	Praha má zhruba **1,4 milionu obyvatel** (2025) – je zdaleka největším městem Česka.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(brn\w*)\b	Brno má přibližně **400 tisíc obyvatel** – druhé největší město Česka.
+(kolik|pocet) (obyvatel|lidi|lidu)\w* (ma |zije |je )?(na )?(svet\w*|zem[ie]\b|planet\w*)	Na Zemi žije přibližně **8,2 miliardy lidí** (odhad OSN, 2025).
+nejlidnatejsi (stat|zem)\w*	Nejlidnatější zemí je **Indie** (přes 1,4 miliardy), od roku 2023 před Čínou.
+(jak daleko|vzdalenost\w*)( je)?( k| od zeme k| zeme od)? mesic\w*|jak daleko je (to )?na mesic	Měsíc je od Země průměrně **384 400 km** – světlu to trvá asi 1,3 sekundy.
+(jak daleko|vzdalenost\w*)( je)?( k| ke| od zeme ke?)? slunc\w*|jak daleko je slunce	Slunce je od Země průměrně **149,6 milionu km** (1 astronomická jednotka); světlo letí asi 8 min 20 s.
+(nejblizsi|nejbliz) hvezd\w*	Nejbližší hvězdou je **Slunce**; nejbližší další je **Proxima Centauri** (asi 4,24 světelného roku).
+(kolik|jak dlouho) (trva|ma|zabere)\w* (zemi )?(obeh|obehnout|oblet\w*|cesta)\w* (zeme )?(kolem )?slunce	Země oběhne Slunce za **365,256 dne** (proto přestupné roky).
+kolik (je |ma )?stupn\w* (ma |v |je v |ma )?(kruh|kruhu|kruznic\w*|kolo)\b	Plný kruh má **360°** (2π radiánů).
+^(kolik je|hodnota|cislo|co je) pi$|^pi$|ludolfov\w* cisl\w*	π ≈ **3,141 592 653 59** (Ludolfovo číslo – poměr obvodu a průměru kruhu).
+eulerov\w* cisl\w*|^(kolik je|hodnota) e$	e ≈ **2,718 281 828 46** (Eulerovo číslo, základ přirozeného logaritmu).
+(co je|vzorec|chemick\w* vzorec)( to)? (h2o|vod[ay])$|^h2o$|vzorec vody	**H₂O** je voda – molekula ze dvou atomů vodíku a jednoho atomu kyslíku.
+(co je|vzorec)( to)? (co2|oxid\w* uhlicit\w*)$|^co2$	**CO₂** je oxid uhličitý – jeden atom uhlíku a dva kyslíku; skleníkový plyn, vydechujeme ho.
+vzorec (soli|kuchynsk\w* soli)|^(co je )?nacl$	Kuchyňská sůl je **NaCl** (chlorid sodný).
+bod varu vody|pri kolika stupnich vari voda|kdy vari voda|teplota varu vody	Voda vře při **100 °C** za normálního tlaku (101,325 kPa); na horách při nižší teplotě.
+bod mrazu|pri kolika stupnich mrzne voda|kdy mrzne voda|teplota tani ledu	Voda mrzne při **0 °C** (za normálního tlaku).
+rychlost zvuku	Rychlost zvuku ve vzduchu je asi **343 m/s** (≈ 1 235 km/h) při 20 °C.
+kolik kost\w* (ma )?(clovek|lidske telo|dospel\w*)|kolik ma clovek kost\w*	Dospělý člověk má **206 kostí** (novorozenec kolem 300 – část jich srůstá).
+kolik (ma )?(clovek )?zub\w*$|kolik zub\w* ma (clovek|dospel\w*)	Dospělý má **32 trvalých zubů** (včetně zubů moudrosti), dítě **20 mléčných**.
+(normaln\w* )?teplot\w* (cloveka|tela|lidskeho tela)	Normální tělesná teplota je asi **36–37 °C**; od 38 °C se mluví o horečce.
+kolik (litru )?krv\w* (ma )?(clovek|dospel\w*)	Dospělý člověk má přibližně **5 litrů krve** (asi 7 % hmotnosti).
+kolik (ma )?(clovek )?chromozom\w*	Člověk má **46 chromozomů** (23 párů).
+kolik (je |ma )?(kontinent\w*|svetadil\w*)	Kontinentů je **7**: Asie, Afrika, Severní Amerika, Jižní Amerika, Antarktida, Evropa, Austrálie (Oceánie).
+kolik (je |ma )?ocean\w*	Oceány jsou **5**: Tichý, Atlantský, Indický, Jižní a Severní ledový.
+kolik (je |ma )?(statu|zemi) (na |ve )?(svet\w*)	Na světě je **193 členských států OSN** a 2 pozorovatelé (Vatikán, Palestina).
+kolik (noh|nohou) (ma )?pavouk|pavouk ma kolik noh	Pavouk má **8 nohou** (není to hmyz).
+kolik (noh|nohou) (ma )?hmyz|hmyz ma kolik noh	Hmyz má **6 nohou**.
+kdo (napsal|je autor\w*|byl autor\w*) babick\w*	*Babičku* napsala **Božena Němcová** (1855).
+kdo (napsal|je autor\w*|byl autor\w*) (r\.? ?u\.? ?r\.?|rur)\b	*R.U.R.* napsal **Karel Čapek** (1920) – slovo „robot“ vymyslel jeho bratr Josef.
+kdo (napsal|je autor\w*) (valk\w* s mloky)	*Válku s mloky* napsal **Karel Čapek** (1936).
+kdo (napsal|je autor\w*) (osudy dobreho vojaka svejka|svejk\w*)	*Osudy dobrého vojáka Švejka* napsal **Jaroslav Hašek** (1921–1923).
+kdo (napsal|je autor\w*) maj$	*Máj* napsal **Karel Hynek Mácha** (1836).
+kdo (napsal|je autor\w*) kytic\w*	*Kytici* napsal **Karel Jaromír Erben** (1853).
+kdo (napsal|je autor\w*) (proces|promen\w*|zamek)$	**Franz Kafka** (pražský německy píšící spisovatel, 1883–1924).
+kdo (napsal|je autor\w*) nesnesiteln\w* lehkost	*Nesnesitelnou lehkost bytí* napsal **Milan Kundera** (1984).
+kdo (napsal|je autor\w*) (bylo nas pet)	*Bylo nás pět* napsal **Karel Poláček** (vyšlo 1946).
+kdo (napsal|je autor\w*) saturnin\w*	*Saturnina* napsal **Zdeněk Jirotka** (1942).
+kdo (napsal|je autor\w*) (hamlet\w*|romeo\w*|macbeth\w*|othell\w*|krale leara|kral lear)	**William Shakespeare** (1564–1616).
+kdo (napsal|je autor\w*) harry\w* potter\w*	*Harryho Pottera* napsala **J. K. Rowlingová** (1997–2007).
+kdo (napsal|je autor\w*) (pan\w* prsten\w*|hobit\w*)	**J. R. R. Tolkien** (*Hobit* 1937, *Pán prstenů* 1954–1955).
+kdo (napsal|je autor\w*) (1984|farm\w* zvirat)	**George Orwell** (*Farma zvířat* 1945, *1984* 1949).
+kdo (napsal|je autor\w*) (maly princ|maleho prince)	*Malého prince* napsal **Antoine de Saint-Exupéry** (1943).
+kdo (napsal|je autor\w*) (vojna a mir|vojnu a mir|annu kareninov\w*)	**Lev Nikolajevič Tolstoj**.
+kdo (napsal|je autor\w*) (bidnici|bidniky|chram matky bozi)	**Victor Hugo**.
+kdo (napsal|je autor\w*) don quijot\w*	*Dona Quijota* napsal **Miguel de Cervantes** (1605–1615).
+kdo (napsal|je autor\w*) bozsk\w* komedi\w*	*Božskou komedii* napsal **Dante Alighieri** (začátek 14. stol.).
+kdo (napsal|je autor\w*) faust\w*	*Fausta* napsal **Johann Wolfgang Goethe**.
+kdo (slozil|je autor\w*|napsal|zkomponoval) (mou vlast|ma vlast|vltav\w*|prodan\w* nevest\w*|libus\w*)	**Bedřich Smetana** (*Má vlast* 1874–1879, *Prodaná nevěsta* 1866).
+kdo (slozil|je autor\w*|napsal|zkomponoval) (novosvetsk\w*|symfoni\w* z noveho sveta|rusalk\w*|slovansk\w* tanc\w*)	**Antonín Dvořák**.
+kdo (slozil|je autor\w*|napsal|zkomponoval) (ctvero rocnich obdobi|ctyri rocni obdobi)	**Antonio Vivaldi** (1725).
+kdo (slozil|je autor\w*|napsal|zkomponoval) (od\w* na radost|osudov\w* symfoni\w*|9\.? symfoni\w*|pro elisku)	**Ludwig van Beethoven**.
+kdo (slozil|je autor\w*|napsal|zkomponoval) (kouzeln\w* flet\w*|don giovanni|figarov\w* svatb\w*|malou noc\w* hudb\w*|mala nocni hudba)	**Wolfgang Amadeus Mozart** (*Don Giovanni* měl premiéru v Praze 1787).
+kdo (slozil|je autor\w*|napsal|zkomponoval) (hymn\w*( cr| cesk\w*)?|kde domov muj)	Hymnu *Kde domov můj* složil **František Škroup** (hudba) na text **Josefa Kajetána Tyla** (1834).
+jak se jmenuje (nase |ceska )?(statni )?hymn\w*|ceska hymna	Česká hymna je **„Kde domov můj“** (hudba František Škroup, text Josef Kajetán Tyl).
+kdo (namaloval|je autor\w*|vytvoril) (mon\w* lis\w*|posledni vecer\w*)	**Leonardo da Vinci** (*Mona Lisa* asi 1503–1519).
+kdo (namaloval|je autor\w*) (hvezdn\w* noc\w*|slunecnic\w*)	**Vincent van Gogh**.
+kdo (namaloval|je autor\w*) guernic\w*	*Guernicu* namaloval **Pablo Picasso** (1937).
+kdo (namaloval|je autor\w*) vykrik\w*	*Výkřik* namaloval **Edvard Munch** (1893).
+kdo (namaloval|vytvoril|je autor\w*) slovansk\w* epopej\w*	*Slovanskou epopej* vytvořil **Alfons Mucha** (1910–1928).
+kdo (namaloval|vymaloval|je autor\w*) (strop\w* )?sixtinsk\w*	Strop Sixtinské kaple vymaloval **Michelangelo Buonarroti** (1508–1512).
+kdo (vynalezl|objevil|vymyslel|sestrojil) zarovk\w*	Prakticky použitelnou žárovku vyvinul **Thomas Alva Edison** (1879); souběžně a dřív na ní pracoval i Joseph Swan.
+kdo (vynalezl|vymyslel|sestrojil) telefon\w*	Telefon si nechal patentovat **Alexander Graham Bell** (1876); nezávisle na něm pracoval Antonio Meucci.
+kdo (vynalezl|vymyslel) knihtisk\w*	Knihtisk s pohyblivými literami zavedl v Evropě **Johannes Gutenberg** (kolem 1450).
+kdo (vynalezl|vymyslel) kontaktn\w* coc\w*	Měkké kontaktní čočky vynalezl **Otto Wichterle** (1961, první na dětské stavebnici Merkur).
+kdo (vynalezl|vymyslel) hromosvod\w*	Hromosvod sestrojil **Prokop Diviš** (1754); nezávisle i Benjamin Franklin.
+kdo (vynalezl|vymyslel) lodn\w* sroub\w*	Lodní šroub vynalezl **Josef Ressel** (patent 1827).
+kdo (vynalezl|objevil) (rentgen\w*|paprsk\w* x)	Rentgenové záření objevil **Wilhelm Conrad Röntgen** (1895).
+kdo (objevil|vynalezl) penicilin\w*	Penicilin objevil **Alexander Fleming** (1928).
+kdo (vynalezl|vymyslel) (www|web|world wide web|internet)$	Web (WWW) vymyslel **Tim Berners-Lee** v CERNu (1989); samotný internet vznikl z ARPANETu (1969, TCP/IP Vinton Cerf a Bob Kahn).
+kdo (vynalezl|vymyslel|sestrojil) letadl\w*	První řízený let motorového letadla provedli **bratři Wrightové** (17. 12. 1903).
+kdo (vynalezl|vymyslel) dynamit\w*	Dynamit vynalezl **Alfred Nobel** (1867).
+kdo (vynalezl|vymyslel) polarograf\w*	Polarografii vynalezl **Jaroslav Heyrovský** – Nobelova cena za chemii 1959.
+kdo (objevil|formuloval|vymyslel) (zakon\w* )?gravitac\w*	Gravitační zákon formuloval **Isaac Newton** (1687).
+kdo (objevil|formuloval|vymyslel) (teori\w* )?relativit\w*	Teorii relativity formuloval **Albert Einstein** (speciální 1905, obecnou 1915).
+kdo (objevil|zalozil|je otcem) (genetik\w*|dedicnost\w*)	Zakladatelem genetiky je **Gregor Johann Mendel** (pokusy s hrachem v Brně, 1866).
+kdo objevil amerik\w*	Ameriku objevil pro Evropu **Kryštof Kolumbus** (12. 10. 1492); Vikingové tam dopluli už kolem roku 1000.
+kdo (byl )?(prvni )?(clovek )?(na mesic\w*|na mesici)|prvni clovek na mesici	Prvním člověkem na Měsíci byl **Neil Armstrong** (20. 7. 1969, Apollo 11).
+kdo (byl )?prvni (clovek )?(ve vesmir\w*)|prvni clovek ve vesmiru	Prvním člověkem ve vesmíru byl **Jurij Gagarin** (12. 4. 1961).
+prvni (cech|cesk\w* kosmonaut|ceskoslovensk\w* kosmonaut)\w*( ve vesmiru)?	Prvním Čechem ve vesmíru byl **Vladimír Remek** (1978).
+kdo zalozil microsoft	Microsoft založili **Bill Gates a Paul Allen** (1975).
+kdo zalozil apple	Apple založili **Steve Jobs, Steve Wozniak a Ronald Wayne** (1976).
+kdo zalozil google	Google založili **Larry Page a Sergey Brin** (1998).
+kdo zalozil (facebook|metu)	Facebook založil **Mark Zuckerberg** se spolužáky (2004).
+kdo zalozil anthropic	Anthropic založili v roce 2021 **Dario a Daniela Amodeiovi** s dalšími bývalými výzkumníky OpenAI.
+prvni\w* prezident\w* (csr|ceskoslov\w*)	Prvním prezidentem Československa byl **Tomáš Garrigue Masaryk** (1918–1935).
+kdo byl (tgm|t\.? ?g\.? ?masaryk|tomas garrigue masaryk|masaryk)$	**Tomáš Garrigue Masaryk** – zakladatel a první prezident Československa (1918–1935), filozof a sociolog.
+kdo byl (vaclav havel|havel)$	**Václav Havel** – dramatik a disident, poslední prezident Československa (1989–1992) a první prezident České republiky (1993–2003).
+hlavni mest\w* (cech|v cechach)\b	Hlavním městem Čech (historické země) je **Praha**.
+hlavni mest\w* (moravy|na morave)\b	Hlavním (historickým zemským) městem Moravy je **Brno**; ve středověku jím byl i Olomouc.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(na |v )?(slovensk\w*)\b	Slovensko má přibližně **5,4 milionu obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(nemeck\w*)\b	Německo má přibližně **83 milionů obyvatel** – nejlidnatější země EU.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(polsk\w*)\b	Polsko má přibližně **37 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(rakousk\w*)\b	Rakousko má přibližně **9,2 milionu obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(madarsk\w*)\b	Maďarsko má přibližně **9,6 milionu obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(franci\w*)\b	Francie má přibližně **68 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v )?(itali\w*)\b	Itálie má přibližně **59 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(spanel\w*)\b	Španělsko má přibližně **48 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(velk\w* britani\w*|anglii|uk)\b	Spojené království má přibližně **69 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(usa|americe|spojen\w* stat\w*)\b	USA mají přibližně **340 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(cin\w*)\b	Čína má přibližně **1,41 miliardy obyvatel**; od roku 2023 je druhá za Indií.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(indi\w*)\b	Indie má přibližně **1,45 miliardy obyvatel** – nejlidnatější země světa.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(japonsk\w*)\b	Japonsko má přibližně **124 milionů obyvatel**.
+(kolik|pocet) (obyvatel|lidi)\w* (ma |zije |je )?(v |ve )?(evrop\w*)\b	V Evropě žije přibližně **745 milionů lidí**, v EU asi **450 milionů**.
+(jak (velka|velke|velky) je|rozloha|plocha) (prah\w*)\b	Praha má rozlohu **496 km²** a zhruba **1,4 milionu obyvatel**.
+(nejvyssi hor\w*|nejvyssi bod|nejvyssi stit) (slovensk\w*|na slovensku|tater|v tatrach)	Nejvyšší horou Slovenska (i Tater) je **Gerlachovský štít** (2 655 m n. m.).
+(kolik vazi|jakou hmotnost ma|hmotnost) (litr|1 l) vody	Litr vody váží přibližně **1 kg** (přesně 0,998 kg při 20 °C, 1,000 kg při 4 °C).
+(kolik|jake) (kalori\w*|kcal|energie) (ma|obsahuje) banan\w*	Banán má asi **90 kcal na 100 g** – průměrný banán (120 g) zhruba **105 kcal**.
+(kolik|jake) (kalori\w*|kcal|energie) (ma|obsahuje) (vejce|vajicko)	Vejce (střední, ~50 g) má asi **70–80 kcal**.
+(kolik|jake) (kalori\w*|kcal|energie) (ma|obsahuje) jablk\w*	Jablko má asi **52 kcal na 100 g** – průměrné jablko (180 g) zhruba **95 kcal**.
+(kolik|jake) (kalori\w*|kcal|energie) (ma|obsahuje) (rohlik\w*)	Rohlík (43 g) má asi **125 kcal**.
+(kolik|jake) (kalori\w*|kcal|energie) (ma|obsahuje) (pivo|piva|desitk\w*|jedenactk\w*|dvanactk\w*)	Půllitr světlého ležáku (12°) má asi **210–230 kcal**, desítka kolem **170 kcal**.
+(kolik|jake) (kalori\w*|kcal) (ma |potrebuje |spali )?(clovek|denne|za den)	Dospělý člověk potřebuje orientačně **2 000 kcal (ženy) až 2 500 kcal (muži) denně** – podle věku, výšky a pohybu.
+^(co je|co je to|vysvetli) (umel\w* inteligenc\w*|ai|a\.i\.)$	**Umělá inteligence (AI)** jsou programy, které se učí z dat a řeší úlohy, jež dřív vyžadovaly lidské myšlení – rozpoznávání řeči a obrazu, překlad, psaní textu nebo rozhodování. Dnešní chatboti (jako já) jsou *velké jazykové modely* vycvičené na obrovském množství textu.
+^(co je|co je to|vysvetli) (inflac\w*)$	**Inflace** je růst cenové hladiny v čase – za stejné peníze si koupíš méně. V ČR ji měří ČSÚ a ČNB se ji snaží držet kolem cíle **2 %** ročně.
+^(co je|co je to|vysvetli) (bitcoin\w*)$	**Bitcoin** je první a největší kryptoměna (2009, autor pod pseudonymem Satoshi Nakamoto). Funguje bez banky na veřejném blockchainu; počet bitcoinů je omezen na 21 milionů. Cena silně kolísá.
+^(co je|co je to|vysvetli) (blockchain\w*)$	**Blockchain** je sdílená databáze složená z bloků záznamů, které na sebe kryptograficky navazují – zpětně je nelze nenápadně změnit. Používají ho kryptoměny a další systémy, kde si strany navzájem nevěří.
+^(co je|co je to|vysvetli) (cloud\w*)$	**Cloud** (cloud computing) znamená používat výpočetní výkon, úložiště nebo aplikace na cizích serverech přes internet místo na vlastním zařízení – např. Google Drive, iCloud nebo Cloud v AVIORu.
+^(co je|co je to|vysvetli) (gravitac\w*)$	**Gravitace** je přitažlivá síla mezi všemi tělesy s hmotností. Drží nás na Zemi, Měsíc na oběžné dráze a Zemi kolem Slunce. Na Zemi způsobuje tíhové zrychlení asi **9,81 m/s²**.
+^(co je|co je to|vysvetli) (fotosyntez\w*)$	**Fotosyntéza** je proces, kterým rostliny, řasy a sinice mění světelnou energii na chemickou: z oxidu uhličitého a vody vyrábí cukry (glukózu) a jako vedlejší produkt uvolňují **kyslík**. Probíhá v chloroplastech díky chlorofylu.
+^(co je|co je to|vysvetli) (hdp|hrub\w* domac\w* produkt\w*)$	**HDP (hrubý domácí produkt)** je hodnota všeho zboží a služeb vyrobených v zemi za rok – hlavní měřítko velikosti ekonomiky.
+^(co je|co je to|vysvetli) (dna|dnk)$	**DNA** (česky DNK) je molekula, která nese genetickou informaci všech živých organismů – návod, podle kterého se tvoří bílkoviny.
+^(co je|co je to|vysvetli) (atom\w*)$	**Atom** je nejmenší částice chemického prvku: jádro z protonů a neutronů a kolem něj elektrony.
+^(co je|co je to|vysvetli) (algoritm\w*)$	**Algoritmus** je přesný postup krok za krokem, jak vyřešit úlohu – recept je algoritmus, stejně jako postup, podle kterého počítač třídí čísla.
+^(co je|co je to|vysvetli) (demokraci\w*)$	**Demokracie** je uspořádání, ve kterém moc pochází od lidu – občané volí své zástupce ve svobodných volbách, platí právní stát, svoboda slova a ochrana menšin.
+^(co je|co je to|vysvetli) (globaln\w* oteplovan\w*|klimatick\w* zmen\w*)$	**Globální oteplování** je dlouhodobý růst průměrné teploty Země, hlavně kvůli skleníkovým plynům (CO₂, metan) z lidské činnosti. Od předindustriální doby se planeta oteplila asi o **1,2–1,3 °C**.
+kdo (je|byl) elon musk	**Elon Musk** – podnikatel, šéf **Tesly** a **SpaceX**, majitel sítě **X** (dříve Twitter), spoluzakladatel OpenAI a Neuralinku; patří k nejbohatším lidem světa.
+kdo (je|byl) petr pavel	**Petr Pavel** – prezident České republiky od 9. 3. 2023, bývalý náčelník Generálního štábu AČR a předseda Vojenského výboru NATO (stav k 2026).
+kdo (je|byl) andrej babis	**Andrej Babiš** – zakladatel hnutí ANO, podnikatel (Agrofert), premiér ČR 2017–2021 a znovu od prosince 2025 (stav k 2026).
+kdo (je|byl) donald trump	**Donald Trump** – republikán, 45. (2017–2021) a 47. prezident USA (od 20. 1. 2025), podnikatel a bývalý televizní moderátor (stav k 2026).
+kdo (je|byl) petr fiala	**Petr Fiala** – politolog, předseda ODS, premiér ČR 2021–2025.
+kdo (je|byl) vaclav klaus	**Václav Klaus** – ekonom, zakladatel ODS, premiér ČR 1993–1998 a prezident 2003–2013.
+kdo (je|byl) milos zeman	**Miloš Zeman** – premiér ČR 1998–2002 a první přímo zvolený prezident (2013–2023).
+kdo (byl|je) tomas bata	**Tomáš Baťa** (1876–1932) – zlínský podnikatel, zakladatel obuvnického impéria Baťa a průkopník moderního řízení firmy.
+kdo (byl|je) karel iv\b|kdo byl karel ctvrty	**Karel IV.** (1316–1378) – český král a římský císař; založil Univerzitu Karlovu (1348), Nové Město pražské a Karlštejn, postavil Karlův most.
+kdo (byl|je) jan hus	**Mistr Jan Hus** (asi 1370–1415) – kněz a reformátor, rektor pražské univerzity; upálen v Kostnici 6. 7. 1415.
+kdo (byl|je) (jan amos komensky|komensky)	**Jan Amos Komenský** (1592–1670) – „učitel národů“, filozof a pedagog, autor *Orbis pictus* a *Labyrintu světa a ráje srdce*.
+kdo (byl|je) (albert )?einstein	**Albert Einstein** (1879–1955) – fyzik, autor teorie relativity a vztahu E = mc², Nobelova cena 1921; v letech 1911–1912 působil v Praze.
+kdo (je|byl) (bill gates)	**Bill Gates** – spoluzakladatel Microsoftu (1975) a filantrop (Gates Foundation).
+kdo (objevil|vynalezl|vymyslel) elektrin\w*	Elektřinu nikdo „nevynalezl“ – zkoumala se postupně: **Benjamin Franklin** (blesk, 1752), **Alessandro Volta** (první baterie, 1800), **Michael Faraday** (elektromagnetická indukce, 1831).
+linka (duvery|bezpeci|pomoci)|linka prvni psychick\w* pomoci|krizov\w* link\w*	**Linka první psychické pomoci: 116 123** (nonstop, zdarma). Pro děti a studenty **Linka bezpečí: 116 111**. V ohrožení života vždy **155** nebo **112**.
+(kolik vazi|jakou hmotnost ma|hmotnost) (litr|1 l) mlek\w*	Litr mléka váží přibližně **1,03 kg** (mléko je o trochu hustší než voda).

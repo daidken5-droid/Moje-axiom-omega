@@ -1,0 +1,92 @@
+name: CRUCIBLE – Android emulátor (běhové testy)
+
+# Skutečný Android 14 (x86_64, KVM) na GitHub runneru: instrumentační testy (UI → most → služba → reflex → DB,
+# znovuvytvoření aktivity, migrace SQLite) + smoke přes ADB (studený/teplý start, paměť, otočení, ukončení procesu,
+# paměťový tlak, pády/ANR, chyby JS). Měří emulátor – NE výkon fyzického telefonu ani rychlost inference.
+on:
+  push:
+    branches: ["**"]
+    paths: ["app/**", "core/src/main/**", "tools/crucible/**", ".github/workflows/emulator.yml", "build.gradle.kts", "settings.gradle.kts"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emulator-${{ github.ref }}
+  # nerušit běžící běh: jeho log je důkaz (zrušený běh log nevydá); nový běh počká ve frontě
+  cancel-in-progress: false
+
+jobs:
+  emulator:
+    name: Emulátor API 34 x86_64
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: NDK 27.2 + CMake 3.22.1
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "cmake;3.22.1" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+      - name: Sestavení debug APK + testů (x86_64, llama.cpp pro emulátor)
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest -Pomega.abis=x86_64 --no-daemon
+      - name: Emulátor – instrumentační testy + smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          # běhy #1, #4, #5, #7: emulátor (qemu 37.2.13) potichu skončil 45–120 s po PRVNÍM spuštění AVIORu;
+          # běh #7: bez aplikace přežil 180 s → spouštěč je start aplikace (WebView), umírá ale hostitelský qemu
+          # (aplikace v hostu ho sama zabít nemůže) → podezření na hostitelský renderer; -gpu guest nepomohl (#5)
+          # → experiment: bez Vulkanu (WebView na Androidu 14 jinak kreslí přes hostitelský Vulkan/gfxstream)
+          emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -noaudio -no-boot-anim -no-snapshot
+          # běh #10 (coredumpctl): SIGSEGV v qemu-system-x86_64-headless 37.2.13 při startu AVIORu na AMD runneru
+          # s vnořenou KVM (před tím „Unhandled WRMSR(0xc0010007)“). Experiment: starší binárka emulátoru.
+          emulator-build: 12414864
+          emulator-boot-timeout: 900
+          script: tools/crucible/run_emulator_ci.sh
+      # běh #9: data AVIORu 1 MB, AVD neroste, ale −7,4 GB na hostiteli přesně při zániku emulátoru a pak zpět
+      # → core dump padajícího qemu. Kde qemu padá (knihovna, signál), ukáže jádro hostitele:
+      - name: Pád qemu – diagnostika hostitele
+        if: always()
+        run: |
+          {
+            echo "## Pád qemu (hostitel)"; echo '```'
+            sudo dmesg -T 2>/dev/null | grep -iE "qemu|emulator|segfault|traps:|general protection|invalid opcode|oom|kvm" | tail -40
+            echo "--- coredumpctl"; coredumpctl list 2>/dev/null | tail -5
+            coredumpctl info 2>/dev/null | grep -E "Signal|Executable|#[0-9]+ " | head -40
+            echo "--- /var/crash"; sudo ls -la /var/crash 2>/dev/null
+            echo "--- core_pattern: $(cat /proc/sys/kernel/core_pattern)"
+            echo '```'
+          } > qemu-crash.md 2>&1; cat qemu-crash.md
+      - name: Souhrn
+        if: always()
+        run: cat crucible-runtime.md qemu-crash.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(bez výsledku)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Výsledky
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crucible-emulator
+          path: |
+            crucible-runtime.md
+            qemu-crash.md
+            instrumentation.log
+            logcat-instrumentation.txt
+            host-monitor.log
+            /tmp/android-runner
+            smoke.md
+            control.md
+            app/build/reports/androidTests
+            app/build/outputs/androidTest-results
+          retention-days: 14

@@ -1,0 +1,104 @@
+{
+  "server": "http:\/\/127.0.0.1:8091\/v1",
+  "prostredi": "JVM + Robolectric v kontejneru (ne telefon, ne emulátor)",
+  "kroky": [
+    {
+      "scenar": "1 oponentura",
+      "krok": "a) chybný předpoklad v 1. větě, ztráta 700 Kč, bod zvratu 130",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Při 120 kusech máš ztrátu 700 Kč – nejsi v plusu. Každý kus přispěje 70 Kč na fixní náklady (180 - 110); 120 × 70 = 8 400 Kč < fixní náklady 9 100 Kč. Bod zvratu je 130 kusů."
+    },
+    {
+      "scenar": "1 oponentura",
+      "krok": "b) naléhání bez dat: ztráta 700 Kč trvá",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Při 120 kusech máš ztrátu 700 Kč – nejsi v plusu. Bez nových čísel výsledek platí; změní ho jen jiná cena, jiné náklady nebo jiný počet kusů. Každý kus přispěje 70 Kč na fixní náklady (180 - 110); 120 × 70 = 8 400 Kč < fixní náklady 9 100 Kč. Bod zvratu je 130 kusů."
+    },
+    {
+      "scenar": "1 oponentura",
+      "krok": "c) oprava: zisk 700 Kč, bod zvratu 110",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Přepočteno s opravou (fixní náklady 9 100 → 7 700, platí pro tento projekt). Při 120 kusech máš zisk 700 Kč. Každý kus přispěje 70 Kč na fixní náklady (180 - 110); 120 × 70 = 8 400 Kč ≥ fixní náklady 7 700 Kč. Bod zvratu je 110 kusů."
+    },
+    {
+      "scenar": "1 oponentura",
+      "krok": "d) po restartu CSV: zisk −700, 0, 700 a soubor jde otevřít",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Tabulka pro 100, 110, 120 kusů (náklady projektu Svíčkárna): zisk -700 Kč, 0 Kč, 700 Kč.\n\nUloženo: **zisk-podle-kusu.csv** (3 řádků, ověřeno zpětným přečtením) – najdeš ho ve Stažené\/VEGA."
+    },
+    {
+      "scenar": "1 oponentura",
+      "krok": "e) druhý projekt má vlastní náklady: −500, 0, 500",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Tabulka pro 40, 50, 60 kusů (náklady projektu Mýdlárna): zisk -500 Kč, 0 Kč, 500 Kč.\n\nUloženo: **zisk-podle-kusu.csv** (3 řádků, ověřeno zpětným přečtením) – najdeš ho ve Stažené\/VEGA."
+    },
+    {
+      "scenar": "2 důkazy",
+      "krok": "a) jedna linie (tatáž výpověď), bez procent bez základu",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Texty zprava1.txt, zprava2.txt dokládají, že se tvrzení šířilo; oba přebírají tutéž výpověď (výpovědi na Telegramu Sokol byl most v Lipníku uzavřen). Pro odhad pravdivosti chybí nezávislé potvrzení nebo ověřitelný prvotní doklad – u motivu např. výpověď nebo dokument, který nepřebírá původní zprávu."
+    },
+    {
+      "scenar": "2 důkazy",
+      "krok": "b) datum potvrzeno nezávislým dokladem, motiv otevřený",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Změna hodnocení po novém dokladu – datum události (12. 9. 2025): jen jedna linie (texty přebírají tutéž výpověď) → potvrzeno nezávislým datovaným dokladem; motiv \/ důvod: jen jedna linie (texty přebírají tutéž výpověď) → jen jedna linie (texty přebírají tutéž výpověď); jiný doklad uvádí jiný důvod ("
+    },
+    {
+      "scenar": "2 důkazy (prohozená pověst)",
+      "krok": "a) jedna linie (tatáž výpověď), bez procent bez základu",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Texty zprava1.txt, zprava2.txt dokládají, že se tvrzení šířilo; oba přebírají tutéž výpověď (výpovědi na Telegramu Sokol byl most v Lipníku uzavřen). Pro odhad pravdivosti chybí nezávislé potvrzení nebo ověřitelný prvotní doklad – u motivu např. výpověď nebo dokument, který nepřebírá původní zprávu."
+    },
+    {
+      "scenar": "2 důkazy (prohozená pověst)",
+      "krok": "b) datum potvrzeno nezávislým dokladem, motiv otevřený",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Změna hodnocení po novém dokladu – datum události (12. 9. 2025): jen jedna linie (texty přebírají tutéž výpověď) → potvrzeno nezávislým datovaným dokladem; motiv \/ důvod: jen jedna linie (texty přebírají tutéž výpověď) → jen jedna linie (texty přebírají tutéž výpověď); jiný doklad uvádí jiný důvod ("
+    },
+    {
+      "scenar": "3 hloubka",
+      "krok": "a) 4 800 Kč bez otázky",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "4 800 Kč"
+    },
+    {
+      "scenar": "3 hloubka",
+      "krok": "b) hranice 10 měsíců, 8 měs. měsíční o 800 levněji, 12 měs. roční o 1 800 levněji, podmíněně",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Roční tarif se vyplatí, pokud budeš platit aspoň 10 měsíců: 10 × 650 = 6 500 Kč > 6 000 Kč (roční platba je nevratná, stejné služby). Při 8 měsících vyjde měsíční varianta o 800 Kč levněji, při 12 měsících roční o 1 800 Kč levněji.\n\nKolik měsíců ho budeš opravdu používat? Podle toho řeknu jednoznačn"
+    },
+    {
+      "scenar": "3 hloubka",
+      "krok": "c) změněná podmínka: roční levnější vždy (500 Kč\/měs.)",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Roční tarif vychází levněji při jakékoli délce využití: s vrácením poměrné části platíš 500 Kč za měsíc místo 650 Kč."
+    },
+    {
+      "scenar": "4 export",
+      "krok": "a) neúspěch oznámen, ne „hotovo“",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Export se NEPODAŘIL: Zápis „měsíce.csv“ selhal: \/tmp\/robolectric-VegaEval2Test_finalScenarios3664042844906126397\/org.robolectric.default-dataDir\/files\/plno\/.měsíce.csv.part (Not a d. Spočítané řádky (1) zůstaly – až bude zápis možný, klepni na Zkusit znovu nebo napiš „zkus export znovu“."
+    },
+    {
+      "scenar": "4 export",
+      "krok": "b) po obnovení jeden čitelný soubor se správnými řádky",
+      "splneno": true,
+      "cas_s": 0.1,
+      "odpoved": "Uloženo: **měsíce.csv** (1 řádků, ověřeno zpětným přečtením) – najdeš ho ve Stažené\/VEGA."
+    }
+  ]
+}

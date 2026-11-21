@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<!-- UI nesmí na síť (connect-src 'none'); žádné inline skripty. Stejná politika jde i jako HTTP hlavička. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'">
+<meta name="theme-color" content="#0b0d12">
+<title>VEGA</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <button class="iconbtn" data-act="library" aria-label="Menu"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button>
+  <button class="iconbtn" data-act="home" aria-label="Domů"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 11l8-7 8 7M6 10v9h4v-5h4v5h4v-9" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button class="model" data-act="model" aria-label="Model a soukromí"><span id="spaceName">VEGA</span><small id="modelName"></small><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+  <span class="grow"></span>
+  <button class="iconbtn" data-act="new" aria-label="Nová konverzace"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M18.5 3.5a2.1 2.1 0 0 1 3 3L13 15l-4 1 1-4z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></button>
+  <button class="avatar" id="avatar" data-act="profile" aria-label="Profil a nastavení">V</button>
+</header>
+<main class="stream" id="stream" aria-label="Konverzace"></main>
+<div id="sr" class="sr-only" aria-live="polite"></div>
+<footer class="dock">
+  <div class="chips" id="chips"></div>
+  <div id="mode"></div>
+  <div class="files" id="files"></div>
+  <div class="bar">
+    <button class="round plus" data-act="plus" aria-label="Přidat">+</button>
+    <textarea id="input" rows="1" placeholder="Zeptej se VEGA" maxlength="120000" aria-label="Zpráva"></textarea>
+    <button class="round go" id="go" data-act="send" aria-label="Odeslat">↑</button>
+  </div>
+</footer>
+<div id="layer"></div>
+<script src="app.js"></script>
+</body>
+</html>
