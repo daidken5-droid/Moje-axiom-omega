@@ -321,6 +321,12 @@ function hwCardSheet(card) {
     <div class="inline" style="margin-top:10px"><button class="btn primary" data-act="hwSave">Uložit</button>${card ? `<button class="btn ghost" data-act="hwDel" data-id="${esc(c.id)}">Smazat</button>` : ''}</div>`, true);
 }
 
+function docsManageSheet() {
+  const docs = call('indexDocs') || [];
+  const rows = docs.length ? docs.map(d => `<div class="row"><span class="grow">${esc(d.name)}</span><button class="btn ghost" data-act="docRemove" data-id="${esc(d.id)}">Odebrat</button></div>`).join('')
+    : '<div class="row"><span class="grow note">Zatím žádné dokumenty.</span></div>';
+  sheet(`<h2>Dokumenty ve vyhledávání</h2><p class="lede">Odebráním dokument zmizí z „najdi v mých souborech“. Soubor v telefonu to nemaže.</p><div class="list">${rows}</div>`, true);
+}
 function wifiToolsSheet() {
   sheet(`<h2>WiFi heslo a QR</h2>
     <p class="lede">Zkontroluj sílu hesla nebo vyrob QR kód pro snadné připojení hostů. Heslo zůstane jen tady – neukládá se do historie ani jinam.</p>
@@ -602,7 +608,10 @@ function settingsSheet() {
 
     <h3>Chování</h3>
     <label class="switch"><span><b>Iniciativa</b><small>navrhnu další krok u projektu</small></span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></label>
-    <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}. Tento měsíc utraceno ${fmt(s.spentKc)} Kč. Lokální index: ${s.indexed} souborů.</p>
+    <h3>Dokumenty ve vyhledávání</h3>
+    <div class="note">Texty, které VEGA zná pro „najdi v mých souborech“. Můžeš je jednotlivě odebrat.</div>
+    <button class="btn" data-act="docsManage">Spravovat (${s.indexed || 0})</button>
+    <p class="note">Požadavky na modely: vlastní ${(s.requests || {}).own || 0} · komerční ${(s.requests || {}).commercial || 0}. Tento měsíc utraceno ${fmt(s.spentKc)} Kč.</p>
     </details>
     <p class="note" style="margin-top:24px">VEGA · samostatná aplikace, vlastní úložiště. Klíče jsou šifrované v trezoru telefonu a do rozhraní se nevracejí.</p>`, true);
 }
@@ -1005,6 +1014,8 @@ function act(a, d) {
     }
     case 'wifiLink': if (busyGuard()) return; closeSheet(true); S.busy = true; S.busyChat = chatId(); B.wifiLink(chatId() || 'temp'); render(); break;
     case 'wifiTools': wifiToolsSheet(); break;
+    case 'docsManage': docsManageSheet(); break;
+    case 'docRemove': if (call('indexRemove', d.id) !== null) { docsManageSheet(); toast('Dokument odebrán z vyhledávání.'); } break;
     case 'qrReveal': {
       const field = $('#qrPw'), button = $('[data-act="qrReveal"]');
       const show = field.type === 'password';

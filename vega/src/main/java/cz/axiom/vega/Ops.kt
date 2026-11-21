@@ -399,7 +399,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val b = v as Value.Bytes
         val r = files.read(b.name, b.mime, b.bytes)
         if (r.text.isBlank()) throw ToolError("V souboru jsem nenašel text.")
-        index.add(b.name, r.text)
+        index.add(b.name, b.name, r.text)
         Value.Text(r.text, b.name)
     }
 
@@ -416,7 +416,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             emit("phase", JSONObject().put("text", "Čtu ${b.name}…"))
             val t = runCatching { files.read(b.name, b.mime, b.bytes).text }.getOrDefault("")
             if (t.isBlank()) throw ToolError("Ze souboru „${b.name}“ jsem nepřečetla žádný text (prázdný sken, heslo nebo nepodporovaný formát). Zkus ostřejší fotku nebo PDF s textem.")
-            t.also { attTextCache[key] = it; runCatching { index.add(b.name, it) } }
+            t.also { attTextCache[key] = it; runCatching { index.add(b.name, b.name, it) } }
         }
     }
     /** Text přílohy do limitu + poznámka, když se nevešel celý (laik jinak netuší, že model viděl jen začátek). */
@@ -581,6 +581,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Uživatel přílohu odebral v UI → uvolnit ji i tady (jinak by v paměti visela dál). */
     fun dropAttachment(id: String) { synchronized(attachments) { attachments.remove(id) } }
+    /** Dokumenty v lokálním vyhledávání (id, jméno) + odebrání konkrétního. */
+    fun indexDocs(): JSONArray = JSONArray().apply { index.entries().forEach { (id, nm) -> put(JSONObject().put("id", id).put("name", nm)) } }
+    fun indexRemove(id: String) { index.remove(id) }
     private val ATTACH_MAX_BYTES = 150_000_000L
 
     fun attach(name: String, mime: String?, bytes: ByteArray, indexNow: Boolean = true): JSONObject {
@@ -592,7 +595,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         // do lokálního indexu (text a CSV hned, PDF/obrázek až nástrojem s OCR – nezdržovat výběr)
         val textual = name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || cz.axiom.vega.core.Encoding.isUtf8(bytes.copyOf(minOf(bytes.size, 4096)))
         // (české exporty bývají ve Windows-1250 – Encoding.decode to pozná)
-        if (indexNow && bytes.size < 5_000_000 && textual && !name.endsWith(".pdf", true)) runCatching { index.add(name, cz.axiom.vega.core.Encoding.decode(bytes)) }
+        // index pod stabilním ID přílohy (dva „faktura.pdf“ se nepřepíšou), jméno zůstává pro zobrazení
+        if (indexNow && bytes.size < 5_000_000 && textual && !name.endsWith(".pdf", true)) runCatching { index.add(id, name, cz.axiom.vega.core.Encoding.decode(bytes)) }
         return JSONObject().put("id", id).put("name", name).put("size", bytes.size).put("mime", mime ?: "").put("evicted", evicted)
     }
     private fun lastAttachment() = msgAtt.lastOrNull()

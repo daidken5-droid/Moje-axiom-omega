@@ -512,6 +512,8 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }
     @JavascriptInterface fun messages(chat: String) = safe { ops.messages(chat) }
     @JavascriptInterface fun dropAttachment(id: String) = safe { ops.dropAttachment(id); true }
+    @JavascriptInterface fun indexDocs() = safe { ops.indexDocs() }
+    @JavascriptInterface fun indexRemove(id: String) = safe { ops.indexRemove(id); true }
     @JavascriptInterface fun chatRev(chat: String): String = runCatching { ops.chatRev(chat) }.getOrDefault("")
     @JavascriptInterface fun send(chat: String, text: String, ids: String) = safe {
         val f = JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } }

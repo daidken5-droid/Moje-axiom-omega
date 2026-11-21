@@ -76,28 +76,47 @@ class FileText(private val context: Context) {
 }
 
 /** LOKÁLNÍ INDEX (SQLite FTS4) nad soubory, které uživatel do VEGA dal – hledání bez sítě a bez modelu. */
-class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext, "vega-index.db", null, 1) {
+/**
+ * Lokální fulltext index (SQLite FTS4). Dokument má STABILNÍ ID (docid) oddělené od zobrazovaného jména, takže
+ * dva soubory „faktura.pdf“ se nepřepíšou a každý jde samostatně odebrat. Starý index (bez docid) se migruje:
+ * docid = jméno. Je to cache – i kdyby migrace selhala, znovu se naplní při práci se soubory.
+ */
+class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext, "vega-index.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE VIRTUAL TABLE docs USING fts4(name, body, added, notindexed=added, prefix=\"4\", tokenize=unicode61)")
+        db.execSQL("CREATE VIRTUAL TABLE docs USING fts4(uid, name, body, added, notindexed=uid, notindexed=added, prefix=\"4\", tokenize=unicode61)")
     }
-    override fun onUpgrade(db: SQLiteDatabase, o: Int, n: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, o: Int, n: Int) {
+        if (o < 2) {
+            // přenes staré řádky (name, body, added) do nového schématu s docid = name
+            val old = runCatching { db.rawQuery("SELECT name, body, added FROM docs", null).use { c -> buildList { while (c.moveToNext()) add(Triple(c.getString(0), c.getString(1), c.getLong(2))) } } }.getOrDefault(emptyList())
+            runCatching { db.execSQL("DROP TABLE IF EXISTS docs") }
+            onCreate(db)
+            db.beginTransaction()
+            try { old.forEach { (nm, body, at) -> db.insert("docs", null, ContentValues().apply { put("uid", nm); put("name", nm); put("body", body); put("added", at) }) }; db.setTransactionSuccessful() } finally { db.endTransaction() }
+        }
+    }
 
-    fun add(name: String, text: String) {
+    /** Přidá/nahradí dokument pod stabilním [docId]; [name] je jen pro zobrazení. */
+    fun add(docId: String, name: String, text: String) {
         if (text.isBlank()) return
         val db = writableDatabase
         db.beginTransaction()
         try {
-            db.delete("docs", "name = ?", arrayOf(name))
+            db.delete("docs", "uid = ?", arrayOf(docId))
             db.insertOrThrow("docs", null, ContentValues().apply {
-                put("name", name)
-                put("body", text.take(2_000_000))
-                put("added", System.currentTimeMillis())
+                put("uid", docId); put("name", name); put("body", text.take(2_000_000)); put("added", System.currentTimeMillis())
             })
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
     }
+    /** Zpětně kompatibilní: dokument bez vlastního ID se klíčuje podle jména. */
+    fun add(name: String, text: String) = add(name, name, text)
 
-    fun list(): List<String> = readableDatabase.rawQuery("SELECT name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+    fun remove(docId: String) = writableDatabase.delete("docs", "uid = ?", arrayOf(docId))
+
+    /** Dokumenty pro správu: (docid, jméno), nejnovější první. */
+    fun entries(): List<Pair<String, String>> = readableDatabase.rawQuery("SELECT uid, name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0) to c.getString(1)) } }
+    fun list(): List<String> = entries().map { it.second }
 
     /** Celá těla nejrelevantnějších dokumentů pro offline RAG (BM25 nad pasážemi dělá Rag v jádře). */
     fun bodies(query: String, limit: Int): Map<String, String> {
@@ -117,7 +136,8 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
         if (words.isEmpty()) return emptyList()
         val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
         fun run(q: String) = runCatching {
-            readableDatabase.rawQuery("SELECT rowid, name, snippet(docs, '«', '»', '…', 1, 24) FROM docs WHERE docs MATCH ? LIMIT ?", arrayOf(q, limit.toString())).use { c ->
+            // snippet nad sloupcem body (index 2: docid,name,body,…)
+            readableDatabase.rawQuery("SELECT rowid, name, snippet(docs, '«', '»', '…', 2, 24) FROM docs WHERE docs MATCH ? LIMIT ?", arrayOf(q, limit.toString())).use { c ->
                 buildList { while (c.moveToNext()) add(Snippet(c.getLong(0), c.getString(1), c.getString(2), "lokální index")) }
             }
         }.getOrDefault(emptyList())
