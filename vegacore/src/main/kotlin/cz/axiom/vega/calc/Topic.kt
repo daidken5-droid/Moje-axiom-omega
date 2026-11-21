@@ -17,7 +17,9 @@ object Topic {
         "uprav|zmen|prepis|pomoz|pomozte|vylepsi|oprav|zkontroluj|priprav|dej|rekni|ukaz|zjisti|pridej|odeber|smaz|uloz|zapamatuj|zapomen|vrat|zrus|" +
         // oslovení a smalltalk („měj se“, „jsi chytrá?“, „seš tu?“) – není to název tématu
         "jsi|jste|ses|sis|mej|mejte|chytra|chytry|chytre|hloupy|vtipny|zivy|nazivu|tady|tu|funguje|slysis|vidis|" +
-        "zformuluj|preformuluj|naformatuj|seradi|serad|vyber|doplni|dopln|napoveda|poradi|porad|to|tohle|toto|tenhle|tahle|mi|me|mne|muj|moje|meho|tvuj|nas|vas)\\b")
+        "zformuluj|preformuluj|naformatuj|seradi|serad|vyber|doplni|dopln|napoveda|poradi|porad|to|tohle|toto|tenhle|tahle|mi|me|mne|muj|moje|meho|tvuj|nas|vas|" +
+        // slovenská otázková slova, hovorové díky, slovní matematika a spojky celé věty („myslím, že…“ není název tématu)
+        "kolko|preco|kto|kedy|ako|aky|aka|ake|dakujem|dik\\w*|dekuj\\w*|thx|krat|deleno|plus|minus|odmocnin\\w*|procent\\w*|ze|aby|protoze|kdyz|kdyby|jestli|zda|myslim|myslis)\\b")
     private val bad = Regex("[0-9+*/=<>@#{}\\[\\]|\\\\]")
 
     fun bare(prompt: String): String? {

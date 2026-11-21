@@ -20,7 +20,9 @@ object Quick {
     }
 
     fun answer(raw: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): String? {
-        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
+        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ')
+            .replace(Regex("^kolko "), "kolik ").replace(Regex("(?<![a-z])percent"), "procent").replace("vianoc", "vanoc") // slovensky
+            .replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
         if (Regex("^(kolik je hodin|kolik je cas|jaky je cas)$").matches(t)) return "Je %02d:%02d.".format(now.hour, now.minute)
         if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."
@@ -35,8 +37,30 @@ object Quick {
         age(t, now.toLocalDate())?.let { return it }
         convert(t, raw.lowercase().trim().trimEnd('?', '.', '!', ' '))?.let { return it }
         currency(t)?.let { return it }
-        Regex("^(?:kolik je |spocitej |vypocitej )?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze)\\s*(\\d[\\d ]*(?:[.,]\\d+)?)$").find(t)?.let { m ->
-            val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null; return "${fmt(p)} % z ${fmt(b)} je ${fmt(b * p / 100)}." }
+        discount(t)?.let { return it }
+        // jednoduchý úrok: „úrok 5 % z 100 000 za rok“, „kolik je úrok 3 % ze 200000 za 2 roky“
+        Regex("urok\\w*\\s*(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze|na)\\s*$N(?:\\s*(?:kc|korun\\w*))?(?:\\s*(?:za|na)\\s*(?:(\\d{1,2})\\s*)?(rok\\w*|let|mesic\\w*))?$").find(t)?.let { m ->
+            val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
+            val n = m.groupValues[3].toIntOrNull() ?: 1; val months = m.groupValues[4].startsWith("mesic")
+            val yrs = if (months) n / 12.0 else n.toDouble(); val v = b * p / 100 * yrs
+            val per = if (m.groupValues[4].isBlank() || m.groupValues[3].isBlank() && !months) "za rok" else if (m.groupValues[3].isBlank()) "za měsíc" else "za $n ${if (months) (if (n == 1) "měsíc" else if (n in 2..4) "měsíce" else "měsíců") else (if (n == 1) "rok" else if (n in 2..4) "roky" else "let")}"
+            return "Úrok ${fmt(p)} % ročně z ${money(b)} $per je ${money(v)} (jednoduchý úrok, bez daně z úroku a poplatků)." }
+        Regex("^(?:kolik je |spocitej |vypocitej )?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze)\\s*(\\d[\\d ]*(?:[.,]\\d+)?)(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
+            return if (m.groupValues[3].isNotBlank()) "${fmt(p)} % z ${money(b)} je ${money(b * p / 100)}." else "${fmt(p)} % z ${fmt(b)} je ${fmt(b * p / 100)}." }
+        // zlomek z čísla: „1/3 z 900“, „kolik je 3/4 ze 120“
+        Regex("^(?:kolik je |spocitej )?(\\d{1,4})\\s*/\\s*(\\d{1,4}) (?:z|ze) $N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val a = m.groupValues[1].toDouble(); val b = m.groupValues[2].toDouble(); val v = num(m.groupValues[3]) ?: return null
+            if (b == 0.0) return null; val r = v * a / b
+            return "${m.groupValues[1]}/${m.groupValues[2]} z ${if (m.groupValues[4].isNotBlank()) money(v) else fmt(v)} je ${if (m.groupValues[4].isNotBlank()) money(r) else fmt(Math.round(r * 1e4) / 1e4)}." }
+        // mocnina: „kolik je 2 na 10“, „3 na druhou“, „2 na desátou“ (bez „kolik je“ jen se slovem řádu – „3 na 4“ může být rozměr)
+        val ord = mapOf("druhou" to 2, "treti" to 3, "ctvrtou" to 4, "patou" to 5, "sestou" to 6, "sedmou" to 7, "osmou" to 8, "devatou" to 9, "desatou" to 10)
+        Regex("^(?:kolik je |spocitej )?(\\d+(?:[.,]\\d+)?) na (\\d{1,3}|druhou|treti|ctvrtou|patou|sestou|sedmou|osmou|devatou|desatou)$").find(t)?.let { m ->
+            val pref = t.startsWith("kolik je ") || t.startsWith("spocitej ")
+            val e = ord[m.groupValues[2]] ?: m.groupValues[2].toIntOrNull()?.takeIf { pref } ?: return@let
+            val b = num(m.groupValues[1]) ?: return null; val v = Math.pow(b, e.toDouble())
+            if (v.isInfinite() || v > 1e15) return null
+            return "${fmt(b)}^$e = ${fmt(v)}" }
         Regex("^(?:kolik je |spocitej )?(?:druha )?odmocnin[ay] (?:z |ze )?(\\d+(?:[.,]\\d+)?)$").find(t)?.let { m -> val v = num(m.groupValues[1]) ?: return null; return "√${fmt(v)} = ${fmt(Math.sqrt(v))}" }
         val expr = t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()
         if (Regex("^[\\d\\s.,+\\-*/×·:÷^()%x]+$").matches(expr) && Regex("\\d\\s*[+\\-*/×·:÷^x]\\s*[\\d(]").containsMatchIn(expr)) {
@@ -63,6 +87,17 @@ object Quick {
         return "Spropitné ${fmt(p)} % z ${money(b)} je ${money(tipv)}; celkem zaplatíš ${money(b + tipv)}."
     }
 
+    /** Sleva: „sleva 30 % z 899“, „899 se slevou 30 %“, „899 Kč minus 30 %“ → výše slevy a cena po slevě. */
+    private fun discount(t: String): String? {
+        if (!Regex("slev|zlevn|minus|mene o|levnejsi o").containsMatchIn(t)) return null
+        val m = Regex("(?:sleva|slevou|zlevneni|zlevnene)\\s*(?:o\\s*)?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze|na)\\s*$N").find(t)?.let { num(it.groupValues[1]) to num(it.groupValues[2]) }
+            ?: Regex("$N\\s*(?:kc|korun\\w*)?\\s*(?:se slevou|zlevnene o|minus|mene o|levnejsi o)\\s*(\\d+(?:[.,]\\d+)?)\\s*%").find(t)?.let { num(it.groupValues[2]) to num(it.groupValues[1]) }
+            ?: return null
+        val p = m.first ?: return null; val b = m.second ?: return null
+        if (p < 0 || p > 100) return null
+        return "Sleva ${fmt(p)} % z ${money(b)} je ${money(b * p / 100)}; po slevě zaplatíš ${money(b - b * p / 100)}."
+    }
+
     /** DPH: „1000 bez DPH“, „1 210 s DPH“, „DPH z 1000“, sazba 21 % (nebo 12 % / 0 %, když je v dotazu). */
     private fun vat(t: String): String? {
         if (!t.contains("dph")) return null
@@ -71,8 +106,14 @@ object Quick {
         val tx = t.replace(Regex("(?<!\\d)(21|12|0)\\s*%\\s*dph"), "dph").replace(Regex("(?<!\\d)(21|12|0)\\s*%"), " ").replace(Regex("\\s+"), " ")
         Regex("^(?:kolik (?:je|cini) )?dph (?:z|ze|u) $N(?: kc)?$").find(tx.trim())?.let { m -> val b = num(m.groupValues[1]) ?: return null
             return "DPH ${fmt(rate)} % z ${money(b)} je ${money(b * rate / 100)}; s DPH ${money(b * (1 + rate / 100))}." }
+        // „cena bez dph, když s dph je 1210“ → cena s DPH je známá
+        Regex("s dph (?:je|stoji|=|delaji?|cini) $N").find(tx)?.let { m -> val g = num(m.groupValues[1]) ?: return null
+            val net = g / (1 + rate / 100); return "${money(g)} s DPH ${fmt(rate)} % = ${money(net)} bez DPH (DPH ${money(g - net)})." }
         Regex("$N\\s*(?:kc )?(?:bez dph|\\+ ?dph)").find(tx)?.let { m -> val b = num(m.groupValues[1]) ?: return null
-            return "${money(b)} bez DPH = ${money(b * (1 + rate / 100))} s DPH ${fmt(rate)} % (DPH ${money(b * rate / 100)})." }
+            val net = b / (1 + rate / 100)
+            // „1210 bez DPH“ je dvojznačné (přičíst, nebo odečíst?) → oba směry, ať laik nedostane špatnou polovinu
+            return "${money(b)} bez DPH = ${money(b * (1 + rate / 100))} s DPH ${fmt(rate)} % (DPH ${money(b * rate / 100)}). " +
+                "Pokud je ${money(b)} cena už S DPH, bez DPH je ${money(net)} (DPH ${money(b - net)})." }
         Regex("$N\\s*(?:kc )?(?:s dph|vcetne dph|vc\\. dph)").find(tx)?.let { m -> val g = num(m.groupValues[1]) ?: return null
             val net = g / (1 + rate / 100); return "${money(g)} s DPH ${fmt(rate)} % = ${money(net)} bez DPH (DPH ${money(g - net)})." }
         return null
@@ -123,8 +164,8 @@ object Quick {
 
     private val UNITS = mapOf(
         "km" to ("m" to 1000.0), "m" to ("m" to 1.0), "cm" to ("m" to 0.01), "mm" to ("m" to 0.001), "mi" to ("m" to 1609.344), "mile" to ("m" to 1609.344), "mil" to ("m" to 1609.344),
-        "ft" to ("m" to 0.3048), "stop" to ("m" to 0.3048), "in" to ("m" to 0.0254), "palcu" to ("m" to 0.0254), "palec" to ("m" to 0.0254),
-        "kg" to ("kg" to 1.0), "g" to ("kg" to 0.001), "t" to ("kg" to 1000.0), "lb" to ("kg" to 0.45359237), "liber" to ("kg" to 0.45359237), "oz" to ("kg" to 0.028349523125), "unci" to ("kg" to 0.028349523125),
+        "ft" to ("m" to 0.3048), "stop" to ("m" to 0.3048), "in" to ("m" to 0.0254), "palcu" to ("m" to 0.0254), "palec" to ("m" to 0.0254), "palce" to ("m" to 0.0254), "palcich" to ("m" to 0.0254),
+        "kg" to ("kg" to 1.0), "g" to ("kg" to 0.001), "t" to ("kg" to 1000.0), "lb" to ("kg" to 0.45359237), "liber" to ("kg" to 0.45359237), "libry" to ("kg" to 0.45359237), "librach" to ("kg" to 0.45359237), "libra" to ("kg" to 0.45359237), "oz" to ("kg" to 0.028349523125), "unci" to ("kg" to 0.028349523125),
         "l" to ("l" to 1.0), "ml" to ("l" to 0.001), "gal" to ("l" to 3.785411784), "galonu" to ("l" to 3.785411784),
         "km/h" to ("m/s" to 1 / 3.6), "m/s" to ("m/s" to 1.0), "mph" to ("m/s" to 0.44704),
         // plocha
@@ -145,13 +186,15 @@ object Quick {
             val a = num(m.groupValues[1]) ?: return null; val r = num(m.groupValues[3]) ?: return null
             return "${fmt(a)} ${m.groupValues[2].uppercase().take(3)} po ${fmt(r)} = ${money(a * r)}."
         }
-        if (Regex("^(?:kolik je |preved |prevod )?$N\\s*$cur\\s+(?:na|v|do)\\s+$cur$").containsMatchIn(t))
+        if (Regex("^(?:kolik je |preved |prevod )?$N\\s*$cur\\s+(?:na|v|do)\\s+$cur$").containsMatchIn(t) || CnbRates.query(t) != null)
             return "Aktuální kurz offline neznám. Napiš ho do dotazu, třeba „100 eur po 25,2“, a spočítám to přesně. (S modelem a zapnutým webem ti kurz dohledám.)"
         return null
     }
 
     private fun convert(t: String, orig: String = t): String? {
-        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(t.replace("²", "2").replace("³", "3")) ?: return null
+        // „30 stupňů Celsia na Fahrenheita“ → „30 c na f“ (jen pro teplotu; ostatní jednotky beze změny délky textu)
+        val tt = t.replace(Regex("(?:stupn\\w* )?celsi\\w*"), "c").replace(Regex("(?:stupn\\w* )?fahrenheit\\w*"), "f").replace(Regex("(?<=\\d) ?stupn\\w* (?=na |do |v )"), " c ")
+        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(tt.replace("²", "2").replace("³", "3")) ?: return null
         val v = num(m.groupValues[1]) ?: return null; val a = m.groupValues[2].removePrefix("°"); val b = m.groupValues[3].removePrefix("°")
         if (a in setOf("c", "f") && b in setOf("c", "f") && a != b) {
             val r = if (a == "c") v * 9 / 5 + 32 else (v - 32) * 5 / 9
@@ -162,8 +205,10 @@ object Quick {
         val r = v * ua.second / ub.second
         // jednotky v odpovědi tak, jak je uživatel napsal (s diakritikou: „palců“, ne „palcu“) – fold zachovává délku textu
         val o = orig.replace("²", "2").replace("³", "3")
-        fun shown(g: Int) = m.groups[g]?.range?.takeIf { o.length == t.length && it.last < o.length }?.let { o.substring(it) } ?: m.groupValues[g]
-        return "${fmt(v)} ${shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} ${shown(3)}"
+        fun shown(g: Int) = m.groups[g]?.range?.takeIf { tt == t && o.length == t.length && it.last < o.length }?.let { o.substring(it) } ?: m.groupValues[g]
+        // cílová jednotka v 6. pádě („v librách“, „v palcích“) se v odpovědi vypíše v 2. pádě množného čísla
+        val loc = mapOf("librach" to "liber", "palcich" to "palců", "kilogramech" to "kg", "metrech" to "m", "centimetrech" to "cm", "litrech" to "l")
+        return "${fmt(v)} ${shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} ${loc[b] ?: shown(3)}"
     }
 
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
@@ -175,12 +220,14 @@ object Quick {
     }
     /** „kolik dní do Vánoc / Silvestra / Velikonoc / 24. 12.“, „za kolik dní jsou Vánoce“. */
     private fun untilDay(t: String, today: LocalDate): String? {
-        val m = Regex("^(?:kolik (?:je |zbyva |jeste )?(?:dni|dnu) (?:zbyva |zbyvaji )?do|za kolik dni (?:jsou|je|budou|bude)) (.+)$").find(t) ?: return null
-        val what = m.groupValues[1].trim()
+        val m = Regex("^(?:kolik (?:je |zbyva |jeste )?(dni|dnu|tydnu|tydny) (?:zbyva |zbyvaji |je )?do|za (?:kolik dni|jak dlouho|kdy) (?:jsou|je|budou|bude)) (.+)$").find(t) ?: return null
+        val weeks = m.groupValues[1].startsWith("tyd")
+        val what = m.groupValues[2].trim()
         fun next(f: (Int) -> LocalDate) = f(today.year).let { if (it.isBefore(today)) f(today.year + 1) else it }
         val (name, d) = when {
             what.startsWith("vanoc") || what.startsWith("stedr") || what.startsWith("stedreho") -> "Štědrého dne" to next { LocalDate.of(it, 12, 24) }
             what.startsWith("silvestr") -> "Silvestra" to next { LocalDate.of(it, 12, 31) }
+            what.startsWith("konce roku") || what == "konce letoska" -> "konce roku" to LocalDate.of(today.year, 12, 31)
             what.startsWith("nov") && what.contains("rok") -> "Nového roku" to next { LocalDate.of(it, 1, 1) }
             what.startsWith("velikonoc") -> "Velikonoční neděle" to next { easter(it) }
             what.startsWith("leta") || what.startsWith("prazdnin") -> (if (what.startsWith("leta")) "léta (21. 6.)" else "prázdnin (1. 7.)") to next { LocalDate.of(it, if (what.startsWith("leta")) 6 else 7, if (what.startsWith("leta")) 21 else 1) }
@@ -190,6 +237,8 @@ object Quick {
         return when {
             n == 0L -> "Dnes je to tady – ${dmy(d)}."
             n < 0 -> "To už bylo před ${-n} dny (${dmy(d)})."
+            weeks -> { val w = n / 7; val r = n % 7
+                "Do $name zbývá $w ${if (w == 1L) "týden" else if (w in 2..4) "týdny" else "týdnů"}${if (r > 0) " a $r ${if (r == 1L) "den" else if (r in 2..4) "dny" else "dní"}" else ""} ($n dní, ${dmy(d)})." }
             else -> "Do $name zbývá $n ${if (n == 1L) "den" else if (n in 2..4) "dny" else "dní"} (${dmy(d)})."
         }
     }
@@ -210,7 +259,7 @@ object Quick {
     }
 
     private fun days(t: String, today: LocalDate): String? {
-        val m = Regex("kolik (?:je )?dni (?:od|mezi) (.+?) (?:do|a) (.+)$").find(t) ?: return null
+        val m = Regex("kolik (?:je )?(?:dni|dnu) (?:je |uplyne |ubehne )?(?:od|mezi) (.+?) (?:do|a) (.+)$").find(t) ?: return null
         val a = date(m.groupValues[1]) ?: (if (m.groupValues[1].startsWith("dnes")) today else null) ?: return null
         val b = date(m.groupValues[2]) ?: (if (m.groupValues[2].startsWith("dnes")) today else null) ?: return null
         return "Mezi ${a.dayOfMonth}. ${a.monthValue}. ${a.year} a ${b.dayOfMonth}. ${b.monthValue}. ${b.year} je ${kotlin.math.abs(ChronoUnit.DAYS.between(a, b))} dní."

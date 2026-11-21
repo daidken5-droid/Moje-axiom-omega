@@ -188,7 +188,9 @@ object Router {
         learnedMatch(text, c)?.let { return it }
         // --- holý název tématu → rešerše
         // s přílohou je krátký popisek („účtenka“, „faktura za elektřinu“) o souboru, ne téma k hledání na webu
-        if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
+        // co spočítá kalkulačka v telefonu (datum, převod, procenta), nikdy nejde na web – i když to vypadá jako „název“
+        if (!c.hasAttachment && runCatching { cz.axiom.vega.calc.Quick.answer(text) }.getOrNull() == null)
+            cz.axiom.vega.calc.Topic.bare(text)?.let { topic -> return Intent.Research(topic, Research.variants(topic)) }
         return Intent.Talk(false, false)
     }
 }

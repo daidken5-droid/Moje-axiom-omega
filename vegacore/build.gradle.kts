@@ -28,4 +28,7 @@ dependencies {
 tasks.test {
     useJUnit()
     testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+    // průzkumné testy (probe/*) se zapínají jen ručně: ./gradlew :vegacore:test -Dprobe=1 -DprobeFile=…
+    listOf("probe", "probeFile").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
+    if (System.getProperty("probe") != null) outputs.upToDateWhen { false }
 }

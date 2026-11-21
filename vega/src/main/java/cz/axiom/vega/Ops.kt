@@ -1037,14 +1037,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** „100 eur na koruny“, „kolik je 50 USD v Kč“, „200 euro na dolary“ → kurz ČNB. null = není to převod. */
     private fun currencyOnline(text: String): String? {
-        val t = cz.axiom.vega.base.Text.fold(text).lowercase().trim().trimEnd('?', '.', '!', ' ')
-        val cur = "(eur\\w*|usd|dolar\\w*|gbp|libr\\w*|chf|frank\\w*|pln|zlot\\w*|huf|forint\\w*|jpy|jen\\w*|kc|korun\\w*|czk)"
-        val m = Regex("^(?:kolik je |preved |prevod |spocitej )?(\\d[\\d ]*(?:[.,]\\d+)?)\\s*$cur\\s+(?:na|v|do|je|=)\\s*$cur$").find(t) ?: return null
-        val value = cz.axiom.vega.calc.Quick.num(m.groupValues[1]) ?: return null
-        val from = cz.axiom.vega.calc.CnbRates.code(m.groupValues[2]) ?: return null
-        val to = cz.axiom.vega.calc.CnbRates.code(m.groupValues[3]) ?: return null
-        if (from == to) return null
-        val tab = cnbTable() ?: return if (settings.airgap) "Kurz offline neznám (režim Bez sítě). Napiš ho sám, třeba „$value ${m.groupValues[2]} po 25,2“, a spočítám to přesně." else null
+        val q = cz.axiom.vega.calc.CnbRates.query(text) ?: return null
+        val value = q.value; val from = q.from; val to = q.to
+        val tab = cnbTable() ?: return if (settings.airgap) "Kurz offline neznám (režim Bez sítě). Napiš ho sám, třeba „${cz.axiom.vega.calc.Quick.fmtPublic(value)} ${q.word} po 25,2“, a spočítám to přesně." else null
         val res = cz.axiom.vega.calc.CnbRates.convert(tab, value, from, to) ?: return null
         val fmt = { v: Double -> cz.axiom.vega.calc.Quick.fmtPublic(v) }
         return "${fmt(value)} $from = ${fmt(res)} $to\n\n_(kurz ČNB k ${tab.date}; je to referenční fixing, v bance bývá o pár procent horší)_"
@@ -1073,8 +1068,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (attPart?.second != null) { longTask0(chat, text, listOf(att!!), again = true); return } // again: zpráva uživatele už v chatu je
         // čistý výpočet / převod / datum: přesně a bez modelu (Quick vrací null, když si není jistý)
         if (att == null && text.length < 200) {
-            offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
+            // nejdřív kurz ČNB: offline kalkulačka na převod měn bez kurzu odpoví „kurz neznám“ a ČNB by se nikdy nepoužilo
             currencyOnline(text)?.let { reply(chat, it); return }
+            offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
