@@ -53,6 +53,27 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     val out = Out(context)
     val files by lazy { FileText(context) }
     val index by lazy { LocalIndex(context) }
+    /** Neurální pavučina: propojuje témata, paměti a nástroje; vytahuje související, ne jen nejnovější. */
+    val web by lazy { cz.axiom.vega.core.NeuralWeb(kv) }
+    private fun topicsOf(text: String) = cz.axiom.vega.base.Text.words(cz.axiom.vega.base.Text.fold(text).lowercase(), 4).distinct().take(6).map { cz.axiom.vega.core.NeuralWeb.topic(it) }
+    /** Zaznamená tah do pavučiny: téma × nástroj × použité paměti. */
+    private fun observeTurn(text: String, tool: String?, scope: String?) = runCatching {
+        val mems = memory.all(scope).take(6).map { cz.axiom.vega.core.NeuralWeb.mem(it.id) }
+        web.observe(topicsOf(text) + listOfNotNull(tool?.let { cz.axiom.vega.core.NeuralWeb.tool(it) }) + mems)
+    }
+    /** Související paměti z pavučiny (mimo ty, co už dal memory.context) jako doplněk kontextu. */
+    private fun webContext(text: String, scope: String?): String? = runCatching {
+        val ids = web.relatedMemories(topicsOf(text), 4); if (ids.isEmpty()) return null
+        val all = memory.all(scope).associateBy { it.id }
+        val lines = ids.mapNotNull { all[it]?.text }.distinct()
+        if (lines.isEmpty()) null else "Související z dřívějška (neurální pavučina):\n" + lines.joinToString("\n") { "• $it" }
+    }.getOrNull()
+    /** Offline RAG nad importovanými dokumenty: citované pasáže pro uzemnění odpovědi bez sítě. */
+    private fun ragContext(query: String): String? = runCatching {
+        val bodies = index.bodies(query, 6); if (bodies.isEmpty()) return null
+        val hits = cz.axiom.vega.core.Rag.build(bodies).query(query, 5); if (hits.isEmpty()) return null
+        "Z tvých offline dokumentů (cituj [n]):\n" + cz.axiom.vega.core.Rag.contextBlock(hits, 3500)
+    }.getOrNull()
 
     private val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "vega-ops").apply { priority = Thread.NORM_PRIORITY - 1 } }
     @Volatile private var cancel = CancelToken()
@@ -1028,8 +1049,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun talk(chat: String?, text: String, intent: Router.Intent.Talk, ws: Workspace?) {
         val scope = ws?.let { "project:${it.root.name}" }
         val style = when { intent.thinkingAloud -> "\nUživatel přemýšlí nahlas: nic neprováděj, pomoz mu s úvahou (otázka, protiargument, jedna možnost navíc)."; intent.creative -> "\nKreativní úloha: dej víc různých nápadů, krátce, s jedním doporučením."; else -> "" }
-        val sys = SYSTEM_TALK + style + (memory.context(scope)?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val att = lastAttachment()
+        // neurální pavučina (související paměti) + offline RAG (citace z vlastních dokumentů) doplní kontext
+        val extra = listOfNotNull(memory.context(scope), webContext(text, scope), if (att == null) ragContext(text) else null).joinToString("\n\n")
+        val sys = SYSTEM_TALK + style + (extra.ifBlank { null }?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val attPart = if (att != null && intent.thinkingAloud.not()) attForModel(att, 20_000) else null
         val user = if (attPart != null) "$text\n\n[Příloha ${att!!.name}:]\n${attPart.first}" else text
         // dlouhý dokument se neořízne potichu: projde se celý po částech (stejně jako dlouhé vložené texty)
@@ -1046,6 +1069,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = att?.let { "att:${it.name}:${sha8(it.bytes)}" to listOf("příloha ${it.name} (${it.bytes.size} B)") })
         reply(chat, answer)
+        observeTurn(text, "talk", scope)
     }
 
     private fun followUp(chat: String?, text: String) {
@@ -1964,6 +1988,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Uložení měření do podkladů pro výzkum (původ, čas, jednotka, podmínky). Citlivá pole (SSID) se do exportu nedávají. */
     fun hwSaveMeasure(json: String): String = synchronized(this) {
         val o = JSONObject(json).put("savedAt", System.currentTimeMillis())
+        // citlivé identifikátory se do podkladů (a tedy exportu) ve výchozím stavu neukládají
+        listOf("ssid", "ip", "bssid").forEach { if (o.has(it)) o.put(it, "(vynecháno)") }
         val arr = runCatching { JSONArray(kv.read("hw/measures.json") ?: "[]") }.getOrDefault(JSONArray())
         arr.put(o); val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 500); for (i in from until arr.length()) trimmed.put(arr.get(i))
         kv.write("hw/measures.json", trimmed.toString()); "Měření uloženo do podkladů (${o.optString("kind", "WiFi")})."

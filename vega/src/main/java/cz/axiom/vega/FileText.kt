@@ -87,6 +87,19 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     fun list(): List<String> = readableDatabase.rawQuery("SELECT name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
 
+    /** Celá těla nejrelevantnějších dokumentů pro offline RAG (BM25 nad pasážemi dělá Rag v jádře). */
+    fun bodies(query: String, limit: Int): Map<String, String> {
+        val words = cz.axiom.vega.base.Text.words(query, 2).distinct().take(8)
+        if (words.isEmpty()) return emptyMap()
+        val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
+        fun run(q: String) = runCatching {
+            readableDatabase.rawQuery("SELECT name, body FROM docs WHERE docs MATCH ? LIMIT ?", arrayOf(q, limit.toString())).use { c ->
+                buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
+            }
+        }.getOrDefault(emptyMap())
+        return run(terms.joinToString(" ")).ifEmpty { if (terms.size > 1) run(terms.joinToString(" OR ")) else emptyMap() }
+    }
+
     fun search(query: String, limit: Int): List<Snippet> {
         val words = cz.axiom.vega.base.Text.words(query, 2).distinct().take(8)
         if (words.isEmpty()) return emptyList()

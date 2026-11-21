@@ -574,5 +574,15 @@ Automatické obnovení: naplánovaná úloha každou hodinu v :17 (13–23 h) ve
 - [x] 55d. **Nastavení rozdělené** na Základní (jméno, Gemini zdarma, web, bez internetu) a sbalené „Pro pokročilé“ (vlastní server, ověřovač, placené/záložní modely, kurz). „Air-gap“ → „Bez internetu“.
 - Odloženo z doporučení: automatické doplnění z webu u dotazů na ceny; historie u hypotéz; XLSX s prázdnými buňkami.
 
+
+## Kolo 56 (2.0.0) – Hardware, neurální pavučina, RAG, test laika
+- [x] Sekce **Hardware** (bez rootu, offline): virtuální karta VEGA přes HCE (vlastní AID F05645474101, kategorie other) + čtečka ISO-DEP; NFC zápis text/URL s kapacitou a zpětným čtením; WiFi diagnostika připojení; WiFi QR (ZXing) + lokální kontrola hesla + generátor fráze; BLE sken + RSSI; přehled kompatibility; volitelný **root přes libsu** (verifyRoot „id -u“, vypnutí relace). Jádra `CardApdu`, `WifiTools`, `NfcTag`, `WifiScan` + testy. Přístupové/platební/autentizační karty mimo rozsah.
+- [x] **Tlačítko Domů** v horní liště.
+- [x] **Neurální pavučina** `NeuralWeb` (jádro+test): graf téma×paměť×nástroj, posiluje se používáním, slábne časem; `talk()` z ní bere související paměti a zaznamenává tah.
+- [x] **RAG offline** `Rag` (jádro+test): chunkování + BM25 + citované pasáže; `talk()` jimi uzemní odpověď z importovaných dokumentů (přes `LocalIndex.bodies`).
+- [x] **Převod měn ČNB**, **Nastavení Základní/Pokročilé** (z 1.9.0).
+- [x] Komerční **test plán laika** (docs/vega/TEST-PLAN-LAIK.md); nové HW obrazovky projely bez chyb; měření vynechává citlivé ID.
+- NEOVĚŘENO na telefonu: přenos virtuální karty mezi dvěma telefony, NFC zápis, BLE sken, root (vyžadují fyzická zařízení). Protokoly a logika ověřeny automatickými testy.
+
 ## Problémy
 - ~~DNS rebinding~~ – vyřešeno bodem 52 (kontrola skutečné adresy soketu před TLS); přes proxy jen kontrola překladu.
