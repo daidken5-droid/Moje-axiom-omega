@@ -31,7 +31,22 @@ const DATA = {
   ready: true, activate: true, chatRev: '',
 };
 
+// konverzace se všemi druhy karet + záludný obsah (dlouhé URL a slova, široká tabulka, kód)
+const LONG_URL = 'https://www.example.org/velmi/dlouha/cesta/k/clanku/o/tom/jak/se/pocita/urok/z/prodleni/podle/obcanskeho/zakoniku?utm_source=x&id=1234567890';
+const CHAT = [
+  { role: 'user', text: 'Nejdelšíslovobezmezerkterésenevejdenadisplejtelefonuanipřizmenšeníapůjdemimo ' + LONG_URL },
+  { role: 'vega', text: '## Výsledek\nTady je **tučně**, `kód`, odkaz ' + LONG_URL + ' a [zdroj](' + LONG_URL + ') [1].\n```\nconst x = \"velmi dlouhý řádek kódu, který se nezalomí sám od sebe a měl by se posouvat vodorovně\";\n```',
+    card: { type: 'run', run: 'r1', name: 'Výpis z banky → tabulka', value: { kind: 'TABLE', headers: ['Datum', 'Protistrana', 'Popis platby', 'Částka', 'Měna', 'Saldo', 'Kategorie'], rows: [['01.03.2026', 'Nějaký velmi dlouhý název obchodníka s.r.o.', 'Platba kartou v zahraničí', '-1 234,50', 'CZK', '12 000,00', 'jídlo']], total: 1, notes: ['Součet výdajů 1 234,50 Kč'] } } },
+  { role: 'vega', text: 'Změny:', card: { type: 'diff', title: 'Úprava', files: [{ path: 'src/velmi/dlouha/cesta/k/souboru/KomponentaSeStrasneDlouhymNazvem.tsx', added: 3, removed: 1 }], changes: [], task: [] } },
+  { role: 'vega', text: 'Kalkulace:', card: { type: 'econ', profit: -2000, price: 250, variable: 150, fixed: 8000, breakEven: 80 } },
+  { role: 'vega', text: 'Chyba:', card: { type: 'run', run: 'r2', name: 'Import', failed: true, error: 'Soubor nemá očekávané sloupce: ' + LONG_URL, value: { kind: 'TEXT', text: '' } } },
+  { role: 'vega', text: 'Zdroje:', card: { type: 'sources', items: [{ n: 1, title: 'Článek s hodně dlouhým titulkem o úroku z prodlení', url: LONG_URL, text: 'x' }],
+    checks: [{ claim: 'Úrok z prodlení je repo sazba ČNB + 8 procentních bodů.', kind: 'tvrzení', n: 1, label: 'PODPORUJE', cz: 'podporuje', reason: '' }],
+    audit: { outcome: 'PARTIAL', render: 'doložená tvrzení', sources: 1, origins: 1, claims: 2, supported: 1, conflicts: 0, revisions: 0 } } },
+];
+
 const SCREENS = [
+  ['konverzace-karty', ['__chat']],
   ['úvod', null],
   ['menu', ['drawer']],
   ['přidat', ['plus']],
@@ -53,6 +68,14 @@ const SCREENS = [
   ['vylepšení', ['libTab', { tab: 'improve' }]],
   ['dokumenty', ['docsManage']],
   ['předžalobní-výzva', ['demand']],
+  ['souhlas-cloud', ['__ev', 'consent', { req: 'q1', target: 'Gemini · gemini-2.5-flash', fallback: ['Groq', 'Cerebras', 'OpenRouter'], chars: 123456, items: ['výpis-2026-03.csv (12 000 znaků)', 'smlouva o nájmu bytu – Praha 3, Žižkov, ulice Seifertova.pdf'], notes: ['Poznámka'], paid: true, estimateKc: 1.2 }]],
+  ['schválení-ceny', ['__ev', 'approve', { req: 'q2', overCap: false, noFree: false, reason: 'Gemini: denní limit vyčerpán (429 RESOURCE_EXHAUSTED quota exceeded for metric generate_content_free_tier_requests)', name: 'Claude', capKc: 3.5, estimateKc: 2.9, calls: 2, chars: 40000, hint: 'Trvale: Nastavení → Pokročilé → společný strop.' }]],
+  ['zdroje', ['sources', { src: JSON.stringify([{ n: 1, title: 'Článek s velmi dlouhým titulkem o úroku z prodlení podle občanského zákoníku', url: 'https://www.example.org/velmi/dlouha/cesta/k/clanku?id=1234567890&utm_source=newsletter', text: 'Text pasáže '.repeat(40), fetched: '2026-11-21', date: '2026-01-02' }]) }]],
+  ['opora-citace', ['chkOpen', { i: '0', c: JSON.stringify({ x: { n: 1, label: 'NEDOSTACUJE', claim: 'Úrok z prodlení je repo sazba + 8 p. b.', kind: 'tvrzení', reason: 'pasáž o sazbě nemluví', ws: 0, we: 20, p: [0.1, 0.8, 0.1] }, item: { n: 1, title: 'Zdroj', url: 'https://example.org', text: 'Pasáž zdroje, která o sazbě nemluví a je dlouhá. '.repeat(10) } }) }]],
+  ['konverzace-menu', ['chatMenu', { id: 'c1', t: 'Rozpočet na dovolenou v Chorvatsku a co všechno zabalit s dětmi' }]],
+  ['pokrytí', ['coverage', { cov: JSON.stringify({ items: [{ q: 'Kolik stojí ubytování na týden pro čtyřčlennou rodinu v srpnu?', ok: true }, { q: 'Jaké jsou poplatky za dálnici?', ok: false }] }) }]],
+  ['pokrytí-s-pasážemi', ['coverage', { cov: JSON.stringify({ items: [{ q: 'Otázka', ok: true }], passages: [{ id: 'P1', text: 'Pasáž '.repeat(80) }] }) }]],
+  ['záznam-běhu', ['taskLog', { log: JSON.stringify([{ at: Date.now(), text: 'Načten soubor výpis-2026-03.csv (1 234 řádků)', ok: true }, { at: Date.now(), text: 'Chyba: neznámý formát data „2026/13/45“', ok: false }]) }]],
 ];
 
 (async () => {
@@ -63,7 +86,7 @@ const SCREENS = [
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.addInitScript(d => {
     window.__calls = [];
-    window.VEGA = new Proxy({}, { get(_, k) { return (...a) => { window.__calls.push(k); const v = d[k]; return v === undefined ? '' : JSON.stringify(v); }; } });
+    window.VEGA = new Proxy({}, { get(_, k) { return (...a) => { window.__calls.push(k); if (k === 'messages' && window.__chat) return JSON.stringify(window.__chat); const v = d[k]; return v === undefined ? '' : JSON.stringify(v); }; } });
     try { localStorage.clear(); } catch (e) { }
   }, DATA);
   await page.goto('file://' + path.join(root, 'index.html'));
@@ -71,7 +94,13 @@ const SCREENS = [
   const problems = [];
   for (const [name, action, after] of SCREENS) {
     const before = errors.length;
-    await page.evaluate(([a]) => { closeSheet(true); if (a) act(a[0], a[1] || {}); }, [action]);
+    await page.evaluate(([a, chat]) => {
+      S.req = null; closeSheet(true);
+      if (a && a[0] === '__ev') { window.vega.on(a[1], a[2]); return; }
+      if (a && a[0] === '__chat') { window.__chat = chat; S.mc = null; render(); return; }
+      if (window.__chat) { window.__chat = null; S.mc = null; render(); }
+      if (a) act(a[0], a[1] || {});
+    }, [action, CHAT]);
     if (after) await page.evaluate(after);
     await page.waitForTimeout(450); // po doběhnutí animace panelu (0,2 s)
     const r = await page.evaluate(() => {
@@ -85,6 +114,14 @@ const SCREENS = [
         if (b.right > W + 1 && !scroller(el)) out.push(`přetéká (${Math.round(b.right)} > ${W}px): <${el.tagName.toLowerCase()} class="${el.className}"> „${(el.textContent || '').trim().slice(0, 40)}“`);
       }
       if (document.documentElement.scrollWidth > W + 1) out.push(`stránka je širší než displej: ${document.documentElement.scrollWidth}px`);
+      // svislé posuvné plochy (chat, panel): obsah nesmí jít posouvat do strany (overflow-y:auto dělá i overflow-x:auto)
+      for (const el of document.querySelectorAll('#stream, #layer .sheet')) {
+        if (vis(el) && el.scrollWidth > el.clientWidth + 1) {
+          const wide = [...el.querySelectorAll('*')].filter(c => vis(c) && c.getBoundingClientRect().right > el.getBoundingClientRect().right + 1 && !(c.closest('.tbl,pre,.diff') && c.closest('.tbl,pre,.diff') !== c))
+            .slice(0, 3).map(c => `<${c.tagName.toLowerCase()} class="${c.className}"> „${(c.textContent || '').trim().slice(0, 30)}“`);
+          out.push(`${el.id || 'panel'} jde posouvat do strany (${el.scrollWidth} > ${el.clientWidth}px): ${wide.join(', ')}`);
+        }
+      }
       for (const el of document.querySelectorAll('button')) {
         if (!vis(el)) continue;
         const name = (el.getAttribute('aria-label') || el.textContent || el.title || '').trim();
