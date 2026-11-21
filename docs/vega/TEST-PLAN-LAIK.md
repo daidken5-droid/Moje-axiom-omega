@@ -75,3 +75,12 @@ Z přiloženého auditu (AUDIT-VEGA.md) přeneseny bezpečné a konkrétní opra
 - Přidán offline UI test `tools/ui-tests/composer.cjs` (8 scénářů logiky mostu).
 
 **Záměrně odloženo** (větší/rizikové, mimo bezpečné přenesení): změna podpisu a CI workflow, oddělený samostatný export + gradle wrapper (v monorepu wrapper je), rozsáhlý refaktor Ops.kt/app.js, offline diktování, přílohy proudem do souboru se stabilním ID a index podle ID, reorganizace nastavení podle úkolů. Zapsáno jako další kroky.
+
+## Kolo „den na Play“ (2.3.0)
+34. Rozepíšu zprávu v chatu A, přepnu do chatu B a zpět. → Text i přílohy zůstanou v A, B je prázdný. ✅ (UI test)
+35. Úvodní obrazovka: „Zeptat se / Pracovat se souborem / Najít v dokumentech“. → Pole se zaměří / výběr souboru / předvyplněné hledání. ✅ (Chromium)
+36. Bez sítě + mikrofon. → Bez místního rozpoznávání hláška „napiš text“, nic se nespustí. 📱
+37. Rešerše s ověřovačem. → Štítek „doloženo / částečně / nedoloženo“, nepodložené věty vynechány, rozpor vidět. ✅ (jádro) / 📱
+38. Rešerše bez ověřovače. → Štítek „neověřený koncept“, odpověď normálně čitelná. ✅ (Chromium)
+39. „Sítě v okolí“ poprvé. → Vysvětlení „Proč WiFi potřebuje polohu“ před systémovým dialogem. ✅ (kód) / 📱
+40. Verze z Google Play: samoúprava. → Změna se připraví, instalace se nenabízí („přijde aktualizací v Obchodě Play“). ✅ (build play)
