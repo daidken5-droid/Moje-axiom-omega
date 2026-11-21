@@ -50,3 +50,12 @@ Výsledky každé fáze zapisuji sem + commit.
 - Nové akce `ask` (zaměří pole), `findDocs` (předvyplní „Najdi v mých dokumentech:“ a zaměří).
 - Nastavení už dřív mají „Pro pokročilé“ s odbornými volbami (vlastní server, placené modely, kurzy).
 - Ověřeno: Chromium render domovské obrazovky, offline UI testy zeleně.
+
+### Fáze E – hotovo
+- V režimu **Bez sítě** se diktování spustí jen s ověřeným místním rozpoznáváním (Android 13+ `isOnDeviceRecognitionAvailable`,
+  `EXTRA_PREFER_OFFLINE`); jinak hláška „napiš text“ a rozpoznávač se vůbec nespustí (zvuk nikam neodejde).
+- Most `voice(data)` dostává stav air-gapu z UI. Na telefonu NEOVĚŘENO.
+
+### Vloženo: ASTRAEA CORE 3.0 (zadání uživatele)
+- Řídicí jádro podle důkazů v `vegacore/.../astraea/` zapojené do skutečné rešerše a rozboru hypotéz (`Ops.governed`).
+- 14 referenčních testů + 12 vlastních (jádro, adaptéry) + výpočtové případy zadání; dokumentace `docs/astraea/`.

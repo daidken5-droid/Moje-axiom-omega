@@ -25,4 +25,18 @@ class EconTest {
         assertTrue(Econ.tariffAnswer(t), Econ.tariffAnswer(t).contains("aspoň 11 měsíců"))
         assertEquals("1 250 Kč", Econ.simpleProduct("kolik je 5 × 250 Kč"))
     }
+
+    /** Přesné případy 10 a 11 ze zadání ASTRAEA: výpočet dělá deterministická kalkulačka, ne model. */
+    @Test fun astraeaAcceptanceCalculations() {
+        val loss = Econ.unitAnswer(Econ.Unit(250.0, 150.0, 8000.0, 60.0))!!
+        assertEquals(-2000.0, loss.profit, 0.0)
+        val fixed = Econ.unitAnswer(Econ.Unit(250.0, 150.0, 5000.0, 60.0))!!  // oprava fixních nákladů → přepočet
+        assertEquals(1000.0, fixed.profit, 0.0)
+        assertTrue(fixed.text, fixed.text.startsWith("Při 60 kusech máš zisk 1 000 Kč."))
+        val t = Econ.parseTariff("Vyplatí se roční předplatné 2 400 Kč, nebo 250 Kč měsíčně?")!!
+        assertTrue(Econ.tariffAnswer(t), Econ.tariffAnswer(t).contains("aspoň 10 měsíců"))
+        val t8 = Econ.tariffAnswer(t.copy(months = 8.0)); val t12 = Econ.tariffAnswer(t.copy(months = 12.0))
+        assertTrue(t8, t8.startsWith("Při 8 měsících vyjde měsíční varianta o 400 Kč levněji"))
+        assertTrue(t12, t12.startsWith("Při 12 měsících vyjde roční tarif o 600 Kč levněji"))
+    }
 }

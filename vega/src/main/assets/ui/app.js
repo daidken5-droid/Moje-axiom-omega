@@ -165,6 +165,16 @@ function checksHtml(c) {
   const ok = cited.filter(x => x.label === 'PODPORUJE').length;
   return `<div class="res"><div class="res-h">Opora ve zdroji · podloženo ${ok} z ${ch.length} tvrzení${unc ? ` (${unc} bez citace)` : ''}</div><div class="res-body">${ch.map((x, i) => `<button class="chk" style="width:100%;text-align:left" data-act="chkOpen" data-i="${i}" data-c='${esc(JSON.stringify({ x, item: (c.items || []).find(s => s.n === x.n) || null }))}'><span class="pill ${CHK[x.label][0]}">[${x.n}] ${CHK[x.label][1]}</span><span><b>${esc(x.claim)}</b><small>${esc(x.kind)}${x.reason ? ' · ' + esc(x.reason) : ''}</small></span></button>`).join('')}</div></div>`;
 }
+/** ASTRAEA audit: na první pohled „přímo doloženo“ × „rozbor (odvozeno)“ × „neověřeno“ – bez procent, jen počty. */
+function auditHtml(a) {
+  if (!a) return '';
+  if (a.outcome === 'UNVERIFIED') return `<div class="note"><span class="pill">neověřený koncept</span> Ověřovač citací není nainstalovaný – text je návrh modelu, ne doložený závěr (Nastavení → Ověřovač citací).</div>`;
+  const parts = [`${a.supported} z ${a.claims} tvrzení přímo doloženo`, plural(a.origins, 'nezávislý původ', 'nezávislé původy', 'nezávislých původů') + ` (${plural(a.sources, 'zdroj', 'zdroje', 'zdrojů')})`];
+  if (a.conflicts) parts.push(plural(a.conflicts, 'rozpor mezi zdroji', 'rozpory mezi zdroji', 'rozporů mezi zdroji'));
+  if (a.revisions) parts.push('1× opraveno podle kontroly');
+  const head = a.render === 'rozbor' ? '<span class="pill">rozbor – odvozené závěry</span>' : a.outcome === 'ABSTAINED' ? '<span class="pill bad">nedoloženo</span>' : `<span class="pill ${a.outcome === 'ANSWERED' ? 'ok' : ''}">${a.outcome === 'ANSWERED' ? 'doloženo' : 'doloženo částečně'}</span>`;
+  return `<div class="note">${head} ${esc(parts.join(' · '))}</div>`;
+}
 const diffHtml = d => `<pre class="diff">${String(d || '').split('\n').slice(0, 400).map(l => `<span class="${l.startsWith('@@') ? 'h' : l[0] === '+' ? 'a' : l[0] === '-' ? 'd' : ''}">${esc(l)}</span>`).join('\n')}</pre>`;
 
 function card(c, isLast) {
@@ -221,7 +231,7 @@ function card(c, isLast) {
         ${isLast ? `<div class="res-a"><button class="btn ${c.canSave ? '' : 'primary'}" data-act="btnTry">Vyzkoušet na jiném souboru</button><span class="grow"></span><button class="btn ${c.canSave ? 'primary' : ''}" data-act="btnSave" ${c.canSave ? '' : 'disabled style="opacity:.45"'}>Uložit a připnout</button></div>` : ''}</div>` + (c.value ? `<div class="res"><div class="res-body" style="padding-bottom:12px">${valueHtml(c.value, 4)}</div></div>` : '');
     }
     case 'verification': { const v = c.verification; return `<div class="res"><div class="res-h">Ověření</div><div class="res-big">${v.kind !== 'run' && v.kind !== 'static' ? 'Neověřeno' : v.exitCode === 0 ? 'Prošlo' : 'Neprošlo'}</div><div class="res-sub">${esc(v.label)} · rev ${esc(v.revision)}</div><div class="res-a"><span class="grow"></span><button class="btn" data-act="showVer" data-ver='${esc(JSON.stringify(v))}'>Výstup</button></div></div>`; }
-    case 'sources': return checksHtml(c) + `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${(c.candidates || []).length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
+    case 'sources': return auditHtml(c.audit) + (c.audit && c.audit.outcome === 'UNVERIFIED' ? '' : checksHtml(c)) + `<div class="inline" style="margin:4px 0;flex-wrap:wrap">${(c.candidates || []).length > 1 ? `<span class="note">Může znamenat: ${c.candidates.map(esc).join(' · ')}</span>` : ''}<button class="pill" data-act="sources" data-src='${esc(JSON.stringify(c.items))}'>${c.items.length} zdrojů ›</button></div>`;
     case 'coverage': { const ok = c.items.filter(i => i.ok).length; return `<button class="pill ${ok === c.items.length ? 'ok' : 'bad'}" data-act="coverage" data-cov='${esc(JSON.stringify(c))}'>Pokryto ${ok}/${c.items.length} požadavků ›</button>`; }
     case 'demandForm': return `<div class="res"><div class="res-h">Předžalobní výzva</div><div class="res-sub" style="padding-top:6px">Faktura a úhrady – vyplň svoje údaje (šedé texty jsou jen ukázka).</div><div class="res-a"><button class="btn primary" data-act="demandForm" data-s='${esc(JSON.stringify(c.sample))}'>Vyplnit a vyrobit</button></div></div>`;
     case 'demand': return `<div class="res"><div class="res-h">Předžalobní výzva <span class="pill ${c.verified ? 'ok' : 'bad'}">${c.verified ? 'sazba ověřena' : 'sazba neověřena'}</span></div>
@@ -950,7 +960,7 @@ window.vega = {
 function act(a, d) {
   switch (a) {
     case 'send': send(); break;
-    case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(); } break;
+    case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(JSON.stringify({ airgap: !!((call('settings') || {}).airgap) })); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
     case 'ask': { closeSheet(true); const i = $('#input'); if (i) { i.focus(); } break; }

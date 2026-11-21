@@ -428,10 +428,21 @@ class MainActivity : ComponentActivity() {
         val t = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         send("voice", JSONObject().put("text", t ?: "").put("ok", t != null))
     }
-    fun voice() = runOnUiThread {
+    fun voice(data: String) = runOnUiThread {
+        // V režimu „Bez sítě“ nesmíme posílat zvuk k (možná online) rozpoznávání – nabídneme jen OVĚŘENÉ místní.
+        val airgap = runCatching { JSONObject(data).optBoolean("airgap") }.getOrDefault(false)
+        if (airgap) {
+            val onDevice = android.os.Build.VERSION.SDK_INT >= 33 &&
+                runCatching { android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(this) }.getOrDefault(false)
+            if (!onDevice) {
+                send("voice", JSONObject().put("ok", false).put("error", "V režimu Bez sítě není ověřené místní diktování k dispozici – napiš text, prosím."))
+                return@runOnUiThread
+            }
+        }
         val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ").putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Mluv…")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, airgap) // v air-gapu vynutit místní rozpoznávání
         try { speech.launch(i) } catch (e: android.content.ActivityNotFoundException) { send("voice", JSONObject().put("ok", false).put("error", "Rozpoznávání řeči v telefonu není k dispozici.")) }
     }
     fun pickFolder() = runOnUiThread { pickTree.launch(null) }
@@ -678,7 +689,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun buttonSave(chat: String, name: String) = safe { ops.buttonSave(chat.takeIf { it != "temp" }, name) }
     @JavascriptInterface fun pinProcedure(id: String, on: String) = safe { ops.procedures.setPinned(id, on == "true"); true }
     @JavascriptInterface fun rememberGlobal(text: String) = safe { ops.memory.remember(text, "global").let { JSONObject.quote(it.javaClass.simpleName) } }
-    @JavascriptInterface fun voice() = safe { a.voice() }
+    @JavascriptInterface fun voice(data: String) = safe { a.voice(data) }
     @JavascriptInterface fun pairCode(code: String) = safe { cz.axiom.vega.llm.Pairing.parse(code).let { JSONObject().put("url", it.url).put("model", it.model) } }
     @JavascriptInterface fun verifierInstall() = safe { a.pickVerifierZip() }
     @JavascriptInterface fun verifierDownload() = safe { ops.downloadVerifier(); true }
