@@ -3,10 +3,9 @@
 ## 2.3.0 (den „jako na Google Play“, 21. 11. 2026)
 - **CI:** běh #72 pro `52505a6` – testy, APK i AAB zeleně.
 - **APK (přímá distribuce):** artefakt `VEGA-APK` → `VEGA-52505a6.apk` (otisk v `SHA256SUMS.txt`, certifikát `4557a2ce…cdb4`).
-- **Google Play:** artefakt `VEGA-PLAY-AAB` → `VEGA-52505a6-play.aab`, SHA-256 `0064fcffa3e9b8b02bbc243b937790946408b2bc325abdac3b4e4f94147e22f2`.
 - **Obsah:** draft podle konverzace · úkoly laika na úvodu · offline diktování · ASTRAEA CORE 3.0 (`docs/astraea/`) ·
-  API 36 + build `play` (`docs/vega/PLAY.md`). Testy: 163 (0 selhání, 2 přeskočené bez ONNX balíčku).
-- **Otevřené:** AGP 8.7.3 je testované do compileSdk 35 (build s 36 funguje, CI varuje); upgrade AGP mění kořenový build sdílený s AVIORem → samostatný krok.
+  opravy oprávnění (`docs/vega/PLAY.md`). Build „play“ a cílení na API 36 z tohoto vydání byly později vráceny (aplikace se na Play nevydává).
+- **Odpolední testovací den:** 24 nových testů, opravy v PLAN-DEN.md (kola T1–T6); testy 187, 0 selhání.
 
 ## 1.8.0 (kolo „laik“)
 - **APK:** `VEGA-f4d1062.apk` (versionCode 466187)

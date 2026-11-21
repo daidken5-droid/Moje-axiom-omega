@@ -84,3 +84,8 @@ Výsledky každé fáze zapisuji sem + commit.
 | T6 | Přijímací testy celé cesty zprávy (Ops) | Potvrzení oprav v reálném toku (`OpsDayTest`) |
 
 Testy: 163 → 187 (0 selhání; 4 přeskočené = 2 bez ONNX balíčku + 2 průzkumné `probe`). Na telefonu NEOVĚŘENO.
+
+### Oprava zadání (večer)
+Aplikace se na Play **nevydává** – šlo jen o přístup „jako by ji měl laik z obchodu“. Vráceno: build „play“ (samoúprava zase
+instaluje APK), `targetSdk/compileSdk 35`, CI bez kroku AAB a SDK 36. Ponechány skutečné opravy (poloha Android 12+, BLE 8–11,
+vysvětlení polohy, offline diktování).

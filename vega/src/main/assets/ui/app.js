@@ -520,8 +520,8 @@ function selfUpdateHtml() {
       <button class="btn" data-act="suSave" style="margin-top:6px">Uložit</button></details>`;
   const items = u.items.map(x => `<div class="row stack"><span class="grow"><b>${esc(x.task.slice(0, 120))} <span class="pill ${x.status === 'READY' || x.status === 'INSTALLED' ? 'ok' : x.status === 'FAILED' ? 'bad' : ''}">${esc(x.label)}</span></b>
       <small>${esc(x.origin)} · ${x.files.length} souborů${x.note ? ' · ' + esc(x.note) : ''}${x.runUrl && /^https:\/\/github\.com\//.test(x.runUrl) ? ` · <a href="${esc(x.runUrl)}" target="_blank" rel="noopener">běh v CI</a>` : ''}</small><small>${x.files.map(f => esc(f.split('/').pop())).join(', ')}</small></span>
-      <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) || (x.status === 'READY' && !x.apkHere && u.canInstall !== false) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
-      ${x.diff ? `<button class="btn ${x.status === 'READY' && u.canInstall !== false ? 'primary' : ''}" data-act="suDiff" data-id="${esc(x.id)}">${x.status === 'READY' && u.canInstall !== false ? 'Projít změny a nainstalovat' : 'Zobrazit změny'}</button>` : ''}
+      <span class="acts">${['PUSHED', 'BUILDING', 'FAILED'].includes(x.status) || (x.status === 'READY' && !x.apkHere) ? `<button class="btn" data-act="suAct" data-id="${esc(x.id)}" data-a="poll">Zkontrolovat sestavení</button>` : ''}
+      ${x.diff ? `<button class="btn ${x.status === 'READY' ? 'primary' : ''}" data-act="suDiff" data-id="${esc(x.id)}">${x.status === 'READY' ? 'Projít změny a nainstalovat' : 'Zobrazit změny'}</button>` : ''}
       ${!['INSTALLED', 'DISCARDED'].includes(x.status) ? `<button class="btn ghost" data-act="suAct" data-id="${esc(x.id)}" data-a="discard">Zahodit</button>` : ''}</span></div>`).join('');
   return `<h3>Úpravy aplikace (měním sama sebe)</h3>
     <p class="note">Napiš, co mám na sobě změnit. Úpravu napíšu, CI ji otestuje a podepíše; instalaci vždy potvrdíš ty. Měnit smím jen kód VEGY – ne sestavení, oprávnění ani klíče.</p>
@@ -1025,7 +1025,7 @@ function act(a, d) {
     case 'nfcSettings': B.nfcSettings(); closeSheet(true); break;
     case 'wifi': if (busyGuard()) return; closeSheet(true);
       if (!B.wifiScan) { toast('WiFi analyzátor v této verzi není.'); break; }
-      // výrazné upozornění PŘED systémovou žádostí o polohu (Google Play): proč a co se s ní (ne)děje
+      // laikovi předem vysvětlit, proč systém žádá o polohu a co se s ní (ne)děje
       if (!lsGet('vega.locInfo')) { sheet(`<h2>Proč WiFi potřebuje polohu</h2><p class="lede">Android ukáže okolní WiFi sítě jen aplikaci s oprávněním k poloze – z názvů sítí by se dala poloha odvodit.</p>
         <p class="note">VEGA polohu <b>nezjišťuje, neukládá ani nikam neposílá</b>. Seznam sítí zůstává v telefonu. Oprávnění můžeš kdykoli odebrat v Nastavení telefonu → Aplikace → VEGA.</p>
         <div class="inline" style="margin-top:12px"><button class="btn primary" data-act="wifiGo">Pokračovat</button><button class="btn ghost" data-act="close">Teď ne</button></div>`); break; }
@@ -1101,9 +1101,9 @@ function act(a, d) {
     case 'suSave': { const t = ($('#ghTok') || {}).value || ''; const r1 = call('setSetting', 'ghRepo', ($('#ghRepo') || {}).value || ''); const r2 = call('setSetting', 'ghBase', ($('#ghBase') || {}).value || '');
       const r3 = t ? call('saveKey', 'github', t) : true; if (r1 !== null && r2 !== null && r3 !== null) toast('Uloženo.'); library('improve'); break; }
     case 'suStart': { const t = (($('#suTask') || {}).value || '').trim(); if (!t) { toast('Napiš, co mám na sobě změnit.'); break; } if (busyGuard()) return; S.busy = true; if (call('selfUpdateStart', t, chatId() || '')) { closeSheet(true); toast('Připravuji úpravu sebe sama – výsledek přijde do chatu a do karty Vylepšení.', 6000); } render(); break; }
-    case 'suDiff': { const su = call('selfUpdates') || {}; const x = (su.items || []).find(i => i.id === d.id); if (!x) break; const canInst = su.canInstall !== false;
+    case 'suDiff': { const x = ((call('selfUpdates') || {}).items || []).find(i => i.id === d.id); if (!x) break;
       sheet(`<h2>Změny, které jsem na sobě udělala</h2><p class="lede">${esc(x.task)}</p>${x.diffCut ? '<p class="note warn"><b>Diff je zkrácený</b> – celý ho projdi na GitHubu, než instaluješ.</p>' : ''}<p class="note">Hlídač (heuristika, ne záruka – proto čti diff) zkontroloval: jen kód a UI VEGY, bez citlivých míst (klíče, síť, most, platby, souhlasy, samoúpravy), testy v CI prošly${x.status === 'READY' ? '' : ' (zatím neprošly – čeká se na CI)'}. Přesto si změny projdi – instaluješ kód, který napsal model.</p>
-        <pre class="diff">${esc(x.diff)}</pre>${x.status === 'READY' && !canInst ? '<p class="note">Ve verzi z Google Play se aplikace aktualizuje jen přes Obchod Play – tuto změnu dostaneš s příští aktualizací.</p>' : ''}${x.status === 'READY' && canInst ? `<button class="btn primary wide" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Prošel jsem změny – nainstalovat</button>` : ''}`, true); break; }
+        <pre class="diff">${esc(x.diff)}</pre>${x.status === 'READY' ? `<button class="btn primary wide" data-act="suAct" data-id="${esc(x.id)}" data-a="install">Prošel jsem změny – nainstalovat</button>` : ''}`, true); break; }
     case 'suRollback': if (busyGuard()) return; if (!confirm('Sestavit novou verzi bez samoúprav? Data v aplikaci zůstanou.')) break; if (busyCall('selfUpdateRollback', chatId() || '') !== null) toast('Připravuji návrat – výsledek přijde do chatu a do Vylepšení.', 6000); break;
     case 'suAuto': call('setSetting', 'autoImprove', String(!!($('#suAuto') || {}).checked)); break;
     case 'suAct': { const r = call('selfUpdateAction', d.id, d.a); if (typeof r === 'string') toast(r, 7000); else toast({ poll: 'Kontroluji sestavení…', discard: 'Zahazuji úpravu (větev).', install: 'Potvrď instalaci v systémovém dialogu.' }[d.a]); if (d.a !== 'install') setTimeout(() => library('improve'), 1500); break; }

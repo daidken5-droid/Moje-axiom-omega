@@ -83,4 +83,4 @@ Z přiloženého auditu (AUDIT-VEGA.md) přeneseny bezpečné a konkrétní opra
 37. Rešerše s ověřovačem. → Štítek „doloženo / částečně / nedoloženo“, nepodložené věty vynechány, rozpor vidět. ✅ (jádro) / 📱
 38. Rešerše bez ověřovače. → Štítek „neověřený koncept“, odpověď normálně čitelná. ✅ (Chromium)
 39. „Sítě v okolí“ poprvé. → Vysvětlení „Proč WiFi potřebuje polohu“ před systémovým dialogem. ✅ (kód) / 📱
-40. Verze z Google Play: samoúprava. → Změna se připraví, instalace se nenabízí („přijde aktualizací v Obchodě Play“). ✅ (build play)
+40. Samoúprava: hotové sestavení. → Nabídne „Projít změny a nainstalovat“, instalaci potvrdí uživatel v systému. ✅ (kód) / 📱

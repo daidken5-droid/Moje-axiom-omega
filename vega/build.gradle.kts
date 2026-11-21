@@ -19,20 +19,18 @@ val hasReleaseSigning = signing.getProperty("storeFile")?.let { file(it).exists(
 
 android {
     namespace = "cz.axiom.vega"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "cz.axiom.vega"
         minSdk = 26
-        targetSdk = 36 // Google Play: nové aplikace i aktualizace od 31. 8. 2026 musí cílit na Android 16 (API 36)
+        targetSdk = 35
         // CI předává rostoucí číslo (minuty od 1. 1. 2026) – každé sestavení, i samoúprava VEGY, jde nainstalovat přes předchozí
         versionCode = (project.findProperty("vegaVersionCode") as String?)?.toIntOrNull() ?: 15
         versionName = "2.3.0" + ((project.findProperty("vegaVersionSuffix") as String?)?.let { "-$it" } ?: "")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Pixel 9a = arm64; x86_64 jen pro emulátor (debug). Ušetří ~25 MB nativních knihoven OCR.
         ndk { abiFilters += listOf("arm64-v8a") }
-        // přímá distribuce (APK z CI): samoúprava smí nainstalovat podepsané APK; build „play“ to vypíná
-        buildConfigField("boolean", "SELF_INSTALL", "true")
     }
 
     signingConfigs {
@@ -50,13 +48,6 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
-        }
-        // Google Play: aplikace se nesmí aktualizovat mimo Play → bez REQUEST_INSTALL_PACKAGES (src/play/AndroidManifest.xml)
-        // a bez stahování/instalace APK samoúpravy. Stejný podpis a applicationId jako release (`./gradlew :vega:bundlePlay`).
-        create("play") {
-            initWith(getByName("release"))
-            matchingFallbacks += listOf("release")
-            buildConfigField("boolean", "SELF_INSTALL", "false")
         }
         debug {
             applicationIdSuffix = ".debug"
