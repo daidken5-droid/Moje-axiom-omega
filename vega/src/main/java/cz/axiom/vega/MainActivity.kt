@@ -574,6 +574,10 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun hwSaveMeasure(json: String) = safe { JSONObject.quote(ops.hwSaveMeasure(json)) }
     // --- Hardware: BLE ---
     @JavascriptInterface fun bleScan(chat: String) = safe { a.bleScan(chat.takeIf { it != "temp" }); true }
+    // --- Hardware: volitelný root (libsu) ---
+    @JavascriptInterface fun rootVerify() = safe { RootAccess.verify { r -> a.send("root", JSONObject().put("ok", r.ok).put("message", r.message)) }; true }
+    @JavascriptInterface fun rootDisable() = safe { RootAccess.disable(); true }
+    @JavascriptInterface fun rootState() = safe { JSONObject().put("allowed", RootAccess.isAllowed()) }
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }
     @JavascriptInterface fun demand(chat: String, json: String) = safe { ops.demand(chat.takeIf { it != "temp" }, JSONObject(json)) }
     @JavascriptInterface fun share(name: String) = safe { a.share(name) }

@@ -96,6 +96,8 @@ dependencies {
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
     // WiFi QR kód (offline generování obrázku)
     implementation("com.google.zxing:core:3.5.3")
+    // volitelný root (jen na vyžádání; běžný chod aplikace na rootu nezávisí)
+    implementation("com.github.topjohnwu.libsu:core:6.0.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

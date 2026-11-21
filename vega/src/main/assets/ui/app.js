@@ -161,6 +161,8 @@ const diffHtml = d => `<pre class="diff">${String(d || '').split('\n').slice(0, 
 function card(c, isLast) {
   if (!c) return '';
   switch (c.type) {
+    case 'wifiMeasure': { const data = Object.assign({ kind: 'WiFi připojení', unit: 'dBm' }, c.data || {});
+      return `<div class="cardbox"><button class="btn" data-act="hwMeasureSave" data-d='${esc(JSON.stringify(data))}'>Uložit do podkladů pro výzkum</button></div>`; }
     case 'run': {
       const v = Object.assign({ run: c.run }, c.value);
       const primary = c.failed ? `<button class="btn signal" data-act="resume" data-run="${c.run}">Pokračovat</button>`
@@ -279,6 +281,11 @@ function hardwareSheet() {
     <h3>Bluetooth</h3>
     <div class="inline"><button class="btn" data-act="ble" ${caps.ble ? '' : 'disabled'}>Hledat zařízení</button></div>
     ${caps.ble ? '' : '<div class="note">⚠ Telefon nemá Bluetooth LE.</div>'}
+
+    <h3>Přístup root (nepovinné)</h3>
+    <div class="note">Běžný chod VEGA root nepotřebuje. Ověřuj jen na rootnutém telefonu (Magisk). Trvalé oprávnění můžeš kdykoli odebrat i v Magisku.</div>
+    <div class="inline"><button class="btn" data-act="rootVerify">Ověřit root</button>${(call('rootState') || {}).allowed ? '<button class="btn ghost" data-act="rootDisable">Vypnout používání rootu</button>' : ''}</div>
+    <div class="status" id="rootStatus"></div>
 
     <details><summary>Co ještě jde a co ne (přehled kompatibility)</summary>
       <table class="hwtab"><tr><th>Funkce</th><th>Stav</th></tr>
@@ -877,6 +884,9 @@ window.vega = {
       case 'nfc.writeDone': { S.nfc = false; render();
         if (d.error) toast(d.error, 8000);
         else toast(`Zapsáno (${d.size} B)${d.verified ? ' a ověřeno zpětným čtením ✓' : ' – zpětné čtení se nepovedlo, zkontroluj štítek'}.`, 8000); break; }
+      case 'root': { const st = $('#rootStatus'); const cls = d.ok ? 'ok' : 'bad';
+        if (st) st.innerHTML = `<span class="pill ${cls}">${d.ok ? 'Root ověřen' : 'nepovedlo se'}</span> ${esc(d.message || '')}`;
+        else toast(d.message || '', 7000); if (d.ok && $('#layer .sheet')) hardwareSheet(); break; }
       case 'wifiQr': { const out = $('#qrOut');
         const html = `<img src="${d.img}" alt="WiFi QR" style="width:220px;height:220px;border-radius:12px;background:#fff;padding:8px"><p class="note">Naskenuj fotoaparátem telefonu hosta. Síť: ${esc(d.ssid)}. QR se nikam neukládá.</p>`;
         if (out) out.innerHTML = html; else sheet(`<h2>WiFi QR</h2>${html}`, true); break; }
@@ -985,6 +995,9 @@ function act(a, d) {
       call('wifiQr', ssid, ($('#qrPw') || {}).value || '', 'WPA', !!($('#qrHidden') || {}).checked); break;
     }
     case 'ble': if (busyGuard()) return; closeSheet(true); S.nfc = true; S.busy = true; S.busyChat = chatId(); B.bleScan(chatId() || 'temp'); render(); toast('Hledám Bluetooth zařízení (6 s)…', 6000); break;
+    case 'rootVerify': { const st = $('#rootStatus'); if (st) st.textContent = 'Ověřuji… (v Magisku potvrď přístup)'; call('rootVerify'); break; }
+    case 'rootDisable': call('rootDisable'); { const st = $('#rootStatus'); if (st) st.innerHTML = '<span class="pill">vypnuto</span> Relace ukončena. Oprávnění odebereš i v Magisku.'; } break;
+    case 'hwMeasureSave': { const r = call('hwSaveMeasure', d.d); if (r) toast(r, 6000); } break;
     case 'demand': if (busyGuard()) return; { const smp = call('demandSample'); if (smp) demandSheet(smp); } break;
     case 'demandForm': demandSheet(JSON.parse(d.s)); break;
     case 'demandGo': {
