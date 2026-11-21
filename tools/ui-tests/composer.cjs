@@ -19,4 +19,7 @@ run("S.space={kind:'temp'}; window.vega.on('files',{files:[{id:'c'}]})");assert.
 run("S.drafts={}; S.req=null; S.files=[]; S.space={kind:'chat',id:'1'}");field('#input').value='rozdělaná zpráva pro chat 1';
 run("setSpace({kind:'chat',id:'2'})");assert.equal(field('#input').value,'');
 run("setSpace({kind:'chat',id:'1'})");assert.equal(field('#input').value,'rozdělaná zpráva pro chat 1');
-console.log('9 UI logic scenarios passed.');
+// vyhozená příloha zmizí i z draftu jiné konverzace
+run("S.drafts={'chat:9':{text:'x',files:[{id:'old'},{id:'keep'}]}}; S.space={kind:'chat',id:'1'}; S.files=[]; window.vega.on('files',{files:[{id:'new',evicted:['old']}]})");
+assert.equal(run("S.drafts['chat:9'].files.map(f=>f.id).join()"),'keep');
+console.log('10 UI logic scenarios passed.');

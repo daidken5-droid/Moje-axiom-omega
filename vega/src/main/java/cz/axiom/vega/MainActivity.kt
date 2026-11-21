@@ -301,11 +301,14 @@ class MainActivity : ComponentActivity() {
         val sak = nfcA?.sak?.toInt()?.and(0xFF)
         val atqa = nfcA?.atqa?.let { if (it.size >= 2) (it[0].toInt() and 0xFF) or ((it[1].toInt() and 0xFF) shl 8) else null }
         var ndefBytes: ByteArray? = null
+        var readFailed = false
         Ndef.get(tag)?.let { ndef ->
             try { ndef.connect(); ndefBytes = (ndef.ndefMessage ?: ndef.cachedNdefMessage)?.toByteArray() }
-            catch (_: Exception) {} finally { runCatching { ndef.close() } }
+            // štítek se vzdálil / spojení spadlo: zkusit aspoň obsah z doby objevení, jinak říct „přilož znovu“ (ne „štítek je prázdný“)
+            catch (_: Exception) { ndefBytes = runCatching { ndef.cachedNdefMessage?.toByteArray() }.getOrNull(); readFailed = ndefBytes == null }
+            finally { runCatching { ndef.close() } }
         }
-        ops.onNfcTag(tag.id ?: ByteArray(0), techs, sak, atqa, ndefBytes, nfcChat)
+        ops.onNfcTag(tag.id ?: ByteArray(0), techs, sak, atqa, ndefBytes, nfcChat, readFailed)
         nfcStop()
     }
 

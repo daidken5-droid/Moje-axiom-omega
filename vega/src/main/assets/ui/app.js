@@ -897,6 +897,8 @@ window.vega = {
         if (errs.length) toast(errs.join(' · '), 9000);
         // přílohy vyhozené kvůli stropu paměti (150 MB) zmizí i z čipů – jinak by se tiše neposlaly
         if (ev.size && S.files) { S.files = S.files.filter(f => !ev.has(f.id)); toast('Nejstarší příloha se už nevešla do paměti (strop 150 MB) – odebral jsem ji.', 6000); }
+        // vyhozená příloha zmizí i z rozepsaných zpráv jiných konverzací (jinak by po návratu odeslání selhalo)
+        if (ev.size && S.drafts) Object.values(S.drafts).forEach(dr => { dr.files = (dr.files || []).filter(f => !ev.has(f.id)); });
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { busyCall('buttonTry', chatId(), ok[0].id); render(); } return; }
         if (S.awaitProc) { // soubor vybraný pro uložený nástroj patří jen jemu
           const id = S.awaitProc; S.awaitProc = null;

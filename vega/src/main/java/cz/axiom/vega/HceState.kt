@@ -19,15 +19,17 @@ object HceState {
         cache = payload; loaded = true
     }
 
+    /** Deaktivace musí přežít restart procesu: když smazání selže, soubor se vyprázdní (prázdný = žádná karta). */
     fun deactivate(ctx: Context) {
-        runCatching { file(ctx).delete() }
+        val f = file(ctx)
+        if (!runCatching { f.delete() || !f.exists() }.getOrDefault(false)) runCatching { f.writeBytes(ByteArray(0)) }
         cache = null; loaded = true
     }
 
     /** Pro službu: aktuální payload, nebo null. Čte z paměti, jinak ze souboru (po studeném startu). */
     fun payload(ctx: Context): ByteArray? {
         if (loaded) return cache
-        cache = runCatching { file(ctx).takeIf { it.isFile }?.readBytes() }.getOrNull(); loaded = true
+        cache = runCatching { file(ctx).takeIf { it.isFile }?.readBytes()?.takeIf { it.isNotEmpty() } }.getOrNull(); loaded = true
         return cache
     }
 

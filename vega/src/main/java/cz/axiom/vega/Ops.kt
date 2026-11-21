@@ -2072,8 +2072,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         kv.write("hw/measures.json", trimmed.toString()); "Měření uloženo do podkladů (${o.optString("kind", "WiFi")})."
     }
 
-    fun onNfcTag(uid: ByteArray, techs: List<String>, sak: Int?, atqa: Int?, ndefBytes: ByteArray?, chat: String?)= submit {
+    fun onNfcTag(uid: ByteArray, techs: List<String>, sak: Int?, atqa: Int?, ndefBytes: ByteArray?, chat: String?, readFailed: Boolean = false)= submit {
         val info = cz.axiom.vega.core.NfcTag.classify(uid, techs, sak, atqa)
+        if (readFailed) { reply(chat, cz.axiom.vega.core.NdefParser.summary(info, emptyList()).replace("- NDEF: žádný čitelný záznam\n", "") + "\n\nObsah štítku se nepodařilo dočíst – štítek se nejspíš vzdálil. Přilož ho znovu a podrž 1–2 sekundy v klidu."); return@submit }
         val records = ndefBytes?.let { runCatching { cz.axiom.vega.core.NdefParser.parse(it) }.getOrDefault(emptyList()) } ?: emptyList()
         val text = cz.axiom.vega.core.NdefParser.summary(info, records)
         if (ndefBytes != null && records.isNotEmpty()) {
