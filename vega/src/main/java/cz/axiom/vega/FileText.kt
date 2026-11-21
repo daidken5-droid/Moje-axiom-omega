@@ -48,11 +48,14 @@ class FileText(private val context: Context) {
             ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
                 PdfRenderer(fd).use { r ->
                     val n = minOf(r.pageCount, 20)
+                    if (n < r.pageCount) notes += "Přečteno prvních $n z ${r.pageCount} stran."
                     Read((0 until n).joinToString("\n\n") { i -> r.openPage(i).use { p ->
                         val s = 1800f / maxOf(p.width, p.height)
-                        val bmp = Bitmap.createBitmap((p.width * s).toInt(), (p.height * s).toInt(), Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
-                        p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        "— Strana ${i + 1} —\n" + ocr(bmp).also { bmp.recycle() }
+                        val bmp = Bitmap.createBitmap((p.width * s).toInt().coerceAtLeast(1), (p.height * s).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+                        try {
+                            p.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            "— Strana ${i + 1} —\n" + ocr(bmp)
+                        } finally { bmp.recycle() }
                     } }, notes, true)
                 }
             }
@@ -81,8 +84,17 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     fun add(name: String, text: String) {
         if (text.isBlank()) return
-        writableDatabase.delete("docs", "name = ?", arrayOf(name))
-        writableDatabase.insert("docs", null, ContentValues().apply { put("name", name); put("body", text.take(2_000_000)); put("added", System.currentTimeMillis()) })
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete("docs", "name = ?", arrayOf(name))
+            db.insertOrThrow("docs", null, ContentValues().apply {
+                put("name", name)
+                put("body", text.take(2_000_000))
+                put("added", System.currentTimeMillis())
+            })
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
     }
 
     fun list(): List<String> = readableDatabase.rawQuery("SELECT name FROM docs ORDER BY added DESC", null).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }

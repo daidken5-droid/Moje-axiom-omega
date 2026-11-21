@@ -583,7 +583,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun dropAttachment(id: String) { synchronized(attachments) { attachments.remove(id) } }
     private val ATTACH_MAX_BYTES = 150_000_000L
 
-    fun attach(name: String, mime: String?, bytes: ByteArray): JSONObject {
+    fun attach(name: String, mime: String?, bytes: ByteArray, indexNow: Boolean = true): JSONObject {
         val id = "f" + System.nanoTime().toString(36)
         attachments[id] = Value.Bytes(name, bytes, mime)
         // strop počtu I bajtů v paměti (8 × 60 MB by bylo 480 MB) – nejstarší ven
@@ -592,12 +592,17 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         // do lokálního indexu (text a CSV hned, PDF/obrázek až nástrojem s OCR – nezdržovat výběr)
         val textual = name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || cz.axiom.vega.core.Encoding.isUtf8(bytes.copyOf(minOf(bytes.size, 4096)))
         // (české exporty bývají ve Windows-1250 – Encoding.decode to pozná)
-        if (bytes.size < 5_000_000 && textual && !name.endsWith(".pdf", true)) runCatching { index.add(name, cz.axiom.vega.core.Encoding.decode(bytes)) }
+        if (indexNow && bytes.size < 5_000_000 && textual && !name.endsWith(".pdf", true)) runCatching { index.add(name, cz.axiom.vega.core.Encoding.decode(bytes)) }
         return JSONObject().put("id", id).put("name", name).put("size", bytes.size).put("mime", mime ?: "").put("evicted", evicted)
     }
     private fun lastAttachment() = msgAtt.lastOrNull()
     /** Vezme (a odebere) přílohy patřící k odesílané zprávě. */
-    private fun take(ids: List<String>): List<Value.Bytes> = synchronized(attachments) { ids.mapNotNull { attachments.remove(it) } }
+    private fun take(ids: List<String>): List<Value.Bytes> = synchronized(attachments) {
+        val unique = ids.distinct()
+        val files = unique.map { attachments[it] ?: throw ToolError("Jedna z příloh už není dostupná. Odeber ji a přidej soubor znovu.") }
+        unique.forEach { attachments.remove(it) }
+        files
+    }
 
     // ------------------------------------------------------------------ výsledky (každý je běh – jde otevřít, předat, pokračovat)
 

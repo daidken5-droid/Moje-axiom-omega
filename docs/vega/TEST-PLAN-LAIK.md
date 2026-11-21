@@ -61,3 +61,17 @@ Nalezené chyby a opravy tohoto kola jsou níže v „Opravy kola laik-HW“.
 - Projetí nových obrazovek Hardware v Chromiu (karta, aktivace/deaktivace, editor, WiFi nástroje, zápis NDEF, root, události) → **žádná chyba aplikace**. (Jedna hláška v logu byl zastaralý testovací soubor, ne appka.)
 - Měření uložené do podkladů pro výzkum ve výchozím stavu **vynechává SSID, IP a BSSID** (citlivé identifikátory).
 - Automatický regresní běh: jádro + aplikace zelené.
+
+## Revize od GPT – přeneseno do 2.2.0
+Z přiloženého auditu (AUDIT-VEGA.md) přeneseny bezpečné a konkrétní opravy (moje větev byla novější, převzato jen smysluplné):
+- **WebView tvrdě bez sítě:** `blockNetworkLoads=true`, neobsloužený požadavek → 403, navigace jen na přesnou lokální vstupní stránku (obrana mostu WebView↔nativní).
+- **Soukromí příloh:** sdílený soubor z jiné aplikace se při příjmu neindexuje (`indexNow=false`); dočasný chat příchozí přílohu uvolní a vysvětlí, že používá jen text; v dočasném chatu nejde odeslat příloha.
+- **Životní cyklus příloh:** `take()` ověří celou sadu ID pod jedním zámkem a při chybějící příloze srozumitelně odmítne; vstup/formulář se čistí až po převzetí mostem (odmítnuté odeslání nezahodí text); sdílený text se připíše na nový řádek.
+- **Import složky:** počítají se skutečně přečtené bajty (strop 2 MB/soubor, 80 MB/projekt), limit hloubky, počtu položek i duplicitních cest; velké soubory se započtou do hlášení.
+- **PDF/OCR:** poznámka o přečteném rozsahu stran, bitmapa se uvolní ve `finally`, min. 1 px; zápis indexu v jedné transakci s rollbackem.
+- **Ověření klíče v režimu Bez sítě:** skončí před počítáním požadavků, UI ukáže „neověřeno“ + „Ověřit znovu“.
+- **WiFi QR:** pole hesla je skryté, s tlačítkem Ukázat/Skrýt (i pro čtečku obrazovky).
+- **Export PDF:** dlouhý odstavec vyšší než stránka se rozdělí po řádcích přes stránky (dřív se ořízl).
+- Přidán offline UI test `tools/ui-tests/composer.cjs` (8 scénářů logiky mostu).
+
+**Záměrně odloženo** (větší/rizikové, mimo bezpečné přenesení): změna podpisu a CI workflow, oddělený samostatný export + gradle wrapper (v monorepu wrapper je), rozsáhlý refaktor Ops.kt/app.js, offline diktování, přílohy proudem do souboru se stabilním ID a index podle ID, reorganizace nastavení podle úkolů. Zapsáno jako další kroky.

@@ -168,6 +168,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
      * U Gemini řekne, jestli klíč už má Gemini 4 Hydrogen (Google ho zpřístupňuje postupně).
      */
     fun check(provider: String): KeyCheck {
+        if (settings.airgap) return KeyCheck(false, "V režimu Bez sítě ověření neproběhlo. Po jeho vypnutí zvol Ověřit.", null, 0)
         if (provider == "own") return try {
             require(ownConfigured()) { "Nejdřív zadej adresu serveru." }
             val list = OpenAiEngine.listModels(settings.ownUrl, vault.read("own"))
@@ -193,7 +194,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
                 Regex("HTTP 40[013]").containsMatchIn(msg) && Regex("(?i)key|klíč|API_KEY|auth|permission").containsMatchIn(msg) || Regex("HTTP 40[13]").containsMatchIn(msg) ->
                     "Klíč nefunguje (neplatný nebo bez oprávnění). Zkontroluj, že je celý a z účtu, kde je Gemini API povolené."
                 Regex("HTTP 429").containsMatchIn(msg) -> "Klíč funguje, ale limit je teď vyčerpaný – zkus to za chvíli."
-                generateSequence(e as Throwable) { it.cause }.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení – klíč jsem uložil, ověřím ho, až bude síť."
+                generateSequence(e as Throwable) { it.cause }.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení. Až budeš online, klepni na ověření klíče."
                 else -> "Ověření selhalo: ${msg.substringBefore(" [{").substringBefore(" {").take(140)}"
             }, null, 0)
         }

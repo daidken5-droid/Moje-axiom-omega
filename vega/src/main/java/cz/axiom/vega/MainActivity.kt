@@ -32,6 +32,8 @@ import org.json.JSONObject
  */
 const val CSP = "default-src 'none'; script-src 'self' 'unsafe-eval' blob:; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'"
 
+private const val UI_URL = "https://appassets.androidplatform.net/assets/ui/index.html"
+
 class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
     private val sinkRef: (String, JSONObject) -> Unit = { t, d -> send(t, d) }
@@ -68,12 +70,14 @@ class MainActivity : ComponentActivity() {
         web.settings.apply {
             javaScriptEnabled = true; domStorageEnabled = true
             allowFileAccess = false; allowContentAccess = false
+            blockNetworkLoads = true // UI se načítá jen z WebViewAssetLoader; modely volá Kotlin.
             setGeolocationEnabled(false); mediaPlaybackRequiresUserGesture = true
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                 // CSP i jako HTTP hlavička (platí spolehlivě i pro blob: Workery testů): žádná síť, žádné inline skripty
                 loader.shouldInterceptRequest(request.url)?.also { r -> r.responseHeaders = (r.responseHeaders ?: emptyMap()) + mapOf("Content-Security-Policy" to CSP, "X-Content-Type-Options" to "nosniff") }
+                    ?: WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", emptyMap(), null)
             /** Renderer spadl (např. paměťová bomba v testech projektu) → nepadat s celou aplikací, jen znovu načíst UI. */
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 // mrtvý WebView se nesmí dál používat: odpojit, zničit a teprve pak obnovit aktivitu
@@ -83,7 +87,7 @@ class MainActivity : ComponentActivity() {
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val u = request.url
-                if (u.host == "appassets.androidplatform.net" && u.scheme == "https") return false
+                if (u.host == "appassets.androidplatform.net") return u != Uri.parse(UI_URL) || !request.isForMainFrame
                 // ven jen http(s), jen hlavní rámec a jen po skutečném klepnutí (skript nesmí sám otevírat stránky = únik dat)
                 if ((u.scheme == "https" || u.scheme == "http") && request.isForMainFrame && request.hasGesture()) runCatching { startActivity(Intent(Intent.ACTION_VIEW, u).addCategory(Intent.CATEGORY_BROWSABLE)) }
                 return true
@@ -96,7 +100,7 @@ class MainActivity : ComponentActivity() {
                 web.evaluateJavascript("(window.vega && vega.back && vega.back()) ? 'y' : 'n'") { r -> if (!r.contains("y")) moveTaskToBack(true) }
             }
         })
-        web.loadUrl("https://appassets.androidplatform.net/assets/ui/index.html")
+        web.loadUrl(UI_URL)
         // po recreate()/obnově procesu nesdílet tytéž soubory znovu
         if (savedInstanceState == null) handleShare(intent)
     }
@@ -108,9 +112,9 @@ class MainActivity : ComponentActivity() {
         when (i.action) {
             Intent.ACTION_SEND -> {
                 i.getStringExtra(Intent.EXTRA_TEXT)?.let { send("shared", JSONObject().put("text", it)) }
-                @Suppress("DEPRECATION") (i.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { u -> Thread { attachUris(listOf(u)) }.start() }
+                @Suppress("DEPRECATION") (i.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { u -> Thread { attachUris(listOf(u), indexNow = false) }.start() }
             }
-            Intent.ACTION_SEND_MULTIPLE -> @Suppress("DEPRECATION") i.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.let { l -> Thread { attachUris(l) }.start() }
+            Intent.ACTION_SEND_MULTIPLE -> @Suppress("DEPRECATION") i.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.let { l -> Thread { attachUris(l, indexNow = false) }.start() }
         }
     }
 
@@ -144,7 +148,7 @@ class MainActivity : ComponentActivity() {
     private fun nameOf(u: Uri) = runCatching { contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }.getOrNull() ?: u.lastPathSegment ?: "soubor"
 
     /** Sdílené / vybrané soubory: jen content:// od CIZÍ aplikace (ne soukromá data VEGA, ne file://), čtení s limitem. */
-    private fun attachUris(uris: List<Uri>) {
+    private fun attachUris(uris: List<Uri>, indexNow: Boolean = true) {
         val arr = JSONArray(); var sum = 0L
         for (u in uris.take(8)) {
             runCatching {
@@ -159,7 +163,7 @@ class MainActivity : ComponentActivity() {
                     sum += total
                     o.toByteArray()
                 }
-                arr.put(ops.attach(nameOf(u), contentResolver.getType(u), bytes))
+                arr.put(ops.attach(nameOf(u), contentResolver.getType(u), bytes, indexNow))
             }.onFailure { arr.put(JSONObject().put("error", "${nameOf(u)}: ${it.message}")) }
         }
         send("files", JSONObject().put("files", arr).put("skipped", maxOf(0, uris.size - 8)))
@@ -170,20 +174,45 @@ class MainActivity : ComponentActivity() {
         try {
             val root = DocumentFile.fromTreeUri(this, uri) ?: throw IllegalStateException("Složku nejde otevřít")
             val files = LinkedHashMap<String, ByteArray>(); var total = 0L
-            fun walk(d: DocumentFile, prefix: String) {
-                for (f in d.listFiles()) {
-                    val n = f.name ?: continue
-                    if (n in setOf(".git", "node_modules", "build", ".gradle", "dist", "__pycache__", ".idea")) continue
-                    if (f.isDirectory) walk(f, "$prefix$n/")
-                    else if (f.length() <= cz.axiom.vega.core.Workspace.MAX_FILE && files.size < 2000) {
-                        total += f.length(); if (total > 80_000_000) throw IllegalStateException("Projekt je větší než 80 MB.")
-                        files["$prefix$n"] = contentResolver.openInputStream(f.uri)!!.use { it.readBytes() }
+            var skipped = 0
+            var visited = 0
+            fun walk(d: DocumentFile, prefix: String, depth: Int) {
+                require(depth <= 64) { "Složka má příliš mnoho úrovní. Vyber menší podsložku." }
+                for (entry in d.listFiles()) {
+                    require(++visited <= 20_000) { "Složka je příliš rozsáhlá. Vyber menší podsložku." }
+                    val name = entry.name ?: throw IllegalStateException("Jedna z položek nemá název.")
+                    require(name !in setOf(".", "..") && '/' !in name && '\\' !in name) { "Neplatný název položky ve složce." }
+                    if (name in setOf(".git", "node_modules", "build", ".gradle", "dist", "__pycache__", ".idea")) continue
+                    val path = prefix + name
+                    if (entry.isDirectory) {
+                        walk(entry, "$path/", depth + 1)
+                        continue
                     }
+                    val limit = cz.axiom.vega.core.Workspace.MAX_FILE
+                    if (entry.length() > limit) { skipped++; continue }
+                    require(files.size < 2000) { "Složka má více než 2000 souborů. Vyber menší podsložku." }
+                    val stream = contentResolver.openInputStream(entry.uri) ?: error("Soubor $path nejde otevřít.")
+                    val bytes = stream.use { input ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            if (out.size() + count > limit) return@use null
+                            require(total + out.size() + count <= 80_000_000L) { "Projekt je větší než 80 MB." }
+                            out.write(buffer, 0, count)
+                        }
+                        out.toByteArray()
+                    }
+                    if (bytes == null) { skipped++; continue }
+                    require(path !in files) { "Dvě položky mají stejnou cestu: $path." }
+                    files[path] = bytes
+                    total += bytes.size
                 }
             }
-            walk(root, "")
+            walk(root, "", 0)
             val id = ops.createProject(root.name ?: "projekt", files)
-            send("project", JSONObject().put("id", id).put("imported", files.size))
+            send("project", JSONObject().put("id", id).put("imported", files.size).put("skipped", skipped))
         } catch (e: Exception) { send("error", JSONObject().put("text", "Import složky: ${e.message}")) }
     }
 
@@ -485,8 +514,10 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun dropAttachment(id: String) = safe { ops.dropAttachment(id); true }
     @JavascriptInterface fun chatRev(chat: String): String = runCatching { ops.chatRev(chat) }.getOrDefault("")
     @JavascriptInterface fun send(chat: String, text: String, ids: String) = safe {
-        val f = runCatching { JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } } }.getOrDefault(emptyList())
+        val f = JSONArray(ids).let { a -> (0 until a.length()).map { a.getString(it) } }
+        require(chat != "temp" || f.isEmpty()) { "V dočasném chatu nelze odeslat přílohu. Otevři běžnou konverzaci." }
         if (chat == "temp") ops.chatTemp(text, f) else if (text.length > 6000) ops.longTask(chat, text, f) else ops.chat(chat, text, f)
+        true
     }
     @JavascriptInterface fun ready() = safe { a.ready() }
     @JavascriptInterface fun clearTemp() = safe { ops.clearTemp() }

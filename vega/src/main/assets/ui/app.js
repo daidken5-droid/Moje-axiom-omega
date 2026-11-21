@@ -111,14 +111,15 @@ function emptyState() {
   if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
   const noModel = !h.engine && !h.own;
   // laikovi napoví, co může napsat (jen na prázdné hlavní obrazovce, ne v projektu); klepnutím se příklad odešle
-  const examples = (S.space.kind === 'chat' && !btns.length) ? [
+  const prompts = noModel || h.airgap ? ['Kolik je 15 procent z 2400?', 'Kolik dní do Vánoc?'] : [
     'Spočítej 15 % z 2400', 'Napiš omluvný e-mail do práce', 'Kolik dní do Vánoc?', 'Vysvětli mi, co je inflace', '100 eur na koruny'
-  ].map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
+  ];
+  const examples = !btns.length ? prompts.map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
-    ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá">Odpovídá: <b>${esc(h.airgap ? 'nikdo (bez sítě)' : h.model || 'automaticky')}</b> ▾</button>` : ''}
-    ${noModel && !h.airgap ? `<div class="setup"><p>Aby ti VEGA mohla odpovídat, potřebuje jednou nastavit model. Zdarma to zabere asi 2 minuty.</p><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button><small>Výpočty, převody a nástroje fungují i bez toho.</small></div>` : ''}
+    ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá"><b>${esc(h.airgap ? 'Bez sítě · místní nástroje' : h.model || 'automaticky')}</b> ▾</button>` : ''}
+    ${noModel && !h.airgap ? `<div class="setup"><p>Výpočty a převody můžeš zkusit hned. Pro volný rozhovor si můžeš připojit online model.</p><button class="btn primary" data-act="freeSetup">Nastavit online rozhovor</button></div>` : ''}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}
-    ${examples.length && !noModel ? `<div class="examples"><small>Zkus třeba:</small><div class="btns">${examples.join('')}</div></div>` : ''}</div>`;
+    ${examples.length ? `<div class="examples"><small>Zkus třeba:</small><div class="btns">${examples.join('')}</div></div>` : ''}</div>`;
 }
 
 /* ------------------------------------------------------------------ výsledky: nejdřív to podstatné, detail na klepnutí */
@@ -324,7 +325,7 @@ function wifiToolsSheet() {
   sheet(`<h2>WiFi heslo a QR</h2>
     <p class="lede">Zkontroluj sílu hesla nebo vyrob QR kód pro snadné připojení hostů. Heslo zůstane jen tady – neukládá se do historie ani jinam.</p>
     <label class="lbl">Název sítě (SSID)</label><input class="field" id="qrSsid" placeholder="např. Doma_5G" autocomplete="off">
-    <label class="lbl">Heslo</label><div class="inline"><input class="field" id="qrPw" type="text" placeholder="heslo k WiFi" autocomplete="off" spellcheck="false"><button class="btn" data-act="wifiGen">Vymyslet silné</button></div>
+    <label class="lbl" for="qrPw">Heslo</label><div class="inline"><input class="field" id="qrPw" type="password" placeholder="heslo k WiFi" autocomplete="off" spellcheck="false"><button class="btn" data-act="qrReveal" aria-pressed="false">Ukázat heslo</button><button class="btn" data-act="wifiGen">Vymyslet silné</button></div>
     <div class="status" id="pwCheck"></div>
     <label class="chk" style="margin-top:6px"><input type="checkbox" id="qrHidden"> skrytá síť</label>
     <div class="inline" style="margin-top:10px"><button class="btn" data-act="wifiPwCheck">Zkontrolovat heslo</button><button class="btn primary" data-act="wifiQrGo">Vyrobit QR</button></div>
@@ -456,9 +457,9 @@ function runTool() {
   const text = (tt ? tt.value : $('#input').value).trim();
   const input = S.toolInput || (text ? { text } : S.files.length ? { file: S.files[S.files.length - 1].id } : null);
   if (!input) { toast('Chybí vstup – vlož text nebo přilož soubor.'); (tt || $('#input')).focus(); return; }
+  if (busyCall('runTool', chatId(), t.id, input, params) === null) return;
   closeSheet(true);
-  S.busy = true; S.busyChat = chatId(); S.stream = '';
-  call('runTool', chatId(), t.id, input, params);
+  S.stream = '';
   if (input.text) { $('#input').value = ''; autosize(); }
   if (input.file) S.files = S.files.filter(f => f.id !== input.file);
   S.tool = null; S.toolInput = null; render();
@@ -676,9 +677,13 @@ function send() {
   if (!text && !S.files.length) return;
   if (busyGuard()) return;
   const t = text || 'Co s tímhle souborem?';
+  if (busyCall('send', chatId(), t, S.files.map(f => f.id)) === null) {
+    renderChips();
+    inp.focus();
+    return;
+  }
   if (S.space.kind === 'temp') S.tempMsgs.push({ role: 'user', text: t });
-  S.busy = true; S.stream = '';
-  if (call('send', chatId(), t, S.files.map(f => f.id)) === null) S.busy = false; // chyba mostu → neviset na „pracuji“
+  S.stream = '';
   S.files = []; inp.value = ''; autosize();
   render();
 }
@@ -843,23 +848,30 @@ window.vega = {
       case 'toast': toast(d.text, 7000); break;
       case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
-        const ok = (d.files || []).filter(f => !f.error);
+        const received = (d.files || []).filter(f => !f.error);
+        const ev = new Set(received.flatMap(f => f.evicted || []));
+        const ok = received.filter(f => !ev.has(f.id));
         // všechny chyby v jedné hlášce (jinak by každá další přepsala předchozí) + kolik souborů se nevešlo
         const errs = (d.files || []).filter(f => f.error).map(f => f.error).concat(d.skipped ? [`Vzala jsem prvních 8 souborů, ${d.skipped} dalších ne – pošli je zvlášť.`] : []);
         if (errs.length) toast(errs.join(' · '), 9000);
         // přílohy vyhozené kvůli stropu paměti (150 MB) zmizí i z čipů – jinak by se tiše neposlaly
-        const ev = new Set(ok.flatMap(f => f.evicted || [])); if (ev.size && S.files) { S.files = S.files.filter(f => !ev.has(f.id)); toast('Nejstarší příloha se už nevešla do paměti (strop 150 MB) – odebral jsem ji.', 6000); }
+        if (ev.size && S.files) { S.files = S.files.filter(f => !ev.has(f.id)); toast('Nejstarší příloha se už nevešla do paměti (strop 150 MB) – odebral jsem ji.', 6000); }
         if (S.awaitTry) { S.awaitTry = false; if (ok.length) { busyCall('buttonTry', chatId(), ok[0].id); render(); } return; }
         if (S.awaitProc) { // soubor vybraný pro uložený nástroj patří jen jemu
           const id = S.awaitProc; S.awaitProc = null;
           if (ok.length) { busyCall('runProcedure', chatId(), id, { file: ok[0].id }); render(); if (ok.length > 1) toast('Nástroj jsem spustil na prvním souboru.'); }
           return;
         }
+        if (S.space.kind === 'temp') {
+          ok.forEach(f => call('dropAttachment', f.id));
+          if (ok.length) toast('Dočasný chat používá jen text. Pro soubory otevři běžnou konverzaci.');
+          renderChips(); break;
+        }
         S.files = S.files.concat(ok); renderChips(); break;
       }
-      case 'shared': { const i = $('#input'); i.value = d.text; autosize(); toast('Sdílený text je v poli – zkontroluj a odešli.'); break; }
+      case 'shared': { const i = $('#input'); i.value = i.value ? i.value + '\n' + d.text : d.text; autosize(); renderChips(); toast('Sdílený text je v poli – zkontroluj a odešli.'); break; }
       case 'voice': { const g = $('#go'); if (g) g.classList.remove('listen'); if (d.ok && d.text) { const i = $('#input'); i.value = (i.value ? i.value + ' ' : '') + d.text; autosize(); renderChips(); i.focus(); } else if (d.error) toast(d.error); break; }
-      case 'project': if (d.silent) { S.home = null; renderTop(); break; } if (d.id) { const p = call('project', d.id); setSpace({ kind: 'project', id: d.id, name: p ? p.name : 'Projekt' }); if (d.imported !== undefined) toast(`Importováno ${d.imported} souborů (kopie).`); } break;
+      case 'project': if (d.silent) { S.home = null; renderTop(); break; } if (d.id) { const p = call('project', d.id); setSpace({ kind: 'project', id: d.id, name: p ? p.name : 'Projekt' }); if (d.imported !== undefined) toast(`Importováno souborů: ${d.imported}.${d.skipped ? ` Přes limit 2 MB: ${d.skipped}.` : ''}`); } break;
       case 'ask.closed': if (S.req === d.req) { S.req = null; closeSheet(true); } break;
       case 'consent':
         if (S.req === d.req) break;
@@ -880,9 +892,9 @@ window.vega = {
       case 'extrun': runExtension(d.code, d.input, d.params, d.timeoutMs || 8000).then(r => B.answer(d.req, JSON.stringify(r))); break;
       case 'verified': toast(d.kind === 'none' ? 'Testy nedoběhly – výsledek neplatí, zkus znovu.' : d.exitCode === 0 ? 'Testy prošly.' : 'Testy neprošly – výstup v panelu projektu.', 5000); if (S.space.kind === 'project' && panelOpen()) projectPanel(); break;
       case 'verifier': toast(d.message, 7000); if ($('#kc-verifier')) settingsSheet(); break;
-      case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'nefunguje'}</span> ${esc(d.message)}` +
+      case 'keycheck': { const el = $('#kc-' + d.provider); if (el) el.innerHTML = `<span class="pill ${d.ok ? 'ok' : 'bad'}">${d.ok ? 'funguje' : 'neověřeno'}</span> ${esc(d.message)}` +
           // průvodce prvním spuštěním: po úspěchu jedním klepnutím do chatu
-          (d.ok && $('#freeKey') ? '<button class="btn primary wide" data-act="freeDone" style="margin-top:10px">Hotovo – můžeme si povídat</button>' : (!d.ok && $('#freeKey') ? '<br><small>Zkontroluj, že jsi zkopíroval celý klíč. Když nepomůže, vytvoř v AI Studiu nový.</small>' : ''));
+          (d.ok && $('#freeKey') ? '<button class="btn primary wide" data-act="freeDone" style="margin-top:10px">Hotovo – můžeme si povídat</button>' : (!d.ok ? ` <button class="btn ghost" data-act="checkKey" data-k="${esc(d.provider)}">Ověřit znovu</button>` : ''));
         else toast(d.message, 6000); S.home = null; break; }
       case 'nfc.start': B.nfc(chatId()); break;
       case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
@@ -993,6 +1005,14 @@ function act(a, d) {
     }
     case 'wifiLink': if (busyGuard()) return; closeSheet(true); S.busy = true; S.busyChat = chatId(); B.wifiLink(chatId() || 'temp'); render(); break;
     case 'wifiTools': wifiToolsSheet(); break;
+    case 'qrReveal': {
+      const field = $('#qrPw'), button = $('[data-act="qrReveal"]');
+      const show = field.type === 'password';
+      field.type = show ? 'text' : 'password';
+      button.textContent = show ? 'Skrýt heslo' : 'Ukázat heslo';
+      button.setAttribute('aria-pressed', String(show));
+      break;
+    }
     case 'wifiGen': { const g = call('wifiGenPw'); if (g) { const el = $('#qrPw'); if (el) el.value = g; wifiPwCheckNow(); } break; }
     case 'wifiPwCheck': wifiPwCheckNow(); break;
     case 'wifiQrGo': {

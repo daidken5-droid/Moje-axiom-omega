@@ -25,13 +25,24 @@ object Pdf {
         var page: PdfDocument.Page? = null; var y = 0f; var n = 0
         fun newPage() { page?.let { doc.finishPage(it) }; n++; page = doc.startPage(PdfDocument.PageInfo.Builder(w, h, n).create()); y = m.toFloat() }
         newPage()
+        val bottom = (h - m).toFloat()
         for ((lay, isHead) in blocks) {
             val extra = if (isHead) 14f else 2f
-            if (y + lay.height + extra > h - m) newPage()
-            val c = page!!.canvas
-            if (isHead) y += 8f
-            c.save(); c.translate(m.toFloat(), y); lay.draw(c); c.restore()
-            y += lay.height + extra
+            if (isHead && y > m) y += 8f
+            // odstavec delší než zbytek (i celá) stránky se rozdělí po řádcích přes stránky – nic se neořízne
+            var line = 0
+            while (line < lay.lineCount) {
+                if (y >= bottom - 1f && y > m) newPage()
+                val top = lay.getLineTop(line)
+                var end = line
+                while (end < lay.lineCount && y + (lay.getLineBottom(end) - top) <= bottom) end++
+                if (end == line) { if (y > m) { newPage(); continue } else end = line + 1 } // aspoň jeden řádek, i když je vyšší než stránka
+                val sliceTop = lay.getLineTop(line); val sliceBottom = lay.getLineBottom(end - 1)
+                val c = page!!.canvas
+                c.save(); c.clipRect(m.toFloat(), y, (w - m).toFloat(), y + (sliceBottom - sliceTop)); c.translate(m.toFloat(), y - sliceTop); lay.draw(c); c.restore()
+                y += (sliceBottom - sliceTop); line = end
+            }
+            y += extra
         }
         doc.finishPage(page!!)
         val o = java.io.ByteArrayOutputStream(); doc.writeTo(o); doc.close()
