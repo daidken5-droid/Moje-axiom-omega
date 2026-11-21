@@ -110,10 +110,15 @@ function emptyState() {
   const btns = (h.buttons || []).slice(0, 6).map(b => `<button class="btnchip" data-act="runBtn" data-id="${esc(b.id)}" data-kind="${esc(b.inputKind)}"><i></i>${esc(b.name)}</button>`);
   if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
   const noModel = !h.engine && !h.own;
+  // laikovi napoví, co může napsat (jen na prázdné hlavní obrazovce, ne v projektu); klepnutím se příklad odešle
+  const examples = (S.space.kind === 'chat' && !btns.length) ? [
+    'Spočítej 15 % z 2400', 'Napiš omluvný e-mail do práce', 'Kolik dní do Vánoc?', 'Vysvětli mi, co je inflace', '100 eur na koruny'
+  ].map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
     ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá">Odpovídá: <b>${esc(h.airgap ? 'nikdo (bez sítě)' : h.model || 'automaticky')}</b> ▾</button>` : ''}
     ${noModel && !h.airgap ? `<div class="setup"><p>Aby ti VEGA mohla odpovídat, potřebuje jednou nastavit model. Zdarma to zabere asi 2 minuty.</p><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button><small>Výpočty, převody a nástroje fungují i bez toho.</small></div>` : ''}
-    ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</div>`;
+    ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}
+    ${examples.length && !noModel ? `<div class="examples"><small>Zkus třeba:</small><div class="btns">${examples.join('')}</div></div>` : ''}</div>`;
 }
 
 /* ------------------------------------------------------------------ výsledky: nejdřív to podstatné, detail na klepnutí */

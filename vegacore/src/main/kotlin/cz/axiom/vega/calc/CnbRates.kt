@@ -58,5 +58,8 @@ object CnbRates {
         "huf" to "HUF", "forint" to "HUF", "forintu" to "HUF", "jpy" to "JPY", "jen" to "JPY", "jenu" to "JPY",
     )
 
-    fun code(word: String): String? = word.lowercase().let { ALIAS[it] ?: if (Regex("^[a-z]{3}$").matches(it)) it.uppercase() else null }
+    fun code(word: String): String? = word.lowercase().let { w -> ALIAS[w] ?: when {
+        w.startsWith("eur") -> "EUR"; w.startsWith("dolar") -> "USD"; w.startsWith("libr") -> "GBP"; w.startsWith("korun") -> "CZK"
+        w.startsWith("frank") -> "CHF"; w.startsWith("zlot") -> "PLN"; w.startsWith("forint") -> "HUF"; w.startsWith("jen") -> "JPY"
+        Regex("^[a-z]{3}$").matches(w) -> w.uppercase(); else -> null } }
 }

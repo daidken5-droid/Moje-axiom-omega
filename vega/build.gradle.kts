@@ -27,7 +27,7 @@ android {
         targetSdk = 35
         // CI předává rostoucí číslo (minuty od 1. 1. 2026) – každé sestavení, i samoúprava VEGY, jde nainstalovat přes předchozí
         versionCode = (project.findProperty("vegaVersionCode") as String?)?.toIntOrNull() ?: 15
-        versionName = "2.0.0" + ((project.findProperty("vegaVersionSuffix") as String?)?.let { "-$it" } ?: "")
+        versionName = "2.1.0" + ((project.findProperty("vegaVersionSuffix") as String?)?.let { "-$it" } ?: "")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Pixel 9a = arm64; x86_64 jen pro emulátor (debug). Ušetří ~25 MB nativních knihoven OCR.
         ndk { abiFilters += listOf("arm64-v8a") }

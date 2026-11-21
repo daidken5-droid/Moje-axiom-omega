@@ -27,6 +27,7 @@ object Quick {
         days(t, now.toLocalDate())?.let { return it }
         untilDay(t, now.toLocalDate())?.let { return it }
         loan(t)?.let { return it }
+        tip(t)?.let { return it }
         vat(t)?.let { return it }
         percent(t)?.let { return it }
         dateOffset(t, now.toLocalDate())?.let { return it }
@@ -50,6 +51,17 @@ object Quick {
     private fun money(v: Double) = fmt(Math.round(v * 100) / 100.0) + " Kč"
     private val DAYS = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
     private fun dmy(d: LocalDate) = "${d.dayOfMonth}. ${d.monthValue}. ${d.year} (${DAYS[d.dayOfWeek.value - 1]})"
+
+    /** Spropitné: „15 % spropitné z 540“, „kolik dát dýško 10 % z 1200“ → částka spropitného + celkem. */
+    private fun tip(t: String): String? {
+        if (!Regex("spropit|dysk|tuzer").containsMatchIn(t)) return null
+        val p = Regex("(\\d+(?:[.,]\\d+)?)\\s*%").find(t)?.groupValues?.get(1)?.let { num(it) } ?: return null
+        // částka: za „z/ze“, jinak největší jiné číslo v textu
+        val b = Regex("(?:z|ze)\\s*$N").find(t)?.groupValues?.get(1)?.let { num(it) }
+            ?: Regex(N).findAll(t).mapNotNull { num(it.value) }.filter { it != p }.maxOrNull() ?: return null
+        val tipv = b * p / 100
+        return "Spropitné ${fmt(p)} % z ${money(b)} je ${money(tipv)}; celkem zaplatíš ${money(b + tipv)}."
+    }
 
     /** DPH: „1000 bez DPH“, „1 210 s DPH“, „DPH z 1000“, sazba 21 % (nebo 12 % / 0 %, když je v dotazu). */
     private fun vat(t: String): String? {

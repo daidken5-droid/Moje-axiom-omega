@@ -31,3 +31,12 @@ Výsledky každé fáze: do tohoto souboru + commit.
 - BLE sken se nezastavoval při opuštění obrazovky → `onPause` ho teď ukončí a uvolní; hlásí přerušení.
 - `NdefFormatable` se po zápisu nezavíral → doplněn `close()`.
 - Regresní běh: jádro + aplikace zelené.
+
+
+## Výsledky Fáze 3 (vylepšení pro laiky) – hotovo ~8:05
+- **Nápovědní příklady na úvodní obrazovce** („Zkus třeba: Spočítej 15 % z 2400, Napiš omluvný e-mail…“) – laik hned ví, co napsat; klepnutím se příklad odešle.
+- **Spropitné**: „20 % spropitné z 540“ → 108 Kč, celkem 648 Kč (offline, bez modelu).
+- **Širší měnové tvary**: „v eurech / korunách / dolarech“ pro převod kurzem ČNB.
+- Testy `tipAndCurrencyWords` + regrese zelené.
+
+Hotovo v čase (do 8:30). Finální APK 2.1.0 předán uživateli.

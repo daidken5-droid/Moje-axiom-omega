@@ -1024,7 +1024,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** „100 eur na koruny“, „kolik je 50 USD v Kč“, „200 euro na dolary“ → kurz ČNB. null = není to převod. */
     private fun currencyOnline(text: String): String? {
         val t = cz.axiom.vega.base.Text.fold(text).lowercase().trim().trimEnd('?', '.', '!', ' ')
-        val cur = "(eur|euro|eura|euru|usd|dolar\\w*|gbp|libr\\w*|chf|frank\\w*|pln|zlot\\w*|huf|forint\\w*|jpy|jen\\w*|kc|korun\\w*|czk)"
+        val cur = "(eur\\w*|usd|dolar\\w*|gbp|libr\\w*|chf|frank\\w*|pln|zlot\\w*|huf|forint\\w*|jpy|jen\\w*|kc|korun\\w*|czk)"
         val m = Regex("^(?:kolik je |preved |prevod |spocitej )?(\\d[\\d ]*(?:[.,]\\d+)?)\\s*$cur\\s+(?:na|v|do|je|=)\\s*$cur$").find(t) ?: return null
         val value = cz.axiom.vega.calc.Quick.num(m.groupValues[1]) ?: return null
         val from = cz.axiom.vega.calc.CnbRates.code(m.groupValues[2]) ?: return null

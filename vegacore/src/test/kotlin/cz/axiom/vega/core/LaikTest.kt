@@ -77,3 +77,16 @@ class LaikTest {
         assertTrue(r("Projekt Manhattan") is Router.Intent.Research)
     }
 }
+
+class RanoVylepseniTest {
+    private val now = java.time.ZonedDateTime.of(2026,11,21,8,0,0,0, java.time.ZoneId.of("Europe/Prague"))
+    @Test fun tipAndCurrencyWords() {
+        val tip = cz.axiom.vega.calc.Quick.answer("20 % spropitné z 540", now)!!
+        assertTrue(tip.contains("108 Kč") && tip.contains("648 Kč"), tip)
+        assertTrue(cz.axiom.vega.calc.Quick.answer("kolik dát dýško 10 % z 1200", now)!!.contains("120 Kč"))
+        // širší měnové tvary
+        assertEquals("EUR", cz.axiom.vega.calc.CnbRates.code("eurech"))
+        assertEquals("CZK", cz.axiom.vega.calc.CnbRates.code("korunách".lowercase()))
+        assertEquals("USD", cz.axiom.vega.calc.CnbRates.code("dolarech"))
+    }
+}
