@@ -694,16 +694,27 @@ function send() {
   if (S.space.kind === 'temp') S.tempMsgs.push({ role: 'user', text: t });
   S.stream = '';
   S.files = []; inp.value = ''; autosize();
+  if (S.drafts) delete S.drafts[spaceKey()]; // odeslané už není rozpracované
   render();
 }
 function autosize() { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, innerHeight * .34) + 'px'; }
 
+// rozpracovaný vstup (text + přílohy) patří konkrétní konverzaci – přepnutím chatu se nepřenese adresát ani obsah
+function spaceKey(sp) { const x = sp || S.space; return x.kind + ':' + (x.id || ''); }
+function saveDraft() {
+  const i = $('#input'); if (!i) return; S.drafts = S.drafts || {}; const k = spaceKey();
+  if (i.value.trim() || S.files.length) S.drafts[k] = { text: i.value, files: S.files.slice() }; else delete S.drafts[k];
+}
 function setSpace(sp) {
+  saveDraft();
   if (S.space && S.space.kind === 'chat' && S.space.id && sp.kind !== 'chat') S.prevChat = S.space.id;
   S.space = sp; S.tool = null; S.toolInput = null; S.stream = ''; S.lastCard = null;
+  const d = (S.drafts || {})[spaceKey(sp)] || { text: '', files: [] };
+  S.files = (d.files || []).slice();
   call('activate', sp.kind === 'project' ? sp.id : '');
   if (!S.req) closeSheet(true); // otevřený souhlas nesmí tiše zmizet (úloha by čekala 5 minut)
   S.stick = true; render();
+  const i = $('#input'); if (i) { i.value = d.text || ''; autosize(); }
 }
 
 /* ------------------------------------------------------------------ JS testy: izolovaný Worker, bez sítě, limit času.

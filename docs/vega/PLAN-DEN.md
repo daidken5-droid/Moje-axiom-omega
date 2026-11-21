@@ -29,3 +29,17 @@ Oprávnění a jejich zdůvodnění, Data safety přehled, cílení SDK, podpis 
 Celý běh testů, sestavení, shrnutí změn po souborech.
 
 Výsledky každé fáze zapisuji sem + commit.
+
+## Výsledky
+
+### Fáze B – hotovo
+- Lokální index klíčuje podle stabilního ID (`uid`), ne podle jména → dva „faktura.pdf“ se nepřepíšou.
+- Odebrání dokumentu z vyhledávání (`indexRemove`), správa dokumentů v Nastavení.
+- Migrace starého indexu (schéma v2, `uid = jméno`). Opraven pád FTS4 na rezervovaném názvu sloupce (`docid` → `uid`).
+- Ověřeno: `:vegacore:test`, `:vega:testDebugUnitTest`, offline UI testy.
+
+### Fáze C – hotovo
+- Rozpracovaný vstup (text + přílohy) je vázaný na konkrétní konverzaci (`S.drafts` podle `spaceKey`).
+- Při odchodu z chatu se draft uloží, při návratu obnoví; po odeslání se draft zahodí.
+- Přepnutí chatu už nepřenese text ani přílohy k jinému adresátovi (dřív byly `#input` a `S.files` globální).
+- Ověřeno: offline UI test „draft podle konverzace“ (9 scénářů zeleně), kontrola syntaxe app.js.

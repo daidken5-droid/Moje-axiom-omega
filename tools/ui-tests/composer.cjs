@@ -15,4 +15,8 @@ run('send()');assert.equal(field('#input').value,'návrh\nsdíleno');assert.equa
 mock.send=true;run('send()');assert.equal(field('#input').value,'');assert.equal(run('S.busy && S.files.length===0'),true);
 field('[data-tool-text]').value='text';run("S.busy=false; S.tool={id:'x'};runTool()");assert.equal(run("S.tool.id==='x' && !S.busy"),true);assert.equal(field('[data-tool-text]').value,'text');
 run("S.space={kind:'temp'}; window.vega.on('files',{files:[{id:'c'}]})");assert.equal(run('S.files.length'),0);
-console.log('8 UI logic scenarios passed.');
+// draft podle konverzace: přepnutí chatu nepřenese text ani přílohy k jinému adresátovi
+run("S.drafts={}; S.req=null; S.files=[]; S.space={kind:'chat',id:'1'}");field('#input').value='rozdělaná zpráva pro chat 1';
+run("setSpace({kind:'chat',id:'2'})");assert.equal(field('#input').value,'');
+run("setSpace({kind:'chat',id:'1'})");assert.equal(field('#input').value,'rozdělaná zpráva pro chat 1');
+console.log('9 UI logic scenarios passed.');
