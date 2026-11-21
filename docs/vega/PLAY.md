@@ -32,6 +32,14 @@ Podpis: beze změny (stejný klíč jako release; pro Play App Signing slouží 
 - **Uložení:** vše v telefonu; klíče v trezoru (Android Keystore); záloha systému vypnutá (`allowBackup=false`).
 - **Smazání:** smazání konverzací/paměti v aplikaci; odinstalace smaže vše.
 
+## Kolo testů T1 – lint (21. 11. 2026 odpoledne)
+- **Opraveno – CoarseFineLocation (chyba):** Android 12+ ignoruje žádost o přesnou polohu bez přibližné → „Sítě v okolí“ by se na
+  Pixelu 9a vůbec nezeptaly. Teď se žádá o obě; při povolení jen přibližné srozumitelný návod.
+- **Opraveno – BLE na Androidu 8–11:** chyběla `BLUETOOTH`/`BLUETOOTH_ADMIN` (`maxSdkVersion=30`) a žádost o polohu → sken by
+  spadl nebo nic nenašel.
+- **Riziko – TrustAllX509TrustManager:** nález v knihovně BouncyCastle `bcpkix` (závislost PDF knihovny), ne v kódu VEGY;
+  Play ji může zmínit v kontrole před spuštěním. Odstranění by rozbilo PDF – sledovat výsledek pre-launch reportu.
+
 ## Další poznámky k zásadám
 - Rozšíření a testy projektu (JS) běží v Workeru WebView – výjimka pro interpretovaný kód ve WebView; nestahuje se nativní kód.
 - Root (libsu) je volitelný a vypnutý; aplikace funguje bez něj.

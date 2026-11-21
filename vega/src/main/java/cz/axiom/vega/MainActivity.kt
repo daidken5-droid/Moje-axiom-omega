@@ -40,8 +40,13 @@ class MainActivity : ComponentActivity() {
     lateinit var ops: Ops
     @Volatile private var nfcChat: String? = null
     @Volatile private var wifiChat: String? = null
-    private val askLocation = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) doWifiScan(wifiChat) else ops.onWifi("[]", null, null, "Bez přístupu k poloze nemůžu přečíst okolní WiFi (Android to vyžaduje). Můžeš ho povolit v Nastavení telefonu → Aplikace → VEGA → Oprávnění.", wifiChat)
+    // Android 12+ ignoruje žádost o přesnou polohu bez přibližné → žádáme o obě; seznam WiFi vydá jen s přesnou
+    private val askLocation = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        when {
+            r[android.Manifest.permission.ACCESS_FINE_LOCATION] == true -> doWifiScan(wifiChat)
+            r[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true -> ops.onWifi("[]", null, null, "Povolil jsi jen přibližnou polohu – Android ale okolní WiFi ukáže jen s přesnou. Změníš to v Nastavení telefonu → Aplikace → VEGA → Oprávnění → Poloha → „Použít přesnou polohu“. VEGA polohu nikam neposílá.", wifiChat)
+            else -> ops.onWifi("[]", null, null, "Bez přístupu k poloze nemůžu přečíst okolní WiFi (Android to vyžaduje). Můžeš ho povolit v Nastavení telefonu → Aplikace → VEGA → Oprávnění.", wifiChat)
+        }
     }
     /** Události před načtením stránky (studený start, sdílení) se drží a pošlou, až JS zavolá ready(). */
     private val early = java.util.ArrayList<String>()
@@ -317,7 +322,7 @@ class MainActivity : ComponentActivity() {
         val lm = getSystemService(android.content.Context.LOCATION_SERVICE) as? android.location.LocationManager
         if (lm != null && !androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)) { ops.onWifi("[]", null, null, "Zapni Polohu (systémové nastavení) – Android bez ní sken WiFi nepovolí. VEGA polohu nikam neposílá, jen díky ní vidí sítě.", chat); return }
         if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            askLocation.launch(android.Manifest.permission.ACCESS_FINE_LOCATION); return
+            askLocation.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)); return
         }
         doWifiScan(chat)
     }
@@ -382,12 +387,19 @@ class MainActivity : ComponentActivity() {
 
     private val askBle = registerForActivityResult(ActivityResultContracts.RequestPermission()) { g -> if (g) doBleScan(bleChat) else ops.onBle("[]", "Bez oprávnění Bluetooth nejde hledat zařízení. Povol ho v Nastavení → Aplikace → VEGA → Oprávnění.", bleChat) }
     @Volatile private var bleChat: String? = null
+    private val askBleLegacy = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        if (r[android.Manifest.permission.ACCESS_FINE_LOCATION] == true) doBleScan(bleChat)
+        else ops.onBle("[]", "Na tomhle Androidu hledání Bluetooth zařízení vyžaduje přesnou polohu. Povol ji v Nastavení → Aplikace → VEGA → Oprávnění (VEGA polohu nikam neposílá).", bleChat)
+    }
     fun bleScan(chat: String?) {
         bleChat = chat
         val bt = (getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
         if (bt == null || !bt.isEnabled) return ops.onBle("[]", "Bluetooth je vypnuté – zapni ho a zkus to znovu.", chat)
         if (android.os.Build.VERSION.SDK_INT >= 31 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) != android.content.pm.PackageManager.PERMISSION_GRANTED)
             return askBle.launch(android.Manifest.permission.BLUETOOTH_SCAN)
+        // Android 8–11: bez polohy sken BLE nic nevrátí
+        if (android.os.Build.VERSION.SDK_INT < 31 && androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            return askBleLegacy.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
         doBleScan(chat)
     }
     @SuppressLint("MissingPermission")

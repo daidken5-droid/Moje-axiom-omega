@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.NFC" />
     <!-- WiFi analyzátor: čtení stavu WiFi a pasivní sken okolí (Android sken vyžaduje polohu); žádné připojování ani zásah -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Android 12+: žádost o FINE bez COARSE systém ignoruje → obě, sken potřebuje přesnou -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- samoúpravy: nabídnout instalaci APK, které VEGA sama připravila (instalaci vždy potvrzuje uživatel v systémovém dialogu) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -13,6 +15,9 @@
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
     <!-- BLE sken vlastních periferií (API 31+ runtime oprávnění) -->
+    <!-- Android 8–11: BLE sken potřebuje BLUETOOTH + BLUETOOTH_ADMIN a polohu; od 12 jen BLUETOOTH_SCAN -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
