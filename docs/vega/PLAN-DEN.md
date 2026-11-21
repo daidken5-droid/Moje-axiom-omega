@@ -43,3 +43,10 @@ Výsledky každé fáze zapisuji sem + commit.
 - Při odchodu z chatu se draft uloží, při návratu obnoví; po odeslání se draft zahodí.
 - Přepnutí chatu už nepřenese text ani přílohy k jinému adresátovi (dřív byly `#input` a `S.files` globální).
 - Ověřeno: offline UI test „draft podle konverzace“ (9 scénářů zeleně), kontrola syntaxe app.js.
+
+### Fáze D – hotovo
+- Domovská obrazovka má řádku běžných úkolů laika: **Zeptat se / Pracovat se souborem / Najít v dokumentech** (zvýrazněné oproti ukázkám).
+- „Přidat +“ přeskupeno: nahoře běžné (Soubor, Najít v dokumentech, Nástroje), odborné (NFC, WiFi, Hardware, Projekt ze složky) do rozbalovacího **Pokročilé**.
+- Nové akce `ask` (zaměří pole), `findDocs` (předvyplní „Najdi v mých dokumentech:“ a zaměří).
+- Nastavení už dřív mají „Pro pokročilé“ s odbornými volbami (vlastní server, placené modely, kurzy).
+- Ověřeno: Chromium render domovské obrazovky, offline UI testy zeleně.

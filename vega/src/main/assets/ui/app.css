@@ -198,6 +198,8 @@ body.chatting::before { opacity: .35; }
 .btnchip { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: var(--sheet); border: 1px solid var(--line); font-size: 14px; font-weight: 500; }
 .btnchip i { font-style: normal; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 10px var(--signal); }
 .btnchip.cont { border-color: color-mix(in srgb, var(--signal) 55%, var(--line)); }
+.tasks { margin-top: 20px; }
+.tasks .btnchip { border-color: color-mix(in srgb, var(--signal) 32%, var(--line)); font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .star, body::before { animation: none !important; } }
 
 /* ---------- horní lišta: menu · model · nový chat · avatar ---------- */

@@ -115,9 +115,12 @@ function emptyState() {
     'Spočítej 15 % z 2400', 'Napiš omluvný e-mail do práce', 'Kolik dní do Vánoc?', 'Vysvětli mi, co je inflace', '100 eur na koruny'
   ];
   const examples = !btns.length ? prompts.map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
+  // běžná cesta laika: zeptat se / pracovat se souborem / najít v dokumentech (odborné je v „Přidat ›“ a Nastavení)
+  const tasks = `<div class="btns tasks"><button class="btnchip" data-act="ask"><i></i>Zeptat se</button><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
     ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá"><b>${esc(h.airgap ? 'Bez sítě · místní nástroje' : h.model || 'automaticky')}</b> ▾</button>` : ''}
     ${noModel && !h.airgap ? `<div class="setup"><p>Výpočty a převody můžeš zkusit hned. Pro volný rozhovor si můžeš připojit online model.</p><button class="btn primary" data-act="freeSetup">Nastavit online rozhovor</button></div>` : ''}
+    ${tasks}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}
     ${examples.length ? `<div class="examples"><small>Zkus třeba:</small><div class="btns">${examples.join('')}</div></div>` : ''}</div>`;
 }
@@ -421,12 +424,15 @@ function closeSheet(silent) {
 function plusSheet() {
   sheet(`<h2>Přidat</h2><div class="list">
     <button class="row" data-act="pick"><b>📎</b><span class="grow"><b>Soubor</b><small>CSV, log, JSON, PDF, fotka dokumentu…</small></span></button>
+    <button class="row" data-act="findDocs"><b>🔎</b><span class="grow"><b>Najít v dokumentech</b><small>hledání v souborech, které už znám (i bez sítě)</small></span></button>
     <button class="row" data-act="tools"><b>⌘</b><span class="grow"><b>Nástroje</b><small>diff, kontrolní součty, inspektory, čtení URL…</small></span></button>
+  </div>
+  <details style="margin-top:10px"><summary>Pokročilé</summary><div class="list" style="margin-top:8px">
     <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek – inspektor</b><small>typ karty, UID, technologie, obsah (jen čtení)</small></span></button>
     <button class="row" data-act="wifi"><b>📶</b><span class="grow"><b>WiFi kolem mě</b><small>kanály, signál, kontrola zabezpečení tvé sítě</small></span></button>
     <button class="row" data-act="hw"><b>🛠</b><span class="grow"><b>Hardware</b><small>virtuální karta, NFC štítky, WiFi, QR, Bluetooth</small></span></button>
     <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
-  </div>`);
+  </div></details>`);
 }
 
 function toolsSheet() {
@@ -947,6 +953,8 @@ function act(a, d) {
     case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
+    case 'ask': { closeSheet(true); const i = $('#input'); if (i) { i.focus(); } break; }
+    case 'findDocs': { closeSheet(true); const i = $('#input'); if (i) { i.value = 'Najdi v mých dokumentech: '; autosize(); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } break; }
     case 'retry': if (busyGuard()) return; S.busy = true; if (call('retry', chatId(), d.req || '') === null) S.busy = false; render(); break;
     case 'resumeTask': if (busyGuard()) return; busyCall('resumeTask', chatId(), d.p); render(); break;
     case 'keep': { if (busyGuard()) return; const keep = [...document.querySelectorAll('[data-keep]')].filter(x => x.checked).map(x => x.dataset.keep);
