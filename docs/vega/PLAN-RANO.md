@@ -19,3 +19,15 @@ rozlišovat ověřeno (test/Chromium) × NEOVĚŘENO (telefon).
 - Finální testy, APK, shrnutí.
 
 Výsledky každé fáze: do tohoto souboru + commit.
+
+
+## Výsledky Fáze 1 (laické testy) – hotovo ~6:40
+- 92 reálných laických vět přes skutečný Router + Quick + currency + offline. Po opravách: **92/92 správně** (žádný běžný dotaz nespadl do nástroje/projektu/rešerše).
+- Opraveno: „měj se“ a „jsi chytrá?“ se braly jako rešerše; „levný hash brown“ spouštěl nástroj hash. Doplněn test `ranniLaikRegrese`.
+- UI toky v Chromiu (domů, +, Hardware, model, menu, nastavení, WiFi nástroje, editor karty): **bez chyby**.
+
+## Výsledky Fáze 2 (deep scan + opravy) – hotovo ~7:40
+- `NeuralWeb.related`: jeden uzel bez sousedů ukončoval celý skok aktivace → opraveno (`continue`).
+- BLE sken se nezastavoval při opuštění obrazovky → `onPause` ho teď ukončí a uvolní; hlásí přerušení.
+- `NdefFormatable` se po zápisu nezavíral → doplněn `close()`.
+- Regresní běh: jádro + aplikace zelené.

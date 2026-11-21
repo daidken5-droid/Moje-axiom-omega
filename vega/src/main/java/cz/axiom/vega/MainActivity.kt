@@ -240,7 +240,7 @@ class MainActivity : ComponentActivity() {
         val (kind, content) = pendingWrite ?: return send("nfc.writeDone", JSONObject().put("error", "Není co zapsat."))
         val rec = if (kind == "url") NdefRecord.createUri(content) else NdefRecord.createTextRecord("cs", content)
         val msg = NdefMessage(arrayOf(rec)); val size = msg.toByteArray().size
-        val ndef = Ndef.get(tag)
+        val ndef = Ndef.get(tag); var fmt: NdefFormatable? = null
         try {
             if (ndef != null) {
                 ndef.connect()
@@ -250,11 +250,11 @@ class MainActivity : ComponentActivity() {
                 val back = (ndef.ndefMessage ?: ndef.cachedNdefMessage)?.toByteArray()
                 send("nfc.writeDone", JSONObject().put("ok", true).put("size", size).put("verified", back != null && back.contentEquals(msg.toByteArray())))
             } else {
-                val fmt = NdefFormatable.get(tag) ?: return send("nfc.writeDone", JSONObject().put("error", "Tenhle štítek neumím popsat (není NDEF)."))
-                fmt.connect(); fmt.format(msg); send("nfc.writeDone", JSONObject().put("ok", true).put("size", size).put("verified", true))
+                fmt = NdefFormatable.get(tag) ?: return send("nfc.writeDone", JSONObject().put("error", "Tenhle štítek neumím popsat (není NDEF)."))
+                fmt!!.connect(); fmt!!.format(msg); send("nfc.writeDone", JSONObject().put("ok", true).put("size", size).put("verified", true))
             }
         } catch (e: Exception) { send("nfc.writeDone", JSONObject().put("error", "Zápis selhal (${e.message ?: "štítek oddálen"}) – podrž štítek u telefonu.")) }
-        finally { runCatching { ndef?.close() }; pendingWrite = null }
+        finally { runCatching { ndef?.close() }; runCatching { fmt?.close() }; pendingWrite = null }
     }
 
     @Volatile private var nfcActive = false
@@ -275,7 +275,8 @@ class MainActivity : ComponentActivity() {
         nfcStop()
     }
 
-    override fun onPause() { super.onPause(); nfcStop() }
+    @Volatile private var bleStop: (() -> Unit)? = null
+    override fun onPause() { super.onPause(); nfcStop(); bleStop?.invoke() }
 
     fun openNfcSettings() = startActivity(Intent(AndroidSettings.ACTION_NFC_SETTINGS))
 
@@ -372,11 +373,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         send("nfc.listening", JSONObject()) // sdílený „poslouchám“ indikátor
+        val stopped = java.util.concurrent.atomic.AtomicBoolean(false)
+        fun finish(report: Boolean) {
+            if (!stopped.compareAndSet(false, true)) return
+            runCatching { sc.stopScan(cb) }; bleStop = null; send("idle", JSONObject())
+            if (report) ops.onBle(JSONArray(found.values.sortedByDescending { it.optInt("rssi") }).toString(), null, chat)
+            else ops.onBle("[]", "Hledání přerušeno (odešel jsi z obrazovky).", chat)
+        }
+        bleStop = { finish(false) } // opuštění obrazovky uvolní skener i spojení
         sc.startScan(cb)
-        web.postDelayed({
-            runCatching { sc.stopScan(cb) }; send("idle", JSONObject())
-            ops.onBle(JSONArray(found.values.sortedByDescending { it.optInt("rssi") }).toString(), null, chat)
-        }, 6000)
+        web.postDelayed({ finish(true) }, 6000)
     }
 
     fun pick() = runOnUiThread { pickFiles.launch(arrayOf("*/*")) }

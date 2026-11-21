@@ -64,4 +64,16 @@ class LaikTest {
         val r = Statement.process(csv, spec)
         assertEquals(2, r.table.rows.size, r.toString()); assertTrue(r.failed.isEmpty(), r.failed.toString())
     }
+
+    @Test fun ranniLaikRegrese() {
+        fun r(q: String) = Router.route(q, RouterTuning.NONE)
+        // dřívější chyby → teď rozhovor
+        for (q in listOf("měj se", "jsi chytrá?", "Kde koupit levný hash brown", "Potřebuju log na dřevo", "test osobnosti zdarma"))
+            assertTrue(r(q) is Router.Intent.Talk, "$q → ${r(q)}")
+        // legitimní nástroje/témata fungují dál
+        assertTrue(r("spočítej sha256 tohoto souboru") is Router.Intent.Tool)
+        assertTrue(r("kontrolní součet 5d41402abc4b2a76b9719d911017c592") is Router.Intent.Tool)
+        assertTrue(r("Operation Prato") is Router.Intent.Research)
+        assertTrue(r("Projekt Manhattan") is Router.Intent.Research)
+    }
 }

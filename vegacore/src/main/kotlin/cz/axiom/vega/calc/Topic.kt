@@ -15,6 +15,8 @@ object Topic {
         "zdravim|nashle|nashledanou|dobrou|noc|rano|vecer|cus|cauky|hotovo|stop|konec|dalsi|jeste|vic|mene|kratsi|delsi|priklad|vysvetleni|" +
         // pokyny a zájmena (laik píše „Přepiš to formálněji“, „Změň barvu…“, „Pomoz mi s výpisem“ – to není název tématu)
         "uprav|zmen|prepis|pomoz|pomozte|vylepsi|oprav|zkontroluj|priprav|dej|rekni|ukaz|zjisti|pridej|odeber|smaz|uloz|zapamatuj|zapomen|vrat|zrus|" +
+        // oslovení a smalltalk („měj se“, „jsi chytrá?“, „seš tu?“) – není to název tématu
+        "jsi|jste|ses|sis|mej|mejte|chytra|chytry|chytre|hloupy|vtipny|zivy|nazivu|tady|tu|funguje|slysis|vidis|" +
         "zformuluj|preformuluj|naformatuj|seradi|serad|vyber|doplni|dopln|napoveda|poradi|porad|to|tohle|toto|tenhle|tahle|mi|me|mne|muj|moje|meho|tvuj|nas|vas)\\b")
     private val bad = Regex("[0-9+*/=<>@#{}\\[\\]|\\\\]")
 

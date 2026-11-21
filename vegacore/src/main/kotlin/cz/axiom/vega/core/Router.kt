@@ -144,7 +144,11 @@ object Router {
         // --- nástroje s přílohou nebo vstupem v textu
         val url = Regex("https?://\\S+").find(text)?.value
         if (url != null && has(t, "precti|otevri|shrn|co je na|stahni|nacti") ) return Intent.Tool("url.read", emptyMap(), "adresa v textu")
-        if (has(t, "sha-?256|sha-?1|\\bmd5\\b|\\bcrc|kontrolni soucet|otisk souboru|checksum|\\bhash(e|em|i)?\\b")) return Intent.Tool("hash", Regex("\\b[0-9a-f]{32,128}\\b").find(t)?.let { mapOf("expect" to it.value) } ?: emptyMap(), "kontrolní součet")
+        val hexTok = Regex("\\b[0-9a-f]{32,128}\\b").find(t)?.value
+        // „hash“ v běžné větě („levný hash brown“, „kde koupit…“) nespouští nástroj – jen s hex řetězcem nebo jasným kontextem
+        if (has(t, "sha-?256|sha-?1|\\bmd5\\b|\\bcrc\\b|kontrolni soucet|otisk souboru|checksum") || hexTok != null ||
+            (has(t, "\\bhash(e|em|i|uj|ovat)?\\b") && !has(t, "^(kde|jak|co|kolik|kdy|proc|ktery|ktera|ktere) ") && !has(t, "brown|koupit|koupim|browns")))
+            return Intent.Tool("hash", hexTok?.let { mapOf("expect" to it) } ?: emptyMap(), "kontrolní součet")
         // porovnání TEXTŮ: dva soubory, oddělovač --- nebo zmínka o verzích/textech („porovnej ceny elektřiny“ je otázka pro model)
         // „rozdíl mezi verzí Windows 10 a 11“ je otázka pro model – nástroj jen se dvěma texty / soubory
         if (has(t, "porovnej|rozdil mezi|\\bdiff\\b|co se zmenilo") && (c.attachments >= 2 || text.contains("\n---") || text.contains("\n===") ||

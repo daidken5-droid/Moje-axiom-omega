@@ -73,7 +73,8 @@ class NeuralWeb(private val kv: Kv, private val clock: () -> Long = System::curr
         repeat(hops) {
             val next = HashMap<String, Double>()
             for ((node, act) in front) {
-                val nb = neighbors(g, node); val tot = nb.sumOf { it.second }.takeIf { it > 0 } ?: return@repeat
+                val nb = neighbors(g, node); val tot = nb.sumOf { it.second }
+                if (tot <= 0) continue // uzel bez sousedů přeskoč, neukončuj celý skok
                 for ((n, w) in nb) { val add = act * decayPerHop * (w / tot); if (n !in seedSet) { score.merge(n, add, Double::plus); next.merge(n, add, Double::plus) } }
             }
             front = next
