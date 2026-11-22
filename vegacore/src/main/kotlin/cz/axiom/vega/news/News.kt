@@ -111,14 +111,14 @@ object News {
 
     private val STOP = setOf("a", "i", "o", "u", "v", "ve", "na", "do", "z", "ze", "s", "se", "k", "ke", "po", "pro", "pri", "za", "od", "je", "jsou", "byl", "byla",
         "bylo", "by", "ze", "ale", "jak", "co", "kdo", "to", "ten", "ta", "tak", "uz", "jeste", "rika", "podle", "kvuli", "mezi", "nad", "pod", "pred", "jeho", "jeji", "sve")
-    /** Kmeny slov titulku (bez diakritiky, bez spojek, prvních 5 znaků) – „konferenci“ ~ „konference“. */
-    fun stems(title: String): Set<String> = Text.words(Text.fold(title).lowercase(), 2).filter { it !in STOP }.map { it.take(5) }.toSet()
-    /** Podobnost titulků: aspoň 4 společné kmeny a 40 % menšího titulku, nebo 3 a 50 % (dlouhé titulky o téže události). */
+    /** Kmeny slov titulku (bez diakritiky, bez spojek, první 4 znaky) – „konferenci“ ~ „konference“, „útok“ ~ „útoku“. */
+    fun stems(title: String): Set<String> = Text.words(Text.fold(title).lowercase(), 2).filter { it !in STOP }.map { it.take(4) }.toSet()
+    /** Podobnost titulků: aspoň 3 společné kmeny (4 písmena – „útok/útoku“, „ruskou/ruská“) a polovina menšího titulku. */
     fun similar(a: String, b: String): Boolean = similarStems(stems(a), stems(b))
     private fun similarStems(x: Set<String>, y: Set<String>): Boolean {
         val common = x.count { it in y }
         val ratio = common.toDouble() / minOf(x.size, y.size).coerceAtLeast(1)
-        return (common >= 4 && ratio >= 0.4) || (common >= 3 && ratio >= 0.5)
+        return common >= 3 && ratio >= 0.5
     }
 
     /** Položky v okně → témata: stejný odkaz = jedna položka, podobné titulky = jedno téma; řazeno podle počtu zdrojů, pak času. */

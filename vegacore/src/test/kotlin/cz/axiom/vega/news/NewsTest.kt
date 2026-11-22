@@ -159,4 +159,13 @@ class NewsTest {
         println("NEWS|350 položek → ${ts.size} témat za $ms ms")
         assertTrue("$ms ms", ms < 200)
     }
+
+    /** H17: skutečné titulky z 22. 11. – stejná událost jinými slovy se sloučí, podobně znějící jiná událost ne. */
+    @Test fun realWorldMergeAndNoFalseMerge() {
+        assertTrue(News.similar("Ohnivé peklo v Benghází. Dronový útok zničil moderní ruskou válečnou loď", "V Libyi po dronovém útoku explodovala ruská válečná loď"))
+        assertTrue(News.similar("V Libyi po dronovém útoku explodovala ruská válečná loď", "Mohutná exploze zničila ruskou válečnou loď v Libyi"))
+        assertTrue(News.similar("Pavel vyznamenal historika Snydera a politologa Krasteva", "Prezident Pavel vyznamenal politologa Krasteva a historika Snydera"))
+        assertFalse(News.similar("Mimořádný úder. Ukrajinci v Libyi zasáhli další dvě ruská plavidla s vojenským nákladem", "Ruská záchranná loď začala odtahovat zasažené nákladní plavidlo z finských vod"))
+        assertFalse(News.similar("Vláda schválila rozpočet na příští rok", "Sněmovna odmítla zákon o rozpočtové kázni"))
+    }
 }
