@@ -97,6 +97,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private class Partial(cause: Throwable) : Exception(cause)
     /** Strop zpráv v jedné konverzaci (dřív 300 – dlouhý rozhovor tiše ztrácel začátek). Zápis celé konverzace je i při 1 000 zprávách v řádu ms. */
     private val MAX_MSGS = 1000
+    /** Strop přílohy pro „projdi celý dokument“ (≈40 částí po 6 000 znaků = 40 volání modelu). */
+    private val LONG_DOC_MAX = 240_000
     private val pending = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
@@ -1247,7 +1249,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun longTask1(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean) {
         if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
         // přílohy jsou součást zadání (data, ne pokyny)
-        val text = text0 + att.joinToString("") { "\n\n" + cz.axiom.vega.core.Untrusted.wrap("příloha ${it.name}", attText(it).take(60_000)) }
+        // „projdi CELÝ dokument“: dřív tiše jen prvních 60 000 znaků (konec smlouvy model neviděl); teď 240 000 a oříznutí se řekne
+        val cutNotes = ArrayList<String>()
+        val text = text0 + att.joinToString("") { a -> val raw = attText(a)
+            if (raw.length > LONG_DOC_MAX) cutNotes += "Z „${a.name}“ jsem prošel prvních ${LONG_DOC_MAX / 1000} z ${raw.length / 1000} tisíc znaků – zbytek rozděl na menší soubor nebo se zeptej na konkrétní část."
+            "\n\n" + cz.axiom.vega.core.Untrusted.wrap("příloha ${a.name}", raw.take(LONG_DOC_MAX)) }
         // požadavky jen z textu UŽIVATELE (ne číslované články přílohy – ty by vytlačily jeho otázky)
         val subs = LongText.subQuestions(text0).take(20)
         if (engines.pick() == null && engines.pendingPaid().isEmpty()) throw NoEngine()
@@ -1274,7 +1280,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         val card = JSONObject().put("type", "coverage").put("items", JSONArray().apply { cov.forEach { put(JSONObject().put("q", it.first).put("ok", it.second)) } })
             .put("passages", JSONArray().apply { passages.forEachIndexed { i, p -> put(JSONObject().put("id", "P${i + 1}").put("text", p)) } })
-        reply(chat, answer + "\n\n_Pokryto ${cov.count { it.second }}/${cov.size} požadavků_", card)
+        reply(chat, answer + "\n\n_Pokryto ${cov.count { it.second }}/${cov.size} požadavků_" + cutNotes.joinToString("") { "\n\n⚠ $it" }, card)
         // výtahy pasází jsou jen pro obnovu po výpadku – po dokončení pryč (obsah dokumentů nenechávat ležet)
         sha8((text + subs.joinToString("|")).toByteArray()).let { tag -> kv.keys("cache/long/").filter { it.startsWith("cache/long/$tag-") }.forEach { kv.delete(it) } }
     }

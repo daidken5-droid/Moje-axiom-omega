@@ -121,4 +121,23 @@ class OpsModelTest {
             if (e !is IllegalStateException) assertFalse("${e.javaClass.simpleName}: technický text: $shown", Regex("HTTP \\d|RESOURCE_|Exception|uvnitř VEGA").containsMatchIn(shown))
         }
     }
+
+    /** Kolo C13: dlouhý dokument (≈120 000 znaků) se projde celý po částech – model dostane i konec, odpověď dorazí. */
+    @Test fun longDocumentIsReadWhole() {
+        val (o, ev, f) = setup(); val c = o.newChat()
+        val doc = (1..1500).joinToString("\n") { "Odstavec $it: běžný text smlouvy o nájmu bytu a službách spojených s užíváním." } + "\nZÁVĚR: výpovědní lhůta jsou tři měsíce."
+        val id = o.attach("smlouva.txt", "text/plain", doc.toByteArray()).getString("id")
+        val a = ask(o, ev, c, "projdi celý dokument a najdi výpovědní lhůtu", listOf(id))
+        println("C13|volání ${f.n}|${a.take(160)}")
+        assertTrue(a, !a.startsWith("CHYBA") && a != "(nic)")
+        assertTrue("konec dokumentu se k modelu nedostal", f.seen.any { ms -> ms.any { it.content.contains("ZÁVĚR: výpovědní lhůta") } })
+    }
+
+    /** Kolo C13b: nad strop se oříznutí výslovně řekne (dřív ticho). */
+    @Test fun oversizedDocumentSaysItWasCut() {
+        val (o, ev, _) = setup(); val c = o.newChat()
+        val id = o.attach("kniha.txt", "text/plain", ("Kapitola. " + "Dlouhý text knihy o historii. ".repeat(10_000)).toByteArray()).getString("id")
+        val a = ask(o, ev, c, "projdi celý dokument a shrň hlavní myšlenky", listOf(id))
+        assertTrue(a, a.contains("prošel prvních 240 z"))
+    }
 }
