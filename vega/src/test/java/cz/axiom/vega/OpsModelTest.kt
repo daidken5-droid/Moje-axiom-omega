@@ -140,4 +140,15 @@ class OpsModelTest {
         val a = ask(o, ev, c, "projdi celý dokument a shrň hlavní myšlenky", listOf(id))
         assertTrue(a, a.contains("prošel prvních 240 z"))
     }
+
+    /** Kolo C14: 300 vlastních dokumentů v indexu – zpráva s modelem pořád rychlá (RAG kontext se počítá u každé zprávy). */
+    @Test fun manyDocumentsStayFast() {
+        val (o, ev, f) = setup(); val c = o.newChat()
+        val words = listOf("nájem", "faktura", "pojištění", "smlouva", "dovolená", "auto", "servis", "lékař", "škola", "banka")
+        for (i in 1..300) o.attach("doc$i.txt", "text/plain", ("Dokument $i. " + (1..200).joinToString(" ") { words[(it * i) % words.size] + it }).toByteArray())
+        val t0 = System.currentTimeMillis(); val a = ask(o, ev, c, "kdy mi končí pojištění auta"); val ms = System.currentTimeMillis() - t0
+        println("C14|$ms ms|kontext ${f.seen.last().first().content.length} znaků")
+        assertTrue(a, a.startsWith("Odpověď"))
+        assertTrue("$ms ms", ms < 3_000)
+    }
 }
