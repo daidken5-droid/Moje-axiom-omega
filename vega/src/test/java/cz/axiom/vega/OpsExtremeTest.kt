@@ -36,4 +36,18 @@ class OpsExtremeTest {
         val texts = (0 until o.messages(c).length()).map { o.messages(c).getJSONObject(it) }.filter { it.optString("role") == "user" }.map { it.optString("text") }
         assertTrue(texts.map { it.length }.toString(), texts.none { it.isBlank() })
     }
+
+    /** Kolo C7: dlouhá konverzace (450 výměn) neztratí začátek a zápis zůstane rychlý. */
+    @Test fun longConversationKeepsBeginning() {
+        val ev = CopyOnWriteArrayList<Pair<String, JSONObject>>()
+        val o = Ops(ctx) { t, d -> ev += t to d }.also { it.settings.airgap = true }
+        val c = o.newChat(); val t0 = System.currentTimeMillis()
+        for (i in 1..450) { val before = ev.size; o.chat(c, "kolik je $i + 1", emptyList()); val end = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < end && ev.drop(before).none { it.first == "idle" }) Thread.sleep(2) }
+        val ms = System.currentTimeMillis() - t0
+        val m = o.messages(c)
+        assertTrue("${m.length()} zpráv", m.length() == 900)
+        assertTrue(m.getJSONObject(0).optString("text"), m.getJSONObject(0).optString("text") == "kolik je 1 + 1")
+        assertTrue("450 výměn za $ms ms", ms < 60_000)
+    }
 }

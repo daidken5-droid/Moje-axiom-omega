@@ -95,6 +95,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         set(v) { field = v; if (v != null) kv.write("state/lastRun", v) }
     /** Rozpracovaný požadavek přerušený výpadkem modelu – uložen, nabídne se „Pokračovat“. */
     private class Partial(cause: Throwable) : Exception(cause)
+    /** Strop zpráv v jedné konverzaci (dřív 300 – dlouhý rozhovor tiše ztrácel začátek). Zápis celé konverzace je i při 1 000 zprávách v řádu ms. */
+    private val MAX_MSGS = 1000
     private val pending = ConcurrentHashMap<String, CompletableFuture<JSONObject>>()
     private val consented = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastUserText: String? = null
@@ -586,7 +588,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     @Synchronized private fun addMsg(chat: String?, m: JSONObject) {
         if (chat == null) return // dočasný chat: nic se neukládá
         val arr = messages(chat); arr.put(m.put("at", System.currentTimeMillis()))
-        val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 300); for (i in from until arr.length()) trimmed.put(arr.get(i))
+        val trimmed = JSONArray(); val from = maxOf(0, arr.length() - MAX_MSGS); for (i in from until arr.length()) trimmed.put(arr.get(i))
         kv.write(chatKey(chat), trimmed.toString()); chatWrites.incrementAndGet()
         if (m.optString("role") == "user") {
             val cs = chats(); for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat && c.optString("title") == "Nový chat") { c.put("title", cz.axiom.vega.core.Mem.chatTitle(m.optString("text"), m.optJSONArray("files")?.let { f -> (0 until f.length()).map { f.optString(it) } } ?: emptyList())); kv.write("chats.json", cs.toString()) } }
