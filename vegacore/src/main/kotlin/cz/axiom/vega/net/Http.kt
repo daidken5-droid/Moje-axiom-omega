@@ -36,6 +36,10 @@ object Http {
         val h = host.lowercase().trim('[', ']').trimEnd('.')
         if (h.isEmpty() || h == "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".lan") || h.endsWith(".home.arpa") || h.endsWith(".internal")) return true
         val ip = Regex("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$").find(h)
+        // číselná adresa v NESTANDARDNÍM tvaru (hex 0x7f000001, osmičkově 0177.0.0.1, zkrácená 127.1, desítková 2130706433):
+        // Java ji nepřevede, ale systémový resolver (inet_aton) ano → mohla by mířit na 127.0.0.1; veřejný web ji nepoužívá → blokovat
+        val numericish = Regex("^(0x[0-9a-f]+|\\d+)(\\.(0x[0-9a-f]+|\\d+)){0,3}$").matches(h)
+        if (numericish && (ip == null || ip.groupValues.drop(1).any { it.length > 1 && it.startsWith("0") } || ip.groupValues.drop(1).any { it.toInt() > 255 })) return true
         if (ip != null) { val (a, b) = ip.destructured.toList().take(2).map { it.toInt() }; return privateV4(a, b) }
         if (h.contains(':')) return runCatching { isPrivateAddress(InetAddress.getByName(h)) }.getOrDefault(true) // literál, bez DNS
         return false
