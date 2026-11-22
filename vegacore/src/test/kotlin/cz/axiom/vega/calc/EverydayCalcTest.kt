@@ -43,3 +43,15 @@ class EverydayCalcTest {
             assertTrue(q, Router.route(q, ctx) !is Router.Intent.Research)
     }
 }
+
+/** Scan S38: cizí měna bez cílové („kolik je 20 liber“, „50 usd“, „kurz eura“) = na koruny; ne webová rešerše. */
+class ForeignOnlyCurrencyTest {
+    @Test fun toCzk() {
+        for ((q, want) in listOf("kolik je 20 liber" to "GBP", "50 usd" to "USD", "100 € kolik Kč" to "EUR", "kurz eura" to "EUR", "kolik stojí euro" to "EUR")) {
+            val r = CnbRates.query(q)!!; assertEquals(q, want, r.from); assertEquals(q, "CZK", r.to)
+        }
+        assertNull(CnbRates.query("100 kč"))
+        assertNull(CnbRates.query("kurz angličtiny"))
+        assertTrue(Router.route("kurz eura", Router.Ctx(false, null, false, false, null)) !is Router.Intent.Research)
+    }
+}
