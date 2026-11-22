@@ -142,4 +142,11 @@ class NewsTest {
         assertFalse("jediný odkaz je na článek: $md", md.contains("](https://zly.example") || md.contains("](javascript"))
         assertTrue(md.contains("[Novinky.cz](https://www.novinky.cz/a)"))
     }
+
+    /** H7: kanál ve windows-1250 (starší české weby) i UTF-8 s BOM – diakritika v titulku správně. */
+    @Test fun windows1250AndBom() {
+        val xml = "<?xml version=\"1.0\" encoding=\"windows-1250\"?><rss><channel><item><title>Žluťoučký kůň úpěl ďábelské ódy</title><link>https://a.cz/1</link><pubDate>Sun, 22 Nov 2026 15:00:00 +0100</pubDate></item></channel></rss>"
+        for (bytes in listOf(xml.toByteArray(charset("windows-1250")), byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + xml.replace("windows-1250", "utf-8").toByteArray()))
+            assertEquals("Žluťoučký kůň úpěl ďábelské ódy", News.parse(cz.axiom.vega.core.Encoding.decode(bytes), "a").single().title)
+    }
 }
