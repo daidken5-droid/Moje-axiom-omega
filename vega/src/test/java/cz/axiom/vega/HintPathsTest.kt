@@ -25,4 +25,13 @@ class HintPathsTest {
         for (jargon in listOf("model-pill", "Menu → Vylepšení", "Bez internetu"))
             assertTrue("zastaralý odkaz „$jargon“", !texts.contains(jargon))
     }
+
+    /** „klepni na ‚Zapnout rozhovor zdarma‘“ → takové tlačítko musí existovat (dřív se jmenovalo jinak). */
+    @Test fun quotedButtonsExist() {
+        val ui = src("src/main/assets/ui/app.js") + src("src/main/assets/ui/index.html")
+        val texts = listOf("src/main/java/cz/axiom/vega/Ops.kt", "src/main/java/cz/axiom/vega/MainActivity.kt").joinToString("\n") { src(it) } + ui
+        val bad = Regex("klepni na „([^“$]{3,40})“").findAll(texts).map { it.groupValues[1] }.distinct()
+            .filter { it != "VEGA ▾" && !ui.contains(">$it<") && !ui.contains(">$it ") }.toList()
+        assertTrue("Tlačítka z návodů v UI nejsou: $bad", bad.isEmpty())
+    }
 }

@@ -122,7 +122,7 @@ function emptyState() {
   const tasks = `<div class="btns tasks"><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
     ${h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Režim Bez sítě – změnit"><b>Bez sítě · místní nástroje</b> ▾</button>` : ''}
-    ${noModel && !h.airgap ? `<div class="setup"><p>Výpočty a převody můžeš zkusit hned. Pro volný rozhovor si můžeš připojit online model.</p><button class="btn primary" data-act="freeSetup">Nastavit online rozhovor</button></div>` : ''}
+    ${noModel && !h.airgap ? `<div class="setup"><p>Výpočty a převody můžeš zkusit hned. Pro volný rozhovor si můžeš připojit online model.</p><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button></div>` : ''}
     ${tasks}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}
     ${examples.length ? `<div class="examples"><small>Zkus třeba:</small><div class="btns">${examples.join('')}</div></div>` : ''}</div>`;
