@@ -171,7 +171,7 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker, java.io.Closeabl
         val t0 = System.currentTimeMillis()
         try {
             val m = VerifierBundle.read(dir)
-            tok = UnigramTokenizer(File(dir, "vocab.tsv").bufferedReader().lineSequence())
+            tok = File(dir, "vocab.tsv").useLines { UnigramTokenizer(it) } // soubor se po načtení zavře
             env = ai.onnxruntime.OrtEnvironment.getEnvironment()
             session = env!!.createSession(File(dir, "model.onnx").absolutePath, ai.onnxruntime.OrtSession.SessionOptions().apply { setIntraOpNumThreads(2) })
             manifest = m; status = "${m.name} (${m.baseRepo}@${m.baseRev.take(7)}), práh ${m.threshold}"
