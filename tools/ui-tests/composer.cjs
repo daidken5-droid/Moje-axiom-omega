@@ -41,4 +41,8 @@ assert.match(run("safeCard({type:'diff'},true)"),/nejde zobrazit/);
 // nezobrazitelný dotaz na souhlas se odmítne (nativní strana nečeká 5 minut, nic neodejde)
 run("console.error=()=>{}; toast=()=>{};");calls.length=0;run("window.vega.on('consent',{req:'r9'})");
 assert.ok(calls.some(c=>c[0]==='answer'&&c[1]==='r9'&&/false/.test(c[2])),'souhlas má být odmítnut');
-console.log('17 UI logic scenarios passed.');
+// markdown z modelu: odrážky „*   “, tabulky, kurzíva; násobení „2 * 3 * 4“ zůstane
+assert.match(run("md('*   **Cena:** 250 Kč')"),/^• <b>Cena:<\/b>/);
+assert.match(run("md('| A | B |\\n|---|---|\\n| 1 | <x> |')"),/<table><tr><th>A<\/th><th>B<\/th><\/tr><tr><td>1<\/td><td>&lt;x&gt;<\/td><\/tr><\/table>/);
+assert.equal(run("md('2 * 3 * 4 a *slovo*')"),'2 * 3 * 4 a <i>slovo</i>');
+console.log('20 UI logic scenarios passed.');

@@ -30,13 +30,24 @@ function toast(t, ms = 3800) {
 }
 function md(t) {
   return String(t || '').split(/```/).map((b, i) => i % 2 ? `<pre>${esc(b.replace(/^\w*\n/, ''))}</pre>` :
-    esc(b).replace(/^#{2,3} (.*)$/gm, '<h3>$1</h3>').replace(/^# (.*)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\s)_(.+?)_(?=\s|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/^[-•] (.*)$/gm, '• $1')
+    mdTables(esc(b)).replace(/^#{1,4} (.*)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+?)_(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>')
+      // odrážky jako je píšou modely („*   položka“, „- položka“, vnořené odsazením); *kurzíva* až po nich, ať se „* “ nesplete
+      .replace(/^([ \t]*)[-•*+][ \t]+(.*)$/gm, (m, ind, t) => (ind.length >= 2 ? '&nbsp;&nbsp;&nbsp;◦ ' : '• ') + t)
+      .replace(/(^|[\s(])\*([^\s*][^*\n]*?)\*(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>')
       // odkazy: [text](https://…) i holé https://… – jen http(s) přes safeUrl (escapovaný text, žádné javascript:)
       .replace(/\[([^\]\n]{1,120})\]\((https?:\/\/[^\s)<>"']+)\)/g, (m, t, u) => linkEsc(u, t))
       .replace(/(^|[\s(])(https?:\/\/[^\s<>"')]+[^\s<>"').,;:!?])/g, (m, p, u) => p + linkEsc(u, u.length > 48 ? u.slice(0, 45) + '…' : u))
-      .replace(/\[(\d+)\]/g, '<sup>[$1]</sup>').replace(/\n/g, '<br>')).join('');
+      .replace(/\[(\d+)\]/g, '<sup>[$1]</sup>').replace(/\n/g, '<br>').replace(/(<\/h3>|<\/table><\/div>)<br>/g, '$1')).join('');
+}
+/** Markdown tabulka (| a | b |, oddělovač |---|) → HTML tabulka; text buněk už je escapovaný, formátování (tučné, odkazy) projde dál. */
+function mdTables(t) {
+  return t.replace(/(^|\n)(\|[^\n]*\|[ \t]*\n\|[ \t:|-]*-[ \t:|-]*\|[ \t]*((?:\n\|[^\n]*\|[ \t]*)*))/g, (m, pre, all, body) => {
+    const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+    const rows = all.split('\n'); const head = cells(rows[0]);
+    const tr = (cs, tag) => '<tr>' + cs.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>';
+    return pre + '<div class="tbl"><table>' + tr(head, 'th') + rows.slice(2).filter(l => l.trim()).map(l => tr(cells(l), 'td')).join('') + '</table></div>';
+  });
 }
 /** „↓ Nová odpověď“: když uživatel čte výš, obrazovka neskáče dolů – jen nabídne skok. */
 function jumpPill(on) {
