@@ -1,0 +1,40 @@
+package cz.axiom.vega.calc
+
+import cz.axiom.vega.core.Router
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Scan S26 (22. 11.): běžné laické výpočty, které dřív skončily bez odpovědi nebo dokonce webovou rešerší. */
+class EverydayCalcTest {
+    private fun a(q: String) = Quick.answer(q)
+
+    @Test fun everyday() {
+        assertEquals("Z 25 000 na 28 000 je to nárůst o 12 % (o 3 000).", a("zvýšení z 25 000 na 28 000 je kolik procent"))
+        assertEquals("Z 120 Kč na 90 Kč je to pokles o 25 % (o 30 Kč).", a("o kolik procent klesla cena ze 120 Kč na 90 Kč"))
+        assertEquals("1 500 ÷ 4 = 375 na každého.", a("rozděl 1500 mezi 4 lidi"))
+        assertEquals("Průměr 4, 8, 15 je 9 (součet 27 ÷ 3).", a("průměr z 4, 8 a 15"))
+        assertEquals("Průměr 4,5, 5,5 je 5 (součet 10 ÷ 2).", a("průměr 4,5; 5,5"))
+        assertEquals("Třetina z 900 je 300.", a("třetina z 900"))
+        assertEquals("Polovina z 1 234 je 617.", a("polovina z 1 234"))
+        assertEquals("2× 450 = 900.", a("dvojnásobek 450"))
+        assertEquals("3 × 4,5 Kč = 13,5 Kč.", a("kolik stojí 3 rohlíky po 4,50"))
+        assertEquals("2,5 kg × 89 Kč/kg = 222,5 Kč.", a("2,5 kg za 89 Kč/kg"))
+        assertEquals("Únor 2028 má 29 dní.", a("kolik dní má únor 2028"))
+        assertEquals("Rok 2027 má 365 dní.", a("kolik dní má rok 2027"))
+        assertEquals("Den má 86 400 vteřin.", a("kolik vteřin má den"))
+        assertEquals("1 galon = 3,7854 l", a("kolik litrů je 1 galon"))
+        val h = a("splátka hypotéky 3 000 000 na 30 let s úrokem 5 %")!!
+        assertTrue(h, h.contains("16 104,65 Kč měsíčně"))
+    }
+
+    @Test fun noFalsePositivesAndNoResearch() {
+        assertTrue(a("sleva 30 % z 899 na 629")!!.contains("po slevě zaplatíš 629,3 Kč"))  // sleva má vlastní výpočet, ne „pokles o %“
+        assertNull(a("kolik lidí je 5 rodin"))
+        assertNull("procentní body, ne výpočet", a("o kolik procent klesla inflace z 15 na 10 %"))
+        val ctx = Router.Ctx(false, null, false, false, null)
+        for (q in listOf("třetina z 900", "dvojnásobek 450", "polovina z 1 234"))
+            assertTrue(q, Router.route(q, ctx) !is Router.Intent.Research)
+    }
+}

@@ -32,6 +32,7 @@ object Quick {
         untilDay(t, now.toLocalDate())?.let { return it }
         loan(t)?.let { return it }
         tip(t)?.let { return it }
+        everyday(t)?.let { return it }
         vat(t)?.let { return it }
         percent(t)?.let { return it }
         dateOffset(t, now.toLocalDate())?.let { return it }
@@ -90,6 +91,82 @@ object Quick {
     private fun money(v: Double) = fmt(Math.round(v * 100) / 100.0) + " Kč"
     private val DAYS = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
     private fun dmy(d: LocalDate) = "${d.dayOfMonth}. ${d.monthValue}. ${d.year} (${DAYS[d.dayOfWeek.value - 1]})"
+
+    /**
+     * Běžné laické výpočty (scan S26): změna v %, rozdělení mezi lidi, průměr, polovina/třetina/dvojnásobek, cena za kusy a kila,
+     * dny v měsíci/roce, kolik sekund/minut/hodin má den/týden/rok a obrácený převod „kolik litrů je 1 galon“.
+     */
+    private fun everyday(t: String): String? {
+        val kc = Regex("\\bkc\\b|korun").containsMatchIn(t)
+        fun out(v: Double) = if (kc) money(v) else fmt(Math.round(v * 1e4) / 1e4)
+        // „zvýšení z 25 000 na 28 000 je kolik procent“, „o kolik procent klesla cena ze 120 na 90“
+        if (Regex("%|procent").containsMatchIn(t) && Regex("kolik|spocitej|vypocitej").containsMatchIn(t)) Regex("(?:^|\\s)(?:z|ze) $N\\s*(?:kc|korun\\w*)? na $N(?:\\s*(?:kc|korun\\w*))?(?:\\s|$)(?!\\s*%)").find(t)?.let { m ->
+            val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
+            if (a == 0.0 || Regex("dph|slev|spropit").containsMatchIn(t)) return null
+            val pct = (b - a) / a * 100; val d = b - a
+            return if (d == 0.0) "Z ${out(a)} na ${out(b)} – beze změny (0 %)." else
+                "Z ${out(a)} na ${out(b)} je to ${if (d > 0) "nárůst" else "pokles"} o ${fmt(Math.round(kotlin.math.abs(pct) * 100) / 100.0)} % (o ${out(kotlin.math.abs(d))})."
+        }
+        // „rozděl 1500 mezi 4 lidi“, „1200 Kč na 3 osoby“
+        Regex("(?:rozdel\\w*|vydel\\w*) $N\\s*(?:kc|korun\\w*)? (?:mezi|na) (\\d{1,4}) ?(lid\\w*|osob\\w*|kamarad\\w*|deti|cast\\w*|dil\\w*|kus\\w*)?$").find(t)?.let { m ->
+            val v = num(m.groupValues[1]) ?: return null; val n = m.groupValues[2].toInt(); if (n == 0) return "Na nula dílů rozdělit nejde."
+            val who = if (m.groupValues[3].matches(Regex("lid\\w*|osob\\w*|kamarad\\w*|deti"))) "na každého" else "na jeden díl"
+            return "${out(v)} ÷ $n = ${out(v / n)} $who."
+        }
+        // „průměr z 4, 8 a 15“ (čárka s mezerou = oddělovač, „4,5“ = desetinné číslo)
+        Regex("^(?:kolik je |spocitej |vypocitej )?(?:aritmeticky )?prumer\\w*(?: (?:z|ze|cisel|hodnot))? (.+)$").find(t)?.let { m ->
+            val body = m.groupValues[1]
+            if (!Regex("^[\\d\\s.,;a+]+(?:kc|korun\\w*)?$").matches(body)) return@let
+            val xs = Regex("\\d+(?:[.,]\\d+)?").findAll(body.replace(Regex("(?<=\\d) (?=\\d{3}(?!\\d))"), "")).mapNotNull { num(it.value) }.toList()
+            if (xs.size < 2) return@let
+            return "Průměr ${xs.joinToString(", ") { fmt(it) }} je ${out(xs.sum() / xs.size)} (součet ${fmt(xs.sum())} ÷ ${xs.size})."
+        }
+        // „třetina z 900“, „polovina z 1 234“, „dvojnásobek 450“
+        val parts = mapOf("polovin" to 2, "tretin" to 3, "ctvrtin" to 4, "petin" to 5, "sestin" to 6, "osmin" to 8, "desetin" to 10, "setin" to 100)
+        Regex("^(?:kolik je |spocitej )?(polovin|tretin|ctvrtin|petin|sestin|osmin|desetin|setin)\\w* (?:z|ze) $N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val v = num(m.groupValues[2]) ?: return null; val d = parts.getValue(m.groupValues[1])
+            return "${m.groupValues[1].replaceFirstChar { it.uppercase() }.let { mapOf("Polovin" to "Polovina", "Tretin" to "Třetina", "Ctvrtin" to "Čtvrtina", "Petin" to "Pětina", "Sestin" to "Šestina", "Osmin" to "Osmina", "Desetin" to "Desetina", "Setin" to "Setina").getValue(it) }} z ${out(v)} je ${out(v / d)}."
+        }
+        Regex("^(?:kolik je |spocitej )?(dvoj|troj|ctyr|pet|deseti)nasob\\w* (?:z |ze |od )?$N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val k = mapOf("dvoj" to 2, "troj" to 3, "ctyr" to 4, "pet" to 5, "deseti" to 10)[m.groupValues[1]] ?: return@let
+            val v = num(m.groupValues[2]) ?: return null
+            return "${k}× ${out(v)} = ${out(v * k)}."
+        }
+        // „kolik stojí 3 rohlíky po 4,50“, „5 lístků po 120 Kč“
+        Regex("(?:^|kolik (?:stoji|zaplatim|dam|to bude|je) |za kolik )(\\d{1,4}) (?!eur|usd|dolar|libr|frank|zlot|kc\\b|korun)[a-z]+(?: [a-z]+)? po $N(?:\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+            val n = m.groupValues[1].toInt(); val p = num(m.groupValues[2]) ?: return null
+            return "$n × ${money(p)} = ${money(n * p)}."
+        }
+        // „2,5 kg za 89 Kč/kg“, „1,5 kila po 40 korunách za kilo“
+        Regex("(\\d+(?:[.,]\\d+)?)\\s*(kg|kil[oa]?|l|litr\\w*|m|metr\\w*) (?:za|po) $N\\s*(?:kc|korun\\w*)?\\s*(?:/|za|na) ?(kg|kilo|l|litr|m|metr)$").find(t)?.let { m ->
+            val q = num(m.groupValues[1]) ?: return null; val p = num(m.groupValues[3]) ?: return null
+            val u = when { m.groupValues[2].startsWith("k") -> "kg"; m.groupValues[2].startsWith("l") -> "l"; else -> "m" }
+            return "${fmt(q)} $u × ${money(p)}/$u = ${money(q * p)}."
+        }
+        // „kolik dní má únor 2028“, „kolik dní má rok 2028“
+        Regex("^kolik (?:ma )?(?:dni|dnu) (?:ma |mel |bude mit )?(leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec|rok)(?: (\\d{4}))?$").find(t)?.let { m ->
+            val y = m.groupValues[2].toIntOrNull() ?: LocalDate.now().year
+            if (m.groupValues[1] == "rok") return "Rok $y má ${java.time.Year.of(y).length()} dní${if (java.time.Year.isLeap(y.toLong())) " (přestupný)" else ""}."
+            val mi = listOf("leden", "unor", "brezen", "duben", "kveten", "cerven", "cervenec", "srpen", "zari", "rijen", "listopad", "prosinec").indexOf(m.groupValues[1]) + 1
+            val names = listOf("Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec")
+            return "${names[mi - 1]} $y má ${java.time.YearMonth.of(y, mi).lengthOfMonth()} dní."
+        }
+        // „kolik vteřin má den“, „kolik minut má týden“, „kolik hodin je v roce“
+        Regex("^kolik (vterin|sekund|minut|hodin|dni) (?:ma|je v|je za|maji) (den|dnu|tyden|tydnu|hodina|hodine|hodinu|rok|roce|mesic|mesici)$").find(t)?.let { m ->
+            val unit = mapOf("vterin" to 1.0, "sekund" to 1.0, "minut" to 60.0, "hodin" to 3600.0, "dni" to 86400.0).getValue(m.groupValues[1])
+            val span = when (m.groupValues[2].take(3)) { "den", "dnu" -> 86400.0; "tyd" -> 604800.0; "hod" -> 3600.0; "rok", "roc" -> 365 * 86400.0; else -> return@let }
+            if (span < unit) return@let
+            val names = mapOf("vterin" to "vteřin", "sekund" to "sekund", "minut" to "minut", "hodin" to "hodin", "dni" to "dní")
+            val sp = mapOf("den" to "Den", "dnu" to "Den", "tyd" to "Týden", "hod" to "Hodina", "rok" to "Rok", "roc" to "Rok")[m.groupValues[2].take(3)]
+            return "$sp má ${fmt(span / unit)} ${names[m.groupValues[1]]}${if (sp == "Rok") " (běžný rok, 365 dní)" else ""}."
+        }
+        // obrácený převod: „kolik litrů je 1 galon“ → „1 galon na litry“
+        Regex("^kolik ([a-z]+) (?:je|ma|maji|dela) $N ?([a-z]+)$").find(t)?.let { m ->
+            val q = "${m.groupValues[2]} ${m.groupValues[3]} na ${m.groupValues[1]}"
+            return convert(q, q)
+        }
+        return null
+    }
 
     /** Spropitné: „15 % spropitné z 540“, „kolik dát dýško 10 % z 1200“ → částka spropitného + celkem. */
     private fun tip(t: String): String? {
@@ -288,7 +365,8 @@ object Quick {
     /** Splátka úvěru/hypotéky: „hypotéka 3 miliony na 30 let s úrokem 5 %“ → měsíční splátka (anuita), celkem zaplaceno. */
     private fun loan(t: String): String? {
         if (!Regex("hypotek|uver|pujck|splatk").containsMatchIn(t)) return null
-        val amt = Regex("(\\d+(?:[.,]\\d+)?)\\s*(milion\\w*|mil\\.?|m(?= )|tisic\\w*|tis\\.?)?(?:\\s*kc)?\\s+(?:na|za|splatn\\w* za)\\s+(\\d{1,2})\\s*(let|roky|roku|rok)").find(t) ?: return null
+        // částka i s mezerami v tisících („3 000 000 na 30 let“ dřív chytlo jen „000“ → žádná odpověď)
+        val amt = Regex("(\\d{1,3}(?: \\d{3})+(?:[.,]\\d+)?|\\d+(?:[.,]\\d+)?)\\s*(milion\\w*|mil\\.?|m(?= )|tisic\\w*|tis\\.?)?(?:\\s*kc)?\\s+(?:na|za|splatn\\w* za)\\s+(\\d{1,2})\\s*(let|roky|roku|rok)").find(t) ?: return null
         val base = num(amt.groupValues[1]) ?: return null
         val mult = when { amt.groupValues[2].startsWith("mil") || amt.groupValues[2] == "m" -> 1e6; amt.groupValues[2].startsWith("tis") -> 1e3; else -> 1.0 }
         val p = base * mult; val years = amt.groupValues[3].toInt()
