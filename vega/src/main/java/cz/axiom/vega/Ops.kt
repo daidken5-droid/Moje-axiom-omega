@@ -1757,8 +1757,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun newsDoneFor(day: java.time.LocalDate) = newsLast(day)?.ok == true
 
     /**
-     * Přehled za okno včera 05:20 → dnes 05:20. Zdroje paralelně; selže-li jeden, ostatní stačí. Souhrn modelem jen zdarma
-     * (placený model ani souhlas se v 5 ráno neptá – titulky z RSS jsou veřejné) a nejvýš 30 s; jinak titulky + odkazy.
+     * Přehled za okno včera 05:20 → dnes 05:20. Zdroje paralelně; selže-li jeden, ostatní stačí. ŽÁDNÝ jazykový model ani
+     * cloud AI (na žádost 22. 11.): titulek, první věta perexu z RSS (zkrácená) a odkazy na všechny zdroje tématu.
      * Výsledek = nová konverzace „Ranní přehled d. m.“.
      */
     fun newsDigest(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(cz.axiom.vega.news.News.ZONE)): NewsResult {
@@ -1773,18 +1773,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             .map { f -> runCatching { f.get(15, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() } } finally { pool.shutdownNow() }
         if (got.all { it == null }) return done(NewsResult(false, "Žádný zdroj nešel stáhnout – zkontroluj internet.", null))
         val topics = N.topics(got.filterNotNull().flatten(), w)
-        var withModel = false
-        var sums = topics.map { cz.axiom.vega.news.News.Summary(it, emptyList()) }
-        val pick = if (topics.isEmpty()) null else engines.pick()?.takeIf { !it.paid }
-        if (pick != null) runCatching {
-            val tok = CancelToken(); val timer = java.util.Timer(true).apply { schedule(object : java.util.TimerTask() { override fun run() = tok.cancel() }, 30_000) }
-            try {
-                val out = pick.engine.generate(listOf(ChatMessage(Role.SYSTEM, "Jsi stručný český zpravodaj. Píšeš jen podle dodaných titulků a perexů, každou větu s odkazem [S#]."),
-                    ChatMessage(Role.USER, N.prompt(topics))), cz.axiom.vega.llm.GenOptions(maxTokens = 1500, temperature = 0.2f), tok).text
-                sums = N.validate(out, topics); withModel = sums.any { it.sentences.isNotEmpty() }
-            } finally { timer.cancel() }
-        }
-        val text = N.render(day, sums, withModel)
+        // nezávisle na jazykovém modelu i cloudu: jen RSS → deterministický přehled (titulek, 1. věta perexu, odkazy)
+        val text = N.render(day, topics.map { cz.axiom.vega.news.News.Summary(it, emptyList()) }, withModel = false)
         val chat = newChat(); renameChat(chat, "Ranní přehled ${day.dayOfMonth}. ${day.monthValue}.")
         addMsg(chat, JSONObject().put("role", "vega").put("text", text))
         emit("chats", JSONObject())

@@ -526,7 +526,7 @@ const chatRow = c => `<div class="drowwrap"><button class="drow ${S.space.kind =
 function newsSettingsHtml(n) {
   const exact = (call('newsExact') || {}).exact !== false;
   return `<h3>Ranní přehled zpráv</h3>
-    <label class="switch"><span><b>Každé ráno v 05:30</b><small>souhrn zpráv za posledních 24 hodin (včera 05:20 → dnes 05:20) z RSS; s modelem 1–2 věty na téma s odkazem, bez modelu titulky a odkazy</small></span><input type="checkbox" data-set="news" ${n.enabled ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Každé ráno v 05:30</b><small>zprávy za posledních 24 hodin (včera 05:20 → dnes 05:20) přímo z RSS – funguje i bez jazykového modelu a cloud AI</small></span><input type="checkbox" data-set="news" ${n.enabled ? 'checked' : ''}></label>
     ${n.enabled ? `<div class="list">${(n.sources || []).map(x => `<label class="switch"><span><b>${esc(x.name)}</b></span><input type="checkbox" data-news-src="${esc(x.id)}" ${x.on ? 'checked' : ''}></label>`).join('')}</div>
     ${n.last ? `<p class="note">Poslední: ${esc(n.last)}</p>` : ''}
     ${exact ? '' : `<p class="note">Telefon nepovolil přesný čas – přehled může přijít o pár minut později.</p><button class="btn" data-act="newsExact">Povolit přesný čas</button>`}

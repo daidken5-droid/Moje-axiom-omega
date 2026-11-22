@@ -40,19 +40,19 @@ class OpsNewsTest {
         assertTrue(txt, txt.contains("_(2 zdroje)_") && txt.contains("[Novinky.cz](https://www.novinky.cz/a1)") && txt.contains("[iDNES.cz](https://www.idnes.cz/b1)"))
         assertTrue("05:19:59 patří do okna", txt.contains("Těsně před koncem okna"))
         assertFalse("05:20:00 už ne", txt.contains("Hraniční zpráva"))
-        assertTrue(txt.contains("Bez modelu"))
+        assertTrue(txt.contains("bez jazykového modelu"))
+        assertTrue("1. věta perexu jako krátké shrnutí", txt.contains("Perex: Jednání na klimatické konferenci"))
         assertTrue(o.newsDoneFor(java.time.LocalDate.of(2026, 11, 23)))
         assertTrue(o.chats().toString().contains("Ranní přehled 23. 11."))
     }
 
-    @Test fun modelSentencesNeedSources() {
+    /** Na žádost 22. 11.: přehled je nezávislý na jazykovém modelu i cloud AI – model se nezavolá, ani když je připojený. */
+    @Test fun newsNeverCallsModel() {
         val o = ops { u -> if ("novinky" in u) novinky else idnes }
-        val f = Fake("T1: Klimatický summit v Antalyi skončil bez dohody o deklaraci [S1].\nT2: Tahle věta nemá zdroj."); o.engines.testEngine = f
-        val txt = o.messages(o.newsDigest(now).chat!!).getJSONObject(0).getString("text")
-        assertEquals(1, f.calls)
-        assertTrue(txt, txt.contains("Klimatický summit v Antalyi skončil bez dohody o deklaraci. [Novinky.cz](https://www.novinky.cz/a1)") || txt.contains("skončil bez dohody o deklaraci. [iDNES.cz]"))
-        assertFalse("věta bez zdroje vyřazena", txt.contains("nemá zdroj"))
-        assertFalse(txt.contains("Bez modelu"))
+        val f = Fake("T1: cokoli [S1]."); o.engines.testEngine = f
+        val r = o.newsDigest(now)
+        assertTrue(r.ok); assertEquals(0, f.calls)
+        assertTrue(o.messages(r.chat!!).getJSONObject(0).getString("text").contains("[Novinky.cz](https://www.novinky.cz/a1)"))
     }
 
     @Test fun offlineBrokenAndPartialSources() {

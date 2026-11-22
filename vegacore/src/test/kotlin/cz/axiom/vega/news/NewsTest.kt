@@ -106,7 +106,7 @@ class NewsTest {
         assertTrue(md, md.contains("[Novinky.cz](https://novinky.cz/") && md.contains("**2. Na přejezdu") && md.contains("[iDNES.cz]("))
         // bez modelu: titulky + odkazy
         val plain = News.render(java.time.LocalDate.of(2026, 11, 23), topics.map { News.Summary(it, emptyList()) }, withModel = false)
-        assertTrue(plain, plain.contains("Bez modelu") && plain.contains("[ČT24](https://ct24.cz/"))
+        assertTrue(plain, plain.contains("bez jazykového modelu") && plain.contains("perex Jednání") && plain.contains("[ČT24](https://ct24.cz/"))
         // prázdno
         assertTrue(News.render(java.time.LocalDate.of(2026, 11, 23), emptyList(), true).contains("nic nenašel"))
     }

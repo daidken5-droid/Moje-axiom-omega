@@ -129,3 +129,6 @@ nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi ce
 - Testy: `NewsTest` (okno 05:19:59 / 05:20:00, DST, RSS/Atom, vadné RSS, deduplikace, max 10, kontrola vět),
   `OpsNewsTest` (offline, nedostupné/vadné zdroje, s modelem a bez, hranice okna, časy alarmů). Živá zkouška
   `NewsProbe`: 7 zdrojů, 200 položek, témata správně sloučená. Doručení v 05:30 na telefonu: NEOVĚŘENO (checklist, 3 dny).
+- **Úprava (22. 11. 17:00, na žádost):** přehled je nezávislý na jazykovém modelu i cloud AI – model se nevolá vůbec (ani
+  bezplatný). Každé téma: titulek, první věta perexu z RSS (≤ 160 znaků) a odkazy na všechny zdroje. Test
+  `OpsNewsTest.newsNeverCallsModel` (připojený falešný model se nezavolá ani jednou).

@@ -160,6 +160,11 @@ object News {
             (0..w.size - 12).any { k -> pw.contains(w.subList(k, k + 12).joinToString(" ")) } }
     }
 
+    /** První věta perexu (z RSS, max 160 znaků) – krátké „o čem to je“ bez modelu; nikdy celý článek. */
+    fun lead(t: Topic): String? = t.items.map { it.perex }.firstOrNull { it.length >= 20 }?.let { p ->
+        val first = Regex("^(.{20,}?[.!?])(\\s|$)").find(p)?.groupValues?.get(1) ?: p
+        if (first.length > 160) first.take(160).substringBeforeLast(' ') + "…" else first }
+
     private fun name(id: String) = source(id)?.name ?: id
     private fun mdLink(text: String, url: String) = "[${text.replace("]", ")").replace("[", "(")}](${url.replace(")", "%29")})"
 
@@ -171,10 +176,10 @@ object News {
             val t = s.topic
             val links = t.items.distinctBy { it.source }.joinToString(" · ") { mdLink(name(it.source), it.link) }
             val head = "**${i + 1}. ${t.title}**" + if (t.sources.size > 1) " _(${t.sources.size} zdroje)_" else ""
-            if (s.sentences.isEmpty()) "$head\n$links"
+            if (s.sentences.isEmpty()) "$head\n" + (lead(t)?.let { "$it " } ?: "") + links
             else "$head\n" + s.sentences.joinToString(" ") { sn -> sn.text + " " + sn.refs.mapNotNull { r[it] }.joinToString(" ") { mdLink(name(it.source), it.link) } }
         }.joinToString("\n\n")
         return "**Ranní přehled ${date.dayOfMonth}. ${date.monthValue}.** (včera 05:20 → dnes 05:20)\n\n$body" +
-            if (!withModel) "\n\n_Bez modelu: jen titulky a odkazy._" else ""
+            if (!withModel) "\n\n_Sestaveno přímo z RSS (bez jazykového modelu)._" else ""
     }
 }
