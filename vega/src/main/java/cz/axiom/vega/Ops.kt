@@ -1095,8 +1095,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     // ------------------------------------------------------------------ rešerše a dlouhé zadání
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
-        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "web")); return }
+        // nejdřív Bez sítě: dokud je zapnutý, zapnutí webu by nepomohlo (laik by dostal zbytečné tlačítko)
         if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "airgap")); return }
+        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "web")); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
         for (v in variants.take(4)) { cancel.check(); runCatching { Web.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }

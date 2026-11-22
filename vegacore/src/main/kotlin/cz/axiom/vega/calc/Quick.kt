@@ -13,7 +13,9 @@ object Quick {
     /** Veřejné formátování čísla (mezery v tisících, desetinná čárka) pro jiné moduly. */
     fun fmtPublic(v: Double) = fmt(v)
     private fun fmt(v: Double): String {
-        val r = Math.round(v * 1e6) / 1e6
+        // Math.round(v * 1e6) přetéká Long nad ~9,2 bilionu → dřív nesmysl „9 223 372 036 854,775“; velká čísla bez zaokrouhlení na miliontiny
+        if (kotlin.math.abs(v) >= 1e15) return String.format(java.util.Locale.ROOT, "%.12e", v).let { e -> val (m, x) = e.split('e'); "${m.trimEnd('0').trimEnd('.').replace('.', ',')} × 10^${x.toInt()}" }
+        val r = if (kotlin.math.abs(v) >= 1e9) Math.rint(v * 100) / 100 else Math.round(v * 1e6) / 1e6
         val s = if (r == Math.rint(r) && kotlin.math.abs(r) < 1e15) String.format(java.util.Locale.ROOT, "%.0f", r) else String.format(java.util.Locale.ROOT, "%.6f", r).trimEnd('0').trimEnd('.')
         val neg = s.startsWith("-"); val (i, f) = s.removePrefix("-").split('.').let { it[0] to it.getOrNull(1) }
         return (if (neg) "−" else "") + i.reversed().chunked(3).joinToString(" ").reversed() + (f?.let { ",$it" } ?: "")

@@ -55,3 +55,22 @@ class JsonToolEdgeTest {
         org.junit.Assert.assertNotNull(JsonTool.parse("[".repeat(150) + "]".repeat(150)).first)
     }
 }
+
+/** Scan S4 (22. 11.): české cenovky a velká čísla. */
+class NumbersEdgeTest {
+    @org.junit.Test fun czechPriceTagIsNotNegative() {
+        org.junit.Assert.assertEquals(1000.0, CzNum.parse("1.000,-")!!, 0.0)
+        org.junit.Assert.assertEquals(1000.0, CzNum.parse("1.000,-", false)!!, 0.0)
+        org.junit.Assert.assertEquals(100.0, CzNum.parse("100,–")!!, 0.0)
+        org.junit.Assert.assertEquals(5.0, CzNum.parse("5,- Kč")!!, 0.0)
+        // bankovní „250-“ (mínus na konci) zůstává záporné
+        org.junit.Assert.assertEquals(-250.0, CzNum.parse("250-")!!, 0.0)
+        org.junit.Assert.assertEquals(-1000.0, CzNum.parse("(1 000)")!!, 0.0)
+    }
+    @org.junit.Test fun hugeResultsAreNotGarbage() {
+        val a = cz.axiom.vega.calc.Quick.answer("999999999999 * 999999999999")!!
+        org.junit.Assert.assertTrue(a, a.endsWith("= 9,99999999998 × 10^23"))
+        org.junit.Assert.assertEquals("1 000 000 * 1 000 000 = 1 000 000 000 000", cz.axiom.vega.calc.Quick.answer("kolik je 1 000 000 * 1 000 000"))
+        org.junit.Assert.assertEquals("12345678901 * 1000 = 12 345 678 901 000", cz.axiom.vega.calc.Quick.answer("12345678901 * 1000"))
+    }
+}
