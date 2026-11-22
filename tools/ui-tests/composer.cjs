@@ -57,4 +57,6 @@ mock.editLast='napiš básničku';calls.length=0;run("act('editLast',{})");asser
 calls.length=0;mock.regenerate=true;run("S.busy=false; act('regen',{})");assert.ok(calls.some(c=>c[0]==='regenerate'));run("S.busy=false");
 mock.messages=[{role:'vega',text:'Kód:\n```js\nconsole.log(1)\n```'}];run("S.mc=null; renderStream()");assert.match(field('#stream').innerHTML,/data-code="console.log\(1\)\n"/);calls.length=0;run("act('copyCode',{code:'console.log(1)'})");
 assert.deepEqual(calls.filter(c=>c[0]==='copyText').map(c=>c[1].trim()),['console.log(1)']);
-console.log('26 UI logic scenarios passed.');
+// C6: sdílení celé konverzace jako čistý text
+assert.equal(run("chatPlain([{role:'user',text:'kolik je 2+2'},{role:'vega',text:'**4**\\n\\n_(spočítáno přesně v telefonu, bez modelu)_'}],'Počty')"),'Počty\n\nJá: kolik je 2+2\n\nVEGA: 4');
+console.log('27 UI logic scenarios passed.');

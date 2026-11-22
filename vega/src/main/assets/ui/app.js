@@ -42,9 +42,13 @@ function md(t) {
 }
 /** Text odpovědi bez markdown značek – pro kopírování a sdílení (do e-mailu nepatří „**“ ani „|---|“). */
 function plainText(t) {
-  return String(t || '').replace(/```\w*\n?/g, '').replace(/^\|[ \t:|-]*-[ \t:|-]*\|[ \t]*(\n|$)/gm, '').replace(/^\|(.*)\|[ \t]*$/gm, (m, c) => c.split('|').map(x => x.trim()).join('\t'))
+  return String(t || '').replace(/\n*_\(spočítáno přesně v telefonu, bez modelu\)_/g, '').replace(/```\w*\n?/g, '').replace(/^\|[ \t:|-]*-[ \t:|-]*\|[ \t]*(\n|$)/gm, '').replace(/^\|(.*)\|[ \t]*$/gm, (m, c) => c.split('|').map(x => x.trim()).join('\t'))
     .replace(/^#{1,4} /gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^([ \t]*)[*+-][ \t]+/gm, '$1• ').replace(/(^|[\s(])[*_]([^\s*_][^*_\n]*?)[*_](?=[\s.,;:!?)]|$)/g, '$1$2')
     .replace(/`([^`]+)`/g, '$1').replace(/\[([^\]\n]+)\]\((https?:[^)\s]+)\)/g, '$1 ($2)').replace(/\n{3,}/g, '\n\n').trim();
+}
+/** Celá konverzace jako čistý text (Sdílet v ⋯ u konverzace): „Já:“ / „VEGA:“, bez markdownu. */
+function chatPlain(ms, title) {
+  return (title ? title + '\n\n' : '') + ms.filter(m => m.text).map(m => (m.role === 'user' ? 'Já: ' : 'VEGA: ') + plainText(m.text)).join('\n\n');
 }
 /** Markdown tabulka (| a | b |, oddělovač |---|) → HTML tabulka; text buněk už je escapovaný, formátování (tučné, odkazy) projde dál. */
 function mdTables(t) {
@@ -1029,7 +1033,9 @@ function act(a, d) {
     case 'pairOwn': pairOwn(); break;
     case 'pickModel': modelSheet(); break;
     case 'chatMenu': sheet(`<h2>${esc(d.t)}</h2><input class="field" id="chatTitle" value="${esc(d.t)}" aria-label="Název konverzace">
-        <div class="inline" style="margin-top:8px"><button class="btn" data-act="chatRename" data-id="${esc(d.id)}">Přejmenovat</button><button class="btn ghost" data-act="chatDelete" data-id="${esc(d.id)}">Smazat konverzaci</button></div>`); break;
+        <div class="inline" style="margin-top:8px"><button class="btn" data-act="chatRename" data-id="${esc(d.id)}">Přejmenovat</button><button class="btn" data-act="chatShare" data-id="${esc(d.id)}">Sdílet</button><button class="btn ghost" data-act="chatDelete" data-id="${esc(d.id)}">Smazat konverzaci</button></div>`); break;
+    case 'chatShare': { const ms = call('messages', d.id) || []; if (!ms.length) { toast('Konverzace je prázdná.'); break; }
+      call('shareText', chatPlain(ms, ($('#chatTitle') || {}).value || '')); break; }
     case 'chatRename': if (call('renameChat', d.id, ($('#chatTitle') || {}).value || '') !== null) { closeSheet(true); drawer(); toast('Přejmenováno.'); } break;
     case 'chatDelete': if (!confirm('Smazat celou konverzaci? Nejde to vrátit.')) break;
       if (call('deleteChat', d.id) !== null) { if (S.drafts) delete S.drafts['chat:' + d.id]; closeSheet(true); if (S.space.kind === 'chat' && S.space.id === d.id) { S.mc = null; setSpace({ kind: 'chat', id: null }); } else render(); drawer(); toast('Konverzace smazána.'); } break;
