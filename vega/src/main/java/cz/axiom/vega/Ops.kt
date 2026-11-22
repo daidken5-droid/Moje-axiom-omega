@@ -138,7 +138,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 if (prevBase != baseSha && then != now) { skippedCarry += f; null } else runCatching { f to g.file(f, prev.commit) }.getOrElse { skippedCarry += f; null }
             }.toMap()
         val pick = (cz.axiom.vega.selfupdate.Policy.pickFiles(tree, task) + carried.keys.filter { it in tree }).distinct()
-        if (pick.isEmpty()) throw ToolError("V kódu aplikace jsem nenašla nic, čeho by se zadání týkalo – popiš ho konkrétněji (obrazovka, funkce, text).")
+        if (pick.isEmpty()) throw ToolError("V kódu aplikace jsem nenašel nic, čeho by se zadání týkalo – popiš ho konkrétněji (obrazovka, funkce, text).")
         val dir = File(context.cacheDir, "selfupd/" + System.currentTimeMillis()).apply { deleteRecursively() }
         try {
             val ws = Workspace.create(dir, "VEGA", pick.associateWith { g.file(it, baseSha).toByteArray() })
@@ -155,15 +155,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             val applied = CodeAgent.apply(ws, plan.copy(edits = plan.edits.filter { cz.axiom.vega.selfupdate.Policy.check(it.path) == null }), hashes, "samoúprava")
             val changed = ws.diffFromBase().map { it.first }.filter { cz.axiom.vega.selfupdate.Policy.check(it) == null }
             if (changed.isEmpty() || applied.changes.isEmpty()) { // přenesená předchozí úprava sama o sobě není nová úprava
-                reply(chat, "Úpravu sebe sama jsem nepřipravila – model nenavrhl použitelnou změnu." + (if (refused.isNotEmpty()) " Odmítnuto: ${refused.joinToString("; ")}." else "") +
+                reply(chat, "Úpravu sebe sama jsem nepřipravil – model nenavrhl použitelnou změnu." + (if (refused.isNotEmpty()) " Odmítnuto: ${refused.joinToString("; ")}." else "") +
                     (if (applied.failed.isNotEmpty()) " Nesedělo: ${applied.failed.joinToString("; ") { "${it.first.path}: ${it.second}" }}." else "")); return
             }
             val diff = (if (carried.isNotEmpty()) "# Proti pracovní větvi $base; obsahuje i nainstalovanou úpravu „${prev?.task?.take(80)}“ (${prev?.commit?.take(7)}).\n" else "# Proti pracovní větvi $base.\n") +
                 ws.diffFromBase().filter { it.first in changed }.joinToString("\n") { (p, d) -> "diff --git a/$p b/$p\n--- a/$p\n+++ b/$p\n" + cz.axiom.vega.core.Diff.unified(d.lines, 3) }
             // hlídač citlivých API: klíče, síť, procesy, most, sandbox, samoúpravy (stejný seznam kontroluje CI)
             val sens = cz.axiom.vega.selfupdate.Policy.sensitiveChanges(diff) + changed.mapNotNull { p -> cz.axiom.vega.selfupdate.Policy.packageIssue(p, ws.read(p))?.let { "$p: $it" } }
-            if (diff.length > 60_000) { reply(chat, "Úpravu jsem zahodila – změna je moc velká na to, abys ji v telefonu opravdu prošel (${diff.length / 1000} kB diffu). Zadej menší krok."); return }
-            if (sens.isNotEmpty()) { reply(chat, "Úpravu jsem zahodila – sahala by na citlivá místa (klíče, síť, most, platby, souhlasy nebo samoúpravy), a to samoúprava nesmí:\n" + sens.take(5).joinToString("\n") { "• ${it.removePrefix("+").trim()}" } +
+            if (diff.length > 60_000) { reply(chat, "Úpravu jsem zahodil – změna je moc velká na to, abys ji v telefonu opravdu prošel (${diff.length / 1000} kB diffu). Zadej menší krok."); return }
+            if (sens.isNotEmpty()) { reply(chat, "Úpravu jsem zahodil – sahala by na citlivá místa (klíče, síť, most, platby, souhlasy nebo samoúpravy), a to samoúprava nesmí:\n" + sens.take(5).joinToString("\n") { "• ${it.removePrefix("+").trim()}" } +
                 "\nTakovou změnu musí udělat člověk ve vývojovém prostředí."); return }
             val branch = cz.axiom.vega.selfupdate.Policy.branchName(task)
             val commit = g.commitFiles(baseSha, branch, changed.associateWith { ws.read(it) }, "VEGA samoúprava: ${task.take(72)}\n\nPůvod: $origin" +
@@ -171,7 +171,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             val u = selfUpdates.create(task, branch, changed, commit, origin).copy(diff = diff.take(60_000)).also { selfUpdates.save(it) }
             reply(chat, "Připravila jsem úpravu sebe sama: ${plan.explanation.lines().firstOrNull { it.isNotBlank() }?.take(200) ?: task}\n" +
                 "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
-                (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechala: ${refused.joinToString("; ")}." else "") +
+                (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechal: ${refused.joinToString("; ")}." else "") +
                 (if (skippedCarry.isNotEmpty()) "\nZ nainstalované úpravy jsem NEPŘENESLA ${skippedCarry.joinToString(", ") { it.substringAfterLast('/') }} – na pracovní větvi se mezitím změnily (instalací by se tahle část předchozí úpravy vrátila)." else "") +
                 "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK hotové, ukážu ti změny a teprve potom nabídnu instalaci (Nastavení → Pro pokročilé → Vylepšení → Úpravy aplikace).",
                 JSONObject().put("type", "selfupdate").put("id", u.id))
@@ -417,14 +417,14 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         return attTextCache[key] ?: run {
             emit("phase", JSONObject().put("text", "Čtu ${b.name}…"))
             val t = runCatching { files.read(b.name, b.mime, b.bytes).text }.getOrDefault("")
-            if (t.isBlank()) throw ToolError("Ze souboru „${b.name}“ jsem nepřečetla žádný text (prázdný sken, heslo nebo nepodporovaný formát). Zkus ostřejší fotku nebo PDF s textem.")
+            if (t.isBlank()) throw ToolError("Ze souboru „${b.name}“ jsem nepřečetl žádný text (prázdný sken, heslo nebo nepodporovaný formát). Zkus ostřejší fotku nebo PDF s textem.")
             t.also { attTextCache[key] = it; runCatching { index.add(b.name, b.name, it) } }
         }
     }
     /** Text přílohy do limitu + poznámka, když se nevešel celý (laik jinak netuší, že model viděl jen začátek). */
     private fun attForModel(b: Value.Bytes, limit: Int): Pair<String, String?> {
         val t = attText(b)
-        return if (t.length <= limit) t to null else t.take(limit) to "Ze souboru „${b.name}“ jsem modelu poslala jen začátek (${limit / 1000} z ${t.length / 1000} tisíc znaků). Pro celý dokument napiš „projdi celý dokument“."
+        return if (t.length <= limit) t to null else t.take(limit) to "Ze souboru „${b.name}“ jsem modelu poslal jen začátek (${limit / 1000} z ${t.length / 1000} tisíc znaků). Pro celý dokument napiš „projdi celý dokument“."
     }
 
     fun submit(block: () -> Unit) {
@@ -877,7 +877,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             "Pak mi CSV pošli přes 📎. (Obsah PDF ti můžu shrnout – napiš „shrň mi to“.)"); return }
         val text = att.asText()
         val d = Statement.detect(text)
-        val spec = d.spec ?: run { reply(chat, "Ve výpisu „${att.name}“ jsem nenašla sloupce s datem a částkou. Je to export z banky ve formátu CSV? Když ano, otevřu ho v Inspektoru CSV a ukážu ti, co v něm je – napiš „zkontroluj CSV“."); return }
+        val spec = d.spec ?: run { reply(chat, "Ve výpisu „${att.name}“ jsem nenašel sloupce s datem a částkou. Je to export z banky ve formátu CSV? Když ano, otevřu ho v Inspektoru CSV a ukážu ti, co v něm je – napiš „zkontroluj CSV“."); return }
         val (ok, ver) = Statement.verify(text, spec)
         val steps = listOf(Step("statement.process", mapOf("spec" to spec.json())), Step("statement.months"))
         val r = Runner.start("Zpracovat výpis", steps, att, toolCtx) { saveRun(kv, it) }

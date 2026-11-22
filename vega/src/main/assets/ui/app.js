@@ -574,14 +574,14 @@ function library(tab) {
   } else if (S.libTab === 'improve') {
     const v = call('improvements') || { rules: [], weak: [] };
     const st = { ACTIVE: ['zapnuto', 'ok'], PROPOSED: ['návrh', ''], REVERTED: ['vráceno', ''], REJECTED: ['zamítnuto', 'bad'] };
-    body = `<p class="lede">Co jsem se naučila z tvých oprav. Pravidlo se zapne jen tehdy, když nezmění žádný kontrolní případ, a můžeš ho kdykoli vrátit. Deník zůstává jen v telefonu.</p>
+    body = `<p class="lede">Co jsem se naučil z tvých oprav. Pravidlo se zapne jen tehdy, když nezmění žádný kontrolní případ, a můžeš ho kdykoli vrátit. Deník zůstává jen v telefonu.</p>
       <h3>Naučená pravidla</h3><div class="list">${v.rules.map(r => `<div class="row stack"><span class="grow"><b>„${esc(r.examples[r.examples.length - 1] || r.tokens.join(' '))}“ → ${esc(r.target)} <span class="pill ${st[r.status][1]}">${st[r.status][0]}</span></b>
         <small>výrazy: ${r.tokens.map(esc).join(', ')} · doklady: ${r.evidence}${r.reason ? ' · ' + esc(r.reason) : ''}</small>
         <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts">${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
         ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</span></div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
       ${selfUpdateHtml()}
-      <h3>Rozšíření (nástroje, které jsem napsala)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row stack"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
+      <h3>Rozšíření (nástroje, které jsem napsal)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row stack"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
         <small>${esc(e.description)} · bez sítě · ${esc(e.tests || 'testy prošly')}</small><small>${e.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts"><button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
         ${e.canRollback ? `<button class="btn" data-act="impr" data-id="${esc(e.id)}" data-a="extBack">Vrátit verzi</button>` : ''}
