@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('node:vm');
 const code=fs.readFileSync(require('node:path').join(__dirname, '../../vega/src/main/assets/ui/app.js'),'utf8');
-const fields=new Map(),field=id=>{if(!fields.has(id))fields.set(id,{value:'',style:{},dataset:{},setAttribute(){},focus(){},classList:{add(){},toggle(){}}});return fields.get(id)};
+const fields=new Map(),field=id=>{if(!fields.has(id))fields.set(id,{value:'',style:{},dataset:{},setAttribute(){},addEventListener(){},focus(){},classList:{add(){},toggle(){}}});return fields.get(id)};
 const mock={home:{buttons:[]},send:{error:'chyba'},runTool:{error:'chyba'}};
 const calls=[];
-const ctx=vm.createContext({document:{querySelector:field,querySelectorAll:()=>[],addEventListener(){}},matchMedia:()=>({matches:false}),innerHeight:850,window:{VEGA:new Proxy({},{get(_,k){return (...a)=>{calls.push([k,...a]);return JSON.stringify(mock[k]??true)}}})}});
+const ctx=vm.createContext({document:{body:{classList:{toggle(){},add(){},remove(){}},appendChild(){}},querySelector:field,querySelectorAll:()=>[],addEventListener(){}},matchMedia:()=>({matches:false}),innerHeight:850,window:{VEGA:new Proxy({},{get(_,k){return (...a)=>{calls.push([k,...a]);return JSON.stringify(mock[k]??true)}}})}});
 let run=s=>vm.runInContext(s,ctx);
 // Inicializaci skutečného WebView je třeba ověřit na telefonu. Zde se testují obslužné funkce.
 run(code.slice(0,code.indexOf('S.busy = J(B.isBusy()')));
@@ -49,4 +49,12 @@ assert.equal(run("md('2 * 3 * 4 a *slovo*')"),'2 * 3 * 4 a <i>slovo</i>');
 assert.equal(run("plainText('## Návrh\\n**Dobrý den,**\\n*   bod\\n| A | B |\\n|---|---|\\n| 1 | 2 |\\nviz [web](https://x.cz)')"),'Návrh\nDobrý den,\n• bod\nA\tB\n1\t2\nviz web (https://x.cz)');
 mock.messages=[{role:'vega',text:'**Ahoj**, tady je dlouhý e-mail pro šéfa, který si chci zkopírovat do Gmailu.'}];calls.length=0;
 run("S.mc=null; act('copyMsg',{i:'0'})");assert.deepEqual(calls.filter(c=>c[0]==='copyText').map(c=>c[1]),['Ahoj, tady je dlouhý e-mail pro šéfa, který si chci zkopírovat do Gmailu.']);
-console.log('22 UI logic scenarios passed.');
+// C1: Upravit vrátí text do pole, Znovu volá nativní regenerate, kód má vlastní Kopírovat
+mock.messages=[{role:'user',text:'napiš básničku'},{role:'vega',text:'Tady je básnička o podzimu a padajícím listí, která má čtyři verše.'}];
+run("S.space={kind:'chat',id:'c1'}; S.busy=false; S.mc=null; render()");
+run('renderStream()');assert.ok(/data-act="editLast"/.test(field('#stream').innerHTML)&&/data-act="regen"/.test(field('#stream').innerHTML),'Upravit a Znovu mají být vidět');
+mock.editLast='napiš básničku';calls.length=0;run("act('editLast',{})");assert.equal(field('#input').value,'napiš básničku');
+calls.length=0;mock.regenerate=true;run("S.busy=false; act('regen',{})");assert.ok(calls.some(c=>c[0]==='regenerate'));run("S.busy=false");
+mock.messages=[{role:'vega',text:'Kód:\n```js\nconsole.log(1)\n```'}];run("S.mc=null; renderStream()");assert.match(field('#stream').innerHTML,/data-code="console.log\(1\)\n"/);calls.length=0;run("act('copyCode',{code:'console.log(1)'})");
+assert.deepEqual(calls.filter(c=>c[0]==='copyText').map(c=>c[1].trim()),['console.log(1)']);
+console.log('26 UI logic scenarios passed.');

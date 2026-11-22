@@ -29,7 +29,7 @@ function toast(t, ms = 3800) {
   document.body.appendChild(el); setTimeout(() => el.remove(), ms);
 }
 function md(t) {
-  return String(t || '').split(/```/).map((b, i) => i % 2 ? `<pre>${esc(b.replace(/^\w*\n/, ''))}</pre>` :
+  return String(t || '').split(/```/).map((b, i) => i % 2 ? `<div class="code"><button class="mini codecopy" data-act="copyCode" data-code="${esc(b.replace(/^\w*\n/, ''))}">Kopírovat kód</button><pre>${esc(b.replace(/^\w*\n/, ''))}</pre></div>` :
     mdTables(esc(b)).replace(/^#{1,4} (.*)$/gm, '<h3>$1</h3>')
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+?)_(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>')
       // odrážky jako je píšou modely („*   položka“, „- položka“, vnořené odsazením); *kurzíva* až po nich, ať se „* “ nesplete
@@ -108,9 +108,10 @@ function renderStream() {
   const WINDOW = 80; const key = S.space.kind + ':' + S.space.id;
   const shown = list.length > WINDOW && S.showAll !== key ? list.slice(-WINDOW) : list;
   const last = list[list.length - 1];
+  const lastUser = [...list].reverse().find(m => m.role === 'user');
   el.innerHTML = (shown.length < list.length ? `<button class="pill older" data-act="older">Zobrazit starší zprávy (${list.length - shown.length})</button>` : '') + shown.map(m => m.role === 'user'
-    ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
-    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${safeCard(m.card, m === last)}${m.text && m.text.length > 60 && !(m === last && S.busy) ? `<div class="msg-a"><button class="mini" data-act="copyMsg" data-i="${list.indexOf(m)}">Kopírovat</button><button class="mini" data-act="shareMsg" data-i="${list.indexOf(m)}">Sdílet</button></div>` : ''}</div>`).join('') +
+    ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>${m === lastUser && !S.busy && S.space.kind === 'chat' && !(m.files && m.files.length) ? `<div class="me-a"><button class="mini" data-act="editLast">Upravit</button></div>` : ''}`
+    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${safeCard(m.card, m === last)}${m.text && m.text.length > 60 && !(m === last && S.busy) ? `<div class="msg-a"><button class="mini" data-act="copyMsg" data-i="${list.indexOf(m)}">Kopírovat</button><button class="mini" data-act="shareMsg" data-i="${list.indexOf(m)}">Sdílet</button>${m === last && !S.busy && S.space.kind === 'chat' && lastUser ? `<button class="mini" data-act="regen" aria-label="Nová odpověď na stejnou otázku">↻ Znovu</button>` : ''}</div>` : ''}</div>`).join('') +
     (S.busy && (!S.busyChat || S.busyChat === chatId()) ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
   if (!el.dataset.sl) { el.dataset.sl = '1'; el.addEventListener('scroll', () => { S.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (S.stick) jumpPill(false); }, { passive: true }); }
   if (S.stick !== false) el.scrollTop = el.scrollHeight;
@@ -516,15 +517,16 @@ function runTool() {
   S.tool = null; S.toolInput = null; render();
 }
 
+const chatRow = c => `<div class="drowwrap"><button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button><button class="dmore" data-act="chatMenu" data-id="${esc(c.id)}" data-t="${esc(c.title)}" aria-label="Možnosti konverzace ${esc(c.title)}">⋯</button></div>`;
 /** Menu jako u Gemini: vysouvací panel zleva – nová konverzace, nedávné, dole knihovna a nastavení. */
 function drawer() {
-  const cs = (call('chats') || []).slice(0, 30);
+  const all = call('chats') || []; S.allChats = all; const cs = all.slice(0, 30);
   closeSheet(true);
   $('#layer').innerHTML = `<div class="scrim" data-act="close"></div><nav class="drawer" aria-label="Menu">
     <button class="drow strong" data-act="new">＋ Nová konverzace</button>
     <button class="drow" data-act="temp">Dočasný chat</button>
-    <div class="dlabel">Nedávné</div>
-    <div class="dscroll">${cs.map(c => `<div class="drowwrap"><button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button><button class="dmore" data-act="chatMenu" data-id="${esc(c.id)}" data-t="${esc(c.title)}" aria-label="Možnosti konverzace ${esc(c.title)}">⋯</button></div>`).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
+    <div class="dlabel">Nedávné</div>${all.length > 6 ? `<input class="field dsearch" id="chatq" type="search" placeholder="Hledat v konverzacích (${all.length})" aria-label="Hledat v konverzacích">` : ''}
+    <div class="dscroll" id="chatlist">${cs.map(chatRow).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
     <div class="dfoot">
       <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
       <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
@@ -1129,6 +1131,11 @@ function act(a, d) {
         <h3>Kontrola PDF</h3><p>${c.checks.map(k => `<span class="pill ${k.ok ? 'ok' : 'bad'}">${esc(k.what)}</span>`).join(' ')}</p>`, true); break; }
     case 'openOut': B.openOut(d.f); break;
     case 'share': B.share(d.f); break;
+    case 'regen': { if (busyGuard()) break; S.busy = true; S.busyChat = chatId(); const r = call('regenerate', chatId());
+      if (r !== true) { S.busy = false; if (r === false) toast('U zprávy s přílohou pošli dotaz znovu i s přílohou.'); } S.mc = null; render(); break; }
+    case 'editLast': { if (busyGuard()) break; const t = call('editLast', chatId()); if (!t) { toast('Zprávu s přílohou uprav tak, že ji pošleš znovu.'); break; }
+      S.mc = null; render(); const i = $('#input'); i.value = t; autosize(); i.focus(); renderChips && renderChips(); break; }
+    case 'copyCode': if (d.code) { call('copyText', d.code); toast('Kód zkopírován.'); } break;
     case 'copyMsg': case 'shareMsg': { const m = msgs()[+d.i]; if (!m || !m.text) break;
       const t = plainText(m.text);
       if (a === 'copyMsg') { call('copyText', t); toast('Zkopírováno – vlož ho, kam potřebuješ.'); } else call('shareText', t); break; }
@@ -1260,6 +1267,13 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'input') { autosize(); renderChips(); document.body.classList.add('typing'); clearTimeout(S.typingT); S.typingT = setTimeout(() => document.body.classList.remove('typing'), 900); }
+  if (e.target.id === 'chatq') { const q = e.target.value.trim().toLowerCase(); const l = $('#chatlist'); if (!l) return;
+    const byTitle = q ? (S.allChats || []).filter(c => String(c.title || '').toLowerCase().includes(q)) : (S.allChats || []).slice(0, 30);
+    l.innerHTML = byTitle.map(chatRow).join('') || '<div class="dnote">Hledám…</div>';
+    clearTimeout(S.chatqT); if (q.length >= 2) S.chatqT = setTimeout(() => { if ($('#chatq')?.value.trim().toLowerCase() !== q) return;
+      const hits = (call('searchChats', q) || []).filter(h => !byTitle.some(c => c.id === h.id));
+      l.innerHTML = byTitle.map(chatRow).join('') + hits.map(h => chatRow(h).replace('</button>', `<small class="note" style="display:block">…${esc(h.snippet)}…</small></button>`)).join('') || '<div class="dnote">Nic nenalezeno</div>'; }, 250);
+    return; }
   if (e.target.id === 'toolq') { const q = e.target.value.toLowerCase(); const ts = (S.tools || []).filter(t => (t.title + ' ' + t.description).toLowerCase().includes(q)); $('#toollist').innerHTML = toolList(ts, [...new Set(ts.map(t => t.group))]); }
 });
 document.addEventListener('keydown', e => {

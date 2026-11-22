@@ -533,6 +533,9 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun tools() = safe { ops.toolsJson() }
     @JavascriptInterface fun chats() = safe { ops.chats() }
     @JavascriptInterface fun deleteChat(id: String) = safe { ops.deleteChat(id); true }
+    @JavascriptInterface fun editLast(id: String) = safe { ops.takeLastUser(id) ?: "" }
+    @JavascriptInterface fun regenerate(id: String) = safe { ops.regenerate(id) }
+    @JavascriptInterface fun searchChats(q: String) = safe { ops.searchChats(q.take(100)) }
     @JavascriptInterface fun renameChat(id: String, title: String) = safe { ops.renameChat(id, title); true }
     // řetězcové výsledky jako JSON (JS je parsuje – holý text by se zahodil)
     @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }

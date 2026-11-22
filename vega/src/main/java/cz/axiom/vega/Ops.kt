@@ -535,6 +535,34 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     fun chatRev(chat: String): String = "${kv.modified(chatKey(chat))}:${chatWrites.get()}"
     /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
     private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
+    /**
+     * „Upravit“ / „Znovu“ jako v ChatGPT (kolo C1): odebere poslední zprávu uživatele a vše po ní, vrátí její text.
+     * Zpráva s přílohou se neodebere (příloha by se ztratila) → null.
+     */
+    @Synchronized fun takeLastUser(chat: String): String? {
+        if (busy) throw ToolError("Ještě dokončuji odpověď – počkej, nebo ji zastav (■).")
+        val arr = messages(chat)
+        val i = (arr.length() - 1 downTo 0).firstOrNull { arr.getJSONObject(it).optString("role") == "user" } ?: return null
+        val m = arr.getJSONObject(i)
+        if ((m.optJSONArray("files")?.length() ?: 0) > 0) return null
+        val keep = JSONArray(); for (k in 0 until i) keep.put(arr.get(k))
+        kv.write(chatKey(chat), keep.toString()); chatWrites.incrementAndGet()
+        return m.optString("text")
+    }
+    /** Hledání v obsahu všech konverzací (bez diakritiky): id, název a úryvek kolem shody. Max 30. */
+    fun searchChats(q: String): JSONArray {
+        val needle = cz.axiom.vega.base.Text.fold(q).lowercase().trim(); val out = JSONArray()
+        if (needle.length < 2) return out
+        val cs = chats()
+        for (i in 0 until cs.length()) { if (out.length() >= 30) break
+            val c = cs.getJSONObject(i); val arr = messages(c.getString("id"))
+            for (k in 0 until arr.length()) { val t = arr.getJSONObject(k).optString("text"); val f = cz.axiom.vega.base.Text.fold(t).lowercase(); val at = f.indexOf(needle)
+                if (at >= 0) { out.put(JSONObject().put("id", c.getString("id")).put("title", c.optString("title")).put("snippet", t.substring(maxOf(0, at - 30), minOf(t.length, at + needle.length + 50)).replace(Regex("\\s+"), " "))); break } } }
+        return out
+    }
+    /** „Znovu“: stejná otázka ještě jednou (nová odpověď místo staré). false = není co / zpráva s přílohou. */
+    fun regenerate(chat: String): Boolean { val t = takeLastUser(chat)?.takeIf { it.isNotBlank() } ?: return false; chat(chat, t, emptyList()); return true }
+
     /** Smazat konverzaci (zprávy, rozpracovaný stav, důkazy) – citlivý rozhovor nesmí zůstat v telefonu natrvalo. */
     @Synchronized fun deleteChat(id: String) {
         require(Regex("^c[0-9a-z]{1,20}$").matches(id)) { "Tuhle konverzaci smazat nejde." }

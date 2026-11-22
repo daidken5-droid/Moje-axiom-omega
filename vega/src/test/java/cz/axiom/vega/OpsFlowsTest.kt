@@ -142,4 +142,23 @@ class OpsFlowsTest {
         val txt = cz.axiom.vega.core.Docx.text(java.io.File(o.out.dir, name).readBytes())
         assertTrue(txt, txt.contains("výpočty") && !txt.contains("**"))
     }
+
+    /** Kolo C1 (uživatel zvyklý na ChatGPT/Claude): Upravit poslední zprávu, Znovu, hledání v obsahu konverzací. */
+    @Test fun editRegenerateAndSearchLikeChatGpt() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        ask(o, r, c, "kolik je 15 % z 2400")
+        assertEquals(2, o.messages(c).length())
+        // Znovu: stejná otázka, nová odpověď, žádná duplicita
+        val before = r.ev.size; assertTrue(o.regenerate(c)); waitIdle(r, before)
+        assertEquals(2, o.messages(c).length())
+        assertTrue(o.messages(c).getJSONObject(1).optString("text").contains("360"))
+        // Upravit: zpráva i odpověď zmizí, text se vrátí do pole
+        assertEquals("kolik je 15 % z 2400", o.takeLastUser(c))
+        assertEquals(0, o.messages(c).length())
+        // hledání v obsahu (bez diakritiky)
+        ask(o, r, c, "pamatuj si, že mám psa Rexe"); val c2 = o.newChat(); ask(o, r, c2, "kolik dní do Vánoc")
+        val hits = o.searchChats("vanoc")
+        assertEquals(1, hits.length()); assertEquals(c2, hits.getJSONObject(0).getString("id"))
+        assertEquals(0, o.searchChats("x").length())
+    }
 }

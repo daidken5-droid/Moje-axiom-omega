@@ -279,3 +279,9 @@ table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } 
 .msg-a { display: flex; gap: 6px; margin-top: 4px; }
 .mini { min-height: 36px; padding: 0 12px; border-radius: 10px; font-size: 13.5px; color: var(--muted); background: transparent; border: 1px solid var(--line); }
 .btn.danger { color: var(--bad); border-color: var(--bad); }
+/* kolo C1: Upravit / Znovu / Kopírovat kód / hledání v konverzacích */
+.me-a { display: flex; justify-content: flex-end; margin: -4px 0 6px; }
+.code { position: relative; }
+.code .codecopy { position: absolute; top: 6px; right: 6px; min-height: 30px; padding: 0 10px; background: var(--sunk); }
+.dsearch { margin: 4px 12px 6px; width: calc(100% - 24px); }
+.code pre { padding-top: 40px; }
