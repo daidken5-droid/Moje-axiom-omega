@@ -108,3 +108,10 @@ na telefonu ICU – testy a telefon se lišily); heslo z první zprávy v názvu
 
 Testy: 228 → 248 Kotlin (0 selhání) + UI `composer` 26 scénářů, `audit` 30 obrazovek, `robust`, `xss` – vše zelené.
 Na telefonu NEOVĚŘENO (kopírování do schránky, sdílení, Upravit/Znovu na skutečném zařízení).
+
+### Feature freeze (22. 11., 16:30)
+Na žádost: žádné nové funkce. Samoúpravy výchozí VYPNUTO (jen přepínač v Nastavení › Pro pokročilé, automatické zlepšování
+bez něj neběží); Hardware (HCE, NFC, BLE, root), WiFi audit a projekty s kódem přesunuty do Nastavení › Pro pokročilé;
+úvod nejvýš 6 akcí. Rozpracované „Přečíst nahlas“ zahozeno. Kontrola na telefonu: `docs/vega/PHONE-CHECKLIST.md`.
+Odpolední kola navíc: C6–C16 (sdílení konverzace, 1 000 zpráv, vlastní pokyny, testy s falešným modelem: Bez sítě nikdy
+nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi celý dokument“ už neuřízne konec na 60 000 znacích).
