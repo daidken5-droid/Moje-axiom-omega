@@ -584,6 +584,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun improvementAction(id: String, action: String) = safe { ops.improvementAction(id, action)?.let { JSONObject.quote(it) } ?: "true" }
     @JavascriptInterface fun memoryRevert(id: String) = safe { ops.memory.revert(id)?.text?.let { JSONObject.quote(it) } }
     @JavascriptInterface fun memoryForget(id: String) = safe { ops.memory.forget(id).size }
+    @JavascriptInterface fun memoryClear() = safe { ops.memoryClear() }
     @JavascriptInterface fun memoryAdd(text: String) = safe {
         when (val o = ops.memory.remember(text)) {
             is cz.axiom.vega.core.Mem.Outcome.Rejected -> JSONObject().put("ok", false).put("reason", o.reason)

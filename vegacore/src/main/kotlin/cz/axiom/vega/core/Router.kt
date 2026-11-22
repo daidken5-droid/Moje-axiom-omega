@@ -123,6 +123,7 @@ object Router {
             val scope = when { has(t, "\\b(tady|v tomhle projektu|v tomto projektu|u tohoto projektu|v projektu)\\b") -> "project"; has(t, "\\b(vzdy|vsude|obecne|ve vsech)\\b") -> "global"; else -> null }
             return Intent.Remember(body, scope)
         }
+        if (cz.axiom.vega.calc.SmallTalk.isForgetAll(text)) return Intent.Forget("*")
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
         if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
         // jen samotný povel („zpět k tomu receptu“ ani „vrátím se zítra“ není vrácení změny)
@@ -201,7 +202,7 @@ object Router {
         // co spočítá kalkulačka v telefonu (datum, převod, procenta), nikdy nejde na web – i když to vypadá jako „název“
         // (nejdřív levný test názvu – 3 až 60 znaků –, kalkulačka až pak; dlouhé vložené texty se jí vůbec netýkají)
         if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic ->
-            if (runCatching { cz.axiom.vega.calc.Quick.answer(text) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
+            if (runCatching { cz.axiom.vega.calc.Quick.answer(text) ?: cz.axiom.vega.calc.SmallTalk.answer(text, true) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
         }
         return Intent.Talk(false, false)
     }

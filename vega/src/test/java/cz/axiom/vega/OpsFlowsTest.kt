@@ -100,4 +100,19 @@ class OpsFlowsTest {
         val all = m.toString()
         assertTrue(all, all.contains("smlouva.txt") && !all.contains("recept.txt"))
     }
+
+    /** Scan S27: „zapomeň všechno“ dřív odpovědělo „Nic takového si nepamatuji“ a paměť zůstala. Teď tlačítko s počtem, smaže až klepnutí. */
+    @Test fun forgetEverythingAsksThenClears() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        ask(o, r, c, "pamatuj si, že jsem vegetarián"); ask(o, r, c, "pamatuj si, že bydlím v Brně")
+        val m = ask(o, r, c, "zapomeň všechno")
+        assertEquals("memClear", m.optJSONObject("card")?.optString("type"))
+        assertEquals(2, m.getJSONObject("card").getInt("n"))
+        assertEquals("bez klepnutí se nic nemaže", 2, o.memoryJson().length())
+        assertEquals(2, o.memoryClear())
+        assertEquals(0, o.memoryJson().length())
+        assertTrue(ask(o, r, c, "vymaž paměť").optString("text").contains("prázdná"))
+        // bez modelu na pozdrav lidsky, ne „potřebuji model“
+        assertTrue(ask(o, r, c, "ahoj").optString("text").startsWith("Ahoj!"))
+    }
 }

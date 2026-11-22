@@ -823,7 +823,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val intent = Router.route(text, Router.Ctx(false, null, false, false, null))
         if (intent is Router.Intent.Remember) { reply(null, "V dočasném chatu si nic neukládám – tohle zapomenu po zavření okna."); return@submit }
         val a = llmOrNull(null, listOf(ChatMessage(Role.SYSTEM, SYSTEM_TALK + "\nDOČASNÝ CHAT: nic z něj neukládej, neodkazuj na paměť.")) + history(null, tempTurns) + ChatMessage(Role.USER, text), consent = null)
-            ?: offline(text) ?: "Bez připojeného cloudu ti v dočasném chatu odpovím jen na jednoduché věci (čas, výpočty). Klíč přidáš v Nastavení."
+            ?: offline(text) ?: cz.axiom.vega.calc.SmallTalk.answer(text, settings.airgap) ?: "Bez připojeného cloudu ti v dočasném chatu odpovím jen na jednoduché věci (čas, výpočty). Klíč přidáš v Nastavení."
         tempTurns += text to a; if (tempTurns.size > 20) tempTurns.removeAt(0)
         reply(null, a)
     }
@@ -1071,9 +1071,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
-            val off = offline(text)
+            val calc = offline(text); val off = calc ?: cz.axiom.vega.calc.SmallTalk.answer(text, settings.airgap)
             // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
-            val setup = if (off != null) null else if (settings.airgap) JSONObject().put("type", "netOff").put("what", "airgap") else if (!settings.ownOnly) JSONObject().put("type", "setup") else null
+            val setup = if (calc != null) null else if (settings.airgap) JSONObject().put("type", "netOff").put("what", "airgap") else if (!settings.ownOnly) JSONObject().put("type", "setup") else null
             reply(chat, off ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!, setup)
             return
         }
@@ -1673,10 +1673,20 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         return false
     }
 
+    /** Tlačítko „Smazat celou paměť“: každý záznam přes forget (náhrobky – nevrátí se ze shrnutí). Vrací počet smazaných. */
+    fun memoryClear(): Int = memory.all().map { it.id }.sumOf { memory.forget(it).size }
+
     /** Zapomenutí bez kopií: text se neopakuje, z historie chatu (kontext modelu) se vyřadí, navázaná kalkulace se smaže. */
     private fun forgetCmd(chat: String?, query: String, ws: Workspace?) {
+        if (query == "*") {
+            // celá paměť: nesmazat hned (překlep, dítě u telefonu) – tlačítko s počtem; dřív „Nic takového si nepamatuji“ a paměť zůstala
+            val n = memory.all(ws?.let { "project:${it.root.name}" }).size
+            if (n == 0) reply(chat, "Paměť je prázdná – nic si nepamatuji.")
+            else reply(chat, "Smazat celou paměť? Je v ní $n ${if (n == 1) "záznam" else if (n in 2..4) "záznamy" else "záznamů"}. Jednotlivé věci smažeš i v Menu → Paměť.", JSONObject().put("type", "memClear").put("n", n))
+            return
+        }
         val f = memory.forget(query, ws?.let { "project:${it.root.name}" })
-        if (f.isEmpty()) { reply(chat, "Nic takového si nepamatuji."); return }
+        if (f.isEmpty()) { reply(chat, "Nic takového si nepamatuji. Co si pamatuji, ukáže „co si pamatuješ“."); return }
         val ids = f.map { it.id }.toSet()
         kv.keys("econ/").filter { it.endsWith(".mem") && kv.read(it)?.trim() in ids }.forEach { k -> kv.delete(k); kv.delete(k.removeSuffix(".mem")) }
         val texts = f.map { cz.axiom.vega.base.Text.fold(it.text).lowercase() }.filter { it.length >= 4 }

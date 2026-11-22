@@ -237,6 +237,7 @@ function card(c, isLast) {
     }
     case 'file': return `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="openOut" data-f="${esc(c.name)}">Otevřít ${esc(c.name)}</button><button class="btn" data-act="share" data-f="${esc(c.name)}">Sdílet</button></div>`;
     case 'netOff': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="netOn" data-what="${c.what === 'web' ? 'web' : 'airgap'}">${c.what === 'web' ? 'Zapnout veřejný web' : 'Vypnout Bez sítě'}</button></div>` : '';
+    case 'memClear': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn danger" data-act="memClearAll">Smazat celou paměť (${Number(c.n) || 0})</button><button class="btn ghost" data-act="libTab" data-tab="memory">Ukázat paměť</button></div>` : '';
     case 'setup': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button></div>` : '';
     case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
     case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + esc(c.breakEven) + ' ks' : ''}</div></div>`;
@@ -1186,6 +1187,7 @@ function act(a, d) {
     case 'delProc': if (confirm('Smazat uložený nástroj?')) { call('deleteProcedure', d.id); S.procs = null; library('procs'); } break;
     case 'memAdd': { const v = ($('#memText') || {}).value; if (v) { const r = call('memoryAdd', v); if (r) toast(r.ok ? 'Zapamatováno.' : r.reason, 5000); library('memory'); } break; }
     case 'memRevert': { const r = call('memoryRevert', d.id); toast(r ? 'Vráceno na: ' + r : 'Není co vrátit'); if ($('#layer').innerHTML) library('memory'); break; }
+    case 'memClearAll': { const n = call('memoryClear'); if (n !== null) { toast(`Smazáno ${Number(n) || 0} záznamů z paměti.`); S.mc = null; render(); } break; }
     case 'memForget': call('memoryForget', d.id); toast('Zapomenuto – i z indexu.'); library('memory'); break;
     case 'saveKey': saveKey(d.k); break;
     case 'checkKey': B.checkKey(d.k); { const el = $('#kc-' + d.k); if (el) el.textContent = 'Ověřuji…'; } break;
