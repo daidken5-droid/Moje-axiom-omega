@@ -38,6 +38,9 @@ class FuzzCoreTest {
             chk("Encoding", b.toList()) { Encoding.decode(b) }
             chk("CardApdu", b.toList()) { CardApdu.process(b, bytes(rnd.nextInt(20))); CardApdu.decode(b); CardApdu.splitSw(b) }
             chk("Wifi", s) { WifiScan.security(s); WifiTools.checkPassword(s, s.take(5)) }
+            val feed = "<rss><item><title>$s</title><link>https://a.cz/${i}</link><pubDate>${junk(30)}</pubDate><description>$s</description></item><item>${junk(40)}</item></rss>"
+            chk("News", feed) { val w = cz.axiom.vega.news.News.window(java.time.ZonedDateTime.now()); val it = cz.axiom.vega.news.News.parse(feed, "f") + cz.axiom.vega.news.News.parse(s, "g")
+                cz.axiom.vega.news.News.render(java.time.LocalDate.now(), cz.axiom.vega.news.News.topics(it, w).map { cz.axiom.vega.news.News.Summary(it, emptyList()) }, false); cz.axiom.vega.news.News.date(s) }
         }
         assertTrue(bad.joinToString("\n"), bad.isEmpty())
     }
