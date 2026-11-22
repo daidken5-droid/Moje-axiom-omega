@@ -560,7 +560,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val trimmed = JSONArray(); val from = maxOf(0, arr.length() - 300); for (i in from until arr.length()) trimmed.put(arr.get(i))
         kv.write(chatKey(chat), trimmed.toString()); chatWrites.incrementAndGet()
         if (m.optString("role") == "user") {
-            val cs = chats(); for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat && c.optString("title") == "Nový chat") { c.put("title", m.optString("text").take(40)); kv.write("chats.json", cs.toString()) } }
+            val cs = chats(); for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat && c.optString("title") == "Nový chat") { c.put("title", cz.axiom.vega.core.Mem.chatTitle(m.optString("text"), m.optJSONArray("files")?.let { f -> (0 until f.length()).map { f.optString(it) } } ?: emptyList())); kv.write("chats.json", cs.toString()) } }
         }
     }
 

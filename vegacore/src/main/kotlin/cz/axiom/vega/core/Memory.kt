@@ -74,6 +74,20 @@ object Mem {
 
     fun looksSecret(s: String) = secretRx.any { it.containsMatchIn(s) }
 
+    /**
+     * Název konverzace z první zprávy (vidí ho každý, kdo otevře menu): jeden řádek, celé slovo do 40 znaků s „…“,
+     * nerozpůlené emoji; zpráva jen s přílohou → název souboru; heslo / číslo karty se do názvu nedostane.
+     */
+    fun chatTitle(text: String, files: List<String> = emptyList()): String {
+        val one = text.replace(Regex("\\s+"), " ").trim()
+        if (one.isEmpty()) return files.firstOrNull()?.let { "📎 " + it.take(36) } ?: "Nový chat"
+        if (looksSecret(one)) return "Citlivá zpráva"
+        if (one.length <= 40) return one
+        var cut = one.lastIndexOf(' ', 39).takeIf { it >= 20 } ?: 39
+        if (Character.isHighSurrogate(one[cut - 1])) cut -= 1
+        return one.substring(0, cut).trimEnd(' ', ',', '.', ':', ';', '–', '-') + "…"
+    }
+
     private val STOP = setOf("vzdy", "nikdy", "prosim", "me", "mi", "mne", "jsem", "budu", "chci", "ze", "aby", "si", "se", "to", "ty", "ja", "rad", "rada", "pri", "kdyz", "na", "v", "ve", "a", "do")
     private val polarity = setOf("strucne", "podrobne", "kratce", "dlouze", "formalne", "neformalne", "anglicky", "cesky", "ano", "ne", "vzdy", "nikdy", "vic", "min", "tykej", "vykej")
 

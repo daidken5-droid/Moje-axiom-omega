@@ -172,3 +172,18 @@ class StatementCurrencyTest {
         assertEquals("USD", Statement.currency("$")); assertEquals("CZK", Statement.currency(" ")); assertEquals("PLN", Statement.currency("pln"))
     }
 }
+
+/** Scan S34 (22. 11.): název konverzace v menu – jeden řádek, celé slovo, žádné heslo, příloha místo prázdna. */
+class ChatTitleTest {
+    @Test fun titles() {
+        assertEquals("Kolik je 15 % z 2400", Mem.chatTitle("Kolik je 15 % z 2400"))
+        assertEquals("Napiš mi omluvný e-mail šéfovi, že…", Mem.chatTitle("Napiš mi omluvný e-mail šéfovi, že zítra nepřijdu do práce kvůli nemoci"))
+        assertEquals("Ahoj jak se máš", Mem.chatTitle("Ahoj\n\njak   se\tmáš"))
+        assertEquals("📎 vypis.csv", Mem.chatTitle("  ", listOf("vypis.csv")))
+        assertEquals("Citlivá zpráva", Mem.chatTitle("moje heslo: Tajne123 si zapiš"))
+        assertEquals("Nový chat", Mem.chatTitle(""))
+        val emoji = Mem.chatTitle("😀".repeat(30))
+        assertEquals("rozpůlené emoji", false, emoji.dropLast(1).lastOrNull()?.let { Character.isHighSurrogate(it) } ?: false)
+        org.junit.Assert.assertTrue(emoji.length <= 41)
+    }
+}
