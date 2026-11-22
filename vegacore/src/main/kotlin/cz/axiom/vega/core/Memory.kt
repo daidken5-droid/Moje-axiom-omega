@@ -92,7 +92,20 @@ object Mem {
     private val polarity = setOf("strucne", "podrobne", "kratce", "dlouze", "formalne", "neformalne", "anglicky", "cesky", "ano", "ne", "vzdy", "nikdy", "vic", "min", "tykej", "vykej")
 
     /** Téma preference: obsahová slova bez slov polarity („stručně/podrobně“) – aby se protichůdné verze potkaly. */
-    fun topicOf(text: String): String = Text.words(Text.fold(text).lowercase(), 2).filter { it !in STOP && it !in polarity }.take(3).map { it.take(6) }.joinToString(" ")
+    fun topicOf(text: String): String = slotOf(text) ?: Text.words(Text.fold(text).lowercase(), 2).filter { it !in STOP && it !in polarity }.take(3).map { it.take(6) }.joinToString(" ")
+
+    /**
+     * Údaje, které má člověk jen jeden (bydliště, jméno, práce, věk, partner): nová verze = oprava, ne druhý protichůdný
+     * záznam („Bydlím v Praze“ + „Bydlím v Brně“ by model dostal oba). Pes i kočka zároveň jsou v pořádku – to slot není.
+     */
+    private val slots = listOf(
+        "slot:bydliste" to Regex("^(ja )?(bydlim|ziju|bydlime|zijeme)( ted| nove)? (v|ve|na|u) "),
+        "slot:jmeno" to Regex("^(ja )?(se )?(jmenuju|jmenuji) se |^(moje|me) jmeno je |^rikej mi |^jsem [a-z]+ a jmenuju"),
+        "slot:prace" to Regex("^(ja )?(pracuju|pracuji|delam) (jako|ve|v|u) |^jsem povolanim |^(moje|me) prace je "),
+        "slot:vek" to Regex("^je mi \\d{1,3}( let| roku)?$|^mam \\d{1,3} let$|^narodil[a]? jsem se "),
+        "slot:partner" to Regex("^(moje |muj )?(manzelka|zena|manzel|muz|pritelkyne|pritel|partner|partnerka) se jmenuje "),
+    )
+    private fun slotOf(text: String): String? { val t = Text.fold(text).lowercase().trim().trimEnd('.', '!'); return slots.firstOrNull { it.second.containsMatchIn(t) }?.first }
 
     fun fingerprint(text: String) = Text.fold(text).lowercase().replace(Regex("[^a-z0-9]+"), " ").trim().hashCode().toString(16)
 
@@ -135,7 +148,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         val now = clock()
         val topic = Mem.topicOf(t)
         val list = load()
-        val same = list.firstOrNull { it.scope == scope && it.kind == kind && (it.topic == topic && topic.isNotEmpty() || Mem.fingerprint(it.text) == Mem.fingerprint(t)) }
+        val same = list.firstOrNull { it.scope == scope && it.kind == kind && ((it.topic == topic || Mem.topicOf(it.text) == topic) && topic.isNotEmpty() || Mem.fingerprint(it.text) == Mem.fingerprint(t)) }
         // znovu povoleno výslovně → zrušit náhrobek
         val ts = tombstones(); if (ts.remove(Mem.fingerprint(t))) kv.write("memory/forgotten", ts.joinToString("\n"))
         if (same != null) {

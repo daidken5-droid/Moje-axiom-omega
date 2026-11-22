@@ -187,3 +187,16 @@ class ChatTitleTest {
         org.junit.Assert.assertTrue(emoji.length <= 41)
     }
 }
+
+/** Scan S39 (22. 11.): jednohodnotové údaje v paměti se opravují, nehromadí (bydliště, jméno, práce, věk, partner). */
+class MemorySlotTest {
+    @Test fun slots() {
+        val m = Memory(MemKv()) { 1L }
+        for ((a, b) in listOf("Bydlím v Praze" to "Bydlím v Brně", "Jmenuju se Petr" to "Jmenuju se Pavel", "Je mi 30 let" to "Je mi 31 let", "Manželka se jmenuje Jana" to "Moje žena se jmenuje Eva")) {
+            m.remember(a); org.junit.Assert.assertTrue(b, m.remember(b) is Mem.Outcome.Corrected)
+        }
+        assertEquals(4, m.all().size)
+        // dvě zvířata zároveň jsou v pořádku
+        m.remember("Mám psa Rexe"); org.junit.Assert.assertTrue(m.remember("Mám kočku Micku") is Mem.Outcome.Saved)
+    }
+}
