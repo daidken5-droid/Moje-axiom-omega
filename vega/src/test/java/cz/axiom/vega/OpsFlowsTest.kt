@@ -178,4 +178,14 @@ class OpsFlowsTest {
         assertEquals(120, ids.toSet().size)
         assertEquals(120, (0 until o.chats().length()).map { o.chats().getJSONObject(it).getString("id") }.toSet().intersect(ids.toSet()).size)
     }
+
+    /** H13: konverzace, do které právě píšu, jde v menu nahoru (jako v ChatGPT). */
+    @Test fun activeChatMovesToTop() {
+        val r = Rec(); val o = ops(r)
+        val a = o.newChat(); ask(o, r, a, "kolik je 1+1"); val b = o.newChat(); ask(o, r, b, "kolik je 2+2")
+        assertEquals(b, o.chats().getJSONObject(0).getString("id"))
+        ask(o, r, a, "kolik je 3+3")
+        assertEquals(a, o.chats().getJSONObject(0).getString("id"))
+        assertEquals("Kolik je 1+1", o.chats().getJSONObject(0).getString("title").replaceFirstChar { it.uppercase() })
+    }
 }

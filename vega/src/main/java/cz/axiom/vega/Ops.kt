@@ -610,7 +610,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val trimmed = JSONArray(); val from = maxOf(0, arr.length() - MAX_MSGS); for (i in from until arr.length()) trimmed.put(arr.get(i))
         kv.write(chatKey(chat), trimmed.toString()); chatWrites.incrementAndGet()
         if (m.optString("role") == "user") {
-            val cs = chats(); for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat && c.optString("title") == "Nový chat") { c.put("title", cz.axiom.vega.core.Mem.chatTitle(m.optString("text"), m.optJSONArray("files")?.let { f -> (0 until f.length()).map { f.optString(it) } } ?: emptyList())); kv.write("chats.json", cs.toString()) } }
+            // jako v ChatGPT: konverzace, do které právě píšu, jde v menu nahoru (dřív zůstala na místě a „ztratila se“)
+            val cs = chats(); var me: JSONObject? = null; val rest = JSONArray()
+            for (i in 0 until cs.length()) { val c = cs.getJSONObject(i); if (c.getString("id") == chat) me = c else rest.put(c) }
+            me?.let { c ->
+                if (c.optString("title") == "Nový chat") c.put("title", cz.axiom.vega.core.Mem.chatTitle(m.optString("text"), m.optJSONArray("files")?.let { f -> (0 until f.length()).map { f.optString(it) } } ?: emptyList()))
+                c.put("at", System.currentTimeMillis())
+                val n = JSONArray().put(c); for (i in 0 until rest.length()) n.put(rest.get(i))
+                kv.write("chats.json", n.toString())
+            }
         }
     }
 
