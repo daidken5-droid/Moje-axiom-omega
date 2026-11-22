@@ -103,3 +103,13 @@ class ClaimSplitTest {
         org.junit.Assert.assertEquals(2, c("Např. Praha a tzv. Brno mají víc obyvatel [1]. To je fakt [2].").size)
     }
 }
+
+/** Scan S15 (22. 11.): paměť si nesmí uložit PIN, CVV, SMS kód ani heslo v laickém tvaru. */
+class SecretMemoryTest {
+    @org.junit.Test fun laikSecretsRejectedButNormalTextAllowed() {
+        for (s in listOf("můj PIN 4321", "pin kód od trezoru 0000", "CVV 123", "kód z SMS 482913", "ověřovací kód 123456", "heslo k e-mailu: Pes", "přihlašovací jméno jan.novak a heslo xyz12345"))
+            org.junit.Assert.assertTrue(s, Mem.looksSecret(s))
+        for (s in listOf("mám psa Rexe", "zapomněl jsem heslo k bance, co mám dělat", "jak si vytvořit silné heslo", "PIN kód nefunguje, co s tím", "pinMode(13, OUTPUT)", "const PIN_LENGTH = 4", "kód programu je v souboru main.kt"))
+            org.junit.Assert.assertFalse(s, Mem.looksSecret(s))
+    }
+}
