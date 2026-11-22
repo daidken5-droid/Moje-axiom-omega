@@ -127,3 +127,15 @@ class RouterProjectTest {
         assertTrue(Router.route("přejmenuj ten soubor na index.html", Router.Ctx(false, null, false, false, null)) !is Router.Intent.Research)
     }
 }
+
+/** Scan S11 (22. 11.): peněžní otázka k přiloženému výpisu → přesný nástroj (ne odhad modelu). */
+class RouterAttachmentTest {
+    @Test fun moneyQuestionsOnStatementFileUseTool() {
+        val csv = Router.Ctx(true, "vypis.csv", false, false, null); val pdf = Router.Ctx(true, "smlouva.pdf", false, false, null)
+        for (s in listOf("kolik jsem celkem utratil", "spočítej příjmy a výdaje", "jaké mám příjmy", "kolik mi přišlo na účet"))
+            assertTrue("$s → ${Router.route(s, csv)}", Router.route(s, csv) is Router.Intent.BuildStatementTool)
+        for (s in listOf("shrň to", "přelož to do angličtiny", "co je v tom souboru")) assertTrue(s, Router.route(s, csv) is Router.Intent.Talk)
+        // smlouva v PDF není výpis
+        assertTrue(Router.route("kolik jsem celkem utratil", pdf) !is Router.Intent.BuildStatementTool)
+    }
+}

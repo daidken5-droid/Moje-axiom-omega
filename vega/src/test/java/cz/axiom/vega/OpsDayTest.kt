@@ -78,4 +78,11 @@ class OpsDayTest {
         o.settings.airgap = false
         assertTrue(lastCard(r, o, c, "Operace Prato")?.optString("what") == "web")
     }
+
+    @Test fun laikMoneyQuestionWithoutWordStatementIsExact() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        val id = o.attach("vypis.csv", "text/csv", "Datum;Částka;Popis\n01.03.2026;1 000,00;Výplata\n02.03.2026;-250,00;Albert\n03.03.2026;-50,00;Lidl".toByteArray()).getString("id")
+        val a = ask(o, r, c, "kolik jsem celkem utratil", listOf(id)).replace('\u00a0', ' ').replace('\u202f', ' ')
+        assertTrue(a, a.contains("výdaje −300,00"))
+    }
 }
