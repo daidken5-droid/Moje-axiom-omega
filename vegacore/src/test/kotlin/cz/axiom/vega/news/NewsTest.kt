@@ -149,4 +149,14 @@ class NewsTest {
         for (bytes in listOf(xml.toByteArray(charset("windows-1250")), byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + xml.replace("windows-1250", "utf-8").toByteArray()))
             assertEquals("Žluťoučký kůň úpěl ďábelské ódy", News.parse(cz.axiom.vega.core.Encoding.decode(bytes), "a").single().title)
     }
+
+    /** H9: 7 zdrojů × 50 položek – sloučení do témat rychle (na telefonu je CPU ~5× pomalejší). */
+    @Test fun clusteringIsFast() {
+        val words = "vláda sněmovna rozpočet klima konference volby nehoda vlak dálnice počasí sníh soud policie nemocnice škola ceny energie benzín inflace banka sport fotbal hokej Ukrajina Rusko Izrael USA Trump Babiš Praha Brno Ostrava".split(' ')
+        val r = java.util.Random(1)
+        val items = (0 until 350).map { i -> item("s${i % 7}", (0 until 9).joinToString(" ") { words[r.nextInt(words.size)] } + " $i", "2026-11-22T12:00:00") }
+        val t0 = System.nanoTime(); val ts = News.topics(items, News.window(at("2026-11-23T05:20:00"))); val ms = (System.nanoTime() - t0) / 1_000_000
+        println("NEWS|350 položek → ${ts.size} témat za $ms ms")
+        assertTrue("$ms ms", ms < 200)
+    }
 }

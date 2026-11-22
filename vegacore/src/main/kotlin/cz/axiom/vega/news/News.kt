@@ -114,8 +114,9 @@ object News {
     /** Kmeny slov titulku (bez diakritiky, bez spojek, prvních 5 znaků) – „konferenci“ ~ „konference“. */
     fun stems(title: String): Set<String> = Text.words(Text.fold(title).lowercase(), 2).filter { it !in STOP }.map { it.take(5) }.toSet()
     /** Podobnost titulků: aspoň 4 společné kmeny a 40 % menšího titulku, nebo 3 a 50 % (dlouhé titulky o téže události). */
-    fun similar(a: String, b: String): Boolean {
-        val x = stems(a); val y = stems(b); val common = x.intersect(y).size
+    fun similar(a: String, b: String): Boolean = similarStems(stems(a), stems(b))
+    private fun similarStems(x: Set<String>, y: Set<String>): Boolean {
+        val common = x.count { it in y }
         val ratio = common.toDouble() / minOf(x.size, y.size).coerceAtLeast(1)
         return (common >= 4 && ratio >= 0.4) || (common >= 3 && ratio >= 0.5)
     }
@@ -124,8 +125,9 @@ object News {
     fun topics(items: List<Item>, w: Pair<Instant, Instant>, max: Int = MAX_TOPICS): List<Topic> {
         val inWin = items.filter { inWindow(it.published, w) }.distinctBy { it.link.substringBefore('#').substringBefore("?utm") }
         val groups = ArrayList<MutableList<Item>>()
+        val st = inWin.associateWith { stems(it.title) }  // kmeny jednou na položku (dřív v každém porovnání znovu)
         for (x in inWin.sortedByDescending { it.published }) {
-            val g = groups.firstOrNull { g -> g.any { y -> similar(x.title, y.title) } }
+            val g = groups.firstOrNull { g -> g.any { y -> similarStems(st.getValue(x), st.getValue(y)) } }
             if (g != null) g += x else groups += mutableListOf(x)
         }
         return groups.map { Topic(it) }.sortedWith(compareByDescending<Topic> { it.sources.size }.thenByDescending { it.newest }).take(max)
