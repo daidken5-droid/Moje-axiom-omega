@@ -53,6 +53,8 @@ class NewsTest {
         assertEquals("Jednání v turecké Antalyi & COP31", items[0].perex)
         assertEquals(Instant.parse("2026-11-22T12:57:31Z"), items[0].published)
         assertEquals(Instant.parse("2026-11-22T14:41:32Z"), items[1].published)
+        assertEquals("sledovací parametry pryč", "https://www.idnes.cz/x", items[1].link)
+        assertEquals("https://a.cz/c?id=5", News.untrack("https://a.cz/c?utm_source=rss&id=5&utm_medium=feed"))
         assertTrue("perex zkrácený, ne celý článek", items[1].perex.length <= News.PEREX_MAX + 1)
         // Atom
         val atom = "<feed><entry><title>Atom zpráva</title><link href=\"https://x.cz/a\"/><updated>2026-11-22T10:25:01Z</updated></entry></feed>"
@@ -82,6 +84,7 @@ class NewsTest {
         val topics = News.topics(items, News.window(at("2026-11-23T05:20:00")))
         assertEquals("klima (3), vlak (2), fotbal, stejný odkaz", 4, topics.size)
         assertEquals(3, topics[0].sources.size); assertTrue(topics[0].title.contains("klimatick"))
+        assertTrue(News.render(java.time.LocalDate.of(2026, 11, 23), topics.map { News.Summary(it, emptyList()) }, false).contains("_(3 zdroje)_"))
         assertEquals(2, topics[1].sources.size); assertTrue(topics[1].title.contains("vlak", true) || topics[1].title.contains("přejezd"))
         assertTrue(topics.none { it.title.contains("Mimo okno") })
         // max 10 témat
@@ -106,8 +109,25 @@ class NewsTest {
         assertTrue(md, md.contains("[Novinky.cz](https://novinky.cz/") && md.contains("**2. Na přejezdu") && md.contains("[iDNES.cz]("))
         // bez modelu: titulky + odkazy
         val plain = News.render(java.time.LocalDate.of(2026, 11, 23), topics.map { News.Summary(it, emptyList()) }, withModel = false)
-        assertTrue(plain, plain.contains("bez jazykového modelu") && plain.contains("perex Jednání") && plain.contains("[ČT24](https://ct24.cz/"))
+        assertTrue(plain, plain.contains("bez jazykového modelu") && plain.contains("Číst: ") && plain.contains("[ČT24](https://ct24.cz/"))
         // prázdno
         assertTrue(News.render(java.time.LocalDate.of(2026, 11, 23), emptyList(), true).contains("nic nenašel"))
+    }
+
+    /** Obsáhlejší souhrn bez modelu: věty z perexů různých webů, opakování jen jednou, každá s odkazem na svůj článek. */
+    @Test fun extractiveSummaryFromSeveralSources() {
+        val d = at("2026-11-22T15:00:00").toInstant()
+        val a = News.Item("novinky", "Jednání na klimatické konferenci zkolabovala po neshodě na deklaraci", "https://www.novinky.cz/a1", d,
+            "Jednání na nejdéle trvající klimatické konferenci OSN v historii zkolabovala, uvedla agentura Reuters. Stalo se tak poté, co se státy neshodly na společné deklaraci, jak již dříve řekl předseda konference.")
+        val b = News.Item("ct24", "Jednání na nejdelší klimatické konferenci OSN v historii zkolabovala", "https://ct24.ceskatelevize.cz/a/1", d,
+            "Jednání na klimatické konferenci COP31 v turecké Antalyi v neděli podle agentury Reuters zkolabovala. Oproti plánovanému konci se konference protáhla o 44 hodin a překonala tak rekord v délce trvání. Irské předsednictví EU uvedlo, že Unie přijetí nepodpoří.")
+        val t = News.topics(listOf(a, b), News.window(at("2026-11-23T05:20:00"))).single()
+        val ex = News.extract(t)
+        assertTrue(ex.toString(), ex.size in 3..News.SENTENCES_PER_TOPIC)
+        assertTrue("obě redakce", ex.map { it.second.source }.toSet() == setOf("novinky", "ct24"))
+        assertTrue("44 hodin z ČT24", ex.any { it.first.contains("44 hodin") && it.second.source == "ct24" })
+        val md = News.render(java.time.LocalDate.of(2026, 11, 23), listOf(News.Summary(t, emptyList())), withModel = false)
+        assertTrue(md, md.contains("[(ČT24)](https://ct24.ceskatelevize.cz/a/1)") && md.contains("Číst: "))
+        assertTrue("žádná věta dvakrát", ex.map { it.first }.distinct().size == ex.size)
     }
 }

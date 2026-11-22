@@ -15,6 +15,8 @@ class NewsProbe {
             items
         }
         val w = News.window(java.time.ZonedDateTime.now(News.ZONE).plusDays(1).withHour(5).withMinute(20))
-        News.topics(all, w).forEachIndexed { i, t -> println("PROBE|téma ${i + 1}|${t.sources.size} zdr.|${t.sources}|${t.title.take(90)}") }
+        val ts = News.topics(all, w)
+        ts.forEachIndexed { i, t -> println("PROBE|téma ${i + 1}|${t.sources.size} zdr.|${t.sources}|${t.title.take(90)}") }
+        println("PROBE|RENDER\n" + News.render(java.time.LocalDate.now(News.ZONE), ts.take(3).map { News.Summary(it, emptyList()) }, false))
     }
 }

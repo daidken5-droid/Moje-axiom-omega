@@ -13,7 +13,7 @@ import java.util.Locale
  * RANNÍ PŘEHLED ZPRÁV – čisté jádro (testovatelné bez Androidu): zdroje, čtení RSS/Atom, časové okno 05:20 → 05:20
  * (Europe/Prague, i přes přechod letního/zimního času), sloučení stejné události z různých webů, výběr max 10 témat,
  * kontrola souhrnu z modelu (věta bez zdroje se vyřadí) a záloha „titulky + odkazy“. Nikdy se nekopírují celé články:
- * z RSS se bere jen titulek, odkaz, čas a perex zkrácený na [PEREX_MAX] znaků.
+ * z RSS se bere jen titulek, odkaz, čas a perex (úvod od vydavatele) zkrácený na [PEREX_MAX] znaků.
  */
 object News {
     data class Source(val id: String, val name: String, val url: String, val defaultOn: Boolean)
@@ -33,7 +33,10 @@ object News {
 
     val ZONE: ZoneId = ZoneId.of("Europe/Prague")
     val CUTOFF: LocalTime = LocalTime.of(5, 20)
-    const val PEREX_MAX = 280
+    /** Perex z RSS (úvod, který web sám dává do kanálu) – nikdy celý článek. */
+    const val PEREX_MAX = 600
+    /** Kolik vět z perexů na jedno téma (z různých webů, bez opakování). */
+    const val SENTENCES_PER_TOPIC = 4
     const val MAX_TOPICS = 10
 
     data class Item(val source: String, val title: String, val link: String, val published: Instant?, val perex: String)
@@ -48,13 +51,21 @@ object News {
             val title = clean(tag(b, "title") ?: return@mapNotNull null).take(300)
             val link = (tag(b, "link")?.let { clean(it) }?.takeIf { it.isNotBlank() }
                 ?: Regex("(?is)<link\\b[^>]*href=[\"']([^\"']+)[\"']").find(b)?.groupValues?.get(1)?.let { clean(it) })
-                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") } ?: return@mapNotNull null
+                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { untrack(it) } ?: return@mapNotNull null
             if (title.isBlank()) return@mapNotNull null
             val date = (tag(b, "pubDate") ?: tag(b, "dc:date") ?: tag(b, "published") ?: tag(b, "updated"))?.let { date(clean(it)) }
             val perex = clean(tag(b, "description") ?: tag(b, "summary") ?: "").let { if (it.length > PEREX_MAX) it.take(PEREX_MAX).substringBeforeLast(' ') + "…" else it }
             Item(source, title, link, date, perex)
         }
     }.getOrDefault(emptyList())
+
+    /** Odkaz bez sledovacích parametrů (utm_…, #utm…) – kratší a nic navíc o uživateli. */
+    fun untrack(u: String): String {
+        val noFrag = if (Regex("#.*utm_", RegexOption.IGNORE_CASE).containsMatchIn(u)) u.substringBefore('#') else u
+        val q = noFrag.substringAfter('?', ""); if (q.isEmpty()) return noFrag
+        val keep = q.split('&').filter { !it.lowercase().startsWith("utm_") }
+        return noFrag.substringBefore('?') + if (keep.isEmpty()) "" else "?" + keep.joinToString("&")
+    }
 
     private fun tag(b: String, name: String): String? = Regex("(?is)<$name\\b[^>]*>(.*?)</$name>").find(b)?.groupValues?.get(1)
 
@@ -160,10 +171,30 @@ object News {
             (0..w.size - 12).any { k -> pw.contains(w.subList(k, k + 12).joinToString(" ")) } }
     }
 
-    /** První věta perexu (z RSS, max 160 znaků) – krátké „o čem to je“ bez modelu; nikdy celý článek. */
-    fun lead(t: Topic): String? = t.items.map { it.perex }.firstOrNull { it.length >= 20 }?.let { p ->
-        val first = Regex("^(.{20,}?[.!?])(\\s|$)").find(p)?.groupValues?.get(1) ?: p
-        if (first.length > 160) first.take(160).substringBeforeLast(' ') + "…" else first }
+    /**
+     * Obsáhlejší souhrn tématu BEZ modelu: věty z perexů všech webů, které o tématu psaly, střídavě po zdrojích (víc úhlů
+     * pohledu), podobné věty jen jednou, max [SENTENCES_PER_TOPIC] vět a ~700 znaků. Každá věta s odkazem na svůj článek.
+     */
+    fun extract(t: Topic): List<Pair<String, Item>> {
+        val perSource = t.items.distinctBy { it.source }.map { item ->
+            item to Regex("[^.!?…]+[.!?…]+[\"“”»)]*|[^.!?…]+$").findAll(item.perex).map { it.value.trim() }
+                .filter { it.length in 25..400 && !it.endsWith("…") && !similarSentence(it, t.title) }.toList()
+        }
+        val out = ArrayList<Pair<String, Item>>(); var chars = 0; var round = 0
+        while (out.size < SENTENCES_PER_TOPIC && chars < 700 && perSource.any { it.second.size > round }) {
+            for ((item, ss) in perSource) {
+                val sn = ss.getOrNull(round) ?: continue
+                if (out.size >= SENTENCES_PER_TOPIC || chars >= 700) break
+                if (out.none { similarSentence(it.first, sn) }) { out += sn to item; chars += sn.length }
+            }
+            round++
+        }
+        return out
+    }
+    private fun similarSentence(a: String, b: String): Boolean {
+        val x = stems(a); val y = stems(b); val c = x.intersect(y).size
+        return c >= 3 && c.toDouble() / minOf(x.size, y.size).coerceAtLeast(1) >= 0.6
+    }
 
     private fun name(id: String) = source(id)?.name ?: id
     private fun mdLink(text: String, url: String) = "[${text.replace("]", ")").replace("[", "(")}](${url.replace(")", "%29")})"
@@ -175,8 +206,9 @@ object News {
         val body = sums.mapIndexed { i, s ->
             val t = s.topic
             val links = t.items.distinctBy { it.source }.joinToString(" · ") { mdLink(name(it.source), it.link) }
-            val head = "**${i + 1}. ${t.title}**" + if (t.sources.size > 1) " _(${t.sources.size} zdroje)_" else ""
-            if (s.sentences.isEmpty()) "$head\n" + (lead(t)?.let { "$it " } ?: "") + links
+            val head = "**${i + 1}. ${t.title}**" + if (t.sources.size > 1) " _(${t.sources.size} ${if (t.sources.size in 2..4) "zdroje" else "zdrojů"})_" else ""
+            if (s.sentences.isEmpty()) "$head\n" + extract(t).joinToString(" ") { (sn, it) -> "$sn ${mdLink("(" + name(it.source) + ")", it.link)}" }.let { if (it.isBlank()) "" else "$it\n" } +
+                "Číst: " + t.items.distinctBy { it.source }.joinToString(" · ") { mdLink(name(it.source), it.link) }
             else "$head\n" + s.sentences.joinToString(" ") { sn -> sn.text + " " + sn.refs.mapNotNull { r[it] }.joinToString(" ") { mdLink(name(it.source), it.link) } }
         }.joinToString("\n\n")
         return "**Ranní přehled ${date.dayOfMonth}. ${date.monthValue}.** (včera 05:20 → dnes 05:20)\n\n$body" +

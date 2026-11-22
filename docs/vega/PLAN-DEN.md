@@ -132,3 +132,7 @@ nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi ce
 - **Úprava (22. 11. 17:00, na žádost):** přehled je nezávislý na jazykovém modelu i cloud AI – model se nevolá vůbec (ani
   bezplatný). Každé téma: titulek, první věta perexu z RSS (≤ 160 znaků) a odkazy na všechny zdroje. Test
   `OpsNewsTest.newsNeverCallsModel` (připojený falešný model se nezavolá ani jednou).
+- **Úprava (22. 11. 17:10, na žádost – obsáhlejší přehled):** u každého tématu až 4 věty z perexů všech webů, které o něm
+  psaly (střídavě po zdrojích, opakující se věty jen jednou, ~700 znaků), každá věta s odkazem na svůj článek, pod tím
+  „Číst:“ s odkazy na všechny články. Pořád bez jazykového modelu; perex z RSS ≤ 600 znaků, nikdy celý článek.
+  Odkazy bez sledovacích parametrů utm_. Test `NewsTest.extractiveSummaryFromSeveralSources`.

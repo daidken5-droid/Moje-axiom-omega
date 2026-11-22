@@ -23,7 +23,7 @@ import java.time.ZonedDateTime
 class OpsNewsTest {
     private val ctx = RuntimeEnvironment.getApplication()
     private val now: ZonedDateTime = LocalDateTime.parse("2026-11-23T05:20:00").atZone(cz.axiom.vega.news.News.ZONE)
-    private fun rss(vararg items: Triple<String, String, String>) = ("<rss><channel>" + items.joinToString("") { (t, l, d) -> "<item><title>$t</title><link>$l</link><pubDate>$d</pubDate><description>Perex: $t</description></item>" } + "</channel></rss>").toByteArray()
+    private fun rss(vararg items: Triple<String, String, String>) = ("<rss><channel>" + items.joinToString("") { (t, l, d) -> "<item><title>$t</title><link>$l</link><pubDate>$d</pubDate><description>Událost se podle redakce odehrála v neděli a úřady ji dál prověřují. Doplňující podrobnosti k tématu: $t.</description></item>" } + "</channel></rss>").toByteArray()
     private val novinky = rss(Triple("Jednání na klimatické konferenci zkolabovala po neshodě na deklaraci", "https://www.novinky.cz/a1", "Sun, 22 Nov 2026 15:00:00 +0100"),
         Triple("Hraniční zpráva přesně v 05:20", "https://www.novinky.cz/edge", "Mon, 23 Nov 2026 05:20:00 +0100"),
         Triple("Těsně před koncem okna", "https://www.novinky.cz/last", "Mon, 23 Nov 2026 05:19:59 +0100"))
@@ -41,7 +41,8 @@ class OpsNewsTest {
         assertTrue("05:19:59 patří do okna", txt.contains("Těsně před koncem okna"))
         assertFalse("05:20:00 už ne", txt.contains("Hraniční zpráva"))
         assertTrue(txt.contains("bez jazykového modelu"))
-        assertTrue("1. věta perexu jako krátké shrnutí", txt.contains("Perex: Jednání na klimatické konferenci"))
+        assertTrue("věty z perexů s odkazem na článek", txt.contains("Událost se podle redakce odehrála v neděli a úřady ji dál prověřují. [(Novinky.cz)](https://www.novinky.cz/a1)") || txt.contains("prověřují. [(iDNES.cz)](https://www.idnes.cz/b1)"))
+        assertTrue(txt.contains("Číst: [Novinky.cz](https://www.novinky.cz/a1) · [iDNES.cz](https://www.idnes.cz/b1)") || txt.contains("Číst: [iDNES.cz](https://www.idnes.cz/b1) · [Novinky.cz](https://www.novinky.cz/a1)"))
         assertTrue(o.newsDoneFor(java.time.LocalDate.of(2026, 11, 23)))
         assertTrue(o.chats().toString().contains("Ranní přehled 23. 11."))
     }
