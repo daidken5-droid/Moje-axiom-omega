@@ -81,17 +81,17 @@ object NewsAlarms {
 /** Alarmy přehledu + obnova plánu po restartu / změně času. Práce běží mimo hlavní vlákno (goAsync), nejvýš ~50 s. */
 class NewsReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        val app = ctx.applicationContext as VegaApp
+        val app = ctx.applicationContext
         val s = Settings(app)
         when (intent.action) {
             NewsAlarms.ATTEMPT, NewsAlarms.NOTIFY, NewsAlarms.RETRY -> {}
-            else -> { NewsAlarms.schedule(app, s.newsEnabled); return }  // BOOT_COMPLETED, TIME_SET, TIMEZONE_CHANGED, MY_PACKAGE_REPLACED
+            else -> { NewsAlarms.schedule(app, s.newsEnabled); return }  // BOOT_COMPLETED, TIME_SET, TIMEZONE_CHANGED, MY_PACKAGE_REPLACED, povolení přesných budíků (přeplánovat přesně)
         }
         if (!s.newsEnabled && intent.action != NewsAlarms.RETRY) return
         val pending = goAsync()
         Thread {
             try {
-                val ops = app.opsHeadless()
+                val ops = (app as VegaApp).opsHeadless()
                 val day = intent.getStringExtra("day")?.let { LocalDate.parse(it) } ?: LocalDate.now(News.ZONE)
                 when (intent.action) {
                     NewsAlarms.ATTEMPT -> if (!ops.newsDoneFor(day)) { val r = ops.newsDigest()

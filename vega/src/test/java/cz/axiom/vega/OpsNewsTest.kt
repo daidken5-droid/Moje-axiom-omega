@@ -112,4 +112,20 @@ class OpsNewsTest {
         assertTrue(txt, txt.startsWith("**Přehled zpráv – posledních 24 hodin** (do 17:00)") && txt.contains("Odpolední zpráva") && !txt.contains("Předvčerejší"))
         assertFalse("ranní plán nedotčen", o.newsDoneFor(java.time.LocalDate.of(2026, 11, 23)))
     }
+
+    /** H11: restart telefonu / změna času / povolení přesných budíků → přijímač plán obnoví (jen když je přehled zapnutý). */
+    @Test fun receiverReschedulesOnSystemEvents() {
+        val sh = org.robolectric.Shadows.shadowOf(ctx.getSystemService(android.app.AlarmManager::class.java))
+        val s = Settings(ctx)
+        for (a in listOf(android.content.Intent.ACTION_BOOT_COMPLETED, android.content.Intent.ACTION_TIMEZONE_CHANGED, "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED")) {
+            s.newsEnabled = false; NewsAlarms.schedule(ctx, false)
+            NewsReceiver().onReceive(ctx, android.content.Intent(a)); assertEquals(a, 0, sh.scheduledAlarms.size)
+            s.newsEnabled = true
+            NewsReceiver().onReceive(ctx, android.content.Intent(a)); assertEquals(a, 2, sh.scheduledAlarms.size)
+        }
+        // přijímač je v manifestu zaregistrovaný na všechny tři události
+        val m = java.io.File("src/main/AndroidManifest.xml").readText()
+        val rec = m.substringAfter("android:name=\".NewsReceiver\"").substringBefore("</receiver>")
+        for (a in listOf("BOOT_COMPLETED", "TIME_SET", "TIMEZONE_CHANGED", "MY_PACKAGE_REPLACED", "SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED")) assertTrue(a, rec.contains(a))
+    }
 }
