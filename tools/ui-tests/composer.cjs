@@ -36,4 +36,9 @@ mock.messages=[{role:'user',text:'x'}];mock.chats=[{id:'e1'}];run("S.space={kind
 // tlačítko z hlášky „Vypnout Bez sítě“ / „Zapnout veřejný web“ opravdu přepne nastavení
 run("renderTop=()=>{};");calls.length=0;
 run("act('netOn',{what:'airgap'}); act('netOn',{what:'web'})");assert.deepEqual(calls.filter(c=>c[0]==='setSetting').map(c=>c.slice(1).join('=')),['airgap=false','webAllowed=true']);
-console.log('15 UI logic scenarios passed.');
+// vadná karta (stará verze, chybí pole) nesmaže celou konverzaci – jen se nahradí poznámkou
+assert.match(run("safeCard({type:'diff'},true)"),/nejde zobrazit/);
+// nezobrazitelný dotaz na souhlas se odmítne (nativní strana nečeká 5 minut, nic neodejde)
+run("console.error=()=>{}; toast=()=>{};");calls.length=0;run("window.vega.on('consent',{req:'r9'})");
+assert.ok(calls.some(c=>c[0]==='answer'&&c[1]==='r9'&&/false/.test(c[2])),'souhlas má být odmítnut');
+console.log('17 UI logic scenarios passed.');

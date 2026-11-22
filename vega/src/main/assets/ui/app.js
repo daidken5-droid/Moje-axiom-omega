@@ -93,7 +93,7 @@ function renderStream() {
   const last = list[list.length - 1];
   el.innerHTML = (shown.length < list.length ? `<button class="pill older" data-act="older">Zobrazit starší zprávy (${list.length - shown.length})</button>` : '') + shown.map(m => m.role === 'user'
     ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
-    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${card(m.card, m === last)}</div>`).join('') +
+    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${safeCard(m.card, m === last)}</div>`).join('') +
     (S.busy && (!S.busyChat || S.busyChat === chatId()) ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
   if (!el.dataset.sl) { el.dataset.sl = '1'; el.addEventListener('scroll', () => { S.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (S.stick) jumpPill(false); }, { passive: true }); }
   if (S.stick !== false) el.scrollTop = el.scrollHeight;
@@ -180,6 +180,10 @@ function auditHtml(a) {
 }
 const diffHtml = d => `<pre class="diff">${String(d || '').split('\n').slice(0, 400).map(l => `<span class="${l.startsWith('@@') ? 'h' : l[0] === '+' ? 'a' : l[0] === '-' ? 'd' : ''}">${esc(l)}</span>`).join('\n')}</pre>`;
 
+/** Karta uložená starší verzí nebo s chybějícím polem nesmí shodit vykreslení celé konverzace. */
+function safeCard(c, isLast) {
+  try { return card(c, isLast); } catch (e) { console.error('karta', c && c.type, e); return '<div class="note">(Tuhle část odpovědi nejde zobrazit – text výše platí.)</div>'; }
+}
 function card(c, isLast) {
   if (!c) return '';
   switch (c.type) {
@@ -870,6 +874,12 @@ try {
 /* ------------------------------------------------------------------ události z Kotlinu */
 window.vega = {
   on(type, d) {
+    // jedna vadná / neúplná událost nesmí zaseknout UI („pracuji…“ navždy) – zbytek aplikace jede dál
+    try { this.dispatch(type, d || {}); } catch (e) { console.error('událost', type, e); if (type === 'done' || type === 'idle' || type === 'error') { S.busy = false; render(); }
+      // nezobrazitelný dotaz na souhlas / cenu = „ne“ (nic neodejde ani se nezaplatí) – jinak by úloha 5 minut čekala
+      if ((type === 'consent' || type === 'approve') && d && d.req) { try { B.answer(d.req, JSON.stringify({ ok: false })); } catch (x) { } S.req = null; } toast('Něco se nepodařilo zobrazit – zkus to prosím znovu.'); }
+  },
+  dispatch(type, d) {
     switch (type) {
       case 'message':
         S.stream = ''; if (!(d.msg && d.msg.card && d.msg.card.type === 'nfcWait')) S.nfc = false;
