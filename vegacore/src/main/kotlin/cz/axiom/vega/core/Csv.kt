@@ -140,15 +140,23 @@ object CzNum {
         // „1.2.26“ – dvoumístný rok (některé banky a ruční tabulky) = 20yy
         Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{2})(?![\\d.])") to "dmy2",
         Regex("^(\\d{1,2})/(\\d{1,2})/(\\d{4})") to "dmy",
+        Regex("^(\\d{4})/(\\d{1,2})/(\\d{1,2})") to "ymd",
+        Regex("^(\\d{1,2})-(\\d{1,2})-(\\d{4})") to "dmy",
     )
+    private val MONTHS = listOf("ledn", "unor", "brez", "dub", "kvet", "cervna", "cervence", "srp", "zar", "rij", "listopad", "prosin")
 
     /** Datum → ISO (yyyy-mm-dd), nebo null. */
     fun date(raw: String): String? {
-        val s = raw.trim()
+        val s0 = raw.trim()
+        // „1. března 2026“ → „1.3.2026“ (český název měsíce; „června“ × „července“ se rozlišují celým kmenem)
+        val s = Regex("^(\\d{1,2})\\.?\\s+([a-zA-Zá-žÁ-Ž]+)\\s+(\\d{4})").find(s0)?.let { m ->
+            val w = cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()
+            val i = MONTHS.indexOfFirst { w.startsWith(it) }.takeIf { it >= 0 } ?: when { w == "cerven" -> 5; w.startsWith("cervenec") -> 6; else -> -1 }
+            if (i >= 0) "${m.groupValues[1]}.${i + 1}.${m.groupValues[3]}" else null } ?: s0
         for ((rx, kind) in dateRx) {
             val m = rx.find(s) ?: continue
             val (a, b, c) = m.destructured
-            val (y, mo, d) = when (kind) { "ymd" -> Triple(a.toInt(), b.toInt(), c.toInt()); "dmy2" -> Triple(2000 + c.toInt(), b.toInt(), a.toInt()); else -> Triple(c.toInt(), b.toInt(), a.toInt()) }
+            val (y, mo, d) = when (kind) { "ymd" -> Triple(a.toInt(), b.toInt(), c.toInt()); "dmy2" -> Triple(c.toInt().let { yy -> if (2000 + yy > java.time.LocalDate.now().year + 10) 1900 + yy else 2000 + yy }, b.toInt(), a.toInt()); else -> Triple(c.toInt(), b.toInt(), a.toInt()) }
             if (mo !in 1..12 || d !in 1..31) return null
             return runCatching { java.time.LocalDate.of(y, mo, d).toString() }.getOrNull()
         }

@@ -74,3 +74,18 @@ class NumbersEdgeTest {
         org.junit.Assert.assertEquals("12345678901 * 1000 = 12 345 678 901 000", cz.axiom.vega.calc.Quick.answer("12345678901 * 1000"))
     }
 }
+
+/** Scan S5 (22. 11.): formáty data ve výpisech. */
+class DateFormatsTest {
+    @org.junit.Test fun formats() {
+        val d = mapOf("12.11.99" to "1999-11-12", "01.03.26" to "2026-03-01", "2026/03/01" to "2026-03-01", "01-03-2026" to "2026-03-01",
+            "1. března 2026" to "2026-03-01", "5. června 2026" to "2026-06-05", "5. července 2026" to "2026-07-05", "5 červen 2026" to "2026-06-05",
+            "2026-03-01T14:22:00" to "2026-03-01", "29.02.2028" to "2028-02-29")
+        d.forEach { (raw, iso) -> org.junit.Assert.assertEquals(raw, iso, CzNum.date(raw)) }
+        for (bad in listOf("31.02.2026", "29.02.2027", "01.13.2026", "20250115", "1.3.")) org.junit.Assert.assertNull(bad, CzNum.date(bad))
+    }
+    @org.junit.Test fun statementWithOldTwoDigitYears() {
+        val r = Statement.process("Datum;Částka;Popis\n15.12.99;100,00;A\n02.01.00;-40,00;B", Statement.detect("Datum;Částka;Popis\n15.12.99;100,00;A\n02.01.00;-40,00;B").spec!!)
+        org.junit.Assert.assertEquals("1999-12-15", r.table.rows[0][0]); org.junit.Assert.assertEquals("2000-01-02", r.table.rows[1][0])
+    }
+}
