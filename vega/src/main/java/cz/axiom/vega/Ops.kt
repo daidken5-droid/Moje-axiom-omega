@@ -1761,10 +1761,12 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * cloud AI (na žádost 22. 11.): titulek, první věta perexu z RSS (zkrácená) a odkazy na všechny zdroje tématu.
      * Výsledek = nová konverzace „Ranní přehled d. m.“.
      */
-    fun newsDigest(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(cz.axiom.vega.news.News.ZONE)): NewsResult {
+    fun newsDigest(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(cz.axiom.vega.news.News.ZONE), manual: Boolean = false): NewsResult {
         val N = cz.axiom.vega.news.News
-        val w = N.window(now); val day = java.time.LocalDateTime.ofInstant(w.second, N.ZONE).toLocalDate()
-        fun done(r: NewsResult) = r.also { kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
+        // ruční „Vyzkoušet teď“: posledních 24 h do TEĎ (ne zprávy staré do 05:20) a ranní plán se tím neoznačí jako hotový
+        val w = if (manual) now.toInstant().minus(java.time.Duration.ofHours(24)) to now.toInstant().plusSeconds(1) else N.window(now)
+        val day = java.time.LocalDateTime.ofInstant(w.second, N.ZONE).toLocalDate()
+        fun done(r: NewsResult) = r.also { if (!manual) kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
         if (settings.airgap) return done(NewsResult(false, "Je zapnutý režim Bez sítě – přehled jsem nestahoval.", null))
         val srcs = N.SOURCES.filter { it.id in settings.newsSources }
         if (srcs.isEmpty()) return done(NewsResult(false, "Nemáš zapnutý žádný zdroj (Nastavení › Ranní přehled zpráv).", null))
@@ -1774,8 +1776,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (got.all { it == null }) return done(NewsResult(false, "Žádný zdroj nešel stáhnout – zkontroluj internet.", null))
         val topics = N.topics(got.filterNotNull().flatten(), w)
         // nezávisle na jazykovém modelu i cloudu: jen RSS → deterministický přehled (titulek, 1. věta perexu, odkazy)
-        val text = N.render(day, topics.map { cz.axiom.vega.news.News.Summary(it, emptyList()) }, withModel = false)
-        val chat = newChat(); renameChat(chat, "Ranní přehled ${day.dayOfMonth}. ${day.monthValue}.")
+        val text = N.render(day, topics.map { cz.axiom.vega.news.News.Summary(it, emptyList()) }, withModel = false).let {
+            if (manual) it.replaceFirst(Regex("^\\*\\*Ranní přehled [^*]+\\*\\*( \\(včera 05:20 → dnes 05:20\\))?"), "**Přehled zpráv – posledních 24 hodin** (do ${"%02d:%02d".format(now.hour, now.minute)})") else it }
+        val chat = newChat(); renameChat(chat, if (manual) "Zprávy ${day.dayOfMonth}. ${day.monthValue}. ${"%02d:%02d".format(now.hour, now.minute)}" else "Ranní přehled ${day.dayOfMonth}. ${day.monthValue}.")
         addMsg(chat, JSONObject().put("role", "vega").put("text", text))
         emit("chats", JSONObject())
         val failed = srcs.zip(got).filter { it.second == null }.map { it.first.name }

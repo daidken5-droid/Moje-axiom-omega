@@ -100,4 +100,16 @@ class OpsNewsTest {
         NewsAlarms.schedule(ctx, enabled = true, now = LocalDateTime.parse("2026-11-23T05:25:00").atZone(z))
         assertEquals(listOf(NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 28), NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 30)), sh.scheduledAlarms.map { it.triggerAtTime }.sorted())
     }
+
+    /** H10: „Vyzkoušet teď“ = posledních 24 h do teď (ne zprávy do 05:20) a ranní přehled tím neoznačí jako hotový. */
+    @Test fun manualRunUsesLast24hAndKeepsSchedule() {
+        val later = LocalDateTime.parse("2026-11-23T17:00:00").atZone(cz.axiom.vega.news.News.ZONE)
+        val feed = rss(Triple("Odpolední zpráva o rozpočtu", "https://www.novinky.cz/pm", "Mon, 23 Nov 2026 15:00:00 +0100"),
+            Triple("Předvčerejší zpráva", "https://www.novinky.cz/old", "Sat, 21 Nov 2026 15:00:00 +0100"))
+        val o = ops { feed }
+        val r = o.newsDigest(later, manual = true)
+        val txt = o.messages(r.chat!!).getJSONObject(0).getString("text")
+        assertTrue(txt, txt.startsWith("**Přehled zpráv – posledních 24 hodin** (do 17:00)") && txt.contains("Odpolední zpráva") && !txt.contains("Předvčerejší"))
+        assertFalse("ranní plán nedotčen", o.newsDoneFor(java.time.LocalDate.of(2026, 11, 23)))
+    }
 }

@@ -547,7 +547,7 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun editLast(id: String) = safe { ops.takeLastUser(id) ?: "" }
     @JavascriptInterface fun regenerate(id: String) = safe { ops.regenerate(id) }
     @JavascriptInterface fun searchChats(q: String) = safe { ops.searchChats(q.take(100)) }
-    @JavascriptInterface fun newsRunNow() = safe { Thread { val r = runCatching { ops.newsDigest() }.getOrElse { Ops.NewsResult(false, "Nepovedlo se: ${it.javaClass.simpleName}", null) }
+    @JavascriptInterface fun newsRunNow() = safe { Thread { val r = runCatching { ops.newsDigest(manual = true) }.getOrElse { Ops.NewsResult(false, "Nepovedlo se: ${it.javaClass.simpleName}", null) }
         a.send("newsDone", JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "")) }.start(); true }
     @JavascriptInterface fun newsExact() = safe { JSONObject().put("exact", NewsAlarms.exactAllowed(a)) }
     @JavascriptInterface fun newsAllowExact() = safe { if (android.os.Build.VERSION.SDK_INT >= 31) a.startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + a.packageName))); true }
