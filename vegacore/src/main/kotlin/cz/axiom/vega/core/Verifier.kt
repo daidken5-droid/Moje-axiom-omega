@@ -40,6 +40,8 @@ object Grounding {
             if (ch == '\n') { if (i > start) out += t.substring(start, i); start = i + 1; i++; continue }
             if (ch == '.' || ch == '!' || ch == '?') {
                 var j = i + 1
+                // zavírací uvozovka patří k větě: „Zvýšíme daně.“ [1] Další… (dřív se věty slily a citace se smíchaly)
+                while (j < t.length && t[j] in "“”\"»’'") j++
                 while (true) { val n = citeAt(t, j); if (n == 0) break; j += n }  // [n] za tečkou → patří sem (kontrola jen na místě, lineárně)
                 var k = j; while (k < t.length && t[k] == ' ') k++
                 var w0 = i; while (w0 > start && t[w0 - 1].isLetterOrDigit()) w0--
@@ -47,7 +49,8 @@ object Grounding {
                 val nextUpper = k >= t.length || t[k] == '\n' || t[k].isUpperCase() || t[k] == '„' || t[k] == '"'
                 val domain = ch == '.' && k == i + 1 && i + 1 < t.length && t[i + 1].isLetterOrDigit()
                 val ordinal = ch == '.' && word.all { it.isDigit() } && word.isNotEmpty() && !(k < t.length && t[k].isUpperCase() && word.length > 2)
-                val abbr = ch == '.' && word.lowercase() in ABBR
+                // iniciála („J. Novák“, „T. G. Masaryk“) není konec věty – jinak by tvrzení ztratilo, kdo ho řekl
+                val abbr = ch == '.' && (word.lowercase() in ABBR || (word.length == 1 && word[0].isUpperCase() && (w0 == 0 || t[w0 - 1] != '°')))
                 if (nextUpper && !domain && !ordinal && !abbr) { out += t.substring(start, j); start = k; i = k; continue }
             }
             i++

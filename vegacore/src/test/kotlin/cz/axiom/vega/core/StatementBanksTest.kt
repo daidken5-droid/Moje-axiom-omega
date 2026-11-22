@@ -89,3 +89,17 @@ class DateFormatsTest {
         org.junit.Assert.assertEquals("1999-12-15", r.table.rows[0][0]); org.junit.Assert.assertEquals("2000-01-02", r.table.rows[1][0])
     }
 }
+
+/** Scan S9 (22. 11.): dělení odpovědi na ověřitelná tvrzení. */
+class ClaimSplitTest {
+    private fun c(t: String) = Grounding.claims(t).map { it.cites to it.text }
+    @org.junit.Test fun initialsQuotesUnits() {
+        org.junit.Assert.assertEquals(listOf(listOf(1) to "Podle J. Nováka je inflace 3,5 %.", listOf(2) to "Ministr T. G. Masaryk to potvrdil."),
+            c("Podle J. Nováka je inflace 3,5 % [1]. Ministr T. G. Masaryk to potvrdil [2]."))
+        org.junit.Assert.assertEquals(listOf(listOf(1) to "Prezident řekl: „Zvýšíme daně.“", listOf(2) to "Opozice nesouhlasila."),
+            c("Prezident řekl: „Zvýšíme daně.“ [1] Opozice nesouhlasila [2]."))
+        org.junit.Assert.assertEquals(listOf(listOf(1) to "Teplota dosáhla 35 °C.", listOf(2) to "Rekord padl."), c("Teplota dosáhla 35 °C. [1] Rekord padl [2]."))
+        org.junit.Assert.assertEquals(2, c("Zákon platí od 1. ledna 2026 [1]. Týká se všech firem [2].").size)
+        org.junit.Assert.assertEquals(2, c("Např. Praha a tzv. Brno mají víc obyvatel [1]. To je fakt [2].").size)
+    }
+}
