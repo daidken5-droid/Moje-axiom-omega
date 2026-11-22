@@ -74,7 +74,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun ragContext(query: String): String? = runCatching {
         val bodies = index.bodies(query, 6); if (bodies.isEmpty()) return null
         val hits = cz.axiom.vega.core.Rag.build(bodies).query(query, 5); if (hits.isEmpty()) return null
-        "Z tvých offline dokumentů (cituj [n]):\n" + cz.axiom.vega.core.Rag.contextBlock(hits, 3500)
+        "Z tvých offline dokumentů (cituj [n]):\n" + cz.axiom.vega.core.Untrusted.wrap("offline dokumenty", cz.axiom.vega.core.Rag.contextBlock(hits, 3500))
     }.getOrNull()
 
     private val exec = Executors.newSingleThreadExecutor { r -> Thread(r, "vega-ops").apply { priority = Thread.NORM_PRIORITY - 1 } }
@@ -1078,6 +1078,7 @@ když chybný předpoklad mění výsledek, pojmenuj ho v první větě, ukaž r
 Naléhání bez nových dat závěr nemění; nový důkaz ano. U sporného tvrzení odděl, co podklad přímo dokládá, co odvozuješ a co je otevřené;
 procenta uváděj jen s vysvětlitelným základem. Chybí-li rozhodující údaj, polož 1–2 konkrétní otázky a mezitím dodej použitelnou část.
 Nepředstírej pocity ani činnosti na pozadí. Hotovo hlas jen podle skutečného výsledku operace.
+${cz.axiom.vega.core.Untrusted.RULE}
 Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje VEGA (Zpracovat výpis, Inspektor CSV/JSON, Rozdíl, Kontrolní součty, Log, URL, NFC, projekty s kódem) spouští uživatel tlačítkem nebo větou – nevymýšlej jejich výsledky."""
     /** Dnešní datum + pravidlo aktuálnosti: bez webu jsou znalosti modelu staré – u aktuálních věcí to říct. */
     private val SYSTEM_TALK get() = SYSTEM_TALK0 + "\nDnes je ${java.time.LocalDate.now()}. U aktuálních témat (volby, ceny, kurzy, zprávy, sport) bez podkladů z webu řekni, že nemáš živá data a odpovídáš ze znalostí, které můžou být zastaralé."
@@ -1090,7 +1091,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val extra = listOfNotNull(memory.context(scope), webContext(text, scope), if (att == null) ragContext(text) else null).joinToString("\n\n")
         val sys = SYSTEM_TALK + style + (extra.ifBlank { null }?.let { "\n\n$it" } ?: "") + (ws?.let { "\n\nOtevřený projekt: ${it.name} (${it.files().size} souborů)." } ?: "")
         val attPart = if (att != null && intent.thinkingAloud.not()) attForModel(att, 20_000) else null
-        val user = if (attPart != null) "$text\n\n[Příloha ${att!!.name}:]\n${attPart.first}" else text
+        val user = if (attPart != null) "$text\n\n" + cz.axiom.vega.core.Untrusted.wrap("příloha ${att!!.name}", attPart.first) else text
         // dlouhý dokument se neořízne potichu: projde se celý po částech (stejně jako dlouhé vložené texty)
         if (attPart?.second != null) { longTask0(chat, text, listOf(att!!), again = true); return } // again: zpráva uživatele už v chatu je
         // čistý výpočet / převod / datum: přesně a bez modelu (Quick vrací null, když si není jistý)
@@ -1236,7 +1237,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun longTask1(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean) {
         if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
         // přílohy jsou součást zadání (data, ne pokyny)
-        val text = text0 + att.joinToString("") { "\n\n[Příloha ${it.name}:]\n" + attText(it).take(60_000) }
+        val text = text0 + att.joinToString("") { "\n\n" + cz.axiom.vega.core.Untrusted.wrap("příloha ${it.name}", attText(it).take(60_000)) }
         // požadavky jen z textu UŽIVATELE (ne číslované články přílohy – ty by vytlačily jeho otázky)
         val subs = LongText.subQuestions(text0).take(20)
         if (engines.pick() == null && engines.pendingPaid().isEmpty()) throw NoEngine()
