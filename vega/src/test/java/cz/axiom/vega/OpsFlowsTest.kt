@@ -77,4 +77,17 @@ class OpsFlowsTest {
         val ex = ask(o, r, c1, "ulož to jako csv")
         assertTrue(ex.toString(), ex.optJSONObject("card")?.optString("type") == "file" || ex.optString("text").contains(".csv"))
     }
+
+    /** Scan S13b: oprava kalkulace funguje ve stejné konverzaci; v jiné (po 30 min) se stará kalkulace nepoužije. */
+    @Test fun breakEvenCorrectionOnlyInSameChat() {
+        val r = Rec(); val o = ops(r); val c1 = o.newChat()
+        assertTrue(ask(o, r, c1, "cena 250, náklad na kus 150, fixní náklady 8000, 60 kusů").optString("text").contains("ztrátu 2 000"))
+        val fix = ask(o, r, c1, "oprava: fixní náklady jsou 5 000").optString("text")
+        assertTrue(fix, fix.contains("Přepočteno") && fix.contains("zisk 1 000"))
+        // jiná konverzace po víc než 30 minutách: stará kalkulace se nepoužije
+        val f = java.io.File(ctx.filesDir, "vega/kv").walkTopDown().first { it.name.startsWith("global") && it.parentFile.name == "econ" && it.name.endsWith(".json") }
+        f.setLastModified(System.currentTimeMillis() - 2 * 3_600_000L)
+        val other = ask(o, r, o.newChat(), "ne, vlastně chci 2 lístky za 300").optString("text")
+        assertFalse(other, other.contains("Přepočteno"))
+    }
 }

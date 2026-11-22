@@ -1602,18 +1602,21 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         cz.axiom.vega.core.Econ.simpleProduct(text)?.let { reply(chat, it); return true }
         // bod zvratu
-        val econ = kv.read(econKey(scope))?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
+        // uložená kalkulace platí pro navázání („a kdyby cena byla 150?“, „ne, fixní jsou 5 000“) jen ve STEJNÉ konverzaci nebo čerstvě
+        // (dřív: za týden v jiném chatu „ne, vlastně 2 lístky za 300“ → „Přepočteno s opravou“ staré kalkulace)
+        val econ = kv.read(econKey(scope))?.takeIf { kv.read(econKey(scope) + ".chat") == (chat ?: "temp") || System.currentTimeMillis() - kv.modified(econKey(scope)) < 30 * 60_000L }
+            ?.let { cz.axiom.vega.core.Econ.Unit.parse(it) }
         if (cz.axiom.vega.core.Econ.isUnitQuestion(text) && !(econ != null && cz.axiom.vega.core.Econ.isUnitCorrection(text) && cz.axiom.vega.core.Econ.parseUnit(text).let { listOfNotNull(it.price, it.variable, it.fixed).size < 2 })) {
             val u0 = cz.axiom.vega.core.Econ.parseUnit(text)
             // „a kdyby cena byla 150?“ s uloženou kalkulací: doplnit chybějící údaje z ní (a nikdy ji nepřepsat neúplnými daty)
             val u = if (cz.axiom.vega.core.Econ.unitAnswer(u0) == null && econ != null) econ.merge(u0) else u0
             val res = cz.axiom.vega.core.Econ.unitAnswer(u, cz.axiom.vega.core.Econ.claim(text)) ?: run { reply(chat, "Chybí mi ${listOfNotNull("cena".takeIf { u.price == null }, "variabilní náklad na kus".takeIf { u.variable == null }, "fixní náklady".takeIf { u.fixed == null }).joinToString(" a ")} – napiš ${if (u.price == null && u.variable == null) "je" else "ho"} a spočítám zisk i bod zvratu."); kv.write(econKey(scope), u.json()); return true }
-            saveEcon(scope, u); reply(chat, res.text, econCard(u, res)); return true
+            saveEcon(scope, u, chat); reply(chat, res.text, econCard(u, res)); return true
         }
         if (econ != null) {
             if (cz.axiom.vega.core.Econ.isTableRequest(text)) { econCsv(chat, scope, econ, cz.axiom.vega.core.Econ.qtyList(text), ws); return true }
             if (cz.axiom.vega.core.Econ.isUnitCorrection(text)) {
-                val u = econ.merge(cz.axiom.vega.core.Econ.parseUnit(text)); saveEcon(scope, u)
+                val u = econ.merge(cz.axiom.vega.core.Econ.parseUnit(text)); saveEcon(scope, u, chat)
                 val res = cz.axiom.vega.core.Econ.unitAnswer(u) ?: run { reply(chat, "Uloženo; ještě chybí údaj pro výpočet."); return true }
                 reply(chat, "Přepočteno s opravou (${diffUnit(econ, u)}${if (scope != "global") ", platí pro tento projekt" else ""}). " + res.text, econCard(u, res)); return true
             }
@@ -1673,8 +1676,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             (if (f.size > 1) ". Co si pamatuji dál, najdeš v Paměti." else "."))
     }
 
-    private fun saveEcon(scope: String, u: cz.axiom.vega.core.Econ.Unit) {
-        kv.write(econKey(scope), u.json())
+    private fun saveEcon(scope: String, u: cz.axiom.vega.core.Econ.Unit, chat: String?) {
+        kv.write(econKey(scope), u.json()); kv.write(econKey(scope) + ".chat", chat ?: "temp")
         // zrcadlo v paměti (Paměť ukáže, z čeho počítám); oprava nahradí předchozí záznam ve STEJNÉM rozsahu
         kv.read(econKey(scope) + ".mem")?.let { memory.forget(it) }
         (memory.remember("Kalkulace: cena ${u.price?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"}, variabilní náklad ${u.variable?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"} na kus, fixní náklady ${u.fixed?.let { cz.axiom.vega.core.Econ.kc(it) } ?: "?"}",
