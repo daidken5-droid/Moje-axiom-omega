@@ -17,6 +17,7 @@ class SmallTalkTest {
         assertTrue(SmallTalk.answer("co umíš?", true)!!.contains("vypni Bez sítě"))
         assertTrue(SmallTalk.answer("co umíš?", false)!!.contains("v Nastavení"))
         assertTrue(SmallTalk.answer("nastavení", true)!!.contains("menu ☰"))
+        assertTrue(SmallTalk.answer("co je nového ve světě?", true)!!.contains("Ranní přehled"))
         // obsahové dotazy nejsou drobná konverzace
         for (q in listOf("ahoj, napiš mi e-mail šéfovi", "děkuju za pomoc s výpisem, ještě jednou ho spočítej", "pomoc s daněmi", "Operace Prato", "kurz eura"))
             assertNull(q, SmallTalk.answer(q, true))

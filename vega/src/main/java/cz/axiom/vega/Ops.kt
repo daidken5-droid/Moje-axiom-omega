@@ -1083,7 +1083,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun currencyOnline(text: String): String? {
         val q = cz.axiom.vega.calc.CnbRates.query(text) ?: return null
         val value = q.value; val from = q.from; val to = q.to
-        val tab = cnbTable() ?: return if (settings.airgap) "Kurz offline neznám (režim Bez sítě). Napiš ho sám, třeba „${cz.axiom.vega.calc.Quick.fmtPublic(value)} ${q.word} po 25,2“, a spočítám to přesně." else null
+        val tab = cnbTable() ?: return if (settings.airgap) "Kurz offline neznám (režim Bez sítě). Napiš ho sám, třeba „${cz.axiom.vega.calc.Quick.fmtPublic(value)} ${if (value == 1.0) q.from.lowercase() else q.word} po 25,2“, a spočítám to přesně." else null
         val res = cz.axiom.vega.calc.CnbRates.convert(tab, value, from, to) ?: return null
         val fmt = { v: Double -> cz.axiom.vega.calc.Quick.fmtPublic(v) }
         return "${fmt(value)} $from = ${fmt(res)} $to\n\n_(kurz ČNB k ${tab.date}; je to referenční fixing, v bance bývá o pár procent horší)_"
