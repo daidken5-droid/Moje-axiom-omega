@@ -128,4 +128,19 @@ class OpsNewsTest {
         val rec = m.substringAfter("android:name=\".NewsReceiver\"").substringBefore("</receiver>")
         for (a in listOf("BOOT_COMPLETED", "TIME_SET", "TIMEZONE_CHANGED", "MY_PACKAGE_REPLACED", "SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED")) assertTrue(a, rec.contains(a))
     }
+
+    /** H12: drží se posledních 14 ranních přehledů; přehled, kde se uživatel doptával, zůstane. */
+    @Test fun oldDigestChatsArePruned() {
+        val o = ops { u -> if ("novinky" in u) novinky else idnes }
+        fun digest(d: Int) = o.newsDigest(LocalDateTime.parse("2026-11-01T05:20:00").plusDays(d.toLong()).atZone(cz.axiom.vega.news.News.ZONE)).chat!!
+        val ids = ArrayList((0 until 3).map { digest(it) })
+        // do druhého přehledu uživatel napsal (doptal se)
+        val b = o.messages(ids[1]).length(); o.chat(ids[1], "kolik je 2+2", emptyList()); val end = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < end && o.messages(ids[1]).length() < b + 2) Thread.sleep(20)
+        ids += (3 until 18).map { digest(it) }
+        val left = (0 until o.chats().length()).map { o.chats().getJSONObject(it).getString("id") }.toSet()
+        assertFalse("nejstarší pryč", ids[0] in left); assertFalse(ids[2] in left)
+        assertTrue("s dotazem uživatele zůstal", ids[1] in left)
+        assertTrue("posledních 14 zůstává", ids.takeLast(13).all { it in left })
+    }
 }

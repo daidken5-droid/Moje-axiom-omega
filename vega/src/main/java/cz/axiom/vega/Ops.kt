@@ -594,9 +594,14 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
 
     @Synchronized fun newChat(): String {
-        val id = "c" + System.currentTimeMillis().toString(36)
-        val arr = chats(); val n = JSONArray().put(JSONObject().put("id", id).put("title", "Nový chat").put("at", System.currentTimeMillis()))
-        for (i in 0 until minOf(arr.length(), 49)) n.put(arr.get(i))
+        val arr = chats()
+        // id z času – dvě konverzace ve stejné milisekundě dřív dostaly STEJNÉ id (zprávy se smíchaly); teď vždy unikátní
+        val used = (0 until arr.length()).map { arr.getJSONObject(it).optString("id") }.toHashSet()
+        var t = System.currentTimeMillis(); while ("c" + t.toString(36) in used || kv.read(chatKey("c" + t.toString(36))) != null) t++
+        val id = "c" + t.toString(36)
+        val n = JSONArray().put(JSONObject().put("id", id).put("title", "Nový chat").put("at", System.currentTimeMillis()))
+        // seznam konverzací dřív jen 50 (starší zmizely z menu i z hledání, i když soubory zůstaly) – teď 500
+        for (i in 0 until minOf(arr.length(), 499)) n.put(arr.get(i))
         kv.write("chats.json", n.toString()); return id
     }
     @Synchronized private fun addMsg(chat: String?, m: JSONObject) {
@@ -1752,6 +1757,18 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
 
     private fun newsKey(day: java.time.LocalDate) = "news/$day.json"
+    /**
+     * Ranní přehledy se nehromadí (365 konverzací za rok): drží se posledních [NEWS_KEEP]; starší se smažou, ale jen ty,
+     * do kterých uživatel nic nenapsal (konverzace, kde se doptával, zůstane).
+     */
+    private fun pruneNewsChats(newId: String) {
+        val ids = (kv.read("news/chats")?.split(',')?.filter { it.isNotBlank() } ?: emptyList()) + newId
+        val keep = ids.takeLast(NEWS_KEEP); val old = ids.dropLast(NEWS_KEEP)
+        old.forEach { id -> val m = messages(id); val touched = (0 until m.length()).any { m.getJSONObject(it).optString("role") == "user" }
+            if (!touched) runCatching { deleteChat(id) } }
+        kv.write("news/chats", keep.joinToString(","))
+    }
+    private val NEWS_KEEP = 14
     fun newsLast(day: java.time.LocalDate): NewsResult? = kv.read(newsKey(day))?.let { runCatching { JSONObject(it) }.getOrNull() }
         ?.let { NewsResult(it.optBoolean("ok"), it.optString("text"), it.optString("chat").ifBlank { null }) }
     fun newsDoneFor(day: java.time.LocalDate) = newsLast(day)?.ok == true
@@ -1780,6 +1797,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             if (manual) it.replaceFirst(Regex("^\\*\\*Ranní přehled [^*]+\\*\\*( \\(včera 05:20 → dnes 05:20\\))?"), "**Přehled zpráv – posledních 24 hodin** (do ${"%02d:%02d".format(now.hour, now.minute)})") else it }
         val chat = newChat(); renameChat(chat, if (manual) "Zprávy ${day.dayOfMonth}. ${day.monthValue}. ${"%02d:%02d".format(now.hour, now.minute)}" else "Ranní přehled ${day.dayOfMonth}. ${day.monthValue}.")
         addMsg(chat, JSONObject().put("role", "vega").put("text", text))
+        if (!manual) pruneNewsChats(chat)
         emit("chats", JSONObject())
         val failed = srcs.zip(got).filter { it.second == null }.map { it.first.name }
         return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} témat: " + topics.take(3).joinToString(" · ") { it.title.take(60) } +

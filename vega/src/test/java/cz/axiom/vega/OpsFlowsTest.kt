@@ -170,4 +170,12 @@ class OpsFlowsTest {
         val e = runCatching { o.selfUpdateStart(null, "přidej tlačítko") }.exceptionOrNull()
         assertTrue(e.toString(), e is cz.axiom.vega.core.ToolError && e.message!!.contains("Pro pokročilé"))
     }
+
+    /** H12: id konverzací vždy unikátní (i ve stejné milisekundě) a seznam nezahazuje konverzace nad 50. */
+    @Test fun chatIdsUniqueAndListKeepsMany() {
+        val o = ops(Rec())
+        val ids = (0 until 120).map { o.newChat() }
+        assertEquals(120, ids.toSet().size)
+        assertEquals(120, (0 until o.chats().length()).map { o.chats().getJSONObject(it).getString("id") }.toSet().intersect(ids.toSet()).size)
+    }
 }
