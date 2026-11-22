@@ -791,7 +791,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val ws = activeWorkspace()
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
         if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
-        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun != null, procedures, msgAtt.size, learned = tuning.active()))
+        val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun?.let { resultInChat(chatId, it) } == true, procedures, msgAtt.size, learned = tuning.active()))
         note { selftune.routed(SelfTune.area(intent)) }
         if (followUp != null) retune()
         when (intent) {
@@ -1081,6 +1081,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         reply(chat, answer)
         observeTurn(text, "talk", scope)
     }
+
+    /** Poslední výsledek patří k této konverzaci? (navazovat „to je divné“ / „ulož to“ na výsledek z JINÉ konverzace je chyba) */
+    private fun resultInChat(chat: String?, runId: String): Boolean = chat == null || runCatching {
+        val a = messages(chat); (0 until a.length()).any { i -> a.optJSONObject(i)?.optJSONObject("card")?.let { c -> c.optString("run") == runId || c.optString("ndefRun") == runId } == true }
+    }.getOrDefault(false)
 
     private fun followUp(chat: String?, text: String) {
         val r = lastResultRun?.let { run(it) } ?: run { reply(chat, "Nevím, na který výsledek navázat – otevři ho a zeptej se znovu."); return }
@@ -1642,7 +1647,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             return true
         }
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
-        if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && run(lastResultRun!!)?.last is Value.Table) {
+        if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && resultInChat(chat, lastResultRun!!) &&
+            // „vytvoř mi tabulku na svatbu“ je nová tabulka, ne export výsledku (pokud věta na výsledek neodkazuje)
+            !(Regex("(?i)tabulk\\p{L}* (na|pro|s|kde|o|do které) ").containsMatchIn(text) && !Regex("(?i)z toho|výsled|výpis|tohle|tuhle|tu tabulk|tuto").containsMatchIn(text)) &&
+            run(lastResultRun!!)?.last is Value.Table) {
             exportChat(chat, lastResultRun!!); return true
         }
         return false

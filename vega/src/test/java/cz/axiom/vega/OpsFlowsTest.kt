@@ -64,4 +64,17 @@ class OpsFlowsTest {
         assertFalse((0 until o.chats().length()).any { o.chats().getJSONObject(it).getString("id") == c })
         assertEquals(0, o.messages(c).length())
     }
+
+    /** Scan S13: starý výsledek z jiné konverzace se nesmí exportovat na běžnou prosbu („vytvoř mi tabulku na svatbu“). */
+    @Test fun oldResultIsNotExportedForUnrelatedTableRequest() {
+        val r = Rec(); val o = ops(r); val c1 = o.newChat()
+        val id = o.attach("vypis.csv", "text/csv", "Datum;Částka;Popis\n01.03.2026;1 000,00;Výplata\n02.03.2026;-250,00;Nákup".toByteArray()).getString("id")
+        ask(o, r, c1, "spočítej příjmy a výdaje z výpisu", listOf(id))
+        val c2 = o.newChat()
+        val m = ask(o, r, c2, "vytvoř mi tabulku na plánování svatby")
+        assertFalse("export starého výpisu v jiné konverzaci: $m", m.optJSONObject("card")?.optString("type") == "file" || m.optString("text").contains(".csv"))
+        // ve stejné konverzaci hned po výsledku export funguje
+        val ex = ask(o, r, c1, "ulož to jako csv")
+        assertTrue(ex.toString(), ex.optJSONObject("card")?.optString("type") == "file" || ex.optString("text").contains(".csv"))
+    }
 }
