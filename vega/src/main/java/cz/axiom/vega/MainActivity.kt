@@ -524,7 +524,7 @@ class Bridge(private val a: MainActivity) {
         // české hlášky (ToolError, require s českým textem) projdou; anglický text cizí knihovny laik nepotřebuje vidět
         val m = e.message.orEmpty()
         val shown = if (e is cz.axiom.vega.core.ToolError || Regex("[ěščřžýáíéůúňťďĚŠČŘŽÝÁÍÉŮÚŇŤĎ]").containsMatchIn(m)) m
-            else { android.util.Log.w("VEGA", "most: ${e.javaClass.simpleName}: $m"); "Tohle se teď nepovedlo – zkus to prosím znovu. (${e.javaClass.simpleName})" }
+            else { android.util.Log.w("VEGA", "most: ${e.javaClass.simpleName}: ${if (cz.axiom.vega.core.Mem.looksSecret(m)) "[skryto]" else m.take(120)}")  // logcat čtou i jiné nástroje – bez tajností a dlouhých textů; "Tohle se teď nepovedlo – zkus to prosím znovu. (${e.javaClass.simpleName})" }
         JSONObject().put("error", shown).toString()
     }
     private fun params(json: String): Map<String, String> = runCatching { JSONObject(json).let { o -> o.keys().asSequence().associateWith { o.optString(it) } } }.getOrDefault(emptyMap())
