@@ -726,6 +726,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     fun chat(chatId: String?, text: String, ids: List<String> = emptyList()) {
         val mine = take(ids)
+        // prázdná zpráva bez přílohy (dvojklik na odeslat, jen mezery) nepatří do historie jako prázdná bublina
+        if (text.isBlank() && mine.isEmpty()) { idleIfFree(); return }
         // OPRAVA ZADÁNÍ běžící / poslední úlohy se zpracuje HNED (ne až za frontou) – běžící úloha si ji vezme mezi kroky
         compareTaskOf(chatId)?.let { id -> val t = cz.axiom.vega.core.RevTask(kv, id)
             // oprava zadání se týká jen běžící nebo čerstvé úlohy (30 min) – jinak je to běžná zpráva
@@ -817,7 +819,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
     }
 
-    fun chatTemp(text: String, ids: List<String> = emptyList()) { take(ids); chatTemp0(text) } // dočasný chat přílohy nebere (nic neukládá)
+    fun chatTemp(text: String, ids: List<String> = emptyList()) { take(ids); if (text.isBlank()) { idleIfFree(); return }; chatTemp0(text) } // dočasný chat přílohy nebere (nic neukládá)
 
     private fun chatTemp0(text: String) = submit {
         val intent = Router.route(text, Router.Ctx(false, null, false, false, null))
