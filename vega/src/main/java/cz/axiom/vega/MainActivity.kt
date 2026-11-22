@@ -108,12 +108,23 @@ class MainActivity : ComponentActivity() {
         web.loadUrl(UI_URL)
         // po recreate()/obnově procesu nesdílet tytéž soubory znovu
         if (savedInstanceState == null) handleShare(intent)
+        runCatching { NewsAlarms.schedule(this, ops.settings.newsEnabled) }  // plán po aktualizaci / prvním spuštění
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleShare(intent) }
 
+    private val askNotify = registerForActivityResult(ActivityResultContracts.RequestPermission()) { g ->
+        if (!g) send("toast", JSONObject().put("text", "Bez povolení oznámení ranní přehled jen uložím do konverzací (notifikace nepřijde).")) }
+    /** Zapnutí/vypnutí ranního přehledu: povolení oznámení (Android 13+) a naplánování 05:20 / 05:30. */
+    fun newsChanged() = runOnUiThread {
+        val on = ops.settings.newsEnabled
+        if (on && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        NewsAlarms.channel(this); NewsAlarms.schedule(this, on)
+    }
+
     private fun handleShare(i: Intent?) {
         if (i == null) return
+        i.getStringExtra("openChat")?.let { send("openChat", JSONObject().put("id", it)); i.removeExtra("openChat") }
         when (i.action) {
             Intent.ACTION_SEND -> {
                 i.getStringExtra(Intent.EXTRA_TEXT)?.let { send("shared", JSONObject().put("text", it)) }
@@ -536,6 +547,10 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun editLast(id: String) = safe { ops.takeLastUser(id) ?: "" }
     @JavascriptInterface fun regenerate(id: String) = safe { ops.regenerate(id) }
     @JavascriptInterface fun searchChats(q: String) = safe { ops.searchChats(q.take(100)) }
+    @JavascriptInterface fun newsRunNow() = safe { Thread { val r = runCatching { ops.newsDigest() }.getOrElse { Ops.NewsResult(false, "Nepovedlo se: ${it.javaClass.simpleName}", null) }
+        a.send("newsDone", JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "")) }.start(); true }
+    @JavascriptInterface fun newsExact() = safe { JSONObject().put("exact", NewsAlarms.exactAllowed(a)) }
+    @JavascriptInterface fun newsAllowExact() = safe { if (android.os.Build.VERSION.SDK_INT >= 31) a.startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + a.packageName))); true }
     @JavascriptInterface fun renameChat(id: String, title: String) = safe { ops.renameChat(id, title); true }
     // řetězcové výsledky jako JSON (JS je parsuje – holý text by se zahodil)
     @JavascriptInterface fun newChat() = safe { JSONObject.quote(ops.newChat()) }
@@ -665,6 +680,8 @@ class Bridge(private val a: MainActivity) {
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
             "selfUpdate" -> s.selfUpdate = value == "true"
+            "news" -> { s.newsEnabled = value == "true"; a.newsChanged() }
+            "newsSrc" -> { val (id, on) = value.split(':').let { it[0] to (it.getOrNull(1) == "true") }; if (cz.axiom.vega.news.News.source(id) != null) s.newsSources = if (on) s.newsSources + id else s.newsSources - id }
             "ghRepo" -> { require(value.isBlank() || Regex("^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$").matches(value.trim())) { "Repozitář zadej jako vlastník/název." }; s.ghRepo = value }
             "ghBase" -> { require(Regex("^[A-Za-z0-9._/-]{1,120}$").matches(value.trim()) && !value.trim().startsWith("vega/auto-")) { "Neplatná větev." }; s.ghBase = value }
             "autoImprove" -> s.autoImprove = value == "true"

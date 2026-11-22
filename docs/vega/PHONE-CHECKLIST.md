@@ -26,6 +26,20 @@ Zařízení: ____________________ · Android: ______ · APK (commit / SHA-256): 
 
 > Pozn.: plán má 13 řádků s 📱 a hlavičku se statusem; čtrnáctý řádek (1a) ověřuje stav po dnešním feature freeze.
 
+## Ranní přehled zpráv (05:30)
+
+Příprava: Nastavení › Ranní přehled zpráv › zapnout, povolit oznámení; když se ukáže „Povolit přesný čas“, povolit.
+Telefon nechat přes noc normálně (nabíjet, ne vypínat). Jednou během testu telefon restartovat (ověří obnovu plánu).
+
+| Den | Čas notifikace (má být 05:30) | Témat / zdrojů | Věty mají odkazy, nic bez zdroje | Poznámka (restart, Doze, offline) | Výsledek |
+|---|---|---|---|---|---|
+| 1 | | | | | |
+| 2 | | | | | |
+| 3 | | | | | |
+
+Doplňkové: v noci vypnout data i WiFi → v 05:30 notifikace „Ranní přehled se nepodařil“ s tlačítkem „Zkusit znovu“, po zapnutí
+internetu a klepnutí přijde přehled. Výsledek: ______
+
 ## Měření
 
 | Měření | Postup | Cíl | Výsledek |

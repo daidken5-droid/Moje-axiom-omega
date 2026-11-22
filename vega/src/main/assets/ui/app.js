@@ -522,6 +522,16 @@ function runTool() {
 }
 
 const chatRow = c => `<div class="drowwrap"><button class="drow ${S.space.kind === 'chat' && S.space.id === c.id ? 'on' : ''}" data-act="openChat" data-id="${esc(c.id)}">${esc(c.title)}</button><button class="dmore" data-act="chatMenu" data-id="${esc(c.id)}" data-t="${esc(c.title)}" aria-label="Možnosti konverzace ${esc(c.title)}">⋯</button></div>`;
+/** Nastavení › Ranní přehled zpráv: přepínač, zdroje (jen živě ověřené adresy), stav, „Vyzkoušet teď“, přesný čas. */
+function newsSettingsHtml(n) {
+  const exact = (call('newsExact') || {}).exact !== false;
+  return `<h3>Ranní přehled zpráv</h3>
+    <label class="switch"><span><b>Každé ráno v 05:30</b><small>souhrn zpráv za posledních 24 hodin (včera 05:20 → dnes 05:20) z RSS; s modelem 1–2 věty na téma s odkazem, bez modelu titulky a odkazy</small></span><input type="checkbox" data-set="news" ${n.enabled ? 'checked' : ''}></label>
+    ${n.enabled ? `<div class="list">${(n.sources || []).map(x => `<label class="switch"><span><b>${esc(x.name)}</b></span><input type="checkbox" data-news-src="${esc(x.id)}" ${x.on ? 'checked' : ''}></label>`).join('')}</div>
+    ${n.last ? `<p class="note">Poslední: ${esc(n.last)}</p>` : ''}
+    ${exact ? '' : `<p class="note">Telefon nepovolil přesný čas – přehled může přijít o pár minut později.</p><button class="btn" data-act="newsExact">Povolit přesný čas</button>`}
+    <button class="btn" data-act="newsNow">Vyzkoušet teď</button>` : ''}`;
+}
 /** Menu jako u Gemini: vysouvací panel zleva – nová konverzace, nedávné, dole knihovna a nastavení. */
 function drawer() {
   const all = call('chats') || []; S.allChats = all; const cs = all.slice(0, 30);
@@ -622,6 +632,7 @@ function settingsSheet() {
     <h3>Ty</h3>
     <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>
     <p class="note">Vlastní pokyny pro odpovědi napiš do chatu, třeba „pamatuj si, že chci stručné odpovědi bez odrážek“ – VEGA se jimi bude řídit všude. Upravíš je v Menu → Paměť.</p>
+    ${newsSettingsHtml(s.news || {})}
     <h3>Odpovídání (zdarma)</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> (projekt bez platební karty). Nevíš jak? Použij průvodce „Zapnout rozhovor zdarma“ na úvodní obrazovce.')}
     <label class="switch"><span><b>Veřejný web</b><small>hledání, zdroje a kurzy – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
@@ -957,6 +968,8 @@ window.vega = {
         }
         S.files = S.files.concat(ok); renderChips(); break;
       }
+      case 'openChat': if (d.id) { closeSheet(true); S.mc = null; setSpace({ kind: 'chat', id: String(d.id) }); } break;
+      case 'newsDone': toast(d.text || '', 8000); if (d.ok && d.chat) { closeSheet(true); S.mc = null; setSpace({ kind: 'chat', id: String(d.chat) }); } break;
       case 'shared': { const i = $('#input'); i.value = i.value ? i.value + '\n' + d.text : d.text; autosize(); renderChips(); toast('Sdílený text je v poli – zkontroluj a odešli.'); break; }
       case 'voice': { const g = $('#go'); if (g) g.classList.remove('listen'); if (d.ok && d.text) { const i = $('#input'); i.value = (i.value ? i.value + ' ' : '') + d.text; autosize(); renderChips(); i.focus(); } else if (d.error) toast(d.error); break; }
       case 'project': if (d.silent) { S.home = null; renderTop(); break; } if (d.id) { const p = call('project', d.id); setSpace({ kind: 'project', id: d.id, name: p ? p.name : 'Projekt' }); if (d.imported !== undefined) toast(`Importováno souborů: ${d.imported}.${d.skipped ? ` Přes limit 2 MB: ${d.skipped}.` : ''}`); } break;
@@ -1150,6 +1163,8 @@ function act(a, d) {
     case 'editLast': { if (busyGuard()) break; const t = call('editLast', chatId()); if (!t) { toast('Zprávu s přílohou uprav tak, že ji pošleš znovu.'); break; }
       S.mc = null; render(); const i = $('#input'); i.value = t; autosize(); i.focus(); renderChips && renderChips(); break; }
     case 'copyCode': if (d.code) { call('copyText', d.code); toast('Kód zkopírován.'); } break;
+    case 'newsNow': if (call('newsRunNow') !== null) toast('Stahuji zprávy… přehled se objeví jako nová konverzace.', 6000); break;
+    case 'newsExact': call('newsAllowExact'); break;
     case 'copyMsg': case 'shareMsg': { const m = msgs()[+d.i]; if (!m || !m.text) break;
       const t = plainText(m.text);
       if (a === 'copyMsg') { call('copyText', t); toast('Zkopírováno – vlož ho, kam potřebuješ.'); } else call('shareText', t); break; }
@@ -1275,6 +1290,8 @@ document.addEventListener('change', e => {
     if (t.dataset.set === 'ownOnly' && t.checked && !(call('settings') || {}).ownUrl) toast('Režim je zapnutý, ale vlastní server zatím není nastavený – do té doby model neodpoví (nástroje fungují).', 6000);
     S.home = null; renderTop();
   }
+  if (t.dataset.newsSrc) call('setSetting', 'newsSrc', t.dataset.newsSrc + ':' + t.checked);
+  if (t.dataset.set === 'news') act('settings', {});
   if (t.dataset.budget) call('setSetting', 'budget.' + t.dataset.budget, t.value);
   if (t.dataset.budgetall !== undefined) call('setSetting', 'budgetKc', t.value);
   if (t.dataset.usdkc !== undefined) call('setSetting', 'usdKc', t.value);

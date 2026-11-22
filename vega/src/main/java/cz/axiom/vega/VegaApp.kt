@@ -11,6 +11,9 @@ class VegaApp : Application() {
     /** Zničená aktivita už události nedostává (a nedrží se v paměti přes odkaz v sink). */
     @Synchronized fun detach(s: (String, JSONObject) -> Unit) { if (sink === s) sink = null }
 
+    /** Bez aktivity (alarm ranního přehledu): stávající instance, nebo nová; události jdou do aktivity, až nějaká bude. */
+    @Synchronized fun opsHeadless(): Ops = instance ?: Ops(this) { t, d -> this.sink?.invoke(t, d) }.also { instance = it }
+
     @Synchronized
     fun ops(sink: (String, JSONObject) -> Unit): Ops {
         this.sink = sink

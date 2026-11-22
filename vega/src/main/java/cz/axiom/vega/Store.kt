@@ -68,6 +68,11 @@ class Settings(context: Context) {
     /** Veřejný web (rešerše, čtení URL) – samostatná volba, nezávislá na výběru modelů. */
     var webAllowed: Boolean get() = p.getBoolean("webAllowed", true); set(v) = p.edit().putBoolean("webAllowed", v).apply()
     /** Samoúpravy aplikace (GitHub CI → instalace). Výchozí VYPNUTO, zapíná se jen v Nastavení › Pro pokročilé. */
+    /** Ranní přehled zpráv (05:30) a zapnuté zdroje (id oddělená čárkou; výchozí ověřené Novinky + iDNES). */
+    var newsEnabled: Boolean get() = p.getBoolean("newsEnabled", false); set(v) = p.edit().putBoolean("newsEnabled", v).apply()
+    var newsSources: Set<String>
+        get() = (p.getString("newsSources", null) ?: cz.axiom.vega.news.News.SOURCES.filter { it.defaultOn }.joinToString(",") { it.id }).split(',').filter { cz.axiom.vega.news.News.source(it) != null }.toSet()
+        set(v) = p.edit().putString("newsSources", v.joinToString(",")).apply()
     var selfUpdate: Boolean get() = p.getBoolean("selfUpdate", false); set(v) = p.edit().putBoolean("selfUpdate", v).apply()
     // ---- SAMOÚPRAVY (vrstva C): repozitář se zdrojem VEGY, pracovní větev a samostatné zlepšování z deníku slabin
     var ghRepo: String get() = p.getString("ghRepo", "daidken5-droid/Moje-axiom-omega")!!; set(v) = p.edit().putString("ghRepo", v.trim()).apply()

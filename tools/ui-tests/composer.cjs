@@ -65,4 +65,8 @@ assert.ok((run('emptyState()').match(/data-act="(runBtn|say|pick|findDocs|freeSe
 mock.home={buttons:[],engine:false};assert.ok((run('emptyState()').match(/data-act="(runBtn|say|pick|findDocs|freeSetup|pickModel)"/g)||[]).length<=6);
 run("closeSheet=()=>{}; plusSheet()");assert.ok(!/data-act="(hw|wifi|folder)"/.test(field('#layer').innerHTML),'„+“ bez Hardware/WiFi/projektu');
 mock.chats=[];run("drawer()");assert.ok(!/data-tab="projects"/.test(field('#layer').innerHTML),'menu bez Projektů');
-console.log('31 UI logic scenarios passed.');
+// ranní přehled: sekce v Nastavení – zdroje, stav, Vyzkoušet teď; bez přesného času tlačítko Povolit
+mock.newsExact={exact:false};const nh=run("newsSettingsHtml({enabled:true,sources:[{id:'novinky',name:'Novinky.cz',on:true},{id:'ct24',name:'ČT24',on:false}],last:'3 témat: <b>x</b>'})");
+assert.ok(/data-news-src="novinky" checked/.test(nh)&&/data-news-src="ct24" >/.test(nh)&&/data-act="newsNow"/.test(nh)&&/data-act="newsExact"/.test(nh)&&/&lt;b&gt;/.test(nh));
+assert.ok(!/data-news-src/.test(run("newsSettingsHtml({enabled:false})")),'vypnuto = jen přepínač');
+console.log('33 UI logic scenarios passed.');

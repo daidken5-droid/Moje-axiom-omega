@@ -1745,6 +1745,54 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Tlačítko „Smazat celou paměť“: každý záznam přes forget (náhrobky – nevrátí se ze shrnutí). Vrací počet smazaných. */
     fun memoryClear(): Int = memory.all().map { it.id }.sumOf { memory.forget(it).size }
 
+    // ------------------------------------------------------------------ ranní přehled zpráv (RSS)
+
+    data class NewsResult(val ok: Boolean, val text: String, val chat: String?)
+    /** Stažení zdroje (test ho nahradí). Jen https, veřejná síť, max 2 MB, 10 s čtení. */
+    @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
+
+    private fun newsKey(day: java.time.LocalDate) = "news/$day.json"
+    fun newsLast(day: java.time.LocalDate): NewsResult? = kv.read(newsKey(day))?.let { runCatching { JSONObject(it) }.getOrNull() }
+        ?.let { NewsResult(it.optBoolean("ok"), it.optString("text"), it.optString("chat").ifBlank { null }) }
+    fun newsDoneFor(day: java.time.LocalDate) = newsLast(day)?.ok == true
+
+    /**
+     * Přehled za okno včera 05:20 → dnes 05:20. Zdroje paralelně; selže-li jeden, ostatní stačí. Souhrn modelem jen zdarma
+     * (placený model ani souhlas se v 5 ráno neptá – titulky z RSS jsou veřejné) a nejvýš 30 s; jinak titulky + odkazy.
+     * Výsledek = nová konverzace „Ranní přehled d. m.“.
+     */
+    fun newsDigest(now: java.time.ZonedDateTime = java.time.ZonedDateTime.now(cz.axiom.vega.news.News.ZONE)): NewsResult {
+        val N = cz.axiom.vega.news.News
+        val w = N.window(now); val day = java.time.LocalDateTime.ofInstant(w.second, N.ZONE).toLocalDate()
+        fun done(r: NewsResult) = r.also { kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
+        if (settings.airgap) return done(NewsResult(false, "Je zapnutý režim Bez sítě – přehled jsem nestahoval.", null))
+        val srcs = N.SOURCES.filter { it.id in settings.newsSources }
+        if (srcs.isEmpty()) return done(NewsResult(false, "Nemáš zapnutý žádný zdroj (Nastavení › Ranní přehled zpráv).", null))
+        val pool = Executors.newFixedThreadPool(srcs.size.coerceAtMost(7))
+        val got = try { srcs.map { s -> pool.submit<List<cz.axiom.vega.news.News.Item>?> { runCatching { N.parse(cz.axiom.vega.core.Encoding.decode(newsFetch(s.url)), s.id) }.getOrNull() } }
+            .map { f -> runCatching { f.get(15, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() } } finally { pool.shutdownNow() }
+        if (got.all { it == null }) return done(NewsResult(false, "Žádný zdroj nešel stáhnout – zkontroluj internet.", null))
+        val topics = N.topics(got.filterNotNull().flatten(), w)
+        var withModel = false
+        var sums = topics.map { cz.axiom.vega.news.News.Summary(it, emptyList()) }
+        val pick = if (topics.isEmpty()) null else engines.pick()?.takeIf { !it.paid }
+        if (pick != null) runCatching {
+            val tok = CancelToken(); val timer = java.util.Timer(true).apply { schedule(object : java.util.TimerTask() { override fun run() = tok.cancel() }, 30_000) }
+            try {
+                val out = pick.engine.generate(listOf(ChatMessage(Role.SYSTEM, "Jsi stručný český zpravodaj. Píšeš jen podle dodaných titulků a perexů, každou větu s odkazem [S#]."),
+                    ChatMessage(Role.USER, N.prompt(topics))), cz.axiom.vega.llm.GenOptions(maxTokens = 1500, temperature = 0.2f), tok).text
+                sums = N.validate(out, topics); withModel = sums.any { it.sentences.isNotEmpty() }
+            } finally { timer.cancel() }
+        }
+        val text = N.render(day, sums, withModel)
+        val chat = newChat(); renameChat(chat, "Ranní přehled ${day.dayOfMonth}. ${day.monthValue}.")
+        addMsg(chat, JSONObject().put("role", "vega").put("text", text))
+        emit("chats", JSONObject())
+        val failed = srcs.zip(got).filter { it.second == null }.map { it.first.name }
+        return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} témat: " + topics.take(3).joinToString(" · ") { it.title.take(60) } +
+            if (failed.isNotEmpty()) " (nedostupné: ${failed.joinToString()})" else "", chat))
+    }
+
     /** Text odpovědi bez markdownu – do Wordu / PDF nepatří „**“, „#“ ani „|---|“. */
     private fun plainOf(t: String): String = t.replace(Regex("```\\w*\\n?"), "").replace(Regex("(?m)^\\|[ \\t:|-]*-[ \\t:|-]*\\|[ \\t]*\\n?"), "")
         .replace(Regex("(?m)^\\|(.*)\\|[ \\t]*$")) { m -> m.groupValues[1].split('|').joinToString("\t") { it.trim() } }
@@ -2277,7 +2325,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     fun memoryJson(): JSONArray = JSONArray().apply { memory.all().forEach { e -> put(JSONObject().put("id", e.id).put("text", e.text).put("kind", e.kind.label).put("scope", e.scope).put("why", e.why()).put("canRevert", e.history.isNotEmpty())) } }
 
-    fun settingsJson(): JSONObject = JSONObject().put("selfUpdate", settings.selfUpdate).put("budgetKc", settings.budgetKc).put("spentKc", settings.spentKcTotal()).put("initiative", settings.initiative).put("airgap", settings.airgap)
+    fun settingsJson(): JSONObject = JSONObject().put("news", JSONObject().put("enabled", settings.newsEnabled)
+            .put("sources", JSONArray().apply { cz.axiom.vega.news.News.SOURCES.forEach { put(JSONObject().put("id", it.id).put("name", it.name).put("on", it.id in settings.newsSources)) } })
+            .put("last", newsLast(cz.axiom.vega.news.News.window(java.time.ZonedDateTime.now(cz.axiom.vega.news.News.ZONE)).second.let { java.time.LocalDateTime.ofInstant(it, cz.axiom.vega.news.News.ZONE).toLocalDate() })?.text ?: ""))
+            .put("selfUpdate", settings.selfUpdate).put("budgetKc", settings.budgetKc).put("spentKc", settings.spentKcTotal()).put("initiative", settings.initiative).put("airgap", settings.airgap)
         .put("keys", JSONObject().apply { engines.PROVIDERS.forEach { put(it, vault.has(it)) } }).put("allowed", JSONObject().apply { engines.PAID.forEach { put(it, settings.allowed(it)) } })
         .put("budgets", JSONObject().apply { engines.PAID.forEach { put(it, settings.budgetKc(it)) } })
         .put("spent", JSONObject().apply { engines.PAID.forEach { put(it, settings.spentUsd(it) * settings.usdKc) } })

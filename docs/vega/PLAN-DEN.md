@@ -115,3 +115,17 @@ bez něj neběží); Hardware (HCE, NFC, BLE, root), WiFi audit a projekty s kó
 úvod nejvýš 6 akcí. Rozpracované „Přečíst nahlas“ zahozeno. Kontrola na telefonu: `docs/vega/PHONE-CHECKLIST.md`.
 Odpolední kola navíc: C6–C16 (sdílení konverzace, 1 000 zpráv, vlastní pokyny, testy s falešným modelem: Bez sítě nikdy
 nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi celý dokument“ už neuřízne konec na 60 000 znacích).
+
+### Ranní přehled zpráv (na výslovnou žádost, 22. 11. večer)
+- Zdroje jen RSS, adresy ověřené živě 22. 11. 2026 (HTTP 200, platné položky s pubDate): Novinky.cz, iDNES.cz
+  (`https://servis.idnes.cz/rss.aspx?c=zpravodaj` – zadané `http://…/rss.asp` vrací odsud 403 a přesměrovává sem; http mimo
+  LAN VEGA nepovolí), ČT24, iROZHLAS, Seznam Zprávy, Aktuálně.cz, Deník N. Výchozí zapnuté Novinky + iDNES, ostatní v Nastavení.
+- Okno včera 05:20 (včetně) → dnes 05:20 (bez), Europe/Prague, správně i 23/25h noci při přechodu času.
+- AlarmManager.setExactAndAllowWhileIdle: pokusy 05:20 / 05:24 / 05:28, notifikace 05:30; obnova po BOOT_COMPLETED,
+  změně času/zóny a aktualizaci; při neúspěchu notifikace „Zkusit znovu“. Bez povolení přesných budíků náhradní nepřesný alarm.
+- Deduplikace titulků napříč weby (společné kmeny), max 10 témat podle počtu zdrojů. Souhrn jen bezplatným modelem
+  (≤ 30 s): 1–2 věty na téma, věta bez platného [S#] nebo s 12+ slovy z perexu se vyřadí; bez modelu titulky + odkazy.
+  Z RSS se bere jen titulek, odkaz, čas a perex ≤ 280 znaků.
+- Testy: `NewsTest` (okno 05:19:59 / 05:20:00, DST, RSS/Atom, vadné RSS, deduplikace, max 10, kontrola vět),
+  `OpsNewsTest` (offline, nedostupné/vadné zdroje, s modelem a bez, hranice okna, časy alarmů). Živá zkouška
+  `NewsProbe`: 7 zdrojů, 200 položek, témata správně sloučená. Doručení v 05:30 na telefonu: NEOVĚŘENO (checklist, 3 dny).
