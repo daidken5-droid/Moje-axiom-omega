@@ -127,3 +127,20 @@ class WifiPasswordTest {
         repeat(300) { val p = WifiTools.passphrase(rnd); org.junit.Assert.assertTrue("$p → ${WifiTools.checkPassword(p)}", WifiTools.checkPassword(p).score >= 3) }
     }
 }
+
+/** Scan S18 (22. 11.): WiFi QR (escapování, hex hodnoty) a čtení zabezpečení. */
+class WifiQrSecurityTest {
+    @org.junit.Test fun qrPayloads() {
+        org.junit.Assert.assertEquals("""WIFI:T:WPA;S:Doma\;5G;P:a\:b\,c\\d\";;""", WifiTools.qrPayload("Doma;5G", """a:b,c\d""" + "\""))
+        org.junit.Assert.assertEquals("WIFI:T:WPA;S:Doma;P:\"ABCD1234\";;", WifiTools.qrPayload("Doma", "ABCD1234"))
+        org.junit.Assert.assertEquals("WIFI:T:nopass;S:Kavarna;H:true;;", WifiTools.qrPayload("Kavarna", "", hidden = true))
+    }
+    @org.junit.Test fun securityWarnings() {
+        org.junit.Assert.assertTrue(WifiScan.security("[WPA2-PSK-TKIP][ESS]").second!!.contains("TKIP"))
+        org.junit.Assert.assertNull(WifiScan.security("[WPA2-PSK-CCMP][ESS]").second)
+        org.junit.Assert.assertNull(WifiScan.security("[WPA2-PSK-CCMP+TKIP][ESS]").second)
+        org.junit.Assert.assertEquals("WPA3", WifiScan.security("[RSN-SAE-CCMP][ESS]").first)
+        org.junit.Assert.assertTrue(WifiScan.security("[WEP][ESS]").second!!.contains("WEP"))
+        org.junit.Assert.assertEquals("Otevřená", WifiScan.security("[ESS]").first)
+    }
+}

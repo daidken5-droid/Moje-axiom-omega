@@ -38,7 +38,10 @@ object WifiScan {
             "OWE" in c -> "Otevřená (šifrovaná OWE)" to null
             else -> "Otevřená" to "Síť bez hesla – kdokoli se připojí a může odposlouchávat. Nastav heslo (WPA2/WPA3)."
         }.let { (s, w0) ->
-            val w = w0 ?: if ("WPS" in c) "Zapnuté WPS usnadňuje prolomení PINu – v routeru ho vypni." else null
+            // WPA2 se šifrou jen TKIP (bez CCMP/AES) je stejně slabé jako staré WPA
+            val tkipOnly = "TKIP" in c && "CCMP" !in c && "GCMP" !in c && "SAE" !in c
+            val w = w0 ?: if (tkipOnly) "Síť používá zastaralou šifru TKIP – v routeru nastav WPA2 s šifrou AES (CCMP) nebo WPA3."
+                else if ("WPS" in c) "Zapnuté WPS usnadňuje prolomení PINu – v routeru ho vypni." else null
             s to w
         }
     }

@@ -8,13 +8,15 @@ package cz.axiom.vega.core
 object WifiTools {
     /** Escapování pro WIFI: QR dle de-facto standardu (\ ; , : " se uvozují zpětným lomítkem). */
     fun qrEscape(s: String): String = buildString { for (c in s) { if (c == '\\' || c == ';' || c == ',' || c == ':' || c == '"') append('\\'); append(c) } }
+    /** Hodnota jen z hex znaků („ABCD1234“) by čtečky (ZXing) četly jako bajty → uzavřít do uvozovek (dle formátu WIFI:). */
+    private fun qrValue(s: String) = if (s.isNotEmpty() && s.length % 2 == 0 && s.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) "\"$s\"" else qrEscape(s)
 
     /** `WIFI:T:WPA;S:<ssid>;P:<heslo>;H:<true|false>;;` – otevřená síť: T:nopass a bez P. */
     fun qrPayload(ssid: String, password: String, type: String = "WPA", hidden: Boolean = false): String {
         val t = if (password.isEmpty() || type.equals("nopass", true)) "nopass" else if (type.uppercase().contains("WEP")) "WEP" else "WPA"
         return buildString {
-            append("WIFI:T:").append(t).append(";S:").append(qrEscape(ssid)).append(';')
-            if (t != "nopass") append("P:").append(qrEscape(password)).append(';')
+            append("WIFI:T:").append(t).append(";S:").append(qrValue(ssid)).append(';')
+            if (t != "nopass") append("P:").append(qrValue(password)).append(';')
             if (hidden) append("H:true;")
             append(';')
         }
