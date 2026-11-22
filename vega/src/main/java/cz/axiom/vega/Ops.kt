@@ -540,7 +540,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         require(Regex("^c[0-9a-z]{1,20}$").matches(id)) { "Tuhle konverzaci smazat nejde." }
         val arr = chats(); val n = JSONArray(); for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("id") != id) n.put(it) }
         kv.write("chats.json", n.toString())
-        kv.delete(chatKey(id)); kv.delete(evidenceKey(id)); kv.keys("resume/$id/").forEach { kv.delete(it) }; chatWrites.incrementAndGet()
+        kv.delete(chatKey(id)); kv.delete(chatKey(id) + ".bad"); kv.delete(evidenceKey(id)); kv.keys("resume/$id/").forEach { kv.delete(it) }; chatWrites.incrementAndGet()
     }
     @Synchronized fun renameChat(id: String, title: String) {
         val t = title.trim().take(60); require(t.isNotEmpty()) { "Název nesmí být prázdný." }
@@ -1260,7 +1260,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         return id
     }
 
-    fun journal(w: Workspace): JSONArray = JSONArray(kv.read("project/${w.root.name}/journal.json") ?: "[]")
+    fun journal(w: Workspace): JSONArray = readArray("project/${w.root.name}/journal.json")  // poškozený deník nesmí shodit obrazovku projektu
     private fun note(w: Workspace, kind: String, text: String) {
         val a = journal(w); a.put(JSONObject().put("kind", kind).put("text", text.take(300)).put("at", System.currentTimeMillis()))
         val t = JSONArray(); for (i in maxOf(0, a.length() - 60) until a.length()) t.put(a.get(i)); kv.write("project/${w.root.name}/journal.json", t.toString())
