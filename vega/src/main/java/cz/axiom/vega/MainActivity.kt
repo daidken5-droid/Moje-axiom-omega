@@ -231,7 +231,7 @@ class MainActivity : ComponentActivity() {
         val a = NfcAdapter.getDefaultAdapter(this)
         when {
             a == null -> dispatchNfcError("Tenhle telefon nemá NFC.")
-            !a.isEnabled -> { send("nfc.off", JSONObject()); dispatchNfcError("NFC je vypnuté. Zapni ho v Nastavení → Připojená zařízení (tlačítko níže) a zkus znovu.") }
+            !a.isEnabled -> { send("nfc.off", JSONObject()); dispatchNfcError("NFC je vypnuté. Zapni ho v Nastavení telefonu → Připojená zařízení (tlačítko níže) a zkus znovu.") }
             else -> runOnUiThread {
                 a.enableReaderMode(this, { tag -> onTag(tag) }, NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V or NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS, Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250) })
                 send("nfc.listening", JSONObject())
@@ -388,11 +388,11 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    private val askBle = registerForActivityResult(ActivityResultContracts.RequestPermission()) { g -> if (g) doBleScan(bleChat) else ops.onBle("[]", "Bez oprávnění Bluetooth nejde hledat zařízení. Povol ho v Nastavení → Aplikace → VEGA → Oprávnění.", bleChat) }
+    private val askBle = registerForActivityResult(ActivityResultContracts.RequestPermission()) { g -> if (g) doBleScan(bleChat) else ops.onBle("[]", "Bez oprávnění Bluetooth nejde hledat zařízení. Povol ho v Nastavení telefonu → Aplikace → VEGA → Oprávnění.", bleChat) }
     @Volatile private var bleChat: String? = null
     private val askBleLegacy = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
         if (r[android.Manifest.permission.ACCESS_FINE_LOCATION] == true) doBleScan(bleChat)
-        else ops.onBle("[]", "Na tomhle Androidu hledání Bluetooth zařízení vyžaduje přesnou polohu. Povol ji v Nastavení → Aplikace → VEGA → Oprávnění (VEGA polohu nikam neposílá).", bleChat)
+        else ops.onBle("[]", "Na tomhle Androidu hledání Bluetooth zařízení vyžaduje přesnou polohu. Povol ji v Nastavení telefonu → Aplikace → VEGA → Oprávnění (VEGA polohu nikam neposílá).", bleChat)
     }
     fun bleScan(chat: String?) {
         bleChat = chat

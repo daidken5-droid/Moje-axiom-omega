@@ -115,7 +115,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     // ------------------------------------------------------------------ samoúpravy (vrstva C)
     val selfUpdates = cz.axiom.vega.selfupdate.SelfUpdateStore(kv)
     private fun gh(): cz.axiom.vega.selfupdate.GitHub {
-        val t = vault.read("github") ?: throw ToolError("Chybí GitHub token – vlož ho v Menu → Vylepšení → Úpravy aplikace.")
+        val t = vault.read("github") ?: throw ToolError("Chybí GitHub token – vlož ho v Nastavení → Pro pokročilé → Vylepšení → Úpravy aplikace.")
         val (o, r) = settings.ghRepo.split('/').takeIf { it.size == 2 } ?: throw ToolError("Repozitář zadej jako vlastník/název.")
         return cz.axiom.vega.selfupdate.GitHub(o, r, t)
     }
@@ -173,7 +173,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
                 (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechala: ${refused.joinToString("; ")}." else "") +
                 (if (skippedCarry.isNotEmpty()) "\nZ nainstalované úpravy jsem NEPŘENESLA ${skippedCarry.joinToString(", ") { it.substringAfterLast('/') }} – na pracovní větvi se mezitím změnily (instalací by se tahle část předchozí úpravy vrátila)." else "") +
-                "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK hotové, ukážu ti změny a teprve potom nabídnu instalaci (Menu → Vylepšení → Úpravy aplikace).",
+                "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK hotové, ukážu ti změny a teprve potom nabídnu instalaci (Nastavení → Pro pokročilé → Vylepšení → Úpravy aplikace).",
                 JSONObject().put("type", "selfupdate").put("id", u.id))
         } finally { dir.deleteRecursively() }
     }
@@ -214,7 +214,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         }
         emit("selfupdate", JSONObject().put("id", id).put("status", nu.status))
         if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.FAILED.name && u.status != nu.status) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ neprošla: ${nu.note.take(140)}"))
-        if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ je sestavená – projdi si změny a nainstaluj v Menu → Vylepšení."))
+        if (nu.status == cz.axiom.vega.selfupdate.SelfUpdateStore.Status.READY.name) emit("toast", JSONObject().put("text", "Úprava „${nu.task.take(60)}“ je sestavená – projdi si změny a nainstaluj v Nastavení → Pro pokročilé → Vylepšení."))
     }
 
     /** APK samoúprav leží v soukromé složce (ne ve sdílených výstupech, kam zapisují i jiné funkce). */
@@ -300,13 +300,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             cz.axiom.vega.core.Extensions.shaOf(code, tests), origin = "projekt ${ws.root.name}", key = "${ws.name}-${ws.root.name.takeLast(6)}") } catch (x: IllegalArgumentException) { throw ToolError(x.message ?: "Neuloženo.") }
         registerExtensions()
         reply(chat, "Rozšíření „${e.name}“ uloženo jako v${e.current} – testy prošly ve Workeru bez sítě.\n${r.optString("output").lines().takeLast(4).joinToString("\n")}\n" +
-            "Zapneš ho v Menu → Vylepšení (nová verze se nezapíná sama; předchozí jde vrátit) – pak je v nástrojích pod „Rozšíření“.")
+            "Zapneš ho v Nastavení → Pro pokročilé → Vylepšení (nová verze se nezapíná sama; předchozí jde vrátit) – pak je v nástrojích pod „Rozšíření“.")
     }
     private fun tuneCtx(@Suppress("UNUSED_PARAMETER") example: String) = Router.Ctx(false, null, activeWorkspace() != null, lastResultRun != null, procedures)
     /** Projde deník a o pravidlech, která se právě sama zapnula, dá vědět (s možností vrátit v Paměť → Vylepšení). */
     private fun retune() = note {
         tuning.refresh(selftune.signals(), ::tuneCtx).filter { it.status == "ACTIVE" }.forEach { r ->
-            emit("toast", JSONObject().put("text", "Naučila jsem se: „${r.examples.last()}“ → ${improvementLabel(r.target)}. Vrátit jde v Menu → Vylepšení."))
+            emit("toast", JSONObject().put("text", "Naučila jsem se: „${r.examples.last()}“ → ${improvementLabel(r.target)}. Vrátit jde v Nastavení → Pro pokročilé → Vylepšení."))
         }
     }
     fun improvementLabel(target: String) = when {
@@ -901,7 +901,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Hláška podle skutečné příčiny: zapnutý režim „Pouze vlastní modely“ bez serveru ≠ chybějící klíč. */
     private fun noEngineText() = when {
         settings.ownOnly && !engines.ownConfigured() -> "Je zapnuté „Pouze vlastní modely“, ale vlastní server není nastavený – proto nikdo neodpovídá. Vypneš to nahoře: klepni na „VEGA ▾“ → Pouze vlastní modely (nebo v Nastavení doplň adresu serveru)."
-        settings.ownOnly -> "Je zapnuté „Pouze vlastní modely“ a tvůj server teď neodpovídá. Zkontroluj ho (Nastavení → Vlastní model → Vyzkoušet odpověď), nebo režim vypni nahoře v „VEGA ▾“."
+        settings.ownOnly -> "Je zapnuté „Pouze vlastní modely“ a tvůj server teď neodpovídá. Zkontroluj ho (Nastavení → Pro pokročilé → Vlastní model → Vyzkoušet odpověď), nebo režim vypni nahoře v „VEGA ▾“."
         else -> "Pro tohle potřebuji model. Zdarma ho zapneš za 2 minuty: na úvodní obrazovce klepni na „Zapnout rozhovor zdarma“ (klíč Gemini). Výpočty a nástroje fungují i bez něj."
     }
     private inner class NoEngine : Exception(noEngineText())
@@ -944,8 +944,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val capKc = minOf(est * 1.2 + 0.25, maxKc) // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
         val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("capKc", capKc).put("calls", calls).put("chars", chars)
             .put("reason", why).put("overCap", cand in overCap).put("noFree", why.startsWith("Bezplatného"))
-            .put("hint", if (cand == "geminipro") "Trvale: Nastavení → Mám předplatné Google AI Pro → strop a „Čerpat kredit automaticky“."
-                else "Trvale: Nastavení → Pokročilé → společný strop a „${engines.name(cand)} automaticky“."), 300)
+            .put("hint", if (cand == "geminipro") "Trvale: Nastavení → Pro pokročilé → Gemini – kredit Pro → strop a „Čerpat kredit automaticky“."
+                else "Trvale: Nastavení → Pro pokročilé → společný strop a „${engines.name(cand)} automaticky“."), 300)
         if (!r.optBoolean("ok")) throw ToolError("Placené volání neschváleno – nic se neutratilo. ${why.take(160)}")
         engines.approveRun(cand, capKc / settings.usdKc)
         return engines.single(cand)
@@ -1092,7 +1092,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     // ------------------------------------------------------------------ rešerše a dlouhé zadání
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
-        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (model-pill → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
+        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
@@ -1883,7 +1883,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     var grounding: Grounding.Checker
         get() = groundingCache ?: synchronized(groundingLock) {
             groundingCache ?: (if (File(verifierDir, "manifest.json").isFile) runCatching { cz.axiom.vega.core.OnnxGrounding(verifierDir) as Grounding.Checker }.getOrElse { Grounding.Missing("NEVYHODNOCENO – ${it.message}") }
-                else Grounding.Missing("ověřovač citací není nainstalovaný (Nastavení → Ověřovač citací)")).also { groundingCache = it }
+                else Grounding.Missing("ověřovač citací není nainstalovaný (Nastavení → Pro pokročilé → Ověřovač citací)")).also { groundingCache = it }
         }
         set(v) { synchronized(groundingLock) { (groundingCache as? java.io.Closeable)?.close(); groundingCache = v } }
     /** Stav pro Nastavení BEZ načítání modelu (to trvá a nesmí blokovat vlákno UI). */

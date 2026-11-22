@@ -171,7 +171,7 @@ function checksHtml(c) {
 /** ASTRAEA audit: na první pohled „přímo doloženo“ × „rozbor (odvozeno)“ × „neověřeno“ – bez procent, jen počty. */
 function auditHtml(a) {
   if (!a) return '';
-  if (a.outcome === 'UNVERIFIED') return `<div class="note"><span class="pill">neověřený koncept</span> Ověřovač citací není nainstalovaný – text je návrh modelu, ne doložený závěr (Nastavení → Ověřovač citací).</div>`;
+  if (a.outcome === 'UNVERIFIED') return `<div class="note"><span class="pill">neověřený koncept</span> Ověřovač citací není nainstalovaný – text je návrh modelu, ne doložený závěr (Nastavení → Pro pokročilé → Ověřovač citací).</div>`;
   const parts = [`${a.supported} z ${a.claims} tvrzení přímo doloženo`, plural(a.origins, 'nezávislý původ', 'nezávislé původy', 'nezávislých původů') + ` (${plural(a.sources, 'zdroj', 'zdroje', 'zdrojů')})`];
   if (a.conflicts) parts.push(plural(a.conflicts, 'rozpor mezi zdroji', 'rozpory mezi zdroji', 'rozporů mezi zdroji'));
   if (a.revisions) parts.push('1× opraveno podle kontroly');
