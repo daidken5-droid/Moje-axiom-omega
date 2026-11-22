@@ -87,3 +87,26 @@ class LaikT3Test {
             assertTrue("$s → ${route(s)}", route(s) !is Router.Intent.Research)
     }
 }
+
+/** Scan S3 (22. 11.): kalendářní hraniční případy kalkulačky. */
+class QuickCalendarTest {
+    private fun at(y: Int, m: Int, d: Int) = java.time.ZonedDateTime.of(y, m, d, 10, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun q(s: String, y: Int, m: Int, d: Int) = Quick.answer(s, at(y, m, d))
+
+    @Test fun pluralsYearBoundaryAndToday() {
+        org.junit.Assert.assertEquals("Mezi 28. 2. 2028 a 1. 3. 2028 jsou 2 dny.", q("kolik dní mezi 28.2.2028 a 1.3.2028", 2028, 2, 27))
+        org.junit.Assert.assertEquals("Mezi 1. 3. 2026 a 2. 3. 2026 je 1 den.", q("kolik dní mezi 1.3.2026 a 2.3.2026", 2026, 1, 1))
+        assertTrue(q("kolik dní do vánoc", 2026, 12, 25)!!.startsWith("Do Štědrého dne zbývá 364 dní (24. 12. 2027"))
+        assertTrue(q("kolik dní do vánoc", 2026, 12, 24)!!.startsWith("Dnes je to tady"))
+        assertTrue(q("kolik dní do 24.12.", 2026, 11, 22)!!.startsWith("Do 24. 12. zbývá 32 dní"))
+        assertTrue(q("kolik dní do 1.1.", 2026, 11, 22)!!.contains("1. 1. 2027"))
+        org.junit.Assert.assertEquals("Datum 31. 2. 2027 neexistuje – zkontroluj den a měsíc.", q("kolik dní do 31.2.2027", 2026, 11, 22))
+    }
+
+    @Test fun anniversariesIncludingLeapDay() {
+        org.junit.Assert.assertEquals("Od 29. 2. 2000 uplynulo právě 27 let – výročí je dnes.", q("kolik let je od 29.2.2000", 2027, 2, 28))
+        assertTrue(q("kolik let je od 29.2.2000", 2027, 3, 1)!!.contains("další výročí 29. 2. 2028"))
+        org.junit.Assert.assertEquals("Od 22. 11. 2000 uplynulo právě 26 let – výročí je dnes.", q("kolik let je od 22.11.2000", 2026, 11, 22))
+        assertTrue(q("kolik mi je když jsem se narodil 23.11.2000", 2026, 11, 22)!!.contains("uplynulo 25 let; další výročí 23. 11. 2026 (pondělí) (za 1 den)"))
+    }
+}

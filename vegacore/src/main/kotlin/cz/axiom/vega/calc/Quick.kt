@@ -76,6 +76,7 @@ object Quick {
         return null
     }
 
+    private fun daysCz(n: Long) = "$n " + when { n == 1L -> "den"; n in 2..4 -> "dny"; else -> "dní" }
     private const val N = "(\\d[\\d ]*(?:[.,]\\d+)?)"
     private fun money(v: Double) = fmt(Math.round(v * 100) / 100.0) + " Kč"
     private val DAYS = listOf("pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle")
@@ -158,11 +159,18 @@ object Quick {
 
     /** „kolik let je od 5. 3. 1990“, „kolik mi je, když jsem se narodil 5. 3. 1990“. */
     private fun age(t: String, today: LocalDate): String? {
-        if (!Regex("^(kolik (mi |mu |ji |mu bylo |je )?(je )?let|kolik let (je |uplynulo )?od|jaky (je )?vek|kolik je mi|kolik mi bude)(?![a-z])").containsMatchIn(t)) return null
+        if (!Regex("^(kolik (mi |mu |ji |mu bylo |je )?(je )?let|kolik let (je |uplynulo )?od|jaky (je )?vek|kolik je mi|kolik mi je|kolik mu je|kolik ji je|kolik mi bude)(?![a-z])").containsMatchIn(t)) return null
         val d = date(t)?.takeIf { it.isBefore(today) } ?: return null
         val y = java.time.Period.between(d, today).years
-        val next = d.withYear(today.year).let { if (!it.isAfter(today)) it.plusYears(1) else it }
-        return "Od ${d.dayOfMonth}. ${d.monthValue}. ${d.year} uplynulo $y ${if (y == 1) "rok" else if (y in 2..4) "roky" else "let"}; další výročí ${dmy(next)} (za ${ChronoUnit.DAYS.between(today, next)} dní)."
+        // výročí v roce [yr]: narozený 29. 2. ho v nepřestupném roce slaví 28. 2., v přestupném 29. 2.
+        fun on(yr: Int) = if (d.monthValue == 2 && d.dayOfMonth == 29 && !java.time.Year.isLeap(yr.toLong())) LocalDate.of(yr, 2, 28) else d.withYear(yr)
+        fun yrs(n: Int) = "$n ${if (n == 1) "rok" else if (n in 2..4) "roky" else "let"}"
+        val years = yrs(y)
+        // výročí dnes (i 28. 2. u narozených 29. 2.): celé roky = rozdíl letopočtů (Period by u 29. 2. ukázal o rok méně)
+        if (on(today.year) == today) return "Od ${d.dayOfMonth}. ${d.monthValue}. ${d.year} uplynulo právě ${yrs(today.year - d.year)} – výročí je dnes."
+        var yr = today.year; while (!on(yr).isAfter(today)) yr++
+        val next = on(yr)
+        return "Od ${d.dayOfMonth}. ${d.monthValue}. ${d.year} uplynulo $years; další výročí ${dmy(next)} (za ${daysCz(ChronoUnit.DAYS.between(today, next))})."
     }
 
     fun num(s: String) = s.replace(" ", "").replace(',', '.').toDoubleOrNull()
@@ -216,6 +224,10 @@ object Quick {
         return "${fmt(v)} ${shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} ${loc[b] ?: shown(3)}"
     }
 
+    /** „31. 2. 2027“ – tvar data sedí, ale den neexistuje → srozumitelně říct (ne mlčet). */
+    private fun invalidDate(s: String): String? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})?").find(s)?.let { m ->
+        val y = m.groupValues[3].toIntOrNull() ?: 2024
+        if (runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.isFailure) "Datum ${m.groupValues[1]}. ${m.groupValues[2]}.${m.groupValues[3].let { if (it.isNotEmpty()) " $it" else "" }} neexistuje – zkontroluj den a měsíc." else null }
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
     /** Velikonoční neděle (gregoriánský výpočet). */
     private fun easter(y: Int): LocalDate {
@@ -236,7 +248,10 @@ object Quick {
             what.startsWith("nov") && what.contains("rok") -> "Nového roku" to next { LocalDate.of(it, 1, 1) }
             what.startsWith("velikonoc") -> "Velikonoční neděle" to next { easter(it) }
             what.startsWith("leta") || what.startsWith("prazdnin") -> (if (what.startsWith("leta")) "léta (21. 6.)" else "prázdnin (1. 7.)") to next { LocalDate.of(it, if (what.startsWith("leta")) 6 else 7, if (what.startsWith("leta")) 21 else 1) }
-            else -> date(what)?.let { "${it.dayOfMonth}. ${it.monthValue}. ${it.year}" to it } ?: return null
+            else -> date(what)?.let { "${it.dayOfMonth}. ${it.monthValue}. ${it.year}" to it }
+                ?: Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.?$").find(what)?.let { m -> runCatching { val dd = m.groupValues[1].toInt(); val mm = m.groupValues[2].toInt()
+                    LocalDate.of(today.year, mm, dd); next { LocalDate.of(it, mm, dd) } }.getOrNull()?.let { "${it.dayOfMonth}. ${it.monthValue}." to it } }
+                ?: invalidDate(what)?.let { return it } ?: return null
         }
         val n = ChronoUnit.DAYS.between(today, d)
         return when {
@@ -267,7 +282,8 @@ object Quick {
         val m = Regex("kolik (?:je )?(?:dni|dnu) (?:je |uplyne |ubehne )?(?:od|mezi) (.+?) (?:do|a) (.+)$").find(t) ?: return null
         val a = date(m.groupValues[1]) ?: (if (m.groupValues[1].startsWith("dnes")) today else null) ?: return null
         val b = date(m.groupValues[2]) ?: (if (m.groupValues[2].startsWith("dnes")) today else null) ?: return null
-        return "Mezi ${a.dayOfMonth}. ${a.monthValue}. ${a.year} a ${b.dayOfMonth}. ${b.monthValue}. ${b.year} je ${kotlin.math.abs(ChronoUnit.DAYS.between(a, b))} dní."
+        val n = kotlin.math.abs(ChronoUnit.DAYS.between(a, b))
+        return "Mezi ${a.dayOfMonth}. ${a.monthValue}. ${a.year} a ${b.dayOfMonth}. ${b.monthValue}. ${b.year} ${if (n in 2..4) "jsou" else "je"} ${daysCz(n)}."
     }
 
     /** Rekurzivní parser výrazu: + − × ÷ ^ % a závorky; české desetinné čárky a mezery v tisících. */

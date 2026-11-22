@@ -852,7 +852,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun toolFromChat(chat: String?, intent: Router.Intent.Tool, text: String) {
         val tool = Tools.get(intent.id)!!
         // velký soubor v chatu: nástroj + uložený běh by se nevešly do paměti → srozumitelně, ne „Failed to allocate…“
-        lastAttachment()?.let { a -> if (a is Value.Bytes && a.bytes.size > 15_000_000 && intent.id != "hash") { reply(chat, "Soubor „${a.name}“ má ${a.bytes.size / 1_000_000} MB – v chatu zpracuji nejvýš 15 MB. Rozděl ho (třeba po měsících) nebo použij jen potřebné sloupce."); return } }
+        lastAttachment()?.let { a -> if (a.bytes.size > 15_000_000 && intent.id != "hash") { reply(chat, "Soubor „${a.name}“ má ${a.bytes.size / 1_000_000} MB – v chatu zpracuji nejvýš 15 MB. Rozděl ho (třeba po měsících) nebo použij jen potřebné sloupce."); return } }
         // kontrolní součet BEZ souboru by spočítal otisk textu zprávy a hlásil „soubor se liší“ – zeptat se na soubor
         if (intent.id == "hash" && lastAttachment() == null) { reply(chat, "Přilož soubor, jehož kontrolní součet mám spočítat${intent.params["expect"]?.let { " a porovnat s ${it.take(12)}…" } ?: ""} (📎)."); return }
         // vstup: příloha, adresa nebo text zprávy po vynechání příkazu (stejná implementace jako ruční nabídka)
