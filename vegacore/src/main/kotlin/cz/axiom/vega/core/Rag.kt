@@ -12,9 +12,11 @@ object Rag {
     data class Hit(val passage: Passage, val score: Double)
 
     /** Česká stop-slova (bez diakritiky): „do kdy platím nájem“ nesmí najít recept přes „do“ („do zeleniny“). */
-    private val STOP = setOf("a", "i", "v", "ve", "do", "na", "za", "z", "ze", "o", "od", "po", "pro", "k", "ke", "s", "se", "si", "je", "jsou", "byl", "byla", "bylo",
+    val STOP = setOf("a", "i", "v", "ve", "do", "na", "za", "z", "ze", "o", "od", "po", "pro", "k", "ke", "s", "se", "si", "je", "jsou", "byl", "byla", "bylo",
         "to", "ten", "ta", "ty", "tu", "co", "kdo", "kdy", "jak", "kde", "proc", "kolik", "mam", "mas", "ma", "jsem", "jsi", "mi", "me", "mne", "muj", "moje", "tam", "tady",
         "ale", "nebo", "ze", "aby", "by", "uz", "jeste", "jen", "taky", "take", "the", "and", "of", "to", "in", "is", "nejak", "neco", "vsechno", "vse", "pri", "u")
+    /** Slova dotazu pro hledání (bez diakritiky, bez stop-slov) – sdílí i lokální index v aplikaci. */
+    fun queryWords(q: String, max: Int = 8): List<String> = Text.words(Text.fold(q).lowercase(), 2).filter { it !in STOP }.distinct().take(max)
     /** Lehký český „stem“: prvních 5 znaků slova (faktura/fakturu, svíčková/svíčkovou, recept/receptu se potkají). */
     private fun tokens(s: String): List<String> = Text.words(Text.fold(s).lowercase(), 2).filter { it !in STOP }.map { if (it.length > 5) it.take(5) else it }
 

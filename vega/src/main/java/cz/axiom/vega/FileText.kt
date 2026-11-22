@@ -120,7 +120,7 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
 
     /** Celá těla nejrelevantnějších dokumentů pro offline RAG (BM25 nad pasážemi dělá Rag v jádře). */
     fun bodies(query: String, limit: Int): Map<String, String> {
-        val words = cz.axiom.vega.base.Text.words(query, 2).distinct().take(8)
+        val words = cz.axiom.vega.core.Rag.queryWords(query) // bez „do/kdy/je…“ – jinak by záloha „kterékoli slovo“ našla všechno
         if (words.isEmpty()) return emptyMap()
         val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
         fun run(q: String) = runCatching {
@@ -132,7 +132,7 @@ class LocalIndex(context: Context) : SQLiteOpenHelper(context.applicationContext
     }
 
     fun search(query: String, limit: Int): List<Snippet> {
-        val words = cz.axiom.vega.base.Text.words(query, 2).distinct().take(8)
+        val words = cz.axiom.vega.core.Rag.queryWords(query) // bez „do/kdy/je…“ – jinak by záloha „kterékoli slovo“ našla všechno
         if (words.isEmpty()) return emptyList()
         val terms = words.map { if (it.length >= 4) "${it.take(6)}*" else it }
         fun run(q: String) = runCatching {

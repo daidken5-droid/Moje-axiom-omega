@@ -90,4 +90,14 @@ class OpsFlowsTest {
         val other = ask(o, r, o.newChat(), "ne, vlastně chci 2 lístky za 300").optString("text")
         assertFalse(other, other.contains("Přepočteno"))
     }
+
+    /** Scan S20b: „najdi v mých souborech do kdy platím nájem“ – najde smlouvu, ne recept (přes „do“). */
+    @Test fun localSearchIgnoresStopWords() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        o.attach("smlouva.txt", "text/plain", "Nájemní smlouva. Nájemné je splatné vždy do 5. dne v měsíci. Výpovědní lhůta tři měsíce.".toByteArray())
+        o.attach("recept.txt", "text/plain", "Svíčková. Maso naložte přes noc do zeleniny a pečte dvě hodiny do měkka.".toByteArray())
+        val m = ask(o, r, c, "najdi v mých souborech do kdy platím nájem")
+        val all = m.toString()
+        assertTrue(all, all.contains("smlouva.txt") && !all.contains("recept.txt"))
+    }
 }
