@@ -40,6 +40,12 @@ function md(t) {
       .replace(/(^|[\s(])(https?:\/\/[^\s<>"')]+[^\s<>"').,;:!?])/g, (m, p, u) => p + linkEsc(u, u.length > 48 ? u.slice(0, 45) + '…' : u))
       .replace(/\[(\d+)\]/g, '<sup>[$1]</sup>').replace(/\n/g, '<br>').replace(/(<\/h3>|<\/table><\/div>)<br>/g, '$1')).join('');
 }
+/** Text odpovědi bez markdown značek – pro kopírování a sdílení (do e-mailu nepatří „**“ ani „|---|“). */
+function plainText(t) {
+  return String(t || '').replace(/```\w*\n?/g, '').replace(/^\|[ \t:|-]*-[ \t:|-]*\|[ \t]*(\n|$)/gm, '').replace(/^\|(.*)\|[ \t]*$/gm, (m, c) => c.split('|').map(x => x.trim()).join('\t'))
+    .replace(/^#{1,4} /gm, '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^([ \t]*)[*+-][ \t]+/gm, '$1• ').replace(/(^|[\s(])[*_]([^\s*_][^*_\n]*?)[*_](?=[\s.,;:!?)]|$)/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1').replace(/\[([^\]\n]+)\]\((https?:[^)\s]+)\)/g, '$1 ($2)').replace(/\n{3,}/g, '\n\n').trim();
+}
 /** Markdown tabulka (| a | b |, oddělovač |---|) → HTML tabulka; text buněk už je escapovaný, formátování (tučné, odkazy) projde dál. */
 function mdTables(t) {
   return t.replace(/(^|\n)(\|[^\n]*\|[ \t]*\n\|[ \t:|-]*-[ \t:|-]*\|[ \t]*((?:\n\|[^\n]*\|[ \t]*)*))/g, (m, pre, all, body) => {
@@ -104,7 +110,7 @@ function renderStream() {
   const last = list[list.length - 1];
   el.innerHTML = (shown.length < list.length ? `<button class="pill older" data-act="older">Zobrazit starší zprávy (${list.length - shown.length})</button>` : '') + shown.map(m => m.role === 'user'
     ? `<div class="me">${esc(m.text)}${m.files && m.files.length ? `<span class="att">📎 ${m.files.map(esc).join(', ')}</span>` : ''}</div>`
-    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${safeCard(m.card, m === last)}</div>`).join('') +
+    : `<div class="vega">${m.text ? `<div class="txt">${md(m.text)}</div>` : ''}${safeCard(m.card, m === last)}${m.text && m.text.length > 60 && !(m === last && S.busy) ? `<div class="msg-a"><button class="mini" data-act="copyMsg" data-i="${list.indexOf(m)}">Kopírovat</button><button class="mini" data-act="shareMsg" data-i="${list.indexOf(m)}">Sdílet</button></div>` : ''}</div>`).join('') +
     (S.busy && (!S.busyChat || S.busyChat === chatId()) ? `<div class="vega">${S.stream ? `<div class="txt" id="live">${md(S.stream)}</div>` : ''}<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span id="phase">${S.stream ? 'Píšu…' : 'Přemýšlím…'}</span></div></div>` : '');
   if (!el.dataset.sl) { el.dataset.sl = '1'; el.addEventListener('scroll', () => { S.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (S.stick) jumpPill(false); }, { passive: true }); }
   if (S.stick !== false) el.scrollTop = el.scrollHeight;
@@ -1122,6 +1128,9 @@ function act(a, d) {
         <h3>Kontrola PDF</h3><p>${c.checks.map(k => `<span class="pill ${k.ok ? 'ok' : 'bad'}">${esc(k.what)}</span>`).join(' ')}</p>`, true); break; }
     case 'openOut': B.openOut(d.f); break;
     case 'share': B.share(d.f); break;
+    case 'copyMsg': case 'shareMsg': { const m = msgs()[+d.i]; if (!m || !m.text) break;
+      const t = plainText(m.text);
+      if (a === 'copyMsg') { call('copyText', t); toast('Zkopírováno – vlož ho, kam potřebuješ.'); } else call('shareText', t); break; }
     case 'library': if (d.tab) library(d.tab); else drawer(); break;
     case 'libTab': library(d.tab); break;
     case 'suSave': { const t = ($('#ghTok') || {}).value || ''; const r1 = call('setSetting', 'ghRepo', ($('#ghRepo') || {}).value || ''); const r2 = call('setSetting', 'ghBase', ($('#ghBase') || {}).value || '');

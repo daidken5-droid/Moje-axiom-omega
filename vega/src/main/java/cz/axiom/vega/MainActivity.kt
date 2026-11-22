@@ -646,6 +646,9 @@ class Bridge(private val a: MainActivity) {
     @JavascriptInterface fun nfcSettings() = safe { a.openNfcSettings() }
     @JavascriptInterface fun demand(chat: String, json: String) = safe { ops.demand(chat.takeIf { it != "temp" }, JSONObject(json)) }
     @JavascriptInterface fun share(name: String) = safe { a.share(name) }
+    /** Kopírovat / sdílet text odpovědi (laik chce napsaný e-mail vložit jinam). Délka omezená – schránka nesnese megabajty. */
+    @JavascriptInterface fun copyText(text: String) = safe { a.runOnUiThread { (a.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("VEGA", text.take(200_000))) }; true }
+    @JavascriptInterface fun shareText(text: String) = safe { a.runOnUiThread { a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text.take(100_000)), "Sdílet odpověď")) }; true }
     @JavascriptInterface fun openOut(name: String) = safe { a.open(name) }
     @JavascriptInterface fun settings() = safe { ops.settingsJson() }
     @JavascriptInterface fun setSetting(key: String, value: String) = safe {

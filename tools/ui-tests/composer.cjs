@@ -45,4 +45,8 @@ assert.ok(calls.some(c=>c[0]==='answer'&&c[1]==='r9'&&/false/.test(c[2])),'souhl
 assert.match(run("md('*   **Cena:** 250 Kč')"),/^• <b>Cena:<\/b>/);
 assert.match(run("md('| A | B |\\n|---|---|\\n| 1 | <x> |')"),/<table><tr><th>A<\/th><th>B<\/th><\/tr><tr><td>1<\/td><td>&lt;x&gt;<\/td><\/tr><\/table>/);
 assert.equal(run("md('2 * 3 * 4 a *slovo*')"),'2 * 3 * 4 a <i>slovo</i>');
-console.log('20 UI logic scenarios passed.');
+// Kopírovat: čistý text bez markdownu jde do nativní schránky
+assert.equal(run("plainText('## Návrh\\n**Dobrý den,**\\n*   bod\\n| A | B |\\n|---|---|\\n| 1 | 2 |\\nviz [web](https://x.cz)')"),'Návrh\nDobrý den,\n• bod\nA\tB\n1\t2\nviz web (https://x.cz)');
+mock.messages=[{role:'vega',text:'**Ahoj**, tady je dlouhý e-mail pro šéfa, který si chci zkopírovat do Gmailu.'}];calls.length=0;
+run("S.mc=null; act('copyMsg',{i:'0'})");assert.deepEqual(calls.filter(c=>c[0]==='copyText').map(c=>c[1]),['Ahoj, tady je dlouhý e-mail pro šéfa, který si chci zkopírovat do Gmailu.']);
+console.log('22 UI logic scenarios passed.');
