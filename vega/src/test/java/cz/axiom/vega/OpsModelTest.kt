@@ -67,4 +67,20 @@ class OpsModelTest {
         val a = ask(o, ev, c, "nastav budík na 6:30")
         assertTrue(a, a.contains("Nic jsem nenastavil")); assertEquals(0, f.n)
     }
+
+    /** Kolo C10: Bez sítě = model se nezavolá po ŽÁDNÉ cestě (rozhovor, příloha, dlouhý dokument, rešerše, dočasný chat, paměť v kontextu). */
+    @Test fun airgapNeverCallsModel() {
+        val (o, ev, f) = setup(); o.settings.airgap = true; val c = o.newChat()
+        val id = o.attach("smlouva.txt", "text/plain", ("Nájemní smlouva. " + "Článek o nájmu a službách. ".repeat(3000)).toByteArray()).getString("id")
+        for ((q, ids) in listOf("napiš omluvný e-mail" to emptyList(), "shrň tu smlouvu" to listOf(id), "projdi celý dokument a najdi výpovědní lhůtu" to emptyList(),
+                "Operace Prato" to emptyList(), "vysvětli mi inflaci" to emptyList(), "pamatuj si, že chci stručné odpovědi" to emptyList(), "jak se máš" to emptyList()))
+            ask(o, ev, c, q, ids)
+        val b = ev.size; o.chatTemp("napiš básničku"); val end = System.currentTimeMillis() + 20_000
+        while (System.currentTimeMillis() < end && ev.drop(b).none { it.first == "idle" }) Thread.sleep(20)
+        assertEquals("v Bez sítě se volal model", 0, f.n)
+        // po vypnutí Bez sítě jde odpověď přes model a nese paměť (vlastní pokyny)
+        o.settings.airgap = false
+        ask(o, ev, c, "napiš omluvný e-mail")
+        assertTrue("model nezavolán: ${f.n}", f.n >= 1); assertTrue(f.seen.last().first().content.takeLast(600), f.seen.last().first().content.contains("Chci stručné odpovědi"))
+    }
 }
