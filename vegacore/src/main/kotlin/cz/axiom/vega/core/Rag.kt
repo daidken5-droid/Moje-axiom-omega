@@ -11,7 +11,12 @@ object Rag {
     data class Passage(val source: String, val start: Int, val text: String)
     data class Hit(val passage: Passage, val score: Double)
 
-    private fun tokens(s: String): List<String> = Text.words(Text.fold(s).lowercase(), 2)
+    /** Česká stop-slova (bez diakritiky): „do kdy platím nájem“ nesmí najít recept přes „do“ („do zeleniny“). */
+    private val STOP = setOf("a", "i", "v", "ve", "do", "na", "za", "z", "ze", "o", "od", "po", "pro", "k", "ke", "s", "se", "si", "je", "jsou", "byl", "byla", "bylo",
+        "to", "ten", "ta", "ty", "tu", "co", "kdo", "kdy", "jak", "kde", "proc", "kolik", "mam", "mas", "ma", "jsem", "jsi", "mi", "me", "mne", "muj", "moje", "tam", "tady",
+        "ale", "nebo", "ze", "aby", "by", "uz", "jeste", "jen", "taky", "take", "the", "and", "of", "to", "in", "is", "nejak", "neco", "vsechno", "vse", "pri", "u")
+    /** Lehký český „stem“: prvních 5 znaků slova (faktura/fakturu, svíčková/svíčkovou, recept/receptu se potkají). */
+    private fun tokens(s: String): List<String> = Text.words(Text.fold(s).lowercase(), 2).filter { it !in STOP }.map { if (it.length > 5) it.take(5) else it }
 
     /** Rozdělení na pasáže ~[size] znaků s překryvem [overlap], přednostně na konci věty/odstavce. */
     fun chunk(source: String, text: String, size: Int = 700, overlap: Int = 140): List<Passage> {
@@ -33,7 +38,8 @@ object Rag {
     }
 
     class Index(val passages: List<Passage>) {
-        private val tf = passages.map { p -> tokens(p.text).groupingBy { it }.eachCount() }
+        // i název dokumentu („recept.txt“, „faktura.pdf“) – laik se ptá „co je v receptu / na faktuře“
+        private val tf = passages.map { p -> (tokens(p.text) + tokens(p.source.substringBeforeLast('.'))).groupingBy { it }.eachCount() }
         private val len = tf.map { it.values.sum().toDouble() }
         private val avg = len.average().takeIf { !it.isNaN() } ?: 0.0
         private val df = HashMap<String, Int>().apply { tf.forEach { m -> m.keys.forEach { merge(it, 1, Int::plus) } } }

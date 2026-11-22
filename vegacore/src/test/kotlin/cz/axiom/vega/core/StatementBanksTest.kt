@@ -144,3 +144,19 @@ class WifiQrSecurityTest {
         org.junit.Assert.assertEquals("Otevřená", WifiScan.security("[ESS]").first)
     }
 }
+
+/** Scan S20 (22. 11.): offline hledání v dokumentech česky – koncovky, stop-slova, název dokumentu. */
+class RagCzechTest {
+    private val idx = Rag.build(mapOf(
+        "smlouva.pdf" to "Nájemní smlouva. Výpověď z nájmu musí být písemná. Výpovědní lhůta činí tři měsíce. Nájemné je splatné vždy do 5. dne v měsíci.",
+        "faktura.pdf" to "Faktura č. 2026-001. Odběratel: Jan Novák. Celkem k úhradě 12 100 Kč včetně DPH.",
+        "recept.txt" to "Svíčková na smetaně. Maso naložte přes noc do zeleniny. Pečte dvě hodiny."))
+    private fun top(q: String) = idx.query(q, 1).firstOrNull()?.passage?.source
+    @org.junit.Test fun czechQueries() {
+        org.junit.Assert.assertEquals("smlouva.pdf", top("do kdy platim najem"))
+        org.junit.Assert.assertEquals("faktura.pdf", top("kolik mam zaplatit za fakturu"))
+        org.junit.Assert.assertEquals("recept.txt", top("jak dlouho péct svíčkovou"))
+        org.junit.Assert.assertEquals("recept.txt", top("co je v receptu"))
+        org.junit.Assert.assertNull(top("zcela nesouvisející dotaz o fotbale"))
+    }
+}
