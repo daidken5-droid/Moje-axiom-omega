@@ -130,4 +130,16 @@ class NewsTest {
         assertTrue(md, md.contains("[(ČT24)](https://ct24.ceskatelevize.cz/a/1)") && md.contains("Číst: "))
         assertTrue("žádná věta dvakrát", ex.map { it.first }.distinct().size == ex.size)
     }
+
+    /** H4: titulek / perex z kanálu nesmí vytvořit odkaz ani formátování v přehledu. */
+    @Test fun feedTextCannotInjectMarkdown() {
+        val rss = "<rss><channel><item><title>[Klikni zde](https://zly.example/phish) **VYHRÁL JSI** `kód`</title><link>https://www.novinky.cz/a</link>" +
+            "<pubDate>Sun, 22 Nov 2026 15:00:00 +0100</pubDate><description>## Nadpis _kurzíva_ [x](javascript:alert(1)) | tabulka |</description></item></channel></rss>"
+        val it = News.parse(rss, "novinky").single()
+        assertFalse(it.title, Regex("[\\[\\]`*]").containsMatchIn(it.title))
+        assertFalse(it.perex, Regex("[\\[\\]#|]").containsMatchIn(it.perex))
+        val md = News.render(java.time.LocalDate.of(2026, 11, 23), listOf(News.Summary(News.Topic(listOf(it)), emptyList())), false)
+        assertFalse("jediný odkaz je na článek: $md", md.contains("](https://zly.example") || md.contains("](javascript"))
+        assertTrue(md.contains("[Novinky.cz](https://www.novinky.cz/a)"))
+    }
 }

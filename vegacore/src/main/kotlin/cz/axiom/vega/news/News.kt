@@ -75,7 +75,8 @@ object News {
         t = t.replace(Regex("&#(\\d{1,6});")) { m -> m.groupValues[1].toIntOrNull()?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
             .replace(Regex("&#x([0-9a-fA-F]{1,6});")) { m -> m.groupValues[1].toIntOrNull(16)?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
             .replace("&nbsp;", " ").replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
-        return t.replace(' ', ' ').replace(Regex("\\s+"), " ").trim()
+        // text z cizího kanálu nesmí v přehledu vytvořit odkaz ani formátování (markdown): [ ] ` * | < > pryč, # a _ na začátku slov taky
+        return t.replace('\u00a0', ' ').replace(Regex("[\\[\\]`*|<>]"), " ").replace(Regex("(^|\\s)[#_]+"), "$1").replace(Regex("\\s+"), " ").trim()
     }
 
     private val RFC = DateTimeFormatter.RFC_1123_DATE_TIME
