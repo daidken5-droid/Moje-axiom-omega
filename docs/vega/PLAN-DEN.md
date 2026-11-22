@@ -89,3 +89,22 @@ Testy: 163 → 187 (0 selhání; 4 přeskočené = 2 bez ONNX balíčku + 2 prů
 Aplikace se na Play **nevydává** – šlo jen o přístup „jako by ji měl laik z obchodu“. Vráceno: build „play“ (samoúprava zase
 instaluje APK), `targetSdk/compileSdk 35`, CI bez kroku AAB a SDK 36. Ponechány skutečné opravy (poloha Android 12+, BLE 8–11,
 vysvětlení polohy, offline diktování).
+
+## 22. 11. – zjednodušení UI, tvrdé scany, komerční kola (průběžně, do 22:00)
+**Ráno (U1, U2, S1–S39)** – zjednodušené ovládání (méně tlačítek, jednotné „Bez sítě“, tlačítka přímo v odpovědi) a cílené
+hledání chyb. Vybrané skutečné nálezy: neescapovaná pole v 8 kartách (nový test `xss.cjs`); „Kč“ vs „CZK“ = dvě měny;
+markdown z modelu (odrážky „*“, tabulky); chybělo Kopírovat/Sdílet; hypotéka „3 000 000“ bez odpovědi; „třetina z 900“
+a „vymaž paměť“ do webové rešerše; „zapomeň všechno“ nic nesmazalo; prázdný `tabulka.csv` (příčina: `\b` v JVM je ASCII,
+na telefonu ICU – testy a telefon se lišily); heslo z první zprávy v názvu konverzace; protichůdné údaje v paměti.
+
+**Odpoledne – komerční uživatelé a red team konzilium**
+| Kolo | Pohled | Nález → oprava |
+|---|---|---|
+| C1 | uživatel ChatGPT/Claude | chybělo Upravit poslední zprávu, ↻ Znovu, Kopírovat kód, hledání v konverzacích; menu ukazovalo jen 30 konverzací → hledání v názvech i obsahu |
+| C2 | AI prompteři | přílohy a pasáže z vlastních dokumentů šly modelu bez ohraničení → `Untrusted.wrap` + pravidlo „data, ne pokyny“ |
+| C3 | hackeři | manifest, WebView, FileProvider, cesty souborů bez nálezu; nové metody mostu ověřují id |
+| C4 | investoři | úvod bez klíče ukazuje nejsilnější věc bez nastavení (přesná hypotéka) |
+| C5 | vývojáři | mrtvý kód a nespojené akce UI: žádné; release APK (R8) lokálně sestaveno |
+
+Testy: 228 → 248 Kotlin (0 selhání) + UI `composer` 26 scénářů, `audit` 30 obrazovek, `robust`, `xss` – vše zelené.
+Na telefonu NEOVĚŘENO (kopírování do schránky, sdílení, Upravit/Znovu na skutečném zařízení).
