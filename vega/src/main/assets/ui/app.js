@@ -132,9 +132,9 @@ function emptyState() {
   if (h.project) btns.unshift(`<button class="btnchip cont" data-act="say" data-v="Pokračuj tam, kde jsme skončili">↺ Pokračovat: ${esc(h.project.name)}</button>`);
   const noModel = !h.engine && !h.own;
   // laikovi napoví, co může napsat (jen na prázdné hlavní obrazovce, ne v projektu); klepnutím se příklad odešle
-  const prompts = noModel || h.airgap ? ['Kolik je 15 procent z 2400?', 'Kolik dní do Vánoc?'] : [
-    'Spočítej 15 % z 2400', 'Napiš omluvný e-mail do práce', 'Kolik dní do Vánoc?', 'Vysvětli mi, co je inflace', '100 eur na koruny'
-  ];
+  const prompts = noModel || h.airgap ? ['Hypotéka 3 mil. na 30 let, 5 %', 'Kolik je 15 procent z 2400?'] : [
+    'Napiš omluvný e-mail do práce', 'Hypotéka 3 mil. na 30 let, 5 %', 'Vysvětli mi, co je inflace', '100 eur na koruny'
+  ];  // kolo C4: nejsilnější věc bez nastavení (přesný výpočet hypotéky) hned na očích
   const examples = !btns.length ? prompts.map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
   // běžná cesta laika: pole dole = zeptat se; tady soubor a hledání v dokumentech (odborné je v „+“ a Nastavení)
   const tasks = `<div class="btns tasks"><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;

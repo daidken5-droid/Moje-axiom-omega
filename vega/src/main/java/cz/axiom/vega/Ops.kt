@@ -540,6 +540,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * Zpráva s přílohou se neodebere (příloha by se ztratila) → null.
      */
     @Synchronized fun takeLastUser(chat: String): String? {
+        require(Regex("^c[0-9a-z]{1,20}$").matches(chat)) { "Tuhle konverzaci upravit nejde." }
         if (busy) throw ToolError("Ještě dokončuji odpověď – počkej, nebo ji zastav (■).")
         val arr = messages(chat)
         val i = (arr.length() - 1 downTo 0).firstOrNull { arr.getJSONObject(it).optString("role") == "user" } ?: return null
