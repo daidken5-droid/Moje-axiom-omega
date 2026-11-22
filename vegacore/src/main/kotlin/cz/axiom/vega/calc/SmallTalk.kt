@@ -34,6 +34,23 @@ object SmallTalk {
         }
     }
 
+    /**
+     * Povely pro telefon (volání, budík, připomínka, hudba, svítilna, SMS odeslat): VEGA je neprovede – poctivě to říct,
+     * i když je model připojený (model by mohl odpovědět „budík nastaven“, aniž by se cokoli stalo). Psaní textu SMS nechá modelu.
+     */
+    fun phoneAction(raw: String): String? {
+        val t = Text.fold(raw).lowercase().trim().trimEnd('!', '.', '?', ' ').removePrefix("prosim ").removePrefix("vego ").removePrefix("vega ")
+        return when {
+            Regex("^(zavolej|vytoc|volej|prozvon)( mi)? \\p{L}+").containsMatchIn(t) -> "Volat neumím – VEGA nemá přístup k telefonu. Otevři aplikaci Telefon."
+            Regex("^(nastav|natoc|zapni|dej mi)( mi)? budik|^budik na|^vzbud me").containsMatchIn(t) -> "Budík nastavit neumím – otevři aplikaci Hodiny. (Nic jsem nenastavil.)"
+            (Regex("^(pripomen|upozorni)( mi| me)? ").containsMatchIn(t) && Regex("\\b(zitra|dnes|pozitri|vecer|rano|odpoledne|v poledne|v \\d|za \\d|o pul|v (pondeli|utery|stredu|ctvrtek|patek|sobotu|nedeli)|kazd\\w+ (den|tyden|rano))\\b").containsMatchIn(t) || Regex("^(nastav|udelej|vytvor)( mi)? (pripominku|upominku|minutku|odpocet)|^minutka na").containsMatchIn(t)) -> "Připomínky a minutky zatím neumím – použij aplikaci Hodiny nebo Kalendář. (Nic jsem nenastavil.)"
+            Regex("^(pust|zahraj|prehraj)( mi)? (hudbu|pisn|pisnick|radio|playlist|spotify|youtube)").containsMatchIn(t) -> "Hudbu pustit neumím – otevři svůj přehrávač."
+            Regex("^(zapni|rozsvit|vypni)( mi)? (svitiln|baterk|blesk)").containsMatchIn(t) -> "Svítilnu ovládat neumím – je v rychlém nastavení telefonu (stáhni lištu shora)."
+            Regex("^(posli|odesli)( mi)? (sms|zpravu|esemesku)").containsMatchIn(t) -> "Sám zprávy neodesílám. Můžu ti text napsat – pak ho zkopíruješ tlačítkem Kopírovat."
+            else -> null
+        }
+    }
+
     /** „zapomeň všechno“, „vymaž paměť“, „smaž celou paměť“ – celá paměť (potvrzuje se tlačítkem, ne hned). */
     fun isForgetAll(raw: String): Boolean {
         val t = Text.fold(raw).lowercase().trim().trimEnd('!', '.', '?', ' ')

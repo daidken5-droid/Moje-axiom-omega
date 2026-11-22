@@ -29,4 +29,14 @@ class SmallTalkTest {
         assertEquals(Router.Intent.Forget("*"), Router.route("vymaž paměť", ctx))
         assertTrue(Router.route("nastavení", ctx) !is Router.Intent.Research)
     }
+
+    @Test fun phoneActionsAndDates() {
+        assertTrue(SmallTalk.phoneAction("Zavolej mámě")!!.startsWith("Volat neumím"))
+        assertTrue(SmallTalk.phoneAction("připomeň mi zítra v 8 zavolat mámě")!!.contains("Nic jsem nenastavil"))
+        assertNull(SmallTalk.phoneAction("napiš SMS mámě, že přijdu později"))
+        assertNull("vysvětlení, ne připomínka", SmallTalk.phoneAction("připomeň mi, co je to inflace"))
+        val now = java.time.ZonedDateTime.of(2026, 11, 22, 10, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+        assertEquals("Mezi 1. 1. 2026 a 22. 11. 2026 je 325 dní.", Quick.answer("jaký je rozdíl mezi 1.1.2026 a 22.11.2026", now))
+        assertEquals("Od roku 1989 uplynulo 37 let (2026 − 1989).", Quick.answer("kolik let je od roku 1989", now))
+    }
 }

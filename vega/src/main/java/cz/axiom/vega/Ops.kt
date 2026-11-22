@@ -1067,6 +1067,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (att == null && text.length < 200) {
             // nejdřív kurz ČNB: offline kalkulačka na převod měn bez kurzu odpoví „kurz neznám“ a ČNB by se nikdy nepoužilo
             currencyOnline(text)?.let { reply(chat, it); return }
+            cz.axiom.vega.calc.SmallTalk.phoneAction(text)?.let { reply(chat, it); return }
             offline(text)?.let { reply(chat, "$it\n\n_(spočítáno přesně v telefonu, bez modelu)_"); return }
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
@@ -1666,7 +1667,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
         if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && resultInChat(chat, lastResultRun!!) &&
             // „vytvoř mi tabulku na svatbu“ je nová tabulka, ne export výsledku (pokud věta na výsledek neodkazuje)
-            !(Regex("(?i)tabulk\\p{L}* (na|pro|s|kde|o|do které) ").containsMatchIn(text) && !Regex("(?i)z toho|výsled|výpis|tohle|tuhle|tu tabulk|tuto").containsMatchIn(text)) &&
+            !(Regex("(?i)tabulk\\p{L}*\\s+(na |pro |s |kde |o |do které |(?!(?:z|ze|toho|jako|do|v|ve|csv|excel)(?!\\p{L}))\\p{L}{3,})").containsMatchIn(text) && !Regex("(?i)z toho|výsled|výpis|tohle|tuhle|tu tabulk|tuto").containsMatchIn(text)) &&
             run(lastResultRun!!)?.last is Value.Table) {
             exportChat(chat, lastResultRun!!); return true
         }
@@ -1725,6 +1726,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Export s pravdivým stavem: chyba zápisu = neúspěch nahlášen, řádky zůstanou v běhu; úspěch ověřen zpětným čtením. */
     private fun exportChat(chat: String?, runId: String, intro: String = "") {
         val rows = (run(runId)?.last as? Value.Table)?.rows?.size ?: 0
+        // prázdný výsledek do souboru nepatří – laik by dostal prázdný Excel a myslel si, že je hotovo
+        if (rows == 0 && run(runId)?.last is Value.Table) { reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Výsledek je prázdný (0 řádků) – soubor jsem neukládal."); return }
         try {
             val r = exportValue(runId, -1)
             val f = out.file(r.getString("name")) ?: throw java.io.IOException("uložený soubor nejde najít")

@@ -115,4 +115,17 @@ class OpsFlowsTest {
         // bez modelu na pozdrav lidsky, ne „potřebuji model“
         assertTrue(ask(o, r, c, "ahoj").optString("text").startsWith("Ahoj!"))
     }
+
+    /** Scan S28: „vytvoř tabulku výdajů“ po hledání v souborech uložilo PRÁZDNÝ tabulka.csv (export starého výsledku; \b v JVM je jen ASCII). */
+    @Test fun newTableRequestIsNotExportOfOldResultAndEmptyIsNeverSaved() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        ask(o, r, c, "najdi v mých souborech smlouvu")  // prázdný výsledek (žádné soubory)
+        val m = ask(o, r, c, "vytvoř tabulku výdajů")
+        assertFalse(m.toString(), m.optJSONObject("card")?.optString("type") == "file" || m.optString("text").contains(".csv"))
+        val e = ask(o, r, c, "ulož to jako csv")
+        assertTrue(e.toString(), e.optString("text").contains("prázdný") && e.optJSONObject("card") == null)
+        // povely pro telefon: poctivě, nic se nepředstírá
+        assertTrue(ask(o, r, c, "nastav budík na 7").optString("text").contains("Nic jsem nenastavil"))
+        assertTrue(ask(o, r, c, "zavolej mámě").optString("text").startsWith("Volat neumím"))
+    }
 }

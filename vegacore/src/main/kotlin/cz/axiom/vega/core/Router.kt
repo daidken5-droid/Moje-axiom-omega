@@ -202,7 +202,7 @@ object Router {
         // co spočítá kalkulačka v telefonu (datum, převod, procenta), nikdy nejde na web – i když to vypadá jako „název“
         // (nejdřív levný test názvu – 3 až 60 znaků –, kalkulačka až pak; dlouhé vložené texty se jí vůbec netýkají)
         if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic ->
-            if (runCatching { cz.axiom.vega.calc.Quick.answer(text) ?: cz.axiom.vega.calc.SmallTalk.answer(text, true) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
+            if (runCatching { cz.axiom.vega.calc.Quick.answer(text) ?: cz.axiom.vega.calc.SmallTalk.answer(text, true) ?: cz.axiom.vega.calc.SmallTalk.phoneAction(text) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
         }
         return Intent.Talk(false, false)
     }

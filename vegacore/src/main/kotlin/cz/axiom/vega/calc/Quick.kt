@@ -379,7 +379,14 @@ object Quick {
     }
 
     private fun days(t: String, today: LocalDate): String? {
-        val m = Regex("kolik (?:je )?(?:dni|dnu) (?:je |uplyne |ubehne )?(?:od|mezi) (.+?) (?:do|a) (.+)$").find(t) ?: return null
+        // „kolik let je od roku 1989“, „kolik let uplynulo od 1989“
+        Regex("^kolik (?:je |uz )?let (?:je |uplynulo |ubehlo |uz je )?od (?:roku )?(\\d{4})$").find(t)?.let { m ->
+            val y = m.groupValues[1].toInt(); if (y > today.year || y < 1) return null
+            val n = today.year - y
+            return "Od roku $y ${if (n in 2..4) "uplynuly" else "uplynulo"} $n ${if (n == 1) "rok" else if (n in 2..4) "roky" else "let"} (${today.year} − $y)."
+        }
+        val m = Regex("kolik (?:je )?(?:dni|dnu) (?:je |uplyne |ubehne )?(?:od|mezi) (.+?) (?:do|a) (.+)$").find(t)
+            ?: Regex("^(?:jaky je )?rozdil (?:mezi )?(?:daty )?(\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|dneskem|dnesk[ae]m?) a (\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|dneskem|dnesk[ae]m?)$").find(t) ?: return null
         val a = date(m.groupValues[1]) ?: (if (m.groupValues[1].startsWith("dnes")) today else null) ?: return null
         val b = date(m.groupValues[2]) ?: (if (m.groupValues[2].startsWith("dnes")) today else null) ?: return null
         val n = kotlin.math.abs(ChronoUnit.DAYS.between(a, b))
