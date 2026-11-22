@@ -113,3 +113,17 @@ class SecretMemoryTest {
             org.junit.Assert.assertFalse(s, Mem.looksSecret(s))
     }
 }
+
+/** Scan S17 (22. 11.): kontrola síly WiFi hesla – tahy po klávesnici a „slovo + rok“ jsou slabé; vlastní návrhy nikdy. */
+class WifiPasswordTest {
+    @org.junit.Test fun weakPatterns() {
+        for (p in listOf("1qaz2wsx3edc", "zxcvbnm123", "qwertzuiop", "asdfghjkl1", "Monika1990", "Praha2024!"))
+            org.junit.Assert.assertTrue(p, WifiTools.checkPassword(p).score <= 1)
+        for (p in listOf("Xk9#mQ2\$vL7pR4", "kočka-strom-okno-mrak", "correct horse battery staple"))
+            org.junit.Assert.assertEquals(p, 4, WifiTools.checkPassword(p).score)
+    }
+    @org.junit.Test fun ownSuggestionsAreNeverFlaggedWeak() {
+        val rnd = java.util.Random(7)
+        repeat(300) { val p = WifiTools.passphrase(rnd); org.junit.Assert.assertTrue("$p → ${WifiTools.checkPassword(p)}", WifiTools.checkPassword(p).score >= 3) }
+    }
+}

@@ -37,6 +37,10 @@ object WifiTools {
         if (low in COMMON || COMMON.any { low == it }) return r("slabé", "Je to jedno z nejčastějších hesel ze slovníků – prolomí se okamžitě.", 0)
         if (p.all { it == p[0] }) return r("slabé", "Celé heslo je jeden opakovaný znak.", 0)
         if (isSequential(low)) return r("slabé", "Je to souvislá řada znaků (např. „abcdefgh“ nebo „12345678“) – snadno uhodnutelné.", 0)
+        if (isKeyboardWalk(low)) return r("slabé", "Je to tah po klávesnici (např. „qwertz“, „1qaz2wsx“) – takové řady jsou ve slovnících hesel mezi prvními.", 0)
+        // jméno / slovo + rok („Monika1990“, „Praha2024!“) – jeden z prvních vzorů, které útočník zkouší
+        if (p.length <= 14 && Regex("^\\p{L}{3,10}(19|20)\\d{2}[!.?#*]?$").matches(p))
+            return r("slabé", "Slovo nebo jméno s rokem je jeden z prvních vzorů, které se zkoušejí – přidej další nesouvisející slova.", 1)
         val classes = listOf(Regex("[a-z]"), Regex("[A-Z]"), Regex("[0-9]"), Regex("[^a-zA-Z0-9]")).count { it.containsMatchIn(p) }
         val score = when {
             p.length >= 16 && classes >= 2 -> 4
@@ -53,6 +57,19 @@ object WifiTools {
             else -> "Krátké a málo pestré – prodluž ho a přidej velká písmena, číslice a symbol."
         }
         return Check(score, level, reason)
+    }
+
+    /** Tah po klávesnici (US i česká QWERTZ, řádky i sloupce): aspoň 70 % hesla tvoří úseky ≥ 4 znaků z řad klávesnice. */
+    private val KEYS = listOf("1234567890", "qwertyuiop", "qwertzuiop", "asdfghjkl", "zxcvbnm", "yxcvbnm", "1qaz", "2wsx", "3edc", "4rfv", "5tgb", "6yhn", "6zhn", "7ujm", "8ik", "9ol", "0p")
+    private fun isKeyboardWalk(s: String): Boolean {
+        if (s.length < 8) return false
+        val covered = BooleanArray(s.length)
+        for (row in KEYS) for (len in row.length downTo 3) for (st in 0..row.length - len) {
+            val seg = row.substring(st, st + len)
+            for (target in listOf(seg, seg.reversed())) { var i = s.indexOf(target); while (i >= 0) { for (k in i until i + len) covered[k] = true; i = s.indexOf(target, i + 1) } }
+        }
+        // sloupcové tahy („1qaz2wsx3edc“) se skládají z krátkých úseků; počítat jen úseky ≥ 3, jinak by běžné slovo vypadalo jako tah
+        return covered.count { it } >= s.length * 0.7
     }
 
     private fun isSequential(s: String): Boolean {
