@@ -123,7 +123,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val (o, r) = settings.ghRepo.split('/').takeIf { it.size == 2 } ?: throw ToolError("Repozitář zadej jako vlastník/název.")
         return cz.axiom.vega.selfupdate.GitHub(o, r, t)
     }
-    fun selfUpdateStart(chat: String?, task: String, origin: String = "uživatel") = submit { jobArea = "selfupdate"; selfUpdate0(chat, task, origin) }
+    fun selfUpdateStart(chat: String?, task: String, origin: String = "uživatel") {
+        // feature freeze 22. 11.: samoúpravy výchozí VYPNUTO (Nastavení › Pro pokročilé)
+        if (!settings.selfUpdate) throw ToolError("Samoúpravy aplikace jsou vypnuté – zapneš je v Nastavení › Pro pokročilé.")
+        selfUpdateStart0(chat, task, origin)
+    }
+    private fun selfUpdateStart0(chat: String?, task: String, origin: String) = submit { jobArea = "selfupdate"; selfUpdate0(chat, task, origin) }
 
     /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest a citlivých API → commit na vega/auto-… (push spustí CI). */
     private fun selfUpdate0(chat: String?, task: String, origin: String) {
@@ -261,7 +266,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Samostatné zlepšování: nejvýš jednou denně z opakované slabiny (≥ 3×) navrhne úpravu sebe sama. Instalaci vždy potvrzuje uživatel. */
     private fun autoImproveTick() = note {
-        if (!settings.autoImprove || settings.airgap || !vault.has("github")) return@note
+        if (!settings.selfUpdate || !settings.autoImprove || settings.airgap || !vault.has("github")) return@note
         if (System.currentTimeMillis() - selfUpdates.lastAuto() < 24 * 3600_000L) return@note
         // rozpracovaná úprava blokuje další, ale jen 48 h (zaseknutá větev nesmí blokovat navždy)
         if (selfUpdates.list().any { it.status in setOf("PUSHED", "BUILDING") && System.currentTimeMillis() - it.at < 48 * 3600_000L }) return@note
@@ -2272,7 +2277,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     fun memoryJson(): JSONArray = JSONArray().apply { memory.all().forEach { e -> put(JSONObject().put("id", e.id).put("text", e.text).put("kind", e.kind.label).put("scope", e.scope).put("why", e.why()).put("canRevert", e.history.isNotEmpty())) } }
 
-    fun settingsJson(): JSONObject = JSONObject().put("budgetKc", settings.budgetKc).put("spentKc", settings.spentKcTotal()).put("initiative", settings.initiative).put("airgap", settings.airgap)
+    fun settingsJson(): JSONObject = JSONObject().put("selfUpdate", settings.selfUpdate).put("budgetKc", settings.budgetKc).put("spentKc", settings.spentKcTotal()).put("initiative", settings.initiative).put("airgap", settings.airgap)
         .put("keys", JSONObject().apply { engines.PROVIDERS.forEach { put(it, vault.has(it)) } }).put("allowed", JSONObject().apply { engines.PAID.forEach { put(it, settings.allowed(it)) } })
         .put("budgets", JSONObject().apply { engines.PAID.forEach { put(it, settings.budgetKc(it)) } })
         .put("spent", JSONObject().apply { engines.PAID.forEach { put(it, settings.spentUsd(it) * settings.usdKc) } })

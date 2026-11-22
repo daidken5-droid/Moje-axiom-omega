@@ -139,7 +139,10 @@ function emptyState() {
   const prompts = noModel || h.airgap ? ['Hypotéka 3 mil. na 30 let, 5 %', 'Kolik je 15 procent z 2400?'] : [
     'Napiš omluvný e-mail do práce', 'Hypotéka 3 mil. na 30 let, 5 %', 'Vysvětli mi, co je inflace', '100 eur na koruny'
   ];  // kolo C4: nejsilnější věc bez nastavení (přesný výpočet hypotéky) hned na očích
-  const examples = !btns.length ? prompts.map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
+  // úvod nejvýš 6 akcí celkem (feature freeze 22. 11.): průvodce/stav + 2 úkoly, zbytek tlačítka nebo příklady
+  const room = 6 - 2 - ((noModel && !h.airgap) || h.airgap ? 1 : 0);
+  btns.splice(room);
+  const examples = !btns.length ? prompts.slice(0, room).map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
   // běžná cesta laika: pole dole = zeptat se; tady soubor a hledání v dokumentech (odborné je v „+“ a Nastavení)
   const tasks = `<div class="btns tasks"><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
@@ -273,7 +276,7 @@ function card(c, isLast) {
     case 'nfcWait': return isLast && S.nfc ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span></div>` : '';
     case 'memRevert': return `<button class="pill sig" data-act="memRevert" data-id="${esc(c.id)}">Vrátit předchozí verzi</button>`;
     case 'memory': return `<button class="pill" data-act="library" data-tab="memory">Otevřít paměť ›</button>`;
-    case 'selfupdate': return `<button class="pill" data-act="library" data-tab="improve">Úpravy aplikace – stav a instalace ›</button>`;
+    case 'selfupdate': return (call('settings') || {}).selfUpdate ? `<button class="pill" data-act="library" data-tab="improve">Úpravy aplikace – stav a instalace ›</button>` : '';
     default: return '';
   }
 }
@@ -473,9 +476,6 @@ function plusSheet() {
   </div>
   <details style="margin-top:10px"><summary>Pokročilé</summary><div class="list" style="margin-top:8px">
     <button class="row" data-act="nfc"><b>◎</b><span class="grow"><b>NFC štítek – inspektor</b><small>typ karty, UID, technologie, obsah (jen čtení)</small></span></button>
-    <button class="row" data-act="wifi"><b>📶</b><span class="grow"><b>WiFi kolem mě</b><small>kanály, signál, kontrola zabezpečení tvé sítě</small></span></button>
-    <button class="row" data-act="hw"><b>🛠</b><span class="grow"><b>Hardware</b><small>virtuální karta, NFC štítky, WiFi, QR, Bluetooth</small></span></button>
-    <button class="row" data-act="folder"><b>▣</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
   </div></details>`);
 }
 
@@ -532,7 +532,6 @@ function drawer() {
     <div class="dlabel">Nedávné</div>${all.length > 6 ? `<input class="field dsearch" id="chatq" type="search" placeholder="Hledat v konverzacích (${all.length})" aria-label="Hledat v konverzacích">` : ''}
     <div class="dscroll" id="chatlist">${cs.map(chatRow).join('') || '<div class="dnote">Zatím žádné</div>'}</div>
     <div class="dfoot">
-      <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
       <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
       <button class="drow" data-act="libTab" data-tab="memory">Paměť</button>
       <button class="drow" data-act="settings">Nastavení</button>
@@ -586,7 +585,7 @@ function library(tab) {
         <small>${r.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts">${r.status === 'ACTIVE' ? `<button class="btn" data-act="impr" data-id="${esc(r.id)}" data-a="revert">Vrátit</button>` : ''}
         ${r.status === 'PROPOSED' ? `<button class="btn primary" data-act="impr" data-id="${esc(r.id)}" data-a="activate">Zapnout</button><button class="btn ghost" data-act="impr" data-id="${esc(r.id)}" data-a="reject">Zamítnout</button>` : ''}</span></div>`).join('') || '<div class="row"><span class="grow note">Zatím nic. Když mě opravíš („ne, myslel jsem…“), zapíšu si to a příště to poznám.</span></div>'}</div>
-      ${selfUpdateHtml()}
+      ${(call('settings') || {}).selfUpdate ? selfUpdateHtml() : ''}
       <h3>Rozšíření (nástroje, které jsem napsal)</h3><div class="list">${(v.extensions || []).map(e => `<div class="row stack"><span class="grow"><b>${esc(e.name)} <span class="pill">v${e.version}</span> <span class="pill ${e.enabled ? 'ok' : ''}">${e.enabled ? 'zapnuto' : 'vypnuto'}</span></b>
         <small>${esc(e.description)} · bez sítě · ${esc(e.tests || 'testy prošly')}</small><small>${e.history.map(h => esc(new Date(h.at).toLocaleDateString('cs-CZ') + ' ' + h.action)).join(' · ')}</small></span>
         <span class="acts"><button class="btn ${e.enabled ? '' : 'primary'}" data-act="impr" data-id="${esc(e.id)}" data-a="${e.enabled ? 'extOff' : 'extOn'}">${e.enabled ? 'Vypnout' : 'Zapnout'}</button>
@@ -657,8 +656,16 @@ function settingsSheet() {
     ${['deepseek', 'claude'].filter(k => s.keys[k]).map(k => `<label class="switch"><span><b>${k === 'claude' ? 'Claude' : 'DeepSeek'} automaticky</b><small>v rámci společného stropu</small></span><input type="checkbox" data-set="allow.${k}" data-shared="1" ${s.allowed[k] ? 'checked' : ''}></label>`).join('')}
     <label class="lbl">Kurz USD → Kč</label><input class="field" type="number" step="0.1" min="10" max="60" data-usdkc value="${s.usdKc || 23.5}">
 
+    <h3>Hardware a projekty</h3>
+    <div class="list">
+      <button class="row" data-act="hw"><b>🛠</b><span class="grow"><b>Hardware</b><small>virtuální karta (HCE), NFC štítky, QR, Bluetooth, root</small></span></button>
+      <button class="row" data-act="wifi"><b>📶</b><span class="grow"><b>WiFi audit</b><small>kanály, signál, kontrola zabezpečení tvé sítě</small></span></button>
+      <button class="row" data-act="libTab" data-tab="projects"><b>▣</b><span class="grow"><b>Projekty s kódem</b><small>založit nebo otevřít projekt</small></span></button>
+      <button class="row" data-act="folder"><b>📁</b><span class="grow"><b>Projekt ze složky</b><small>pracuji v kopii, originál nechám být</small></span></button>
+    </div>
+    <label class="switch"><span><b>Samoúpravy aplikace</b><small>VEGA navrhne změnu vlastního kódu, sestaví ji v GitHub CI a nabídne k instalaci. Výchozí: vypnuto.</small></span><input type="checkbox" data-set="selfUpdate" ${s.selfUpdate ? 'checked' : ''}></label>
     <h3>Učení a úpravy aplikace</h3>
-    <div class="list"><button class="row" data-act="libTab" data-tab="improve"><span class="grow"><b>Vylepšení</b><small>naučená pravidla z tvých oprav, rozšíření, úpravy aplikace</small></span><span class="end">›</span></button></div>
+    <div class="list"><button class="row" data-act="libTab" data-tab="improve"><span class="grow"><b>Vylepšení</b><small>naučená pravidla z tvých oprav a rozšíření</small></span><span class="end">›</span></button></div>
     <h3>Chování</h3>
     <label class="switch"><span><b>Iniciativa</b><small>navrhnu další krok u projektu</small></span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></label>
     <h3>Dokumenty ve vyhledávání</h3>

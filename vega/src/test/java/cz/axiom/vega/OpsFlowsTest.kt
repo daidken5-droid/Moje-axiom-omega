@@ -161,4 +161,13 @@ class OpsFlowsTest {
         assertEquals(1, hits.length()); assertEquals(c2, hits.getJSONObject(0).getString("id"))
         assertEquals(0, o.searchChats("x").length())
     }
+
+    /** Feature freeze 22. 11.: samoúpravy aplikace jsou výchozí VYPNUTÉ a bez zapnutí nejdou spustit. */
+    @Test fun selfUpdateIsOffByDefault() {
+        val o = ops(Rec())
+        assertFalse(o.settings.selfUpdate)
+        assertFalse(o.settingsJson().getBoolean("selfUpdate"))
+        val e = runCatching { o.selfUpdateStart(null, "přidej tlačítko") }.exceptionOrNull()
+        assertTrue(e.toString(), e is cz.axiom.vega.core.ToolError && e.message!!.contains("Pro pokročilé"))
+    }
 }

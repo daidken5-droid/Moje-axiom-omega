@@ -664,6 +664,7 @@ class Bridge(private val a: MainActivity) {
             "airgap" -> s.airgap = value == "true"
             "ownOnly" -> s.ownOnly = value == "true"
             "webAllowed" -> s.webAllowed = value == "true"
+            "selfUpdate" -> s.selfUpdate = value == "true"
             "ghRepo" -> { require(value.isBlank() || Regex("^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$").matches(value.trim())) { "Repozitář zadej jako vlastník/název." }; s.ghRepo = value }
             "ghBase" -> { require(Regex("^[A-Za-z0-9._/-]{1,120}$").matches(value.trim()) && !value.trim().startsWith("vega/auto-")) { "Neplatná větev." }; s.ghBase = value }
             "autoImprove" -> s.autoImprove = value == "true"

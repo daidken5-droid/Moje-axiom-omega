@@ -59,4 +59,10 @@ mock.messages=[{role:'vega',text:'Kód:\n```js\nconsole.log(1)\n```'}];run("S.mc
 assert.deepEqual(calls.filter(c=>c[0]==='copyText').map(c=>c[1].trim()),['console.log(1)']);
 // C6: sdílení celé konverzace jako čistý text
 assert.equal(run("chatPlain([{role:'user',text:'kolik je 2+2'},{role:'vega',text:'**4**\\n\\n_(spočítáno přesně v telefonu, bez modelu)_'}],'Počty')"),'Počty\n\nJá: kolik je 2+2\n\nVEGA: 4');
-console.log('27 UI logic scenarios passed.');
+// feature freeze: úvod max 6 akcí; Hardware/WiFi/Projekty nejsou v „+“ ani v menu
+mock.home={buttons:[1,2,3,4,5,6,7].map(i=>({id:'b'+i,name:'Tlačítko '+i,inputKind:'BYTES'})),engine:true,project:{name:'P'}};run("S.space={kind:'chat',id:'c0'}");
+assert.ok((run('emptyState()').match(/data-act="(runBtn|say|pick|findDocs|freeSetup|pickModel)"/g)||[]).length<=6,'úvod má mít nejvýš 6 akcí');
+mock.home={buttons:[],engine:false};assert.ok((run('emptyState()').match(/data-act="(runBtn|say|pick|findDocs|freeSetup|pickModel)"/g)||[]).length<=6);
+run("closeSheet=()=>{}; plusSheet()");assert.ok(!/data-act="(hw|wifi|folder)"/.test(field('#layer').innerHTML),'„+“ bez Hardware/WiFi/projektu');
+mock.chats=[];run("drawer()");assert.ok(!/data-tab="projects"/.test(field('#layer').innerHTML),'menu bez Projektů');
+console.log('31 UI logic scenarios passed.');
