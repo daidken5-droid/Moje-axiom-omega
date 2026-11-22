@@ -71,7 +71,11 @@ class OpsDayTest {
         assertTrue(lastCard(r, o, c, "napiš omluvný e-mail šéfovi")?.optString("type") == "setup")
         // výpočet bez modelu tlačítko nepotřebuje
         assertTrue(lastCard(r, o, c, "kolik je 15 % z 2400") == null)
+        // v Bez sítě místo průvodce jedno klepnutí na vypnutí režimu
         o.settings.airgap = true
-        assertTrue(lastCard(r, o, c, "napiš omluvný e-mail šéfovi") == null)
+        assertTrue(lastCard(r, o, c, "napiš omluvný e-mail šéfovi")?.optString("what") == "airgap")
+        assertTrue(lastCard(r, o, c, "Operace Prato")?.optString("what") == "airgap")
+        o.settings.airgap = false
+        assertTrue(lastCard(r, o, c, "Operace Prato")?.optString("what") == "web")
     }
 }

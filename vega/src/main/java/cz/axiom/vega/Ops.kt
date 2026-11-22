@@ -1073,7 +1073,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             val off = offline(text)
             // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
-            val setup = if (off == null && !settings.airgap && !settings.ownOnly) JSONObject().put("type", "setup") else null
+            val setup = if (off != null) null else if (settings.airgap) JSONObject().put("type", "netOff").put("what", "airgap") else if (!settings.ownOnly) JSONObject().put("type", "setup") else null
             reply(chat, off ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!, setup)
             return
         }
@@ -1095,8 +1095,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     // ------------------------------------------------------------------ rešerše a dlouhé zadání
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
-        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
-        if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."); return }
+        if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "web")); return }
+        if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "airgap")); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val snips = LinkedHashMap<String, Snippet>()
         for (v in variants.take(4)) { cancel.check(); runCatching { Web.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }

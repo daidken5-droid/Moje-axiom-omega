@@ -2,7 +2,8 @@ const assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('n
 const code=fs.readFileSync(require('node:path').join(__dirname, '../../vega/src/main/assets/ui/app.js'),'utf8');
 const fields=new Map(),field=id=>{if(!fields.has(id))fields.set(id,{value:'',style:{},dataset:{},setAttribute(){},focus(){},classList:{add(){},toggle(){}}});return fields.get(id)};
 const mock={home:{buttons:[]},send:{error:'chyba'},runTool:{error:'chyba'}};
-const ctx=vm.createContext({document:{querySelector:field,querySelectorAll:()=>[],addEventListener(){}},matchMedia:()=>({matches:false}),innerHeight:850,window:{VEGA:new Proxy({},{get(_,k){return ()=>JSON.stringify(mock[k]??true)}})}});
+const calls=[];
+const ctx=vm.createContext({document:{querySelector:field,querySelectorAll:()=>[],addEventListener(){}},matchMedia:()=>({matches:false}),innerHeight:850,window:{VEGA:new Proxy({},{get(_,k){return (...a)=>{calls.push([k,...a]);return JSON.stringify(mock[k]??true)}}})}});
 let run=s=>vm.runInContext(s,ctx);
 // Inicializaci skutečného WebView je třeba ověřit na telefonu. Zde se testují obslužné funkce.
 run(code.slice(0,code.indexOf('S.busy = J(B.isBusy()')));
@@ -32,4 +33,7 @@ let created=0;mock.messages=[];Object.defineProperty(mock,'newChat',{configurabl
 run("S.space={kind:'chat',id:'e1'}");run("act('new',{})");assert.equal(created,0,'prázdný chat se má znovu použít');
 // kontrola, že počítadlo funguje: z neprázdného chatu bez prázdného v seznamu se nová konverzace založí
 mock.messages=[{role:'user',text:'x'}];mock.chats=[{id:'e1'}];run("S.space={kind:'chat',id:'e1'}");run("act('new',{})");assert.equal(created,1);
-console.log('14 UI logic scenarios passed.');
+// tlačítko z hlášky „Vypnout Bez sítě“ / „Zapnout veřejný web“ opravdu přepne nastavení
+run("renderTop=()=>{};");calls.length=0;
+run("act('netOn',{what:'airgap'}); act('netOn',{what:'web'})");assert.deepEqual(calls.filter(c=>c[0]==='setSetting').map(c=>c.slice(1).join('=')),['airgap=false','webAllowed=true']);
+console.log('15 UI logic scenarios passed.');

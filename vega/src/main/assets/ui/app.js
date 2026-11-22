@@ -215,6 +215,7 @@ function card(c, isLast) {
         <div class="res-a"><span class="grow"></span><button class="btn" data-act="taskLog" data-log='${esc(JSON.stringify(c.log))}'>Záznam běhu</button></div></div>`;
     }
     case 'file': return `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="openOut" data-f="${esc(c.name)}">Otevřít ${esc(c.name)}</button><button class="btn" data-act="share" data-f="${esc(c.name)}">Sdílet</button></div>`;
+    case 'netOff': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="netOn" data-what="${c.what === 'web' ? 'web' : 'airgap'}">${c.what === 'web' ? 'Zapnout veřejný web' : 'Vypnout Bez sítě'}</button></div>` : '';
     case 'setup': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button></div>` : '';
     case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
     case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + c.breakEven + ' ks' : ''}</div></div>`;
@@ -1003,6 +1004,9 @@ function act(a, d) {
     case 'chatDelete': if (!confirm('Smazat celou konverzaci? Nejde to vrátit.')) break;
       if (call('deleteChat', d.id) !== null) { if (S.drafts) delete S.drafts['chat:' + d.id]; closeSheet(true); if (S.space.kind === 'chat' && S.space.id === d.id) { S.mc = null; setSpace({ kind: 'chat', id: null }); } else render(); drawer(); toast('Konverzace smazána.'); } break;
     case 'freeSetup': freeSetup(); break;
+    // jedním klepnutím z hlášky (místo hledání přepínače); dotaz pak stačí poslat znovu
+    case 'netOn': if (d.what === 'web') call('setSetting', 'webAllowed', 'true'); else call('setSetting', 'airgap', 'false'); S.home = null; renderTop();
+      toast(d.what === 'web' ? 'Veřejný web je zapnutý – pošli dotaz znovu.' : 'Režim Bez sítě je vypnutý – pošli dotaz znovu.', 5000); render(); break;
     case 'freeDone': closeSheet(true); S.home = null; render(); { const i = $('#input') || $('textarea'); if (i) i.focus(); } break;
     case 'freeSave': { const v = (($('#freeKey') || {}).value || '').trim();
       if (!v) { toast('Vlož klíč z AI Studia (začíná na AIza).'); break; }
