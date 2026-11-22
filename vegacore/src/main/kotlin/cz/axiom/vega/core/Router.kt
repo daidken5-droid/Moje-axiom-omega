@@ -167,11 +167,18 @@ object Router {
         val textGenre = has(t, "e-?mail|dopis|zprav[uy]|pozvank|prani|seznam|osnov|plan\\b|text\\b|program (na|pro|oslav|dne|vylet|svatb|vikend|vecir|akce)|projekt (zahrad|domu|koupeln|kuchyn|prace|do skoly)")
         if (has(t, "^(zaloz|vytvor|udelej|napis|naprogramuj)\\b.*\\b(projekt|program|skript|aplikaci|nastroj|parser|kalkulack\\w*|rozsireni)\\b") && !c.activeProject && (codeWord || has(t, "^(zaloz|vytvor) (novy )?projekt")) && !textGenre) return Intent.NewProject(text)
         if (c.activeProject) {
-            if (has(t, "^(vysvetli|co dela|jak funguje|popis)\\b")) return Intent.Code(text, CodeKind.EXPLAIN)
+            // otevřený projekt neznamená, že KAŽDÁ prosba je úprava kódu: „uprav mi e-mail formálněji“, „přidej do seznamu mléko“,
+            // „vysvětli mi, co je fotosyntéza“ jsou rozhovor (dřív by model sahal do souborů projektu)
+            val projectWord = codeWord || has(t, "soubor|funkc|tlacitk|strank|formular|prihlas|registrac|chyb|bug|\\btest|komponent|endpoint|databaz|\\bcss\\b|\\bhtml\\b|aplikac|projekt|\\bweb|menu\\b|ikon|obrazovk|polick|export|import|\\bcsv\\b|\\bpdf\\b|\\bgraf|filtr|razeni|vyhledavani|nastaveni|\\b\\w+\\.(js|ts|kt|py|html|css|json|md|java|xml|gradle)\\b|tenhle kod|ten kod")
+            val notCode = textGenre || has(t, "pravopis|gramatik|formaln|slusnej|pratelstej|\\bton\\b|v textu|z textu|vulgar|preloz|do seznamu|plan na|recept|cest[auy] do|vetu|odstavec|^(vysvetli|popis)( mi)? (co je|co jsou|proc|jak se|cestu)") ||
+                (Regex(":\\s+\\S").containsMatchIn(text) && !projectWord)
+            val bareFix = has(t, "^(oprav|uprav|sprav)(te)?( to| ho| ji| je| mi to)?[.!]*$") // „oprav to“ po změně v projektu
+            if (!notCode && projectWord && has(t, "^(vysvetli|co dela|jak funguje|popis)\\b")) return Intent.Code(text, CodeKind.EXPLAIN)
             if (has(t, "^(spust|pust|otestuj)\\b.*\\btest|^testy$|^spust testy")) return Intent.Code(text, CodeKind.TEST)
-            if (has(t, "^(pridej|oprav|uprav|zmen|prepis|refaktor|implementuj|dopln|odstran|smaz|prejmenuj|napis test|vytvor funkci|udelej)\\b")) return Intent.Code(text, CodeKind.CHANGE)
+            if (!notCode && (projectWord || bareFix) && has(t, "^(pridej|oprav|uprav|zmen|prepis|refaktor|implementuj|dopln|odstran|smaz|prejmenuj|napis test|vytvor funkci|udelej)\\b")) return Intent.Code(text, CodeKind.CHANGE)
             // pokyn k opravě kdekoli ve větě („Sleva se počítá špatně, oprav to.“) nebo popis chyby výsledku
-            if (has(t, "\\b(oprav|uprav|sprav)(te)?( to| ho| ji| je| mi to)?\\b|(pocita|vraci|vychazi|scita|zaokrouhluje) (se )?spatne|nefunguje spravne|dava spatn\\w* vysled")) return Intent.Code(text, CodeKind.CHANGE)
+            if (!notCode && has(t, "\\b(oprav|uprav|sprav)(te)?( to| ho| ji| je| mi to)?\\b|(pocita|vraci|vychazi|scita|zaokrouhluje) (se )?spatne|nefunguje spravne|dava spatn\\w* vysled") &&
+                (projectWord || bareFix || has(t, "(pocita|vraci|vychazi|scita|zaokrouhluje) (se )?spatne|nefunguje spravne|dava spatn"))) return Intent.Code(text, CodeKind.CHANGE)
         }
         if (has(t, "^(zaloz|vytvor) (novy )?projekt")) return Intent.NewProject(text)
         // --- navázání na zobrazený výsledek

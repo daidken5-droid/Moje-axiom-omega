@@ -110,3 +110,20 @@ class QuickCalendarTest {
         assertTrue(q("kolik mi je když jsem se narodil 23.11.2000", 2026, 11, 22)!!.contains("uplynulo 25 let; další výročí 23. 11. 2026 (pondělí) (za 1 den)"))
     }
 }
+
+/** Scan S10 (22. 11.): otevřený projekt nesmí z každé prosby udělat úpravu kódu. */
+class RouterProjectTest {
+    private val proj = Router.Ctx(false, null, true, false, null)
+    @Test fun everydayRequestsStayConversationEvenWithProjectOpen() {
+        for (s in listOf("uprav mi ten e-mail formálněji", "oprav mi pravopis v textu: dobrí den jak se mate", "přepiš to slušněji", "změň tón na přátelštější",
+            "vysvětli mi co je fotosyntéza", "popiš mi cestu do Brna", "přidej do seznamu mléko", "udělej mi plán na víkend", "smaž poslední větu"))
+            assertTrue("$s → ${Router.route(s, proj)}", Router.route(s, proj) !is Router.Intent.Code)
+    }
+    @Test fun realCodeTasksStillGoToProject() {
+        mapOf("oprav to" to Router.CodeKind.CHANGE, "přidej tlačítko pro odeslání formuláře" to Router.CodeKind.CHANGE, "vysvětli mi tenhle kód" to Router.CodeKind.EXPLAIN,
+            "spusť testy" to Router.CodeKind.TEST, "přejmenuj ten soubor na index.html" to Router.CodeKind.CHANGE, "oprav chybu v přihlášení" to Router.CodeKind.CHANGE,
+            "sleva se počítá špatně, oprav to" to Router.CodeKind.CHANGE).forEach { (s, k) ->
+            val r = Router.route(s, proj); assertTrue("$s → $r", r is Router.Intent.Code && r.kind == k) }
+        assertTrue(Router.route("přejmenuj ten soubor na index.html", Router.Ctx(false, null, false, false, null)) !is Router.Intent.Research)
+    }
+}

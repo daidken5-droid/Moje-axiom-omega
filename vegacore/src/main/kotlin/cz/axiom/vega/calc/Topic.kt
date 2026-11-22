@@ -21,7 +21,7 @@ object Topic {
         // slovenská otázková slova, hovorové díky, slovní matematika a spojky celé věty („myslím, že…“ není název tématu)
         "kolko|preco|kto|kedy|ako|aky|aka|ake|dakujem|dik\\w*|dekuj\\w*|thx|krat|deleno|plus|minus|odmocnin\\w*|procent\\w*|ze|aby|protoze|kdyz|kdyby|jestli|zda|myslim|myslis|" +
         // povely aplikaci („spusť testy“, „exportuj do excelu“) – bez výsledku z nich nesmí vzniknout rešerše na webu
-        "ulozit|exportuj|exportovat|export|spust|spustit|testy|stahni|stahnout|vytiskni|tiskni|sdilej|posli)\\b")
+        "ulozit|exportuj|exportovat|export|spust|spustit|testy|stahni|stahnout|vytiskni|tiskni|sdilej|posli|prejmenuj|prejmenovat|presun|zkopiruj)\\b")
     private val bad = Regex("[0-9+*/=<>@#{}\\[\\]|\\\\]")
 
     fun bare(prompt: String): String? {
