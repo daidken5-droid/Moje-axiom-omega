@@ -91,7 +91,10 @@ class Engines(private val settings: Settings, private val vault: Vault) {
             if (id == "gemini") { val pr = CostGuard.defaultPrice("geminipro", model); settings.addShadow(((inT ?: 0) * pr.inPerM + (outT ?: 0) * pr.outPerM) / 1e6) }
         })
 
+    /** Jen pro testy celé cesty (falešný model). V aplikaci vždy null. */
+    @Volatile var testEngine: cz.axiom.vega.llm.LlmEngine? = null
     fun pick(): Pick? {
+        testEngine?.let { return Pick(it, "test", "test", false, listOf("Test" to "test"), emptyList(), emptyList()) }
         // POUZE VLASTNÍ MODELY: jediný člen = vlastní server; žádná záloha na komerční API (ani při výpadku)
         if (settings.ownOnly) return member("own")?.let { m -> Pick(engineOf(listOf(m)), "own", m.model, false, listOf(m.provider.name to m.model), listOf(m.provider.dataNote), emptyList()) }
         // vybraný poskytovatel (úvodní obrazovka) jde první, pokud je použitelný; jinak vlastní server (zdarma a soukromý) a dál řetěz
