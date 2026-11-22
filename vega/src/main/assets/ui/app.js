@@ -622,6 +622,7 @@ function settingsSheet() {
   sheet(`<h2>Nastavení</h2>
     <h3>Ty</h3>
     <div class="inline"><input class="field" id="uname" value="${esc(s.userName || '')}" placeholder="Jak tě mám oslovovat (např. Lukáši)"><button class="btn primary" data-act="saveName">Uložit</button></div>
+    <p class="note">Vlastní pokyny pro odpovědi napiš do chatu, třeba „pamatuj si, že chci stručné odpovědi bez odrážek“ – VEGA se jimi bude řídit všude. Upravíš je v Menu → Paměť.</p>
     <h3>Odpovídání (zdarma)</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> (projekt bez platební karty). Nevíš jak? Použij průvodce „Zapnout rozhovor zdarma“ na úvodní obrazovce.')}
     <label class="switch"><span><b>Veřejný web</b><small>hledání, zdroje a kurzy – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
