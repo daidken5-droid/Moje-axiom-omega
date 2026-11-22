@@ -1071,7 +1071,10 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         }
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
-            reply(chat, offline(text) ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!)
+            val off = offline(text)
+            // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
+            val setup = if (off == null && !settings.airgap && !settings.ownOnly) JSONObject().put("type", "setup") else null
+            reply(chat, off ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!, setup)
             return
         }
         val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = att?.let { "att:${it.name}:${sha8(it.bytes)}" to listOf("příloha ${it.name} (${it.bytes.size} B)") })

@@ -215,6 +215,7 @@ function card(c, isLast) {
         <div class="res-a"><span class="grow"></span><button class="btn" data-act="taskLog" data-log='${esc(JSON.stringify(c.log))}'>Záznam běhu</button></div></div>`;
     }
     case 'file': return `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="openOut" data-f="${esc(c.name)}">Otevřít ${esc(c.name)}</button><button class="btn" data-act="share" data-f="${esc(c.name)}">Sdílet</button></div>`;
+    case 'setup': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button></div>` : '';
     case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
     case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + c.breakEven + ' ks' : ''}</div></div>`;
     case 'evidence': return `<div class="res"><div class="res-h">Síla doložení</div><div class="res-body">${c.parts.map(p => `<div class="chk"><span class="pill ${/^potvrzeno|^dvě/.test(p.status) ? 'ok' : 'bad'}">${esc(p.lines)} ${p.lines >= 5 || p.lines === 0 ? 'linií' : 'linie'}</span><span><b>${esc(p.label)}</b><small>${esc(p.status)} · ${p.support.map(esc).join(', ')}</small></span></div>`).join('')}</div></div>`;
@@ -1000,7 +1001,7 @@ function act(a, d) {
         <div class="inline" style="margin-top:8px"><button class="btn" data-act="chatRename" data-id="${esc(d.id)}">Přejmenovat</button><button class="btn ghost" data-act="chatDelete" data-id="${esc(d.id)}">Smazat konverzaci</button></div>`); break;
     case 'chatRename': if (call('renameChat', d.id, ($('#chatTitle') || {}).value || '') !== null) { closeSheet(true); drawer(); toast('Přejmenováno.'); } break;
     case 'chatDelete': if (!confirm('Smazat celou konverzaci? Nejde to vrátit.')) break;
-      if (call('deleteChat', d.id) !== null) { closeSheet(true); if (S.space.kind === 'chat' && S.space.id === d.id) { S.mc = null; setSpace({ kind: 'chat', id: null }); } else render(); drawer(); toast('Konverzace smazána.'); } break;
+      if (call('deleteChat', d.id) !== null) { if (S.drafts) delete S.drafts['chat:' + d.id]; closeSheet(true); if (S.space.kind === 'chat' && S.space.id === d.id) { S.mc = null; setSpace({ kind: 'chat', id: null }); } else render(); drawer(); toast('Konverzace smazána.'); } break;
     case 'freeSetup': freeSetup(); break;
     case 'freeDone': closeSheet(true); S.home = null; render(); { const i = $('#input') || $('textarea'); if (i) i.focus(); } break;
     case 'freeSave': { const v = (($('#freeKey') || {}).value || '').trim();

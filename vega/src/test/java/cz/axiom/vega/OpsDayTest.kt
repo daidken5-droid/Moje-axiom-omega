@@ -57,4 +57,21 @@ class OpsDayTest {
         val a = ask(o, r, c, "spočítej příjmy a výdaje z výpisu", listOf(id)).replace('\u00a0', ' ').replace('\u202f', ' ')
         assertTrue(a, a.contains("Příjmy 25 300,00") && a.contains("výdaje −1 833,50"))
     }
+
+    /** Bez klíče: odpověď rovnou nese tlačítko „Zapnout rozhovor zdarma“ (laik se nemusí vracet na úvod); v Bez sítě ne. */
+    @Test fun noModelReplyOffersSetupButtonOnlyWhenItHelps() {
+        fun lastCard(r: Rec, o: Ops, c: String, t: String): JSONObject? {
+            val before = r.ev.size; o.chat(c, t, emptyList())
+            val end = System.currentTimeMillis() + 20_000
+            while (System.currentTimeMillis() < end && r.ev.drop(before).none { it.first == "idle" }) Thread.sleep(20)
+            return r.ev.drop(before).lastOrNull { it.first == "message" }?.second?.getJSONObject("msg")?.optJSONObject("card")
+        }
+        val r = Rec(); val o = Ops(ctx) { t, d -> r.ev += t to d }.also { it.settings.airgap = false; it.settings.webAllowed = false }
+        val c = o.newChat()
+        assertTrue(lastCard(r, o, c, "napiš omluvný e-mail šéfovi")?.optString("type") == "setup")
+        // výpočet bez modelu tlačítko nepotřebuje
+        assertTrue(lastCard(r, o, c, "kolik je 15 % z 2400") == null)
+        o.settings.airgap = true
+        assertTrue(lastCard(r, o, c, "napiš omluvný e-mail šéfovi") == null)
+    }
 }
