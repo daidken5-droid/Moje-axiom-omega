@@ -429,4 +429,19 @@ class OpsSpecTest {
         assertTrue(log2.none { it.getInt("rev") == 3 && it.getString("action") == "spočítáno" && it.getString("step") == "zpracování souboru" })
         assertEquals(0L, o.settings.commercialRequests())
     }
+
+    /** Scan S16 (22. 11.): zpráva s PIN / číslem karty se do cloudu nepošle bez souhlasu; běžná zpráva souhlas nepotřebuje. */
+    @Test fun secretLookingMessageAsksConsentBeforeSending() {
+        val llm = MockLlm { "Rozumím." }.also { servers += it }
+        val r = Rec(); val o = ops(r)
+        o.settings.ownUrl = llm.url; o.settings.ownOnly = true
+        val c = o.newChat()
+        var n = r.ev.size
+        o.chat(c, "můj PIN ke kartě 4321, je bezpečné ho někomu říct?"); awaitMsg(r, n)
+        val consent = r.ev.drop(n).firstOrNull { it.first == "consent" }?.second
+        assertTrue("chybí dotaz na souhlas", consent != null && consent.toString().contains("PIN"))
+        n = r.ev.size
+        o.chat(c, "napiš mi krátkou básničku o jaru"); awaitMsg(r, n)
+        assertTrue("běžná zpráva nemá chtít souhlas", r.ev.drop(n).none { it.first == "consent" })
+    }
 }

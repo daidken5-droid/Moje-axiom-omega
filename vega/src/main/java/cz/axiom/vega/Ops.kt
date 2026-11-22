@@ -1077,7 +1077,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             reply(chat, off ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!, setup)
             return
         }
-        val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = att?.let { "att:${it.name}:${sha8(it.bytes)}" to listOf("příloha ${it.name} (${it.bytes.size} B)") })
+        val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = talkConsent(text, att))
         reply(chat, answer)
         observeTurn(text, "talk", scope)
     }
@@ -1086,6 +1086,20 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun resultInChat(chat: String?, runId: String): Boolean = chat == null || runCatching {
         val a = messages(chat); (0 until a.length()).any { i -> a.optJSONObject(i)?.optJSONObject("card")?.let { c -> c.optString("run") == runId || c.optString("ndefRun") == runId } == true }
     }.getOrDefault(false)
+
+    /**
+     * Souhlas před odesláním do cloudu: příloha, nebo zpráva, která vypadá jako heslo / PIN / číslo karty či účtu
+     * (laik napíše „moje číslo karty je 4111…, je to bezpečné?“ – zeptat se, než to odejde k poskytovateli modelu).
+     */
+    private fun talkConsent(text: String, att: Value.Bytes?): Pair<String, List<String>>? {
+        val secret = Mem.looksSecret(text)
+        val note = "tvoje zpráva obsahuje údaj, který vypadá jako heslo, PIN nebo číslo karty či účtu – opravdu ho chceš poslat?"
+        return when {
+            att != null -> "att:${att.name}:${sha8(att.bytes)}${if (secret) ":s" + sha8(text.toByteArray()) else ""}" to (listOf("příloha ${att.name} (${att.bytes.size} B)") + if (secret) listOf(note) else emptyList())
+            secret -> "secret:${sha8(text.toByteArray())}" to listOf(note)
+            else -> null
+        }
+    }
 
     private fun followUp(chat: String?, text: String) {
         val r = lastResultRun?.let { run(it) } ?: run { reply(chat, "Nevím, na který výsledek navázat – otevři ho a zeptej se znovu."); return }
