@@ -81,4 +81,22 @@ class OpsNewsTest {
         assertEquals(java.time.Instant.parse("2026-03-29T03:20:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2026, 3, 29), 20))
         assertEquals(java.time.Instant.parse("2026-10-25T04:30:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2026, 10, 25), 30))
     }
+
+    /** Plán: vypnuto = žádný alarm; zapnuto = pokus 05:20 + notifikace 05:30 příštího dne; po 05:20 jen zbývající pokus. */
+    @Test fun alarmsAreScheduled() {
+        val am = ctx.getSystemService(android.app.AlarmManager::class.java)
+        val sh = org.robolectric.Shadows.shadowOf(am)
+        val z = cz.axiom.vega.news.News.ZONE
+        NewsAlarms.schedule(ctx, enabled = false, now = LocalDateTime.parse("2026-11-22T20:00:00").atZone(z))
+        assertEquals(0, sh.scheduledAlarms.size)
+        NewsAlarms.schedule(ctx, enabled = true, now = LocalDateTime.parse("2026-11-22T20:00:00").atZone(z))
+        val times = sh.scheduledAlarms.map { it.triggerAtTime }.sorted()
+        assertEquals(listOf(NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 20), NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 30)), times)
+        // vypnutí zruší
+        NewsAlarms.schedule(ctx, enabled = false, now = LocalDateTime.parse("2026-11-22T20:00:00").atZone(z))
+        assertEquals(0, sh.scheduledAlarms.size)
+        // 05:25 (po prvním pokusu): pokus 05:28 + notifikace 05:30 téhož dne
+        NewsAlarms.schedule(ctx, enabled = true, now = LocalDateTime.parse("2026-11-23T05:25:00").atZone(z))
+        assertEquals(listOf(NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 28), NewsAlarms.at(java.time.LocalDate.of(2026, 11, 23), 30)), sh.scheduledAlarms.map { it.triggerAtTime }.sorted())
+    }
 }

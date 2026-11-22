@@ -96,7 +96,7 @@ class NewsReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     NewsAlarms.ATTEMPT -> if (!ops.newsDoneFor(day)) { val r = ops.newsDigest()
                         if (!r.ok) NewsAlarms.scheduleRetry(app, day, intent.getIntExtra("n", 0)) }
-                    NewsAlarms.NOTIFY -> { val r = ops.newsLast(day) ?: ops.newsDigest()  // poslední šance, když pokusy neproběhly (Doze)
+                    NewsAlarms.NOTIFY -> { val r = ops.newsLast(day)?.takeIf { it.ok } ?: ops.newsDigest()  // poslední šance: pokusy selhaly nebo neproběhly (Doze)
                         NewsAlarms.notify(app, r.ok, r.text, r.chat); NewsAlarms.schedule(app, s.newsEnabled) }
                     NewsAlarms.RETRY -> { val r = ops.newsDigest(); NewsAlarms.notify(app, r.ok, r.text, r.chat) }
                 }
