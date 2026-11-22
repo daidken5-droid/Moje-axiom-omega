@@ -151,4 +151,18 @@ class OpsModelTest {
         assertTrue(a, a.startsWith("Odpověď"))
         assertTrue("$ms ms", ms < 3_000)
     }
+
+    /** Kolo C15: nesouvisející prosba nedostane do kontextu pasáže z cizích dokumentů (cena, zmatení modelu). */
+    @Test fun unrelatedRequestGetsNoDocumentContext() {
+        val (o, ev, f) = setup(); val c = o.newChat()
+        o.attach("pojistka.txt", "text/plain", "Pojistná smlouva auta. Pojištění končí 31. 3. 2027. Pojistné 4 200 Kč ročně.".toByteArray())
+        o.attach("recept.txt", "text/plain", "Svíčková na smetaně. Maso naložte přes noc.".toByteArray())
+        ask(o, ev, c, "napiš omluvný e-mail šéfovi, že zítra nepřijdu")
+        val sys1 = f.seen.last().first().content
+        println("C15|e-mail|${sys1.contains("offline dokument")}")
+        assertFalse("e-mail dostal pasáže z dokumentů", sys1.contains("<<<DOKUMENT offline dokumenty>>>"))
+        ask(o, ev, c, "kdy mi končí pojištění auta")
+        val sys2 = f.seen.last().first().content
+        assertTrue("související dotaz má mít dokument", sys2.contains("31. 3. 2027"))
+    }
 }
