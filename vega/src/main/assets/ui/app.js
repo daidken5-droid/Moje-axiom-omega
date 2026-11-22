@@ -118,10 +118,10 @@ function emptyState() {
     'Spočítej 15 % z 2400', 'Napiš omluvný e-mail do práce', 'Kolik dní do Vánoc?', 'Vysvětli mi, co je inflace', '100 eur na koruny'
   ];
   const examples = !btns.length ? prompts.map(x => `<button class="btnchip ex" data-act="say" data-v="${esc(x)}">${esc(x)}</button>`) : [];
-  // běžná cesta laika: zeptat se / pracovat se souborem / najít v dokumentech (odborné je v „Přidat ›“ a Nastavení)
-  const tasks = `<div class="btns tasks"><button class="btnchip" data-act="ask"><i></i>Zeptat se</button><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;
+  // běžná cesta laika: pole dole = zeptat se; tady soubor a hledání v dokumentech (odborné je v „+“ a Nastavení)
+  const tasks = `<div class="btns tasks"><button class="btnchip" data-act="pick"><i></i>Pracovat se souborem</button><button class="btnchip" data-act="findDocs"><i></i>Najít v dokumentech</button></div>`;
   return `<div class="hello"><button class="star" data-act="star" aria-label="VEGA – jiný pozdrav">${STAR}</button><h1 id="greet">${esc(GREETS[greetI](h.userName))}</h1>
-    ${!noModel || h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Vybrat, kdo odpovídá"><b>${esc(h.airgap ? 'Bez sítě · místní nástroje' : h.model || 'automaticky')}</b> ▾</button>` : ''}
+    ${h.airgap ? `<button class="pill pick" data-act="pickModel" aria-label="Režim Bez sítě – změnit"><b>Bez sítě · místní nástroje</b> ▾</button>` : ''}
     ${noModel && !h.airgap ? `<div class="setup"><p>Výpočty a převody můžeš zkusit hned. Pro volný rozhovor si můžeš připojit online model.</p><button class="btn primary" data-act="freeSetup">Nastavit online rozhovor</button></div>` : ''}
     ${tasks}
     ${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}
@@ -383,7 +383,7 @@ function goHome() {
 function renderTop() {
   const h = S.home || call('home') || {};
   $('#spaceName').textContent = S.space.kind === 'temp' ? 'Dočasný chat' : S.space.kind === 'project' ? S.space.name : 'VEGA';
-  $('#modelName').textContent = h.model ? '· ' + h.model : '';
+  $('#modelName').textContent = h.airgap ? '· Bez sítě' : h.model ? '· ' + h.model : '';
   $('#avatar').textContent = (h.userName || 'V').trim().charAt(0).toUpperCase() || 'V';
 }
 // Živá odpověď: hotové odstavce se vykreslí JEDNOU a zůstanou v DOM, znovu se překresluje jen rozepsaný konec;
@@ -505,7 +505,6 @@ function drawer() {
       <button class="drow" data-act="libTab" data-tab="projects">Projekty</button>
       <button class="drow" data-act="libTab" data-tab="procs">Moje nástroje</button>
       <button class="drow" data-act="libTab" data-tab="memory">Paměť</button>
-      <button class="drow" data-act="libTab" data-tab="improve">Vylepšení</button>
       <button class="drow" data-act="settings">Nastavení</button>
     </div></nav>`;
 }
@@ -596,7 +595,7 @@ function settingsSheet() {
     <h3>Odpovídání (zdarma)</h3>
     ${keyRow('gemini', 'Gemini – zdarma', 'Klíč z <b>aistudio.google.com/apikey</b> (projekt bez platební karty). Nevíš jak? Použij průvodce „Zapnout rozhovor zdarma“ na úvodní obrazovce.')}
     <label class="switch"><span><b>Veřejný web</b><small>hledání, zdroje a kurzy – nezávislé na volbě modelu</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
-    <label class="switch"><span><b>Bez internetu</b><small>žádná síť – fungují jen výpočty a nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Bez sítě</b><small>nic neodejde z telefonu – fungují výpočty, nástroje a tvoje dokumenty</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
 
     <details><summary>Pro pokročilé</summary>
     <h3>Vlastní model (vlastní server)</h3>
@@ -627,6 +626,8 @@ function settingsSheet() {
     ${['deepseek', 'claude'].filter(k => s.keys[k]).map(k => `<label class="switch"><span><b>${k === 'claude' ? 'Claude' : 'DeepSeek'} automaticky</b><small>v rámci společného stropu</small></span><input type="checkbox" data-set="allow.${k}" data-shared="1" ${s.allowed[k] ? 'checked' : ''}></label>`).join('')}
     <label class="lbl">Kurz USD → Kč</label><input class="field" type="number" step="0.1" min="10" max="60" data-usdkc value="${s.usdKc || 23.5}">
 
+    <h3>Učení a úpravy aplikace</h3>
+    <div class="list"><button class="row" data-act="libTab" data-tab="improve"><span class="grow"><b>Vylepšení</b><small>naučená pravidla z tvých oprav, rozšíření, úpravy aplikace</small></span><span class="end">›</span></button></div>
     <h3>Chování</h3>
     <label class="switch"><span><b>Iniciativa</b><small>navrhnu další krok u projektu</small></span><input type="checkbox" data-set="initiative" ${s.initiative ? 'checked' : ''}></label>
     <h3>Dokumenty ve vyhledávání</h3>
@@ -651,9 +652,9 @@ function modelSheet() {
   sheet(`<h2>Kdo odpovídá</h2><p class="lede">Teď: <b>${esc(h.model || 'bez modelu')}</b></p>
     <h3>Modul / poskytovatel</h3>${providerList(s)}
     <h3>Soukromí</h3>
-    <label class="switch"><span><b>Pouze vlastní modely</b><small>${s.ownUrl ? esc(s.ownUrl) : 'server zatím není nastavený'}</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>
+    ${s.ownUrl || s.ownOnly ? `<label class="switch"><span><b>Pouze vlastní modely</b><small>${s.ownUrl ? esc(s.ownUrl) : 'server zatím není nastavený – vypni to'}</small></span><input type="checkbox" data-set="ownOnly" ${s.ownOnly ? 'checked' : ''}></label>` : ''}
     <label class="switch"><span><b>Veřejný web</b><small>rešerše, zdroje, odkazy</small></span><input type="checkbox" data-set="webAllowed" ${s.webAllowed !== false ? 'checked' : ''}></label>
-    <label class="switch"><span><b>Bez sítě (air-gap)</b><small>jen nástroje v telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
+    <label class="switch"><span><b>Bez sítě</b><small>nic neodejde z telefonu</small></span><input type="checkbox" data-set="airgap" ${s.airgap ? 'checked' : ''}></label>
     <div class="list" style="margin-top:12px"><button class="row" data-act="settings"><span class="grow"><b>Vlastní server a klíče…</b><small>adresa, model, Gemini zdarma, kredit Pro</small></span><span class="end">›</span></button>
     <button class="row" data-act="temp"><span class="grow"><b>Dočasný chat</b><small>nic se neukládá</small></span></button></div>`);
 }
@@ -970,7 +971,6 @@ function act(a, d) {
     case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(JSON.stringify({ airgap: !!((call('settings') || {}).airgap) })); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
     case 'say': $('#input').value = d.v; send(); break;
-    case 'ask': { closeSheet(true); const i = $('#input'); if (i) { i.focus(); } break; }
     case 'findDocs': { closeSheet(true); const i = $('#input'); if (i) { i.value = 'Najdi v mých dokumentech: '; autosize(); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } break; }
     case 'retry': if (busyGuard()) return; S.busy = true; if (call('retry', chatId(), d.req || '') === null) S.busy = false; render(); break;
     case 'resumeTask': if (busyGuard()) return; busyCall('resumeTask', chatId(), d.p); render(); break;
@@ -1110,7 +1110,7 @@ function act(a, d) {
     case 'older': { S.showAll = S.space.kind + ':' + S.space.id; const el = $('#stream'); const h = el.scrollHeight; renderStream(); el.scrollTop = el.scrollHeight - h; break; }
     case 'impr': { const r = call('improvementAction', d.id, d.a); if (typeof r === 'string') toast('Nezapnuto: ' + r); else toast({ revert: 'Vráceno – pravidlo už neplatí.', reject: 'Zamítnuto.', extOff: 'Vypnuto.', extBack: 'Vráceno na předchozí verzi.', extDel: 'Smazáno.', extPropose: 'Píšu rozšíření v novém projektu – až testy projdou, napiš „ulož jako rozšíření“.' }[d.a] || 'Zapnuto.'); library('improve'); break; }
     case 'settings': settingsSheet(); break;
-    case 'new': setSpace({ kind: 'chat', id: call('newChat'), name: 'Konverzace' }); break;
+    case 'new': goHome(); break; // znovu použije prázdnou konverzaci – v „Nedávné“ se nehromadí prázdné chaty
     case 'home': goHome(); break;
     case 'temp': S.tempMsgs = []; call('clearTemp'); setSpace({ kind: 'temp' }); break;
     case 'openChat': setSpace({ kind: 'chat', id: d.id, name: 'Konverzace' }); break;

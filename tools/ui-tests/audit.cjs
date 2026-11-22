@@ -48,7 +48,7 @@ const CHAT = [
 const SCREENS = [
   ['konverzace-karty', ['__chat']],
   ['úvod', null],
-  ['menu', ['drawer']],
+  ['menu', ['library']],
   ['přidat', ['plus']],
   ['přidat-pokročilé', ['plus'], () => { const d = document.querySelector('#layer details'); if (d) d.open = true; }],
   ['nástroje', ['tools']],

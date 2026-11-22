@@ -22,4 +22,14 @@ run("setSpace({kind:'chat',id:'1'})");assert.equal(field('#input').value,'rozdě
 // vyhozená příloha zmizí i z draftu jiné konverzace
 run("S.drafts={'chat:9':{text:'x',files:[{id:'old'},{id:'keep'}]}}; S.space={kind:'chat',id:'1'}; S.files=[]; window.vega.on('files',{files:[{id:'new',evicted:['old']}]})");
 assert.equal(run("S.drafts['chat:9'].files.map(f=>f.id).join()"),'keep');
-console.log('10 UI logic scenarios passed.');
+// zjednodušené UI (22. 11.): úvod bez „Zeptat se“ a bez duplicitního tlačítka modelu (jen stav Bez sítě); menu bez „Vylepšení“
+mock.home={buttons:[],engine:true,model:'Gemini'};run("S.space={kind:'chat',id:'1'}");
+let h=run('emptyState()');assert.ok(!/data-act="ask"/.test(h)&&!/pickModel/.test(h),'úvod má být bez Zeptat se a bez tlačítka modelu');
+mock.home={buttons:[],engine:true,airgap:true};assert.ok(/pickModel/.test(run('emptyState()')),'v Bez sítě má být stav vidět');
+mock.chats=[];run('closeSheet=()=>{}; drawer()');assert.ok(!/Vylepšení/.test(field('#layer').innerHTML),'menu bez Vylepšení');
+// „Nová konverzace“ v prázdném chatu nezakládá další prázdný chat
+let created=0;mock.messages=[];Object.defineProperty(mock,'newChat',{configurable:true,get(){created++;return 'x'}});
+run("S.space={kind:'chat',id:'e1'}");run("act('new',{})");assert.equal(created,0,'prázdný chat se má znovu použít');
+// kontrola, že počítadlo funguje: z neprázdného chatu bez prázdného v seznamu se nová konverzace založí
+mock.messages=[{role:'user',text:'x'}];mock.chats=[{id:'e1'}];run("S.space={kind:'chat',id:'e1'}");run("act('new',{})");assert.equal(created,1);
+console.log('14 UI logic scenarios passed.');
