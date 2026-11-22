@@ -108,9 +108,9 @@ object Quick {
                 "Z ${out(a)} na ${out(b)} je to ${if (d > 0) "nárůst" else "pokles"} o ${fmt(Math.round(kotlin.math.abs(pct) * 100) / 100.0)} % (o ${out(kotlin.math.abs(d))})."
         }
         // „rozděl 1500 mezi 4 lidi“, „1200 Kč na 3 osoby“
-        Regex("(?:rozdel\\w*|vydel\\w*) $N\\s*(?:kc|korun\\w*)? (?:mezi|na) (\\d{1,4}) ?(lid\\w*|osob\\w*|kamarad\\w*|deti|cast\\w*|dil\\w*|kus\\w*)?$").find(t)?.let { m ->
+        Regex("(?:rozdel\\w*|vydel\\w*) $N\\s*(?:kc|korun\\w*)? (?:mezi|medzi|na) (\\d{1,4}) ?(lid\\w*|lud\\w*|osob\\w*|kamarad\\w*|deti|cast\\w*|dil\\w*|kus\\w*)?$").find(t)?.let { m ->
             val v = num(m.groupValues[1]) ?: return null; val n = m.groupValues[2].toInt(); if (n == 0) return "Na nula dílů rozdělit nejde."
-            val who = if (m.groupValues[3].matches(Regex("lid\\w*|osob\\w*|kamarad\\w*|deti"))) "na každého" else "na jeden díl"
+            val who = if (m.groupValues[3].matches(Regex("lid\\w*|lud\\w*|osob\\w*|kamarad\\w*|deti"))) "na každého" else "na jeden díl"
             return "${out(v)} ÷ $n = ${out(v / n)} $who."
         }
         // „průměr z 4, 8 a 15“ (čárka s mezerou = oddělovač, „4,5“ = desetinné číslo)
@@ -122,10 +122,10 @@ object Quick {
             return "Průměr ${xs.joinToString(", ") { fmt(it) }} je ${out(xs.sum() / xs.size)} (součet ${fmt(xs.sum())} ÷ ${xs.size})."
         }
         // „třetina z 900“, „polovina z 1 234“, „dvojnásobek 450“
-        val parts = mapOf("polovin" to 2, "tretin" to 3, "ctvrtin" to 4, "petin" to 5, "sestin" to 6, "osmin" to 8, "desetin" to 10, "setin" to 100)
-        Regex("^(?:kolik je |spocitej )?(polovin|tretin|ctvrtin|petin|sestin|osmin|desetin|setin)\\w* (?:z|ze) $N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
+        val parts = mapOf("polovin" to 2, "polovic" to 2, "tretin" to 3, "ctvrtin" to 4, "petin" to 5, "sestin" to 6, "osmin" to 8, "desetin" to 10, "setin" to 100)
+        Regex("^(?:kolik je |spocitej )?(polovin|polovic|tretin|ctvrtin|petin|sestin|osmin|desetin|setin)\\w* (?:z|ze) $N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
             val v = num(m.groupValues[2]) ?: return null; val d = parts.getValue(m.groupValues[1])
-            return "${m.groupValues[1].replaceFirstChar { it.uppercase() }.let { mapOf("Polovin" to "Polovina", "Tretin" to "Třetina", "Ctvrtin" to "Čtvrtina", "Petin" to "Pětina", "Sestin" to "Šestina", "Osmin" to "Osmina", "Desetin" to "Desetina", "Setin" to "Setina").getValue(it) }} z ${out(v)} je ${out(v / d)}."
+            return "${m.groupValues[1].replaceFirstChar { it.uppercase() }.let { mapOf("Polovin" to "Polovina", "Polovic" to "Polovina", "Tretin" to "Třetina", "Ctvrtin" to "Čtvrtina", "Petin" to "Pětina", "Sestin" to "Šestina", "Osmin" to "Osmina", "Desetin" to "Desetina", "Setin" to "Setina").getValue(it) }} z ${out(v)} je ${out(v / d)}."
         }
         Regex("^(?:kolik je |spocitej )?(dvoj|troj|ctyr|pet|deseti)nasob\\w* (?:z |ze |od )?$N(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
             val k = mapOf("dvoj" to 2, "troj" to 3, "ctyr" to 4, "pet" to 5, "deseti" to 10)[m.groupValues[1]] ?: return@let
@@ -144,7 +144,7 @@ object Quick {
             return "${fmt(q)} $u × ${money(p)}/$u = ${money(q * p)}."
         }
         // „kolik dní má únor 2028“, „kolik dní má rok 2028“
-        Regex("^kolik (?:ma )?(?:dni|dnu) (?:ma |mel |bude mit )?(leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec|rok)(?: (\\d{4}))?$").find(t)?.let { m ->
+        Regex("^kolik (?:ma )?(?:dni|dnu) (?:ma |mel |bude mit )?(?:letos |tento rok )?(leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec|rok)(?: (\\d{4})| letos)?$").find(t)?.let { m ->
             val y = m.groupValues[2].toIntOrNull() ?: LocalDate.now().year
             if (m.groupValues[1] == "rok") return "Rok $y má ${java.time.Year.of(y).length()} dní${if (java.time.Year.isLeap(y.toLong())) " (přestupný)" else ""}."
             val mi = listOf("leden", "unor", "brezen", "duben", "kveten", "cerven", "cervenec", "srpen", "zari", "rijen", "listopad", "prosinec").indexOf(m.groupValues[1]) + 1

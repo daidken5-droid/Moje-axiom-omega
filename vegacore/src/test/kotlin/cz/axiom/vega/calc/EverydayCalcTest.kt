@@ -25,6 +25,11 @@ class EverydayCalcTest {
         assertEquals("Rok 2027 má 365 dní.", a("kolik dní má rok 2027"))
         assertEquals("Den má 86 400 vteřin.", a("kolik vteřin má den"))
         assertEquals("1 galon = 3,7854 l", a("kolik litrů je 1 galon"))
+        // slovensky / hovorově (scan S31)
+        assertEquals("1 500 ÷ 4 = 375 na každého.", a("rozdel 1500 medzi 4 ludi"))
+        assertEquals("Polovina z 800 je 400.", a("polovicu z 800"))
+        assertTrue(a("kolik dní má letos únor")!!.matches(Regex("Únor \\d{4} má 2[89] dní\\.")))
+        assertEquals("4 × 59 Kč = 236 Kč.", a("4 piva po 59"))
         val h = a("splátka hypotéky 3 000 000 na 30 let s úrokem 5 %")!!
         assertTrue(h, h.contains("16 104,65 Kč měsíčně"))
     }
