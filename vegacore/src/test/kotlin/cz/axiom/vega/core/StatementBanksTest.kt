@@ -160,3 +160,15 @@ class RagCzechTest {
         org.junit.Assert.assertNull(top("zcela nesouvisející dotaz o fotbale"))
     }
 }
+
+/** Scan S22 (22. 11.): „Kč“ a „CZK“ v jednom výpisu jsou jedna měna, „€“ a „EUR“ taky. */
+class StatementCurrencyTest {
+    @Test fun sameCurrencyDifferentSpelling() {
+        val csv = "Datum;Částka;Měna;Popis\n01.03.2026;1 000,00;Kč;Výplata\n02.03.2026;-250,00;CZK;Nákup\n03.03.2026;-50,00;kč;Lidl\n04.03.2026;-10,00;€;Káva\n05.03.2026;-5,00;EUR;Voda"
+        val d = Statement.detect(csv); val r = Statement.process(csv, d.spec!!)
+        assertEquals(1000.0, r.income, 0.001); assertEquals(-300.0, r.expense, 0.001)
+        val curs = r.table.rows.map { it[2] }.toSet()
+        assertEquals(setOf("CZK", "EUR"), curs)
+        assertEquals("USD", Statement.currency("$")); assertEquals("CZK", Statement.currency(" ")); assertEquals("PLN", Statement.currency("pln"))
+    }
+}

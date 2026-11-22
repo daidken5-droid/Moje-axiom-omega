@@ -381,7 +381,7 @@ class MainActivity : ComponentActivity() {
         val payload = cz.axiom.vega.core.WifiTools.qrPayload(ssid, password, type, hidden)
         val m = com.google.zxing.qrcode.QRCodeWriter().encode(payload, com.google.zxing.BarcodeFormat.QR_CODE, 512, 512)
         val bmp = android.graphics.Bitmap.createBitmap(512, 512, android.graphics.Bitmap.Config.ARGB_8888)
-        for (x in 0 until 512) for (y in 0 until 512) bmp.setPixel(x, y, if (m.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+        bmp.setPixels(IntArray(512 * 512) { i -> if (m.get(i % 512, i / 512)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() }, 0, 512, 0, 0, 512, 512)  // jedno volání místo 262 144× setPixel
         val bos = java.io.ByteArrayOutputStream(); bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, bos)
         val b64 = android.util.Base64.encodeToString(bos.toByteArray(), android.util.Base64.NO_WRAP)
         runOnUiThread { send("wifiQr", JSONObject().put("img", "data:image/png;base64,$b64").put("ssid", ssid)) }

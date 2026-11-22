@@ -150,6 +150,19 @@ object Statement {
         return if (i >= 0) (Csv.parse(lines[i], d).firstOrNull() ?: emptyList()).map { it.trim() } else emptyList()
     }
 
+    /** „Kč“, „CZK“, „koruna“ jsou jedna měna (dřív by se výpis se sloupcem „Kč/CZK“ rozpadl na dvě měny a součty by byly poloviční). */
+    fun currency(raw: String?): String {
+        val c = raw?.trim()?.ifBlank { null } ?: return "CZK"
+        val k = f(c).replace(".", "").trim()
+        return when {
+            k in setOf("kc", "czk", "korun", "koruna", "koruny") -> "CZK"
+            c == "€" || k in setOf("eur", "euro", "eura") -> "EUR"
+            c == "$" || k in setOf("usd", "us$", "dolar", "dolary") -> "USD"
+            c == "£" || k == "gbp" -> "GBP"
+            else -> c.uppercase()
+        }
+    }
+
     fun process(text: String, spec0: ParserSpec): Result {
         val lines = text.removePrefix("\uFEFF").lines()
         val spec = remap(spec0, headersOf(text, spec0))
@@ -183,7 +196,7 @@ object Statement {
                 date == null -> failed += line to "neplatné datum „${r.getOrNull(spec.dateCol) ?: ""}“"
                 amt == null -> failed += line to "neplatná částka „${r.getOrNull(spec.amountCol) ?: ""}“"
                 else -> {
-                    val cur = r.getOrNull(spec.currencyCol)?.trim()?.uppercase()?.ifBlank { null } ?: "CZK"
+                    val cur = currency(r.getOrNull(spec.currencyCol))
                     perCur.getOrPut(cur) { DoubleArray(3) }.let { a -> if (amt >= 0) a[0] += amt else a[1] += amt; a[2] += 1.0 }
                     val desc = spec.descCols.mapNotNull { r.getOrNull(it)?.trim()?.takeIf { s -> s.isNotEmpty() } }.joinToString(" · ")
                     out += listOf(date, String.format(java.util.Locale.ROOT, "%.2f", amt), cur, desc)

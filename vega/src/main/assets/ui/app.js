@@ -191,29 +191,29 @@ function card(c, isLast) {
       return `<div class="cardbox"><button class="btn" data-act="hwMeasureSave" data-d='${esc(JSON.stringify(data))}'>Uložit do podkladů pro výzkum</button></div>`; }
     case 'run': {
       const v = Object.assign({ run: c.run }, c.value);
-      const primary = c.failed ? `<button class="btn signal" data-act="resume" data-run="${c.run}">Pokračovat</button>`
+      const primary = c.failed ? `<button class="btn signal" data-act="resume" data-run="${esc(c.run)}">Pokračovat</button>`
         : c.save && !S.savedRuns.has(c.run) ? `<button class="btn primary" data-act="saveProc" data-run="${c.run}" data-save='${esc(JSON.stringify(c.save))}'>Uložit jako nástroj</button>`
-        : v.kind === 'TABLE' || v.kind === 'BYTES' ? `<button class="btn primary" data-act="export" data-run="${c.run}">Uložit soubor</button>` : '';
+        : v.kind === 'TABLE' || v.kind === 'BYTES' ? `<button class="btn primary" data-act="export" data-run="${esc(c.run)}">Uložit soubor</button>` : '';
       return `<div class="res"><div class="res-h">${esc(c.name)} ${c.failed ? '<span class="pill bad">chyba</span>' : '<span class="pill ok">hotovo</span>'}</div>
         ${c.failed ? `<div class="res-sub" style="padding-top:6px">${esc(c.error)}</div>` : `<div class="res-big">${esc(headline(v))}</div>`}
         <div class="res-body">${valueHtml(v)}</div>
-        <div class="res-a">${primary}<span class="grow"></span><button class="more" data-act="runMenu" data-run="${c.run}" aria-label="Další možnosti">⋯</button></div></div>`;
+        <div class="res-a">${primary}<span class="grow"></span><button class="more" data-act="runMenu" data-run="${esc(c.run)}" aria-label="Další možnosti">⋯</button></div></div>`;
     }
     case 'diff': {
-      const add = c.files.reduce((a, f) => a + f.added, 0), rem = c.files.reduce((a, f) => a + f.removed, 0), v = c.verification;
+      const add = c.files.reduce((a, f) => a + (Number(f.added) || 0), 0), rem = c.files.reduce((a, f) => a + (Number(f.removed) || 0), 0), v = c.verification;
       const vp = v ? (v.kind === 'run' ? `<span class="pill ${v.exitCode === 0 ? 'ok' : 'bad'}">${v.exitCode === 0 ? 'testy prošly' : 'testy neprošly'}</span>` : `<span class="pill">${esc(v.label)}</span>`) : '';
       const task = (c.task || []), mine = (c.changes || []).filter(x => task.includes(x.id));
       // výběr změn: jen u poslední karty a když úloha udělala víc změn
-      const pick = isLast && mine.length > 1 ? `<div class="res-body">${mine.slice().reverse().map(x => `<label class="chk"><input type="checkbox" data-keep="${x.id}" checked><span><b>#${x.id} ${esc(x.path)}</b><small>${esc(x.note || x.op)}</small></span></label>`).join('')}</div>` : '';
+      const pick = isLast && mine.length > 1 ? `<div class="res-body">${mine.slice().reverse().map(x => `<label class="chk"><input type="checkbox" data-keep="${esc(x.id)}" checked><span><b>#${esc(x.id)} ${esc(x.path)}</b><small>${esc(x.note || x.op)}</small></span></label>`).join('')}</div>` : '';
       const rounds = (c.rounds || []).length > 1 ? ` · ${c.rounds.length} kola (${c.rounds.map(r => r.exitCode === 0 ? '✓' : '✗').join(' ')})` : '';
       return `<div class="res"><div class="res-h">${esc(c.title || 'Změny v projektu')} ${vp}</div>
         <div class="res-big">+${add} −${rem}</div><div class="res-sub">${plural(c.files.length, 'soubor', 'soubory', 'souborů')}: ${c.files.slice(0, 3).map(f => esc(f.path)).join(', ')}${c.revision ? ` · revize ${esc(c.revision)}` : ''}${rounds}</div>${pick}
-        <div class="res-a">${c.resumeTask ? `<button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit úlohu</button>` : pick ? `<button class="btn primary" data-act="keep" data-p="${esc(c.project)}" data-task="${task.join(',')}">Přijmout vybrané</button>` : !c.title && c.changes && c.changes[0] ? `<button class="btn" data-act="undo" data-p="${esc(c.project)}" data-c="${c.changes[0].id}">Vrátit</button>` : ''}<span class="grow"></span>
+        <div class="res-a">${c.resumeTask ? `<button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit úlohu</button>` : pick ? `<button class="btn primary" data-act="keep" data-p="${esc(c.project)}" data-task="${esc(task.join(','))}">Přijmout vybrané</button>` : !c.title && c.changes && c.changes[0] ? `<button class="btn" data-act="undo" data-p="${esc(c.project)}" data-c="${esc(c.changes[0].id)}">Vrátit</button>` : ''}<span class="grow"></span>
         <button class="btn" data-act="cardDiff" data-files='${esc(JSON.stringify(c.files))}'>Rozdíl</button>${v ? `<button class="more" data-act="showVer" data-ver='${esc(JSON.stringify(v))}' aria-label="Výstup testu">⋯</button>` : ''}</div></div>`;
     }
     case 'compare': {
       const ch = c.prevTotal != null && c.prevTotal !== c.total;
-      return `<div class="res"><div class="res-h">Porovnání výpisů <span class="pill">revize ${c.rev}</span></div>
+      return `<div class="res"><div class="res-h">Porovnání výpisů <span class="pill">revize ${esc(c.rev)}</span></div>
         <div class="res-big">${fmt(c.total)} Kč</div>${ch ? `<div class="res-sub">předtím ${fmt(c.prevTotal)} Kč → rozdíl ${c.total - c.prevTotal > 0 ? '+' : ''}${fmt(c.total - c.prevTotal)} Kč</div>` : ''}
         <div class="res-body"><div class="tbl"><table><tr><th>#</th><th>Soubor</th><th>Saldo</th><th>Stav</th></tr>${c.files.map(f => `<tr><td>${f.i}</td><td>${esc(f.name)}${f.changed ? `<br><small class="note">místo ${esc(f.prevName)} (${fmt(f.prevSaldo)})</small>` : ''}</td><td>${fmt(f.saldo)}</td><td><span class="pill ${f.status === 'spočítáno' ? 'sig' : ''}">${esc(f.status)}</span></td></tr>`).join('')}</table></div></div>
         <div class="res-a"><span class="grow"></span><button class="btn" data-act="taskLog" data-log='${esc(JSON.stringify(c.log))}'>Záznam běhu</button></div></div>`;
@@ -222,13 +222,13 @@ function card(c, isLast) {
     case 'netOff': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="netOn" data-what="${c.what === 'web' ? 'web' : 'airgap'}">${c.what === 'web' ? 'Zapnout veřejný web' : 'Vypnout Bez sítě'}</button></div>` : '';
     case 'setup': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="freeSetup">Zapnout rozhovor zdarma</button></div>` : '';
     case 'exportRetry': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="exportRetry" data-run="${esc(c.run)}">Zkusit znovu</button></div>` : '';
-    case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + c.breakEven + ' ks' : ''}</div></div>`;
+    case 'econ': return `<div class="res"><div class="res-h">Kalkulace</div><div class="res-big">${c.profit == null ? '–' : (c.profit < 0 ? 'ztráta ' + fmt(-c.profit) : 'zisk ' + fmt(c.profit)) + ' Kč'}</div><div class="res-sub">cena ${fmt(c.price)} · variabilní ${fmt(c.variable)} · fixní ${fmt(c.fixed)}${c.breakEven != null ? ' · bod zvratu ' + esc(c.breakEven) + ' ks' : ''}</div></div>`;
     case 'evidence': return `<div class="res"><div class="res-h">Síla doložení</div><div class="res-body">${c.parts.map(p => `<div class="chk"><span class="pill ${/^potvrzeno|^dvě/.test(p.status) ? 'ok' : 'bad'}">${esc(p.lines)} ${p.lines >= 5 || p.lines === 0 ? 'linií' : 'linie'}</span><span><b>${esc(p.label)}</b><small>${esc(p.status)} · ${p.support.map(esc).join(', ')}</small></span></div>`).join('')}</div></div>`;
-    case 'revision': return `<span class="pill sig">revize ${c.rev}</span>`;
+    case 'revision': return `<span class="pill sig">revize ${esc(c.rev)}</span>`;
     case 'resume': return isLast ? `<div class="res"><div class="res-h">Rozpracováno <span class="pill">uloženo</span></div><div class="res-sub" style="padding-top:6px">„${esc(c.text)}“</div><div class="res-a"><button class="btn primary" data-act="retry" data-req="${esc(c.req || '')}">Pokračovat</button></div></div>` : '';
     case 'project': return c.resumeTask ? `<div class="res-a" style="padding-left:0"><button class="btn primary" data-act="resumeTask" data-p="${esc(c.resumeTask.project)}">Dokončit přerušenou úlohu</button></div>` : '';
     case 'memScope': return isLast ? `<div class="res-a" style="padding-left:0"><button class="btn" data-act="memGlobal" data-t="${esc(c.text)}">Uložit pro všechno</button><button class="btn ghost" data-act="libTab" data-tab="projects">Otevřít projekt</button></div>` : '';
-    case 'procedure': return `<div class="res-a" style="padding-left:0"><button class="btnchip" data-act="runBtn" data-id="${esc(c.id)}" data-kind="${esc(c.inputKind || 'BYTES')}"><i></i>${esc(c.name)} · v${c.version}</button></div>`;
+    case 'procedure': return `<div class="res-a" style="padding-left:0"><button class="btnchip" data-act="runBtn" data-id="${esc(c.id)}" data-kind="${esc(c.inputKind || 'BYTES')}"><i></i>${esc(c.name)} · v${esc(c.version)}</button></div>`;
     case 'buttonDraft': {
       const checks = (c.checks || []).map(k => `<li><span class="pill ${k.ok ? 'ok' : 'bad'}">${k.ok ? 'prošlo' : 'neprošlo'}</span> ${esc(k.file)}<small>${esc(k.note)}</small></li>`).join('');
       return `<div class="res"><div class="res-h">Návrh tlačítka ${c.offline ? '<span class="pill ok">bez sítě</span>' : '<span class="pill">potřebuje síť</span>'}</div>
@@ -940,7 +940,7 @@ window.vega = {
       case 'approve':
         if (S.req === d.req) break;
         sheet(`<h2>${d.overCap ? 'Strop je vyčerpaný' : d.noFree ? 'Bezplatný model není nastavený' : 'Zdarma teď neodpovídá'}</h2><p class="lede">${esc(d.reason)}</p>
-          <div class="card"><b>${esc(d.name)}</b> jen pro tento úkol<div class="res-big" style="padding:6px 0 0">nejvýš ${fmt(d.capKc ?? d.estimateKc)} Kč</div><div class="note">${d.calls > 1 ? `${d.calls} volání · ` : ''}${d.chars.toLocaleString('cs-CZ')} znaků · nad tuhle částku úkol nepůjde</div></div>
+          <div class="card"><b>${esc(d.name)}</b> jen pro tento úkol<div class="res-big" style="padding:6px 0 0">nejvýš ${fmt(d.capKc ?? d.estimateKc)} Kč</div><div class="note">${d.calls > 1 ? `${Number(d.calls) || 0} volání · ` : ''}${(Number(d.chars) || 0).toLocaleString('cs-CZ')} znaků · nad tuhle částku úkol nepůjde</div></div>
           <p class="note">${esc(d.hint)}</p>
           <div class="inline" style="margin-top:12px"><button class="btn grow" data-act="answer" data-ok="0">Ne</button><button class="btn signal grow" data-act="answer" data-ok="1">Použít</button></div>`);
         S.req = d.req; break;
@@ -961,7 +961,7 @@ window.vega = {
         if (st) st.innerHTML = `<span class="pill ${cls}">${d.ok ? 'Root ověřen' : 'nepovedlo se'}</span> ${esc(d.message || '')}`;
         else toast(d.message || '', 7000); if (d.ok && $('#layer .sheet')) hardwareSheet(); break; }
       case 'wifiQr': { const out = $('#qrOut');
-        const html = `<img src="${d.img}" alt="WiFi QR" style="width:220px;height:220px;border-radius:12px;background:#fff;padding:8px"><p class="note">Naskenuj fotoaparátem telefonu hosta. Síť: ${esc(d.ssid)}. QR se nikam neukládá.</p>`;
+        const html = `<img src="${/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(d.img || '') ? d.img : ''}" alt="WiFi QR" style="width:220px;height:220px;border-radius:12px;background:#fff;padding:8px"><p class="note">Naskenuj fotoaparátem telefonu hosta. Síť: ${esc(d.ssid)}. QR se nikam neukládá.</p>`;
         if (out) out.innerHTML = html; else sheet(`<h2>WiFi QR</h2>${html}`, true); break; }
       case 'nfc.off': S.nfc = false; render(); sheet(`<h2>NFC je vypnuté</h2><p class="lede">Zapni ho v systému a zkus to znovu.</p><button class="btn primary wide" data-act="nfcSettings">Otevřít nastavení NFC</button>`); break;
     }
