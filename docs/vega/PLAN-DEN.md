@@ -136,3 +136,22 @@ nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi ce
   psaly (střídavě po zdrojích, opakující se věty jen jednou, ~700 znaků), každá věta s odkazem na svůj článek, pod tím
   „Číst:“ s odkazy na všechny články. Pořád bez jazykového modelu; perex z RSS ≤ 600 znaků, nikdy celý článek.
   Odkazy bez sledovacích parametrů utm_. Test `NewsTest.extractiveSummaryFromSeveralSources`.
+
+### Večerní tvrdé kontroly H1–H15 (22. 11., 17:00–19:50; kontroly po 30 min)
+| Kolo | Nález → oprava |
+|---|---|
+| H1 | v 05:30 po neúspěšných pokusech ještě jeden pokus před notifikací; test plánování alarmů |
+| H2 | „co je nového“ bez modelu odkáže na ranní přehled; příklad kurzu „1 eur po 25,2“ |
+| H3 | lint: 0 chyb (TrustAll je v knihovně BouncyCastle, http jen pro LAN záměrně) |
+| H4 | titulek/perex z RSS mohl vytvořit cizí odkaz nebo formátování → markdown z textu kanálu pryč |
+| H5–H7 | Nastavení › Ranní přehled vizuálně OK; nový kód bez varování; RSS ve windows-1250 a s BOM OK |
+| H8 | parser zpráv ve fuzz testu (1 500 kol) – 0 výjimek |
+| H9 | slučování do témat 4× rychlejší (350 položek 181 → 47 ms) |
+| H10 | „Vyzkoušet teď“ = posledních 24 h do teď a nemění ranní plán (dřív zprávy do 05:20 a označil hotovo) |
+| H11 | po povolení přesných budíků se plán přeplánuje (SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) |
+| H12 | stejné id dvou konverzací ve stejné ms (zprávy se míchaly); seznam ořezán na 50 → 500; přehledů max 14 |
+| H13 | aktivní konverzace jde v menu nahoru |
+| H14 | hledání v 300 konverzacích / 12 000 zprávách 122 ms |
+| H15 | regresní brána: UI 33 scénářů, 30 obrazovek, robust, xss, lint 0 chyb |
+
+CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. Testy 281/0.
