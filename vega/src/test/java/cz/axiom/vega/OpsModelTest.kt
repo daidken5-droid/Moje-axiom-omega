@@ -83,4 +83,24 @@ class OpsModelTest {
         ask(o, ev, c, "napiš omluvný e-mail")
         assertTrue("model nezavolán: ${f.n}", f.n >= 1); assertTrue(f.seen.last().first().content.takeLast(600), f.seen.last().first().content.contains("Chci stručné odpovědi"))
     }
+
+    /** Kolo C11: ■ uprostřed psaní – rozepsaný text zůstane v chatu s poznámkou „zastaveno“, UI se uvolní. */
+    @Test fun stopKeepsPartialAnswer() {
+        val (o, ev, _) = setup()
+        o.engines.testEngine = object : LlmEngine {
+            override val id = "slow"; override val label = "Slow"
+            override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: cz.axiom.vega.llm.CancelToken, onDelta: (Delta) -> Unit): GenResult {
+                repeat(200) { i -> cancel.check(); onDelta(Delta("slovo$i ")); Thread.sleep(20) }; return GenResult("hotovo")
+            }
+        }
+        val c = o.newChat(); val b = ev.size; o.chat(c, "napiš dlouhý příběh", emptyList())
+        val t0 = System.currentTimeMillis(); while (System.currentTimeMillis() - t0 < 10_000 && ev.drop(b).none { it.first == "delta" }) Thread.sleep(10)
+        Thread.sleep(300); o.stop()
+        val end = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < end && ev.drop(b).none { it.first == "done" || it.first == "idle" }) Thread.sleep(20)
+        Thread.sleep(200)
+        val last = o.messages(c).let { it.getJSONObject(it.length() - 1) }
+        assertTrue(last.toString(), last.optString("role") == "vega" && last.optString("text").contains("slovo1") && last.optString("text").contains("zastaveno"))
+        assertFalse("nedopsal se celý", last.optString("text").contains("slovo199"))
+    }
 }
