@@ -222,7 +222,8 @@ object Quick {
             val r = if (a == "c") v * 9 / 5 + 32 else (v - 32) * 5 / 9
             return "${fmt(v)} °${a.uppercase()} = ${fmt(Math.round(r * 100) / 100.0)} °${b.uppercase()}"
         }
-        val ua = UNITS[a] ?: return null; val ub = UNITS[b] ?: return null
+        val ka = unitKey(a) ?: return null; val kb = unitKey(b) ?: return null
+        val ua = UNITS[ka] ?: return null; val ub = UNITS[kb] ?: return null
         if (ua.first != ub.first) return null
         val r = v * ua.second / ub.second
         // jednotky v odpovědi tak, jak je uživatel napsal (s diakritikou: „palců“, ne „palcu“) – fold zachovává délku textu
@@ -230,13 +231,25 @@ object Quick {
         fun shown(g: Int) = m.groups[g]?.range?.takeIf { tt == t && o.length == t.length && it.last < o.length }?.let { o.substring(it) } ?: m.groupValues[g]
         // cílová jednotka v 6. pádě („v librách“, „v palcích“) se v odpovědi vypíše v 2. pádě množného čísla
         val loc = mapOf("librach" to "liber", "palcich" to "palců", "kilogramech" to "kg", "metrech" to "m", "centimetrech" to "cm", "litrech" to "l")
-        return "${fmt(v)} ${shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} ${loc[b] ?: shown(3)}"
+        // cílová jednotka napsaná slovem v jiném pádě („v gramech“, „na minuty“) → zkratka, ať nevznikne „= 2 000 gramech“
+        val target = loc[b] ?: if (b == kb) shown(3) else (UNIT_SHOW[kb] ?: kb)
+        return "${fmt(v)} ${shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} $target"
     }
 
     /** „31. 2. 2027“ – tvar data sedí, ale den neexistuje → srozumitelně říct (ne mlčet). */
     private fun invalidDate(s: String): String? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})?").find(s)?.let { m ->
         val y = m.groupValues[3].toIntOrNull() ?: 2024
         if (runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.isFailure) "Datum ${m.groupValues[1]}. ${m.groupValues[2]}.${m.groupValues[3].let { if (it.isNotEmpty()) " $it" else "" }} neexistuje – zkontroluj den a měsíc." else null }
+    /** Tvar slova → jednotka: „metry/metrů“ → m, „kila/kilogramů“ → kg, „hodiny“ → h, „týdny“ → týden … (text je bez diakritiky). */
+    private fun unitKey(w: String): String? = UNITS[w]?.let { w } ?: when {
+        w.startsWith("kilometr") -> "km"; w.startsWith("centimetr") -> "cm"; w.startsWith("milimetr") -> "mm"; w.startsWith("metr") -> "m"
+        w.startsWith("kilogram") || w in setOf("kilo", "kila", "kil", "kilech", "kilum") -> "kg"; w.startsWith("gram") -> "g"; w.startsWith("tun") -> "t"
+        w.startsWith("mililitr") -> "ml"; w.startsWith("litr") -> "l"; w.startsWith("galon") -> "gal"; w.startsWith("decilitr") -> "dl"
+        w.startsWith("hodin") -> "h"; w.startsWith("minut") -> "min"; w.startsWith("sekund") -> "s"; w.startsWith("tyd") -> "tydnu"; w in setOf("dny", "dnu", "dnech", "dni", "den") -> "den"
+        w.startsWith("libr") -> "lb"; w.startsWith("unc") -> "oz"; w.startsWith("palc") -> "palec"; w.startsWith("stop") -> "ft"; w in setOf("mile", "mil", "milich") -> "mi"
+        else -> null
+    }
+    private val UNIT_SHOW = mapOf("tydnu" to "týdnů", "den" to "dní", "palec" to "palců", "gal" to "gal")
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
     /** Velikonoční neděle (gregoriánský výpočet). */
     private fun easter(y: Int): LocalDate {

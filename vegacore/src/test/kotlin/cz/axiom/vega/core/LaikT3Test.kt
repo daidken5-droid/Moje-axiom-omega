@@ -139,3 +139,16 @@ class RouterAttachmentTest {
         assertTrue(Router.route("kolik jsem celkem utratil", pdf) !is Router.Intent.BuildStatementTool)
     }
 }
+
+/** Scan S21 (22. 11.): převody jednotek napsaných slovy. */
+class UnitWordsTest {
+    @Test fun wordForms() {
+        mapOf("5 stop na metry" to "5 stop = 1,524 m", "2 kila v gramech" to "2 kila = 2 000 g", "3 hodiny na minuty" to "3 hodiny = 180 min", "90 minut na hodiny" to "90 minut = 1,5 h",
+            "500 ml na litry" to "500 ml = 0,5 l", "1 tuna na kila" to "1 tuna = 1 000 kg", "2 dny na hodiny" to "2 dny = 48 h", "1 týden na dny" to "1 týden = 7 dní",
+            "1500 metrů na kilometry" to "1 500 metrů = 1,5 km", "250 gramů na kila" to "250 gramů = 0,25 kg").forEach { (q, a) -> assertEquals(q, a, Quick.answer(q)) }
+        // měny a mocniny se s jednotkami nepletou
+        assertTrue(Quick.answer("100 eur na koruny")!!.contains("kurz"))
+        assertEquals("2^10 = 1 024", Quick.answer("kolik je 2 na 10"))
+        assertNull(Quick.answer("5 jablek na hrušky"))
+    }
+}
