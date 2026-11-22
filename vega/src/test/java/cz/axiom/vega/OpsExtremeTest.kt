@@ -50,4 +50,17 @@ class OpsExtremeTest {
         assertTrue(m.getJSONObject(0).optString("text"), m.getJSONObject(0).optString("text") == "kolik je 1 + 1")
         assertTrue("450 výměn za $ms ms", ms < 60_000)
     }
+
+    /** H14: hledání v obsahu 300 konverzací (po 40 zprávách) – odpověď rychle (volá se po psaní v menu). */
+    @Test fun searchManyChatsIsFast() {
+        val o = Ops(ctx) { _, _ -> }
+        val kv = java.io.File(ctx.filesDir, "vega/kv")
+        repeat(300) { i -> val id = o.newChat()
+            val arr = org.json.JSONArray(); repeat(40) { k -> arr.put(org.json.JSONObject().put("role", if (k % 2 == 0) "user" else "vega").put("text", "Zpráva $k v konverzaci $i o nákupu, dovolené a rozpočtu. " + if (i == 250 && k == 7) "Hledaný unikát Zanzibar." else "")) }
+            java.io.File(kv, "chat/$id.json").apply { parentFile.mkdirs(); writeText(arr.toString()) } }
+        val t0 = System.currentTimeMillis(); val r = o.searchChats("zanzibar"); val ms = System.currentTimeMillis() - t0
+        println("SEARCH|300 konverzací: $ms ms, nalezeno ${r.length()}")
+        assertTrue("nalezeno", r.length() == 1)
+        assertTrue("$ms ms", ms < 1500)
+    }
 }
