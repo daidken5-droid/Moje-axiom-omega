@@ -40,3 +40,22 @@ class EconTest {
         assertTrue(t12, t12.startsWith("Při 12 měsících vyjde roční tarif o 600 Kč levněji"))
     }
 }
+
+/** Scan S12 (22. 11.): ekonomické výpočty se nesmí chytit na běžnou větu. */
+class EconFalsePositiveTest {
+    @org.junit.Test fun noNonsenseTariffOrBreakEven() {
+        // „roční navýšení o 5 %“ / „roční úrok 5 %“ nejsou roční cena 5 Kč
+        org.junit.Assert.assertNull(Econ.parseTariff("nájem 15 000 měsíčně, roční navýšení o 5 %, kolik zaplatím za rok?"))
+        org.junit.Assert.assertNull(Econ.parseTariff("kolik je roční úrok 5 % z 100 000 měsíčně"))
+        // psaní textu s čísly není výpočet bodu zvratu
+        org.junit.Assert.assertFalse(Econ.isUnitQuestion("napiš mi email: cena 250 Kč za kus, fixní poplatek 1000 Kč, náklad 100"))
+        // skutečné dotazy dál fungují
+        org.junit.Assert.assertNotNull(Econ.parseTariff("Vyplatí se roční předplatné 2 400 Kč, nebo 250 Kč měsíčně?"))
+        org.junit.Assert.assertTrue(Econ.isUnitQuestion("cena 250, náklad na kus 150, fixní náklady 8000, 60 kusů"))
+    }
+    @org.junit.Test fun monthlyYearly() {
+        org.junit.Assert.assertEquals("299 Kč měsíčně je 3 588 Kč za rok.", cz.axiom.vega.calc.Quick.answer("předplatné Netflixu stojí 299 měsíčně, kolik ročně?"))
+        org.junit.Assert.assertEquals("600 000 Kč ročně je 50 000 Kč měsíčně (÷ 12).", cz.axiom.vega.calc.Quick.answer("mám roční plat 600 000, kolik je to měsíčně?"))
+        org.junit.Assert.assertNull("navýšení v % není prostý převod", cz.axiom.vega.calc.Quick.answer("nájem 15 000 měsíčně, roční navýšení o 5 %, kolik zaplatím za rok?"))
+    }
+}

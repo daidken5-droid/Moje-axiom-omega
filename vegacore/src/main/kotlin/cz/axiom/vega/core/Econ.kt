@@ -43,7 +43,8 @@ object Econ {
         return Unit(price, variable, fixed, qty)
     }
 
-    fun isUnitQuestion(raw: String): Boolean { val u = parseUnit(raw); return listOfNotNull(u.price, u.variable, u.fixed).size >= 2 && (u.variable != null || u.fixed != null) }
+    fun isUnitQuestion(raw: String): Boolean { if (Regex("^(?:prosim\\s+)?(napis|vytvor|priprav|sepis|preloz|zformuluj|navrhni)").containsMatchIn(f(raw).trim())) return false // „napiš e-mail: cena 250…“ je text, ne výpočet
+        val u = parseUnit(raw); return listOfNotNull(u.price, u.variable, u.fixed).size >= 2 && (u.variable != null || u.fixed != null) }
     fun isUnitCorrection(raw: String): Boolean { val u = parseUnit(raw); return (u.price ?: u.variable ?: u.fixed ?: u.qty) != null && Regex("oprav|vlastne|ve skutecnosti|spletl|splet|preklep|maj[ii] byt|ma byt|spravne je|spravne jsou|^ne,|chyba|zmen\\w*|uprav").containsMatchIn(f(raw)) && Regex("cen|nakla|fix|variab|kus|ks\\b|rezi|material").containsMatchIn(f(raw)) }
     /** Naléhání bez nových dat („ale já jsem fakt v plusu“). */
     fun isInsisting(raw: String): Boolean { val t = f(raw); return !Regex("\\d").containsMatchIn(t) && Regex("jsem si jist|urcite|ale ja|fakt jsem|trvam|opravdu jsem|vim, ze|to neni pravda|nesouhlas|mas to spatne|jsem v plusu|vydelavam").containsMatchIn(t) }
@@ -100,6 +101,8 @@ object Econ {
         val y = near(t, "rocni\\w*(?: tarif| predplatne| platba| licence| varianta)?|za rok|rocne") ?: prev?.yearly
         val m = Regex("$NUM\\s*(?:kc)?\\s*(?:mesicne|za mesic|/\\s*mesic(?!n)|mesicni)").find(t)?.let { num(it.groupValues[1]) } ?: near(t, "mesicni\\w*(?: tarif| platba| varianta)?|mesicne") ?: prev?.monthly
         if (y == null || m == null) return null
+        // „roční navýšení o 5 %“, „roční úrok 5 %“ nejsou ceny tarifu: roční cena musí být větší než měsíční a rozumně (≤ 3 roky měsíčních)
+        if (y <= m || y > m * 36) return null
         val months = Regex("(?:budu (?:ho |to )?(?:pouzivat|platit|potrebovat)|na|po dobu|pouziju)\\s+$NUM\\s*mesic").find(t)?.let { num(it.groupValues[1]) }
             ?: Regex("$NUM\\s*mesic\\w* (?:pouziti|vyuziti|pouzivani)").find(t)?.let { num(it.groupValues[1]) } ?: prev?.months
         val refundable = when { Regex("(?:rocni|rocne).{0,40}(?:vrat|refund|pomern|zrusit kdykoli)|vraci pomern|pomernou cast").containsMatchIn(t) && !Regex("nevrat|nejde vratit|bez vraceni").containsMatchIn(t) -> true

@@ -40,6 +40,13 @@ object Quick {
         convert(t, raw.lowercase().trim().trimEnd('?', '.', '!', ' '))?.let { return it }
         currency(t)?.let { return it }
         discount(t)?.let { return it }
+        // „299 měsíčně, kolik ročně?“ / „roční plat 600 000, kolik je to měsíčně?“ (bez nájmu s navýšením apod.)
+        if (!Regex("%|navys|zdraz|zlevn|inflac").containsMatchIn(t)) {
+            Regex("$N\\s*(?:kc|korun\\w*)?\\s*(?:mesicne|za mesic|mesicni\\w*|/\\s*mesic)[^0-9]{0,30}?kolik (?:je to |to je |to dela |bude |zaplatim |dam )?(?:rocne|za rok)$").find(t)?.let { m ->
+                val v = num(m.groupValues[1]) ?: return null; return "${money(v)} měsíčně je ${money(v * 12)} za rok." }
+            Regex("(?:rocni\\w*|za rok|rocne)[^0-9]{0,25}?$N\\s*(?:kc|korun\\w*)?[^0-9]{0,30}?kolik (?:je to |to je |to dela |vychazi |mam )?(?:mesicne|za mesic|na mesic)$").find(t)?.let { m ->
+                val v = num(m.groupValues[1]) ?: return null; return "${money(v)} ročně je ${money(v / 12)} měsíčně (÷ 12)." }
+        }
         // jednoduchý úrok: „úrok 5 % z 100 000 za rok“, „kolik je úrok 3 % ze 200000 za 2 roky“
         Regex("urok\\w*\\s*(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze|na)\\s*$N(?:\\s*(?:kc|korun\\w*))?(?:\\s*(?:za|na)\\s*(?:(\\d{1,2})\\s*)?(rok\\w*|let|mesic\\w*))?$").find(t)?.let { m ->
             val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
