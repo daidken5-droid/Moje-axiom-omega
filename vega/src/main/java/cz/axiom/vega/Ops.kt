@@ -1666,6 +1666,22 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support))) } }))
             return true
         }
+        // „ulož to do Wordu / jako PDF“ po textové odpovědi (dopis, e-mail, plán): uložit TU odpověď jako dokument (scan S37)
+        if (chat != null && Regex("(?i)(?<!\\p{L})(ulož|uložit|exportuj|převeď|dej|udělej|vytvoř|stáhni|chci)(?!\\p{L}).{0,30}(?<!\\p{L})(word\\p{L}*|docx|pdf\\p{L}*|dokument\\p{L}*)(?!\\p{L})").containsMatchIn(text) &&
+            !Regex("(?i)tabulk|csv|excel|výpis").containsMatchIn(text)) {
+            val arr = messages(chat)
+            val last = (arr.length() - 1 downTo 0).map { arr.getJSONObject(it) }.firstOrNull { it.optString("role") == "vega" && it.optString("text").isNotBlank() }
+            val body = last?.optString("text")?.let { plainOf(it) }
+            if (body != null && body.length >= 40 && last.optJSONObject("card")?.optString("type") != "file") {
+                val pdf = Regex("(?i)pdf").containsMatchIn(text)
+                val base = cz.axiom.vega.core.Mem.chatTitle(body.lineSequence().first()).removeSuffix("…").replace(Regex("[^\\p{L}\\p{N} ]"), "").trim().replace(' ', '-').take(40).ifBlank { "dokument" }
+                val saved = if (pdf) out.save("$base.pdf", "application/pdf", Pdf.build(context, body))
+                    else out.save("$base.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", cz.axiom.vega.core.Docx.build(body, base.replace('-', ' ')))
+                reply(chat, "Uloženo: **${saved.name}** – poslední odpověď jako ${if (pdf) "PDF" else "dokument Word"}${if (saved.public != null) " (najdeš ho ve Stažené/VEGA)" else ""}.",
+                    JSONObject().put("type", "file").put("name", saved.name))
+                return true
+            }
+        }
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
         if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && resultInChat(chat, lastResultRun!!) &&
             // „vytvoř mi tabulku na svatbu“ je nová tabulka, ne export výsledku (pokud věta na výsledek neodkazuje)
@@ -1678,6 +1694,12 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     /** Tlačítko „Smazat celou paměť“: každý záznam přes forget (náhrobky – nevrátí se ze shrnutí). Vrací počet smazaných. */
     fun memoryClear(): Int = memory.all().map { it.id }.sumOf { memory.forget(it).size }
+
+    /** Text odpovědi bez markdownu – do Wordu / PDF nepatří „**“, „#“ ani „|---|“. */
+    private fun plainOf(t: String): String = t.replace(Regex("```\\w*\\n?"), "").replace(Regex("(?m)^\\|[ \\t:|-]*-[ \\t:|-]*\\|[ \\t]*\\n?"), "")
+        .replace(Regex("(?m)^\\|(.*)\\|[ \\t]*$")) { m -> m.groupValues[1].split('|').joinToString("\t") { it.trim() } }
+        .replace(Regex("(?m)^#{1,4} "), "").replace(Regex("\\*\\*(.+?)\\*\\*"), "$1").replace(Regex("(?m)^([ \\t]*)[*+-][ \\t]+"), "$1• ")
+        .replace(Regex("_\\(spočítáno přesně v telefonu, bez modelu\\)_"), "").replace(Regex("\\n{3,}"), "\n\n").trim()
 
     /** Zapomenutí bez kopií: text se neopakuje, z historie chatu (kontext modelu) se vyřadí, navázaná kalkulace se smaže. */
     private fun forgetCmd(chat: String?, query: String, ws: Workspace?) {

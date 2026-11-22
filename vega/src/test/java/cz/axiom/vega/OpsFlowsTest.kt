@@ -128,4 +128,18 @@ class OpsFlowsTest {
         assertTrue(ask(o, r, c, "nastav budík na 7").optString("text").contains("Nic jsem nenastavil"))
         assertTrue(ask(o, r, c, "zavolej mámě").optString("text").startsWith("Volat neumím"))
     }
+
+    /** Scan S37: „ulož to do Wordu“ po textové odpovědi uloží tu odpověď jako .docx (bez markdownu); bez odpovědi nic nevznikne. */
+    @Test fun saveLastAnswerAsWord() {
+        val r = Rec(); val o = ops(r); val c = o.newChat()
+        val nothing = ask(o, r, c, "ulož to do wordu")
+        assertFalse(nothing.toString(), nothing.optJSONObject("card")?.optString("type") == "file")
+        ask(o, r, c, "co umíš")  // delší textová odpověď (bez modelu)
+        val m = ask(o, r, c, "ulož to do wordu")
+        assertEquals(m.toString(), "file", m.optJSONObject("card")?.optString("type"))
+        val name = m.getJSONObject("card").getString("name")
+        assertTrue(name, name.endsWith(".docx"))
+        val txt = cz.axiom.vega.core.Docx.text(java.io.File(o.out.dir, name).readBytes())
+        assertTrue(txt, txt.contains("výpočty") && !txt.contains("**"))
+    }
 }
