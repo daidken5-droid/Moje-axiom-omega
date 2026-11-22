@@ -103,4 +103,22 @@ class OpsModelTest {
         assertTrue(last.toString(), last.optString("role") == "vega" && last.optString("text").contains("slovo1") && last.optString("text").contains("zastaveno"))
         assertFalse("nedopsal se celý", last.optString("text").contains("slovo199"))
     }
+
+    /** Kolo C12: selhání modelu → česká hláška bez technických názvů výjimek, UI se uvolní. */
+    @Test fun modelFailuresAreHuman() {
+        val (o, ev, _) = setup(); val c = o.newChat()
+        val errs = listOf<Throwable>(java.net.UnknownHostException("generativelanguage.googleapis.com"), java.net.SocketTimeoutException("timeout"),
+            cz.axiom.vega.llm.EngineException("HTTP 429: RESOURCE_EXHAUSTED quota", retryable = true), java.io.IOException("unexpected end of stream"), IllegalStateException("boom"))
+        for (e in errs) {
+            o.engines.testEngine = object : LlmEngine { override val id = "x"; override val label = "X"
+                override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: cz.axiom.vega.llm.CancelToken, onDelta: (Delta) -> Unit): GenResult = throw e }
+            val b = ev.size; o.chat(c, "napiš básničku o ${e.javaClass.simpleName}", emptyList()); val end = System.currentTimeMillis() + 20_000
+            while (System.currentTimeMillis() < end && ev.drop(b).none { it.first == "idle" }) Thread.sleep(20)
+            val shown = (ev.drop(b).filter { it.first == "error" || it.first == "message" }.joinToString(" | ") { it.second.optString("text") + it.second.optJSONObject("msg")?.optString("text").orEmpty() })
+            println("C12|${e.javaClass.simpleName}|$shown")
+            assertTrue("${e.javaClass.simpleName}: UI viselo", ev.drop(b).any { it.first == "idle" })
+            assertTrue("${e.javaClass.simpleName}: nic se neukázalo", shown.isNotBlank())
+            if (e !is IllegalStateException) assertFalse("${e.javaClass.simpleName}: technický text: $shown", Regex("HTTP \\d|RESOURCE_|Exception|uvnitř VEGA").containsMatchIn(shown))
+        }
+    }
 }

@@ -473,6 +473,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             chain.any { it is java.net.SocketTimeoutException } -> "Server neodpověděl včas – zkus to znovu (vstup zůstal zachovaný)."
             chain.any { it is javax.net.ssl.SSLException } -> "Zabezpečené spojení selhalo – jsi možná na Wi-Fi s přihlašovací stránkou (hotel, vlak). Přihlas se v prohlížeči a zkus to znovu."
             chain.any { it.message.orEmpty().contains("došlo místo") } -> "V telefonu došlo místo – uvolni úložiště a zkus to znovu."
+            // jeden model (Claude, vlastní server, placený) bez řetězu: syrové „HTTP 429: {…}“ laikovi nic neřekne (kolo C12)
+            e is cz.axiom.vega.llm.EngineException && Regex("HTTP 429").containsMatchIn(e.message.orEmpty()) ->
+                if (Regex("(?i)per ?day|daily|denn").containsMatchIn(e.message.orEmpty())) "Denní limit modelu je vyčerpaný (obnoví se zítra). Výpočty a nástroje fungují dál."
+                else "Model je teď přetížený nebo jsi narazil na limit dotazů – zkus to za minutu (zadání zůstalo uložené)."
+            e is cz.axiom.vega.llm.EngineException && Regex("HTTP 40[13]").containsMatchIn(e.message.orEmpty()) -> "Klíč k modelu nebyl přijat – zkontroluj ho v Nastavení (nebo ho vlož znovu)."
+            e is cz.axiom.vega.llm.EngineException && Regex("HTTP 5\\d\\d").containsMatchIn(e.message.orEmpty()) -> "Služba modelu má výpadek – zkus to za chvíli (zadání zůstalo uložené)."
+            e is java.io.IOException && e !is java.io.FileNotFoundException && Regex("(?i)stream|reset|closed|broken pipe|abort|eof").containsMatchIn(e.message.orEmpty()) -> "Spojení se během odpovědi přerušilo – zkus to znovu (zadání zůstalo uložené)."
             // vlastní chyby VEGA mají české texty; cizí výjimky (NullPointer, IllegalState…) laikovi nic neřeknou
             e is ToolError || e is cz.axiom.vega.net.NetException || e is NoEngine || e is Workspace.Conflict -> e.message?.substringBefore(" [{")?.take(300) ?: "Něco se nepovedlo."
             // require()/error() s českým textem projde; anglický text cizí knihovny ne
