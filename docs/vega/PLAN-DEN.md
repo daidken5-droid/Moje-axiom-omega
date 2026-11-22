@@ -155,3 +155,12 @@ nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi ce
 | H15 | regresní brána: UI 33 scénářů, 30 obrazovek, robust, xss, lint 0 chyb |
 
 CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. Testy 281/0.
+
+### Závěr dne 22. 11. (22:00)
+- H16: živá kontrola přehledu po úpravách – v pořádku. H17: stejná událost ve dvou tématech (Libye) → kmeny 4 písmena,
+  pravidlo 3 společné + ½ titulku; na živých datech všech 10 témat správně.
+- Poslední APK: CI běh #150 (`88dd0b5`) zelený – `VEGA-88dd0b5.apk`
+  SHA-256 `0327f5fcf7252361a2f82281ed74189101ac1e6e3f0dddcf976cf9e3faf62d79`, podpis CN=AVIOR CI (beze změny).
+- Testy 282/0 (Kotlin), UI 33 scénářů / 30 obrazovek / robust / xss zelené, lint 0 chyb.
+- Na telefonu NEOVĚŘENO: doručení přehledu v 05:30 (3 dny), přesné budíky a obnova po restartu, oznámení a „Zkusit znovu“,
+  Kopírovat/Sdílet, Upravit/Znovu, hledání v konverzacích, 14 scénářů a měření v `PHONE-CHECKLIST.md`.
