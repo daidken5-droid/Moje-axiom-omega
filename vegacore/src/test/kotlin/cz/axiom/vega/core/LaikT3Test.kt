@@ -235,3 +235,12 @@ class NightN2Test {
         org.junit.Assert.assertNull(q("mám půl kila mouky a co upéct"))
     }
 }
+
+class NightN3Test {
+    @Test fun oneEuroPrice() {
+        val r = cz.axiom.vega.calc.CnbRates.query("kolik stojí 1 euro")
+        org.junit.Assert.assertEquals("EUR", r?.from); org.junit.Assert.assertEquals("CZK", r?.to)
+        org.junit.Assert.assertEquals("EUR", cz.axiom.vega.calc.CnbRates.query("kolik stojí jedno euro")?.from)
+        assertTrue(Quick.answer("kolik stojí 1 euro")!!.contains("kurz offline neznám"))
+    }
+}

@@ -80,7 +80,7 @@ object CnbRates {
     private fun foreignOnly(t: String, cur: String): Query? {
         val a = Regex("^(?:kolik (?:je|dela|to je) |preved |prevod |spocitej |prepocitej )?(\\d[\\d ]*(?:[.,]\\d+)?)\\s*$cur(?:\\s+(?:kolik|v kolika|za kolik)(?: (?:je to|to je|dela|to dela))?(?: (?:v |ve |na )?(?:kc|korun\\w*|czk))?)?$").find(t)
         val (v, w) = if (a != null) (a.groupValues[1].replace(" ", "").replace(',', '.').toDoubleOrNull() ?: return null) to a.groupValues[2]
-            else Regex("^(?:jaky je |aktualni |dnesni )?kurz $cur(?: (?:dnes|ted|ke korune|v korunach|na koruny))?$|^kolik (?:stoji|je|dela) (?:jedno |jeden |jedna )?$cur(?: (?:v korunach|dnes|ted))?$").find(t)
+            else Regex("^(?:jaky je |aktualni |dnesni )?kurz $cur(?: (?:dnes|ted|ke korune|v korunach|na koruny))?$|^kolik (?:stoji|je|dela) (?:jedno |jeden |jedna |1 )?$cur(?: (?:v korunach|dnes|ted))?$").find(t)
                 ?.let { r -> 1.0 to (r.groupValues[1].ifEmpty { r.groupValues[2] }) } ?: return null
         val from = code(w) ?: return null
         return if (from == "CZK") null else Query(v, from, "CZK", w)

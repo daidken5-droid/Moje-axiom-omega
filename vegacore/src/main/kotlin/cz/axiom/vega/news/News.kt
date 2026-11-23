@@ -50,7 +50,9 @@ object News {
         blocks.mapNotNull { b ->
             val title = clean(tag(b, "title") ?: return@mapNotNull null).take(300)
             val link = (tag(b, "link")?.let { clean(it) }?.takeIf { it.isNotBlank() }
-                ?: Regex("(?is)<link\\b[^>]*href=[\"']([^\"']+)[\"']").find(b)?.groupValues?.get(1)?.let { clean(it) })
+                ?: Regex("(?is)<link\\b[^>]*href=[\"']([^\"']+)[\"']").find(b)?.groupValues?.get(1)?.let { clean(it) }
+                // RSS bez <link>, jen <guid isPermaLink="true">https://…</guid> (výchozí isPermaLink je true)
+                ?: Regex("(?is)<guid\\b(?![^>]*isPermaLink=[\"']false)[^>]*>(.*?)</guid>").find(b)?.groupValues?.get(1)?.let { clean(it) })
                 ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { untrack(it) } ?: return@mapNotNull null
             if (title.isBlank()) return@mapNotNull null
             val date = (tag(b, "pubDate") ?: tag(b, "dc:date") ?: tag(b, "published") ?: tag(b, "updated"))?.let { date(clean(it)) }

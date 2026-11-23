@@ -251,3 +251,15 @@ class NewsSynonymMergeTest {
         assertFalse(News.similar("Rusko plánuje vynést do vesmíru družici s jadernou zbraní", "Lodě, které Ukrajinci zasáhli v Libyi, vezly zbraně pro ruský Africký sbor"))
     }
 }
+
+/** Noční kolo N3: RSS bez <link>, jen <guid isPermaLink="true"> (i výchozí); isPermaLink="false" se nepoužije. */
+class NewsGuidLinkTest {
+    @Test fun guidPermalinkUsedAsLink() {
+        val d = "<pubDate>Sun, 22 Nov 2026 15:00:00 +0100</pubDate>"
+        val a = News.parse("<rss><channel><item><title>Jen guid</title><guid isPermaLink=\"true\">https://a.cz/g1?utm_source=rss</guid>$d</item>" +
+            "<item><title>Guid bez atributu</title><guid>https://a.cz/g2</guid>$d</item>" +
+            "<item><title>Guid není odkaz</title><guid isPermaLink=\"false\">https://a.cz/g3</guid>$d</item>" +
+            "<item><title>Guid js</title><guid>javascript:alert(1)</guid>$d</item></channel></rss>", "novinky")
+        assertEquals(listOf("https://a.cz/g1", "https://a.cz/g2"), a.map { it.link })
+    }
+}
