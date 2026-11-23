@@ -25,7 +25,10 @@ object SmallTalk {
                 "$mode. I tak umím: $CAN. Rozhovor, psaní textů a překlady potřebují model – ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
             m("kdo jsi", "co jsi", "kdo jsi ty", "jak se jmenujes") -> "Jsem VEGA – asistent v telefonu. Počítám přesně bez modelu, pracuju s tvými soubory a s modelem v cloudu i píšu a odpovídám na otázky."
             m("jak se mas", "jak se mas dnes", "jak se dnes mas", "jak je", "jak se vede", "jak to jde", "jak se mate") -> "Díky, běžím. S čím pomůžu?"
-            m("co je noveho", "co je noveho ve svete", "zpravy", "novinky", "dnesni zpravy", "zpravy ze sveta", "co se deje", "co se deje ve svete") ->
+            m("co je noveho", "co je noveho ve svete", "zpravy", "novinky", "dnesni zpravy", "zpravy ze sveta", "co se deje", "co se deje ve svete",
+                "novinky dnes", "dnesni novinky", "zpravy dnes", "ranni prehled", "ranni prehled zprav", "prehled zprav", "co pisou noviny", "co pisou media",
+                "co se stalo dnes", "co se dnes stalo", "zapni ranni prehled", "zapni zpravy", "jak zapnu zpravy", "jak zapnu zpravy rano", "jak zapnu ranni prehled",
+                "vypni ranni prehled", "jak vypnu ranni prehled") ->
                 "Zprávy ti můžu posílat každé ráno v 05:30 – Ranní přehled (Nastavení › Ranní přehled zpráv) stáhne RSS z českých zpravodajských webů a funguje i bez modelu. Hned ho zkusíš tlačítkem „Vyzkoušet teď“."
             m("nastaveni", "otevri nastaveni", "kde je nastaveni", "jak otevru nastaveni") -> "Nastavení je v menu ☰ vlevo nahoře → Nastavení."
             m("jak zapnu internet", "jak zapnu sit", "zapni internet", "zapni sit", "vypni bez site", "jak vypnu bez site") ->

@@ -198,3 +198,13 @@ class DailyScanMon9Test {
             "jaký je rozdíl mezi 4G a 5G", "napiš e-mail šéfovi, že přijdu v 9:30").forEach { org.junit.Assert.assertNull(it, q(it)) }
     }
 }
+
+/** Denní scan 23. 11., kolo 22: laické dotazy na zprávy bez modelu – dřív „ranní přehled“, „přehled zpráv“ do rešerše, „zapni ranní přehled“ na model. */
+class DailyScanMon22Test {
+    @Test fun newsPhrasesPointToMorningDigest() {
+        listOf("ranní přehled", "přehled zpráv", "novinky dnes", "zapni ranní přehled", "jak zapnu zprávy ráno", "co píšou noviny", "co se stalo dnes", "vypni ranní přehled", "Ranní přehled?")
+            .forEach { q -> assertTrue(q, cz.axiom.vega.calc.SmallTalk.answer(q, false)?.contains("Ranní přehled") == true) }
+        listOf("co nového u tebe", "co je nového v aplikaci", "přehled výdajů", "co se stalo v roce 1989").forEach { q -> org.junit.Assert.assertNull(q, cz.axiom.vega.calc.SmallTalk.answer(q, false)) }
+        org.junit.Assert.assertFalse(Router.route("ranní přehled", Router.Ctx(false, null, false, false, null)) is Router.Intent.Research)
+    }
+}
