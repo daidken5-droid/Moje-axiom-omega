@@ -180,7 +180,7 @@ object News {
      */
     fun extract(t: Topic): List<Pair<String, Item>> {
         val perSource = t.items.distinctBy { it.source }.map { item ->
-            item to Regex("[^.!?…]+[.!?…]+[\"“”»)]*|[^.!?…]+$").findAll(item.perex).map { it.value.trim() }
+            item to sentences(item.perex)
                 .filter { it.length in 25..400 && !it.endsWith("…") && !similarSentence(it, t.title) }.toList()
         }
         val out = ArrayList<Pair<String, Item>>(); var chars = 0; var round = 0
@@ -191,6 +191,14 @@ object News {
                 if (out.none { similarSentence(it.first, sn) }) { out += sn to item; chars += sn.length }
             }
             round++
+        }
+        return out
+    }
+    /** Věty perexu; úlomek začínající malým písmenem patří k předchozí větě („10. července“, „tzv. vklady“, „a.s. uložila“). */
+    internal fun sentences(perex: String): List<String> {
+        val out = ArrayList<String>()
+        Regex("[^.!?…]+[.!?…]+[\"“”»)]*|[^.!?…]+$").findAll(perex).map { it.value.trim() }.filter { it.isNotEmpty() }.forEach { p ->
+            if (out.isNotEmpty() && p.first().isLowerCase()) out[out.size - 1] = out.last() + " " + p else out += p
         }
         return out
     }

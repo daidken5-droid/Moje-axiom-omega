@@ -169,3 +169,14 @@ class NewsTest {
         assertFalse(News.similar("Vláda schválila rozpočet na příští rok", "Sněmovna odmítla zákon o rozpočtové kázni"))
     }
 }
+
+/** Denní scan 23. 11., kolo 10 (živé RSS): perex se lámal po datu „10.“ → věta „července na hlavní scéně…“. */
+class NewsSentenceTest {
+    @Test fun dateAndAbbreviationDoNotSplitSentences() {
+        val p = "Festival ohlašuje další jméno. Kapela vystoupí 10. července na hlavní scéně v Dolních Vítkovicích. Lístky jsou v prodeji."
+        org.junit.Assert.assertEquals(listOf("Festival ohlašuje další jméno.", "Kapela vystoupí 10. července na hlavní scéně v Dolních Vítkovicích.", "Lístky jsou v prodeji."), News.sentences(p))
+        org.junit.Assert.assertEquals(listOf("Firma tzv. vklady přijímala bez licence.", "ČNB ji pokutovala."), News.sentences("Firma tzv. vklady přijímala bez licence. ČNB ji pokutovala."))
+        org.junit.Assert.assertEquals(listOf("Bez tečky na konci"), News.sentences("Bez tečky na konci"))
+        org.junit.Assert.assertEquals(emptyList<String>(), News.sentences(""))
+    }
+}
