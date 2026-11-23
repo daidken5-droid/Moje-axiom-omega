@@ -172,4 +172,18 @@ class OpsNewsTest {
         while (sh.scheduledAlarms.isEmpty() && System.currentTimeMillis() < until) Thread.sleep(50)
         assertEquals("pokus + notifikace příštího dne", 2, sh.scheduledAlarms.size)
     }
+
+    /** Denní scan 23. 11., kolo 17: dvojí klepnutí na „Vyzkoušet teď“ = dvě souběžná stahování a dva chaty „Zprávy …“. */
+    @Test fun doubleTapManualRunMakesOneChat() {
+        val o = ops { u -> Thread.sleep(300); if ("novinky" in u) novinky else idnes }
+        val later = LocalDateTime.parse("2026-11-23T17:00:00").atZone(cz.axiom.vega.news.News.ZONE)
+        val rs = java.util.Collections.synchronizedList(ArrayList<Ops.NewsResult>())
+        val ts = (1..2).map { Thread { rs += o.newsDigest(later, manual = true) } }
+        ts.forEach { it.start() }; ts.forEach { it.join(10_000) }
+        assertEquals(1, o.chats().toString().split("Zprávy 23. 11.").size - 1)
+        assertEquals(1, rs.count { it.ok })
+        assertTrue(rs.first { !it.ok }.text.contains("už stahuje"))
+        // po doběhnutí jde spustit znovu
+        assertTrue(o.newsDigest(later.plusMinutes(1), manual = true).ok)
+    }
 }

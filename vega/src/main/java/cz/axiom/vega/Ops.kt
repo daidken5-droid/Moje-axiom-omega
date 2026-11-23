@@ -1793,9 +1793,12 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val day = java.time.LocalDateTime.ofInstant(w.second, N.ZONE).toLocalDate()
         // pokus a notifikace mohou v Doze dorazit naráz – ranní přehled se staví jednou, druhý počká a vezme hotový
         if (!manual) synchronized(newsLock) { newsLast(day)?.takeIf { it.ok }?.let { return it }; return newsBuild(now, false, w, day) }
-        return newsBuild(now, true, w, day)
+        // „Vyzkoušet teď“ dvakrát rychle za sebou: druhé klepnutí nestahuje znovu a nezakládá druhý chat
+        if (!manualBusy.compareAndSet(false, true)) return NewsResult(false, "Přehled se už stahuje – objeví se jako nová konverzace.", null)
+        try { return newsBuild(now, true, w, day) } finally { manualBusy.set(false) }
     }
     private val newsLock = Any()
+    private val manualBusy = java.util.concurrent.atomic.AtomicBoolean(false)
     private fun newsBuild(now: java.time.ZonedDateTime, manual: Boolean, w: Pair<java.time.Instant, java.time.Instant>, day: java.time.LocalDate): NewsResult {
         val N = cz.axiom.vega.news.News
         fun done(r: NewsResult) = r.also { if (!manual) kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
