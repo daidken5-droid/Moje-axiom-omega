@@ -197,4 +197,15 @@ class OpsNewsTest {
         assertTrue(days.toString(), days.size <= 14 && "news/2026-11-23.json" in days && "news/2026-10-01.json" !in days)
         assertTrue("seznam chatů přehledu zůstal", o.kv.read("news/chats") != null)
     }
+
+    /** Denní scan 23. 11., kolo 19: notifikace psala „1 témat“ / „3 témat“. */
+    @Test fun notificationTopicCountGrammar() {
+        val one = ops { u -> if ("novinky" in u) rss(Triple("Jediná zpráva o rozpočtu kraje", "https://www.novinky.cz/j", "Sun, 22 Nov 2026 15:00:00 +0100")) else rss() }
+        assertTrue(one.newsDigest(now).text, one.newsDigest(now).text.startsWith("1 téma: "))
+        one.kv.delete("news/2026-11-23.json")
+        val three = ops { u -> if ("novinky" in u) rss(Triple("Hokejisté porazili Švédsko", "https://www.novinky.cz/h", "Sun, 22 Nov 2026 15:00:00 +0100"),
+            Triple("Nová linka metra otevřena", "https://www.novinky.cz/m", "Sun, 22 Nov 2026 16:00:00 +0100"), Triple("Sněžení komplikuje dopravu na Šumavě", "https://www.novinky.cz/s", "Sun, 22 Nov 2026 17:00:00 +0100")) else rss() }
+        val t = three.newsDigest(now).text
+        assertTrue(t, t.startsWith("3 témata: "))
+    }
 }

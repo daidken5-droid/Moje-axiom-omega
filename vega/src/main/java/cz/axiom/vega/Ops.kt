@@ -1820,7 +1820,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (!manual) pruneNewsChats(chat)
         emit("chats", JSONObject())
         val failed = srcs.zip(got).filter { it.second == null }.map { it.first.name }
-        return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} témat: " + topics.take(3).joinToString(" · ") { it.title.take(60) } +
+        return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} ${when (topics.size) { 1 -> "téma"; in 2..4 -> "témata"; else -> "témat" }}: " + topics.take(3).joinToString(" · ") { it.title.take(60) } +
             if (failed.isNotEmpty()) " (nedostupné: ${failed.joinToString()})" else "", chat))
     }
 
