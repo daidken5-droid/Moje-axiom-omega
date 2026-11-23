@@ -101,6 +101,9 @@ class QuickCalendarTest {
         assertTrue(q("kolik dní do 24.12.", 2026, 11, 22)!!.startsWith("Do 24. 12. zbývá 32 dní"))
         assertTrue(q("kolik dní do 1.1.", 2026, 11, 22)!!.contains("1. 1. 2027"))
         org.junit.Assert.assertEquals("Datum 31. 2. 2027 neexistuje – zkontroluj den a měsíc.", q("kolik dní do 31.2.2027", 2026, 11, 22))
+        // denní scan 23. 11., kolo 7: „před 1 dny“ → „před 1 dnem“
+        org.junit.Assert.assertEquals("To už bylo před 1 dnem (21. 11. 2026 (sobota)).", q("kolik dní do 21.11.2026", 2026, 11, 22))
+        assertTrue(q("kolik dní do 20.11.2026", 2026, 11, 22)!!.startsWith("To už bylo před 2 dny"))
     }
 
     @Test fun anniversariesIncludingLeapDay() {

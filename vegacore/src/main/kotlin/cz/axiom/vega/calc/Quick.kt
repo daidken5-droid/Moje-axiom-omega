@@ -380,7 +380,7 @@ object Quick {
         val n = ChronoUnit.DAYS.between(today, d)
         return when {
             n == 0L -> "Dnes je to tady – ${dmy(d)}."
-            n < 0 -> "To už bylo před ${-n} dny (${dmy(d)})."
+            n < 0 -> "To už bylo před ${-n} ${if (n == -1L) "dnem" else "dny"} (${dmy(d)})."
             weeks -> { val w = n / 7; val r = n % 7
                 "Do $name zbývá $w ${if (w == 1L) "týden" else if (w in 2..4) "týdny" else "týdnů"}${if (r > 0) " a $r ${if (r == 1L) "den" else if (r in 2..4) "dny" else "dní"}" else ""} ($n dní, ${dmy(d)})." }
             else -> "Do $name zbývá $n ${if (n == 1L) "den" else if (n in 2..4) "dny" else "dní"} (${dmy(d)})."
