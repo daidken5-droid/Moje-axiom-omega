@@ -1,7 +1,7 @@
 # VEGA – denní deep scan a hledání chyb (každý den 06:00–20:00, Europe/Prague)
 
-Platí od 23. 11. 2026 až do odvolání. Režim **feature freeze**: jen opravy skutečných chyb, testy a zjednodušení;
-nové funkce jen na výslovnou žádost. Ranní přehled zpráv musí zůstat nezávislý na jazykovém modelu i cloud AI.
+Platí od 23. 11. 2026 až do odvolání. **Feature freeze zrušen uživatelem 23. 11. 2026 večer** („kompletně volná ruka“):
+kromě oprav i vylepšení a nové funkce, pokud laikovi reálně pomůžou – vždy s testy a zelenou plnou sadou. Ranní přehled zpráv musí zůstat nezávislý na jazykovém modelu i cloud AI.
 
 ## Rozvrh dne
 
@@ -27,6 +27,15 @@ zapíše „bez nálezu“ a co bylo prověřeno.
 | Pá | Hardware (NFC, WiFi, BLE, HCE) – logika a hraniční vstupy | Regrese celého dne týdne + lint + varování kompilátoru + mrtvý kód |
 | So | Komerční uživatel (zvyklý na ChatGPT/Claude) – co chybí / mate | Red team konzilium: vývojář, prompter, hacker, investor |
 | Ne | Dokumentace vs. skutečnost (hinty, cesty v UI, texty) | Týdenní souhrn, `PHONE-CHECKLIST.md` – co lze připravit pro telefon |
+
+## Noční kola (23. 11. 20:17 → 24. 11. 03:47, na žádost uživatele)
+
+| Čas | Oblast |
+|---|---|
+| 20–22 | Odložené funkce: synonyma ve slučování zpráv („paliva“ × „pohonné hmoty“, „atomovka“ × „jaderná zbraň“), kalkulačka – spotřeba a cena cesty, medián, zaokrouhlení, „půl kila“, kJ ↔ kcal |
+| 22–00 | Výpisy z banky, CSV, PDF/OCR, přílohy (fuzz + nové tvary bank) |
+| 00–02 | UI toky a přístupnost (360 px, velké písmo, čtečka obrazovky, Upravit/Znovu/Kopírovat/hledání) |
+| 02–03:47 | Bezpečnost (most JS↔Kotlin, injekce z příloh/RSS/webu) + regrese noci; **03:47 uzávěrka noci** do `PLAN-DEN.md` |
 
 ## Pravidla
 - Každá oprava s testem; plná sada zelená před commitem (commit jen řetězeně `&&` po testech).
