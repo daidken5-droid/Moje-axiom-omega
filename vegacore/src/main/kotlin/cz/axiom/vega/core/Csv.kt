@@ -94,6 +94,8 @@ object CzNum {
         var s = raw.trim().replace(currency, "").replace(' ', ' ').replace(' ', ' ').replace('−', '-').replace(' ', ' ').let { if (it.startsWith('–')) "-" + it.drop(1) else it }.trim()
         if (s.isEmpty()) return null
         var neg = false
+        // „1 234,56 DR“ / „… CR“ (debet / kredit za částkou, anglické exporty): DR = výdaj
+        Regex("(?i)^(.*\\d)\\s*(dr|cr)\\.?$").find(s)?.let { m -> s = m.groupValues[1].trim(); if (m.groupValues[2].lowercase() == "dr") neg = true }
         if (s.startsWith("(") && s.endsWith(")")) { neg = true; s = s.substring(1, s.length - 1) }
         // „1.000,-“ / „100,–“ = celé koruny (česká cenovka), NE záporné číslo
         var dc = decimalComma
