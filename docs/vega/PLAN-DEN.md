@@ -164,3 +164,5 @@ CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. T
 - Testy 282/0 (Kotlin), UI 33 scénářů / 30 obrazovek / robust / xss zelené, lint 0 chyb.
 - Na telefonu NEOVĚŘENO: doručení přehledu v 05:30 (3 dny), přesné budíky a obnova po restartu, oznámení a „Zkusit znovu“,
   Kopírovat/Sdílet, Upravit/Znovu, hledání v konverzacích, 14 scénářů a měření v `PHONE-CHECKLIST.md`.
+
+## Den 23. 11. 2026 (pondělí) – oblasti: dopoledne laické dotazy (kalkulačka, data, převody, měny, router), odpoledne ranní přehled zpráv
