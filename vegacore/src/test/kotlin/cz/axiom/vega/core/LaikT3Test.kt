@@ -177,3 +177,24 @@ class DailyScanMon8Test {
         org.junit.Assert.assertEquals("1 GB = 1 000 MB", q("kolik je 1 GB v MB"))
     }
 }
+
+/** Denní scan 23. 11., kolo 9: 24 vět s čísly bez falešného zásahu; 24 variant psaní → 4 mezery opraveny. */
+class DailyScanMon9Test {
+    private val now = java.time.ZonedDateTime.of(2026, 11, 23, 10, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun q(s: String) = Quick.answer(s, now)
+
+    @Test fun messyTypingVariants() {
+        org.junit.Assert.assertEquals("1 500 g = 1,5 kg", q("kolik je 1 500 g v kg"))
+        org.junit.Assert.assertEquals("15 * 15 = 225", q("kolik je  15  *  15"))
+        assertTrue(q("hypoteka 3000000 30 let 5%")!!.startsWith("Splátka 3 000 000 Kč na 30 let při úroku 5 % ročně: 16 104,65 Kč"))
+        org.junit.Assert.assertEquals("Za týden bude 30. 11. 2026 (pondělí).", q("za tyden bude jake datum"))
+        org.junit.Assert.assertEquals("Před týdnem bylo 16. 11. 2026 (pondělí).", q("před týdnem bylo jaké datum"))
+        org.junit.Assert.assertNull(q("za dny"))
+    }
+
+    @Test fun numbersInOrdinarySentencesStayWithTheModel() {
+        listOf("napiš mi básničku o 3 kočkách", "přelož do angličtiny: mám 2 psy a 1 kočku", "shrň mi tento text: cena vzrostla o 20 % na 350 Kč",
+            "oprav gramatiku: za 5 dní bude 1. 12.", "vysvětli mi jak funguje 21 % DPH", "recept na 4 porce svíčkové", "kolik je 2 + 2 a proč",
+            "jaký je rozdíl mezi 4G a 5G", "napiš e-mail šéfovi, že přijdu v 9:30").forEach { org.junit.Assert.assertNull(it, q(it)) }
+    }
+}

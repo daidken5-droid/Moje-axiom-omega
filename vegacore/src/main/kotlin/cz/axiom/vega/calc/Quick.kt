@@ -89,8 +89,8 @@ object Quick {
             val v = runCatching { Expr(expr).parse() }.getOrNull() ?: return null
             if (v.isInfinite() && Regex("[/:÷]\\s*0+(?:[.,]0+)?\\s*(?:$|[+\\-*/)])").containsMatchIn(expr)) return "Nulou dělit nejde – výsledek není definovaný."
             if (v.isNaN() || v.isInfinite()) return null
-            if (money || expr != t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()) return "${expr.replace("*", "×")} = ${fmt(v)}${if (money) " Kč" else ""}"
-            return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ', '=')} = ${fmt(v)}"
+            if (money || expr != t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()) return "${expr.replace("*", "×").replace(Regex("\\s{2,}"), " ")} = ${fmt(v)}${if (money) " Kč" else ""}"
+            return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ', '=').replace(Regex("\\s{2,}"), " ")} = ${fmt(v)}"
         }
         return null
     }
@@ -254,13 +254,13 @@ object Quick {
 
     /** „za 30 dní“, „co bude za 3 týdny“, „před 10 dny“, „za 2 měsíce“ → datum a den v týdnu. */
     private fun dateOffset(t: String, today: LocalDate): String? {
-        val m = Regex("^(?:jake datum bude |jaky den bude |co bude |kdy bude |jake bude datum )?(za|pred) (\\d{1,4}) (dn\\w*|den|tyd\\w*|mesic\\w*|rok\\w*|let)(?: (?:bude|bylo|je))?(?: (?:jake datum|jaky den|co))?$").find(t) ?: return null
-        val n = m.groupValues[2].toLong(); val sign = if (m.groupValues[1] == "za") 1 else -1; val u = m.groupValues[3]
+        val m = Regex("^(?:jake datum bude |jaky den bude |co bude |kdy bude |jake bude datum )?(za|pred) (?:(\\d{1,4}) )?(dn\\w*|den|tyd\\w*|mesic\\w*|rok\\w*|let)(?: (?:bude|bylo|je))?(?: (?:jake datum|jaky den|co))?$").find(t) ?: return null
+        val n = m.groupValues[2].toLongOrNull() ?: (if (m.groupValues[3] in setOf("den", "dnem", "tyden", "tydnem", "mesic", "mesicem", "rok", "rokem")) 1L else return null); val sign = if (m.groupValues[1] == "za") 1 else -1; val u = m.groupValues[3]
         val d = when { u.startsWith("d") -> today.plusDays(sign * n); u.startsWith("t") -> today.plusWeeks(sign * n); u.startsWith("m") -> today.plusMonths(sign * n); else -> today.plusYears(sign * n) }
         fun cz(one: String, few: String, many: String, inst: String) = if (sign < 0) inst else when (n) { 1L -> one; in 2..4 -> few; else -> many }
         val unit = when { u.startsWith("d") -> cz("den", "dny", "dní", if (n == 1L) "dnem" else "dny"); u.startsWith("t") -> cz("týden", "týdny", "týdnů", if (n == 1L) "týdnem" else "týdny")
             u.startsWith("m") -> cz("měsíc", "měsíce", "měsíců", if (n == 1L) "měsícem" else "měsíci"); else -> cz("rok", "roky", "let", if (n == 1L) "rokem" else "lety") }
-        return "${if (sign > 0) "Za" else "Před"} $n $unit ${if (sign > 0) "bude" else "bylo"} ${dmy(d)}."
+        return "${if (sign > 0) "Za" else "Před"} ${if (m.groupValues[2].isEmpty()) "" else "$n "}$unit ${if (sign > 0) "bude" else "bylo"} ${dmy(d)}."
     }
 
     /** „jaký den v týdnu je 24. 12. 2026“, „na co připadá 1. 1. 2027“. */
@@ -322,7 +322,7 @@ object Quick {
     private fun convert(t: String, orig: String = t): String? {
         // „30 stupňů Celsia na Fahrenheita“ → „30 c na f“ (jen pro teplotu; ostatní jednotky beze změny délky textu)
         val tt = t.replace(Regex("(?:stupn\\w* )?celsi\\w*"), "c").replace(Regex("(?:stupn\\w* )?fahrenheit\\w*"), "f").replace(Regex("(?<=\\d) ?stupn\\w* (?=na |do |v )"), " c ")
-        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|ve|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(tt.replace("²", "2").replace("³", "3")) ?: return null
+        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d{1,3}(?: \\d{3})+(?:[.,]\\d+)?|-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|ve|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(tt.replace("²", "2").replace("³", "3")) ?: return null
         val v = num(m.groupValues[1]) ?: return null; val a = m.groupValues[2].removePrefix("°"); val b = m.groupValues[3].removePrefix("°")
         if (a in setOf("c", "f") && b in setOf("c", "f") && a != b) {
             val r = if (a == "c") v * 9 / 5 + 32 else (v - 32) * 5 / 9
@@ -399,7 +399,7 @@ object Quick {
     private fun loan(t: String): String? {
         if (!Regex("hypotek|uver|pujck|splatk").containsMatchIn(t)) return null
         // částka i s mezerami v tisících („3 000 000 na 30 let“ dřív chytlo jen „000“ → žádná odpověď)
-        val amt = Regex("(\\d{1,3}(?: \\d{3})+(?:[.,]\\d+)?|\\d+(?:[.,]\\d+)?)\\s*(milion\\w*|mil\\.?|m(?= )|tisic\\w*|tis\\.?)?(?:\\s*kc)?\\s+(?:na|za|splatn\\w* za)\\s+(\\d{1,2})\\s*(let|roky|roku|rok)").find(t) ?: return null
+        val amt = Regex("(\\d{1,3}(?: \\d{3})+(?:[.,]\\d+)?|\\d+(?:[.,]\\d+)?)\\s*(milion\\w*|mil\\.?|m(?= )|tisic\\w*|tis\\.?)?(?:\\s*kc)?\\s+(?:(?:na|za|splatn\\w* za)\\s+)?(\\d{1,2})\\s*(let|roky|roku|rok)").find(t) ?: return null
         val base = num(amt.groupValues[1]) ?: return null
         val mult = when { amt.groupValues[2].startsWith("mil") || amt.groupValues[2] == "m" -> 1e6; amt.groupValues[2].startsWith("tis") -> 1e3; else -> 1.0 }
         val p = base * mult; val years = amt.groupValues[3].toInt()
