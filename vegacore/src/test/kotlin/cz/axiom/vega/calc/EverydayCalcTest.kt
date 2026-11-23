@@ -76,3 +76,14 @@ class DailyScanMon1Test {
         assertTrue(a("je rok 2028 přestupný")!!.startsWith("Rok 2028 je přestupný"))
     }
 }
+
+/** Denní scan 23. 11., kolo 2: obrácené převody („1 míle kolik km“) s diakritikou, °C/°F, m², vteřiny, „ve“. */
+class DailyScanMon2Test {
+    @Test fun conversions() {
+        assertEquals("1 míle = 1,6093 km", Quick.answer("1 míle kolik km"))
+        assertEquals("100 °F = 37,78 °C", Quick.answer("100 °F kolik °C"))
+        assertEquals("30 °C = 86 °F", Quick.answer("kolik je 30 °C ve fahrenheitech"))
+        assertEquals("1 ha = 10 000 m2", Quick.answer("1 ha kolik m2"))
+        assertEquals("5 minut = 300 s", Quick.answer("kolik vteřin je 5 minut"))
+    }
+}

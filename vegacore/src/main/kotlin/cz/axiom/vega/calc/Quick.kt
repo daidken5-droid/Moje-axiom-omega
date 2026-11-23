@@ -161,7 +161,7 @@ object Quick {
             return "$sp má ${fmt(span / unit)} ${names[m.groupValues[1]]}${if (sp == "Rok") " (běžný rok, 365 dní)" else ""}."
         }
         // „1 míle kolik km“, „5 liber kolik kg“
-        Regex("^$N ?([a-z]+) (?:je )?(?:kolik|na kolik|v kolika) ([a-z]+)$").find(t)?.let { m -> val q = "${m.groupValues[1]} ${m.groupValues[2]} na ${m.groupValues[3]}"; convert(q, q)?.let { return it } }
+        Regex("^$N ?(°?[a-z]+[23²³]?) (?:je )?(?:kolik|na kolik|v kolika) (°?[a-z]+[23²³]?)$").find(t)?.let { m -> val q = "${m.groupValues[1]} ${m.groupValues[2]} na ${m.groupValues[3]}"; convert(q, q)?.let { return unfold(it) } }
         // „o kolik je 450 víc než 300“, „o kolik je 80 méně než 100“
         Regex("^o kolik (?:je )?$N (vic|vice|mene|min) nez $N$").find(t)?.let { m ->
             val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[3]) ?: return null; val d = a - b
@@ -173,7 +173,7 @@ object Quick {
         // obrácený převod: „kolik litrů je 1 galon“ → „1 galon na litry“
         Regex("^kolik ([a-z]+) (?:je|ma|maji|dela) $N ?([a-z]+)$").find(t)?.let { m ->
             val q = "${m.groupValues[2]} ${m.groupValues[3]} na ${m.groupValues[1]}"
-            return convert(q, q)
+            return convert(q, q)?.let { unfold(it) }
         }
         return null
     }
@@ -305,7 +305,7 @@ object Quick {
     private fun convert(t: String, orig: String = t): String? {
         // „30 stupňů Celsia na Fahrenheita“ → „30 c na f“ (jen pro teplotu; ostatní jednotky beze změny délky textu)
         val tt = t.replace(Regex("(?:stupn\\w* )?celsi\\w*"), "c").replace(Regex("(?:stupn\\w* )?fahrenheit\\w*"), "f").replace(Regex("(?<=\\d) ?stupn\\w* (?=na |do |v )"), " c ")
-        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(tt.replace("²", "2").replace("³", "3")) ?: return null
+        val m = Regex("^(?:preved |kolik je |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*(°?c|°?f|[a-z/]+[23]?)\\s+(?:na|do|v|ve|=|->)\\s+(°?c|°?f|[a-z/]+[23]?)$").find(tt.replace("²", "2").replace("³", "3")) ?: return null
         val v = num(m.groupValues[1]) ?: return null; val a = m.groupValues[2].removePrefix("°"); val b = m.groupValues[3].removePrefix("°")
         if (a in setOf("c", "f") && b in setOf("c", "f") && a != b) {
             val r = if (a == "c") v * 9 / 5 + 32 else (v - 32) * 5 / 9
@@ -330,11 +330,13 @@ object Quick {
         val y = m.groupValues[3].toIntOrNull() ?: 2024
         if (runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.isFailure) "Datum ${m.groupValues[1]}. ${m.groupValues[2]}.${m.groupValues[3].let { if (it.isNotEmpty()) " $it" else "" }} neexistuje – zkontroluj den a měsíc." else null }
     /** Tvar slova → jednotka: „metry/metrů“ → m, „kila/kilogramů“ → kg, „hodiny“ → h, „týdny“ → týden … (text je bez diakritiky). */
+    /** Obrácené převody dostávají text bez diakritiky – v odpovědi vrátit české tvary („mile“ → „míle“). */
+    private fun unfold(r: String) = r.replace(Regex("(?<=\\d) mile(?= )"), " míle").replace(Regex("(?<=\\d) mil(?= =)"), " mil").replace(Regex("(?<=\\d) vterin"), " vteřin")
     private fun unitKey(w: String): String? = UNITS[w]?.let { w } ?: when {
         w.startsWith("kilometr") -> "km"; w.startsWith("centimetr") -> "cm"; w.startsWith("milimetr") -> "mm"; w.startsWith("metr") -> "m"
         w.startsWith("kilogram") || w in setOf("kilo", "kila", "kil", "kilech", "kilum") -> "kg"; w.startsWith("gram") -> "g"; w.startsWith("tun") -> "t"
         w.startsWith("mililitr") -> "ml"; w.startsWith("litr") -> "l"; w.startsWith("galon") -> "gal"; w.startsWith("decilitr") || w == "dcl" || w == "deci" -> "dl"
-        w.startsWith("hodin") -> "h"; w.startsWith("minut") -> "min"; w.startsWith("sekund") -> "s"; w.startsWith("tyd") -> "tydnu"; w in setOf("dny", "dnu", "dnech", "dni", "den") -> "den"
+        w.startsWith("hodin") -> "h"; w.startsWith("minut") -> "min"; w.startsWith("sekund") || w.startsWith("vterin") || w.startsWith("vterin") -> "s"; w.startsWith("tyd") -> "tydnu"; w in setOf("dny", "dnu", "dnech", "dni", "den") -> "den"
         w.startsWith("libr") -> "lb"; w.startsWith("unc") -> "oz"; w.startsWith("palc") -> "palec"; w.startsWith("stop") -> "ft"; w in setOf("mile", "mil", "milich") -> "mi"
         else -> null
     }
