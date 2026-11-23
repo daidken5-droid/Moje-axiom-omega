@@ -38,6 +38,9 @@ run("renderTop=()=>{};");calls.length=0;
 run("act('netOn',{what:'airgap'}); act('netOn',{what:'web'})");assert.deepEqual(calls.filter(c=>c[0]==='setSetting').map(c=>c.slice(1).join('=')),['airgap=false','webAllowed=true']);
 // vadná karta (stará verze, chybí pole) nesmaže celou konverzaci – jen se nahradí poznámkou
 assert.match(run("safeCard({type:'diff'},true)"),/nejde zobrazit/);
+// noční kolo N10 (snímek z telefonu): „Odpověď se nedokončila… klepni na Pokračovat“, uživatel pak napsal další zprávu → tlačítko zmizelo
+assert.match(run("safeCard({type:'resume',req:'r1',text:'Proč se země točí?'},true)"),/data-act="retry" data-req="r1">Pokračovat/);
+assert.match(run("safeCard({type:'resume',req:'r1',text:'Proč se země točí?'},false)"),/data-act="retry" data-req="r1"[^>]*>Pokračovat/,'Pokračovat i u starší zprávy');
 // nezobrazitelný dotaz na souhlas se odmítne (nativní strana nečeká 5 minut, nic neodejde)
 run("console.error=()=>{}; toast=()=>{};");calls.length=0;run("window.vega.on('consent',{req:'r9'})");
 assert.ok(calls.some(c=>c[0]==='answer'&&c[1]==='r9'&&/false/.test(c[2])),'souhlas má být odmítnut');
