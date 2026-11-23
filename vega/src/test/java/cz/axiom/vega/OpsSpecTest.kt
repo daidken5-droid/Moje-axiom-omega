@@ -375,6 +375,21 @@ class OpsSpecTest {
         assertEquals(0L, o2.settings.commercialRequests())
     }
 
+    /** Noční kolo N9: dva překrývající se exporty – stejné pohyby ve dvou souborech se sečetly dvakrát bez varování. */
+    @Test fun overlappingExportsAreFlaggedInCompare() {
+        val llm = MockLlm { "Shrnutí." }.also { servers += it }
+        val r = Rec(); val o = ops(r)
+        o.settings.ownUrl = llm.url; o.settings.ownOnly = true
+        val chat = o.newChat()
+        val second = "Datum;Částka;Měna;Popis\n05.01.2026;-14 500,00;CZK;Nájem\n20.01.2026;-2 310,40;CZK;Nákup\n28.01.2026;-300,00;CZK;Kino\n".toByteArray()
+        val ids = listOf(o.attach("cmp-leden.csv", "text/csv", fixture("cmp-leden.csv")).getString("id"), o.attach("leden-druha-pulka.csv", "text/csv", second).getString("id"))
+        val n = r.ev.size
+        o.chat(chat, "porovnej tyhle dva výpisy a sečti saldo", ids)
+        awaitMsg(r, n, 30_000)
+        val fin = msgs(r, n).last().getString("text")
+        assertTrue(fin, fin.contains("2 pohyby jsou ve víc souborech zároveň") && fin.contains("16\u00a0810,40"))
+    }
+
     // ================================================================= změna zadání během běžící úlohy
 
     @Test fun revisionDuringRunningCompareReusesUnchangedFilesAndDropsLateAnswer() {

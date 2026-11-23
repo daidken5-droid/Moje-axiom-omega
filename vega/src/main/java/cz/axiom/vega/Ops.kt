@@ -2020,6 +2020,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 val text = buildString {
                     append("Porovnání ${per.size} výpisů (revize ${rev.n}${rev.scope?.let { ", rozsah: $it" } ?: ""}): celkové saldo **${CzNum(total)} Kč**.\n")
                     per.forEachIndexed { i, o -> append("• ${o.getString("name")}: ${CzNum(saldos[i])} Kč\n") }
+                    // překrývající se exporty: stejný pohyb ve dvou souborech by se sečetl dvakrát → říct to (nemazat potichu)
+                    if (per.size > 1) Statement.crossDuplicates(per.map { o -> o.getJSONArray("rows").let { rs -> (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } } } }).let { (n, s) ->
+                        if (n > 0) append("⚠ **$n ${if (n == 1) "pohyb je" else if (n in 2..4) "pohyby jsou" else "pohybů je"} ve víc souborech zároveň** (stejné datum, částka i popis – exporty se nejspíš překrývají), dohromady ${CzNum(s)} Kč. V celkovém saldu jsou započtené víckrát; bez nich by bylo ${CzNum(total - s)} Kč.\n") }
                     if (prev != null && prevTotal != null) {
                         append("\nZměna oproti revizi ${prev.n} (${rev.change}): ")
                         (0 until files.length()).map { files.getJSONObject(it) }.filter { it.getBoolean("changed") }.forEach { f -> append("${f.getString("prevName")} → ${f.getString("name")}: ${CzNum(f.optDouble("prevSaldo"))} → ${CzNum(f.getDouble("saldo"))} Kč; ") }

@@ -237,6 +237,22 @@ object Statement {
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
     }
 
+    /**
+     * Pohyby, které jsou ve VÍCE souborech zároveň (překrývající se exporty: 1.–15. a 10.–30.) – stejné datum, částka a popis.
+     * Vrací (počet zdvojených pohybů, jejich součet) – stejná platba dvakrát v JEDNOM souboru se nepočítá (dvě kávy jsou dvě kávy).
+     */
+    fun crossDuplicates(files: List<List<List<String>>>): Pair<Int, Double> {
+        fun key(r: List<String>) = listOf(r.getOrElse(0) { "" }, r.getOrElse(1) { "" }, cz.axiom.vega.base.Text.fold(r.getOrElse(3) { "" }).lowercase().replace(Regex("\\s+"), " ").trim()).joinToString("|")
+        val seen = HashMap<String, Int>() // klíč → kolikrát už v předchozích souborech
+        var n = 0; var sum = 0.0
+        files.forEach { rows ->
+            val here = rows.groupingBy { key(it) }.eachCount()
+            here.forEach { (k, c) -> val before = seen[k] ?: 0; if (before > 0) { val dup = minOf(before, c); n += dup; sum += dup * (k.split('|')[1].toDoubleOrNull() ?: 0.0) } }
+            here.forEach { (k, c) -> seen[k] = maxOf(seen[k] ?: 0, c) }
+        }
+        return n to sum
+    }
+
     /** Ověření parseru na vzorku: aspoň 90 % řádků musí projít, jinak spec nepoužít. */
     fun verify(text: String, spec: ParserSpec): Pair<Boolean, String> {
         val r = process(text, spec)

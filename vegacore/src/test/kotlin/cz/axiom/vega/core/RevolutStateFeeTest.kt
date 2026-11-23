@@ -11,3 +11,16 @@ class RevolutStateFeeTest { @Test fun voidedSkippedAndFeeCounted() {
     // uložený postup s přehozenými sloupci: stav a poplatek se najdou podle názvu
     val spec = Statement.detect(txt).spec!!; org.junit.Assert.assertEquals("state", spec.columns.entries.first { it.value == "state" }.key)
 } }
+
+/** Noční kolo N9: překrývající se exporty (1.–15. a 10.–30.) – stejný pohyb ve dvou souborech se počítal dvakrát bez varování. */
+class CrossDuplicatesTest {
+    @Test fun overlappingExports() {
+        val a = listOf(listOf("2026-11-02", "-100.00", "CZK", "Albert"), listOf("2026-11-12", "-250.00", "CZK", "Benzina"), listOf("2026-11-14", "-50.00", "CZK", "Káva"), listOf("2026-11-14", "-50.00", "CZK", "Káva"))
+        val b = listOf(listOf("2026-11-12", "-250.00", "CZK", "BENZINA"), listOf("2026-11-14", "-50.00", "CZK", "Káva"), listOf("2026-11-20", "30000.00", "CZK", "Mzda"))
+        val (n, s) = Statement.crossDuplicates(listOf(a, b))
+        org.junit.Assert.assertEquals(2, n); org.junit.Assert.assertEquals(-300.0, s, 0.001)
+        // dvě stejné kávy v JEDNOM souboru nejsou duplicita
+        org.junit.Assert.assertEquals(0, Statement.crossDuplicates(listOf(a)).first)
+        org.junit.Assert.assertEquals(0, Statement.crossDuplicates(listOf(a.take(1), b.takeLast(1))).first)
+    }
+}
