@@ -55,3 +55,24 @@ class ForeignOnlyCurrencyTest {
         assertTrue(Router.route("kurz eura", Router.Ctx(false, null, false, false, null)) !is Router.Intent.Research)
     }
 }
+
+/** Denní scan 23. 11., kolo 1: laické dotazy – gramatika splátky, příklad kurzu v měně dotazu, nové formulace. */
+class DailyScanMon1Test {
+    private val now = java.time.ZonedDateTime.of(2026, 11, 23, 8, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun a(q: String) = Quick.answer(q, now)
+    @Test fun fixes() {
+        assertTrue(a("splátka úvěru 200 000 na 4 roky s úrokem 6,9 %")!!.contains("na 4 roky při úroku"))
+        assertTrue(a("hypotéka 1 000 000 na 1 rok 5 %")!!.contains("na 1 rok při"))
+        assertTrue("dolar → příklad v USD", a("200 dolarů v korunách")!!.contains("„200 usd po 23,5“"))
+        assertTrue(a("kurz dolaru")!!.contains("usd po"))
+        assertEquals("450 je o 150 víc než 300 (o 50 %).", a("o kolik je 450 víc než 300"))
+        assertEquals("Do konce měsíce zbývá 7 dní (30. 11. 2026 (pondělí)).", a("kolik dní zbývá do konce měsíce"))
+        assertTrue(a("kolik je to dní od 1. 9. 2026")!!.startsWith("Od 1. 9. 2026 (úterý) uplynulo 83 dní"))
+        assertEquals("24. 12. 2026 je čtvrtek.", a("co je za den 24. 12. 2026"))
+        assertTrue(a("za 100 dní bude jaké datum")!!.startsWith("Za 100 dní bude 3. 3. 2027"))
+        assertTrue(a("1 míle kolik km")!!.contains("1,6093 km"))
+        assertEquals("3 dcl = 0,3 l", a("3 dcl v litrech"))
+        assertTrue(a("je rok 2100 přestupný")!!.startsWith("Rok 2100 není přestupný"))
+        assertTrue(a("je rok 2028 přestupný")!!.startsWith("Rok 2028 je přestupný"))
+    }
+}

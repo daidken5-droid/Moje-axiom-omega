@@ -160,6 +160,16 @@ object Quick {
             val sp = mapOf("den" to "Den", "dnu" to "Den", "tyd" to "Týden", "hod" to "Hodina", "rok" to "Rok", "roc" to "Rok")[m.groupValues[2].take(3)]
             return "$sp má ${fmt(span / unit)} ${names[m.groupValues[1]]}${if (sp == "Rok") " (běžný rok, 365 dní)" else ""}."
         }
+        // „1 míle kolik km“, „5 liber kolik kg“
+        Regex("^$N ?([a-z]+) (?:je )?(?:kolik|na kolik|v kolika) ([a-z]+)$").find(t)?.let { m -> val q = "${m.groupValues[1]} ${m.groupValues[2]} na ${m.groupValues[3]}"; convert(q, q)?.let { return it } }
+        // „o kolik je 450 víc než 300“, „o kolik je 80 méně než 100“
+        Regex("^o kolik (?:je )?$N (vic|vice|mene|min) nez $N$").find(t)?.let { m ->
+            val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[3]) ?: return null; val d = a - b
+            return "${out(a)} je o ${out(kotlin.math.abs(d))} ${if (d >= 0) "víc" else "méně"} než ${out(b)}" + (if (b != 0.0) " (o ${fmt(Math.round(kotlin.math.abs(d) / b * 10000) / 100.0)} %)." else ".") }
+        // „je rok 2100 přestupný“
+        Regex("^(?:je |byl |bude )?(?:rok )?(\\d{4}) (?:je |byl |bude )?prestupn\\w*$|^je (?:rok )?(\\d{4}) prestupn\\w*$").find(t)?.let { m ->
+            val y = (m.groupValues[1].ifEmpty { m.groupValues[2] }).toInt(); val leap = java.time.Year.isLeap(y.toLong())
+            return "Rok $y ${if (leap) "je" else "není"} přestupný (${java.time.Year.of(y).length()} dní)." + if (!leap && y % 4 == 0) " Dělitelný 100, ale ne 400." else "" }
         // obrácený převod: „kolik litrů je 1 galon“ → „1 galon na litry“
         Regex("^kolik ([a-z]+) (?:je|ma|maji|dela) $N ?([a-z]+)$").find(t)?.let { m ->
             val q = "${m.groupValues[2]} ${m.groupValues[3]} na ${m.groupValues[1]}"
@@ -227,7 +237,7 @@ object Quick {
 
     /** „za 30 dní“, „co bude za 3 týdny“, „před 10 dny“, „za 2 měsíce“ → datum a den v týdnu. */
     private fun dateOffset(t: String, today: LocalDate): String? {
-        val m = Regex("^(?:jake datum bude |jaky den bude |co bude |kdy bude |jake bude datum )?(za|pred) (\\d{1,4}) (dn\\w*|den|tyd\\w*|mesic\\w*|rok\\w*|let)$").find(t) ?: return null
+        val m = Regex("^(?:jake datum bude |jaky den bude |co bude |kdy bude |jake bude datum )?(za|pred) (\\d{1,4}) (dn\\w*|den|tyd\\w*|mesic\\w*|rok\\w*|let)(?: (?:bude|bylo|je))?(?: (?:jake datum|jaky den|co))?$").find(t) ?: return null
         val n = m.groupValues[2].toLong(); val sign = if (m.groupValues[1] == "za") 1 else -1; val u = m.groupValues[3]
         val d = when { u.startsWith("d") -> today.plusDays(sign * n); u.startsWith("t") -> today.plusWeeks(sign * n); u.startsWith("m") -> today.plusMonths(sign * n); else -> today.plusYears(sign * n) }
         fun cz(one: String, few: String, many: String, inst: String) = if (sign < 0) inst else when (n) { 1L -> one; in 2..4 -> few; else -> many }
@@ -238,7 +248,7 @@ object Quick {
 
     /** „jaký den v týdnu je 24. 12. 2026“, „na co připadá 1. 1. 2027“. */
     private fun weekday(t: String): String? {
-        if (!Regex("^(jaky den v tydnu (je|byl|bude)|na (co|jaky den) pripada|jaky den (je|byl|bude)) ").containsMatchIn(t)) return null
+        if (!Regex("^(jaky den v tydnu (je|byl|bude)|na (co|jaky den) pripada|jaky den (je|byl|bude)|co je za den|co (je|bude|bylo) to za den|jaky je den) ").containsMatchIn(t)) return null
         val d = date(t) ?: return null
         return "${d.dayOfMonth}. ${d.monthValue}. ${d.year} je ${DAYS[d.dayOfWeek.value - 1]}."
     }
@@ -286,7 +296,9 @@ object Quick {
             return "${fmt(a)} ${m.groupValues[2].uppercase().take(3)} po ${fmt(r)} = ${money(a * r)}."
         }
         if (Regex("^(?:kolik je |preved |prevod )?$N\\s*$cur\\s+(?:na|v|do)\\s+$cur$").containsMatchIn(t) || CnbRates.query(t) != null)
-            return "Aktuální kurz offline neznám. Napiš ho do dotazu, třeba „100 eur po 25,2“, a spočítám to přesně. (S modelem a zapnutým webem ti kurz dohledám.)"
+            return CnbRates.query(t).let { q -> val code = q?.from?.takeIf { it != "CZK" } ?: q?.to?.takeIf { it != "CZK" } ?: "EUR"
+                val rate = mapOf("EUR" to "25,2", "USD" to "23,5", "GBP" to "29,5", "CHF" to "26", "PLN" to "5,8", "HUF" to "0,064", "JPY" to "0,16")[code] ?: "25"
+                "Aktuální kurz offline neznám. Napiš ho do dotazu, třeba „${q?.takeIf { it.from == code }?.let { fmt(it.value) } ?: "100"} ${code.lowercase()} po $rate“, a spočítám to přesně. (S modelem a zapnutým webem ti kurz dohledám.)" }
         return null
     }
 
@@ -321,7 +333,7 @@ object Quick {
     private fun unitKey(w: String): String? = UNITS[w]?.let { w } ?: when {
         w.startsWith("kilometr") -> "km"; w.startsWith("centimetr") -> "cm"; w.startsWith("milimetr") -> "mm"; w.startsWith("metr") -> "m"
         w.startsWith("kilogram") || w in setOf("kilo", "kila", "kil", "kilech", "kilum") -> "kg"; w.startsWith("gram") -> "g"; w.startsWith("tun") -> "t"
-        w.startsWith("mililitr") -> "ml"; w.startsWith("litr") -> "l"; w.startsWith("galon") -> "gal"; w.startsWith("decilitr") -> "dl"
+        w.startsWith("mililitr") -> "ml"; w.startsWith("litr") -> "l"; w.startsWith("galon") -> "gal"; w.startsWith("decilitr") || w == "dcl" || w == "deci" -> "dl"
         w.startsWith("hodin") -> "h"; w.startsWith("minut") -> "min"; w.startsWith("sekund") -> "s"; w.startsWith("tyd") -> "tydnu"; w in setOf("dny", "dnu", "dnech", "dni", "den") -> "den"
         w.startsWith("libr") -> "lb"; w.startsWith("unc") -> "oz"; w.startsWith("palc") -> "palec"; w.startsWith("stop") -> "ft"; w in setOf("mile", "mil", "milich") -> "mi"
         else -> null
@@ -344,6 +356,7 @@ object Quick {
             what.startsWith("vanoc") || what.startsWith("stedr") || what.startsWith("stedreho") -> "Štědrého dne" to next { LocalDate.of(it, 12, 24) }
             what.startsWith("silvestr") -> "Silvestra" to next { LocalDate.of(it, 12, 31) }
             what.startsWith("konce roku") || what == "konce letoska" -> "konce roku" to LocalDate.of(today.year, 12, 31)
+            what.startsWith("konce mesice") -> "konce měsíce" to today.withDayOfMonth(today.lengthOfMonth())
             what.startsWith("nov") && what.contains("rok") -> "Nového roku" to next { LocalDate.of(it, 1, 1) }
             what.startsWith("velikonoc") -> "Velikonoční neděle" to next { easter(it) }
             what.startsWith("leta") || what.startsWith("prazdnin") -> (if (what.startsWith("leta")) "léta (21. 6.)" else "prázdnin (1. 7.)") to next { LocalDate.of(it, if (what.startsWith("leta")) 6 else 7, if (what.startsWith("leta")) 21 else 1) }
@@ -374,11 +387,18 @@ object Quick {
         if (p < 1000 || years !in 1..40 || rate !in 0.0..30.0) return null
         val n = years * 12; val r = rate / 100 / 12
         val pay = if (r == 0.0) p / n else p * r / (1 - Math.pow(1 + r, -n.toDouble()))
-        return "Splátka ${money(p)} na $years let při úroku ${fmt(rate)} % ročně: ${money(pay)} měsíčně; celkem zaplatíš ${money(pay * n)} (z toho úroky ${money(pay * n - p)}). " +
+        return "Splátka ${money(p)} na $years ${if (years == 1) "rok" else if (years in 2..4) "roky" else "let"} při úroku ${fmt(rate)} % ročně: ${money(pay)} měsíčně; celkem zaplatíš ${money(pay * n)} (z toho úroky ${money(pay * n - p)}). " +
             "Orientačně – bez poplatků a pojištění; přesnou nabídku dá banka."
     }
 
     private fun days(t: String, today: LocalDate): String? {
+        // „kolik je to dní od 1. 9. 2026“, „kolik dní uplynulo od 1.9.“ (do dneška)
+        Regex("^kolik (?:je to |uz )?(?:dni|dnu) (?:je |uplynulo |ubehlo |uz )?od (.+?)(?: do dnes(?:ka)?)?$").find(t)?.takeIf { !it.groupValues[1].contains(" do ") }?.let { m ->
+            val d = date(m.groupValues[1]) ?: Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.?$").find(m.groupValues[1])?.let { r -> runCatching { LocalDate.of(today.year, r.groupValues[2].toInt(), r.groupValues[1].toInt()).let { if (it.isAfter(today)) it.minusYears(1) else it } }.getOrNull() } ?: return@let
+            if (d.isAfter(today)) return null
+            val n = ChronoUnit.DAYS.between(d, today)
+            return "Od ${dmy(d)} ${if (n in 2..4) "uplynuly" else "uplynulo"} ${daysCz(n)} (do dneška ${today.dayOfMonth}. ${today.monthValue}.)."
+        }
         // „kolik let je od roku 1989“, „kolik let uplynulo od 1989“
         Regex("^kolik (?:je |uz )?let (?:je |uplynulo |ubehlo |uz je )?od (?:roku )?(\\d{4})$").find(t)?.let { m ->
             val y = m.groupValues[1].toInt(); if (y > today.year || y < 1) return null
