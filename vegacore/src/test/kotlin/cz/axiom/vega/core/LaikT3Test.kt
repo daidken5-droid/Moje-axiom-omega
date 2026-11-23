@@ -208,3 +208,30 @@ class DailyScanMon22Test {
         org.junit.Assert.assertFalse(Router.route("ranní přehled", Router.Ctx(false, null, false, false, null)) is Router.Intent.Research)
     }
 }
+
+/** Noční kolo N2 (23. 11., feature freeze zrušen): spotřeba a cena cesty, medián/součet/min/max, zaokrouhlení, půl/čtvrt, kJ ↔ kcal. */
+class NightN2Test {
+    private val now = java.time.ZonedDateTime.of(2026, 11, 23, 21, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun q(s: String) = Quick.answer(s, now)
+    @Test fun tripCost() {
+        org.junit.Assert.assertEquals("Na 450 km spotřebuješ 29,25 l (6,5 l / 100 km).", q("spotřeba 6,5 l na 100 km, kolik na 450 km"))
+        assertTrue(q("kolik zaplatím za 450 km při spotřebě 6,5 l a ceně 38 Kč")!!.endsWith("při 38 Kč za litr to je 1 111,5 Kč."))
+        assertTrue(q("auto má spotřebu 7 l/100 km, jedu 1 200 km, benzin 39,90 Kč")!!.startsWith("Na 1 200 km spotřebuješ 84 l"))
+    }
+    @Test fun statsAndRounding() {
+        assertTrue(q("medián 3 8 1 9 4")!!.startsWith("Medián 3, 8, 1, 9, 4 je 4 "))
+        assertTrue(q("medián 1, 2, 3, 4")!!.contains(" je 2,5 "))
+        org.junit.Assert.assertEquals("Součet 120, 80, 45 je 245.", q("součet 120, 80 a 45"))
+        org.junit.Assert.assertEquals("Největší z 3, 9, 2 je 9.", q("největší z 3, 9, 2"))
+        org.junit.Assert.assertEquals("3,14159 zaokrouhleno je 3,14.", q("zaokrouhli 3,14159 na 2 desetinná místa"))
+        org.junit.Assert.assertEquals("2,5 zaokrouhleno je 3.", q("zaokrouhli 2,5 na celé číslo"))
+        org.junit.Assert.assertEquals("1 234,5 zaokrouhleno je 1 200.", q("zaokrouhli 1234,5 na stovky"))
+    }
+    @Test fun halfQuarterAndEnergy() {
+        org.junit.Assert.assertEquals("0,5 kila = 500 g", q("kolik je půl kila v gramech"))
+        org.junit.Assert.assertEquals("0,25 litru = 250 ml", q("čtvrt litru na ml"))
+        org.junit.Assert.assertEquals("100 kJ = 23,9006 kcal", q("kolik kalorií je 100 kJ"))
+        org.junit.Assert.assertEquals("250 kcal = 1 046 kJ", q("kcal na kJ 250"))
+        org.junit.Assert.assertNull(q("mám půl kila mouky a co upéct"))
+    }
+}

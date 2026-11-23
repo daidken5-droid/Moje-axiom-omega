@@ -25,6 +25,8 @@ object Quick {
         val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').let { if (Regex("^[\\d\\s.,+\\-*/×·:÷^()x]+=$").matches(it)) it.dropLast(1).trim() else it }
             .replace(Regex("^kolko "), "kolik ").replace(Regex("(?<![a-z])percent"), "procent").replace("vianoc", "vanoc") // slovensky
             .replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
+            // „půl kila“, „čtvrt litru“, „půl hodiny“ → číslo (převody)
+            .replace(Regex("(^|\\s)pul (?=(kil|kg|litr|metr|hodin|tun|kilometr))"), "$1 0,5 ").replace(Regex("(^|\\s)ctvrt (?=(kil|kg|litr|metr|hodin|tun))"), "$1 0,25 ").replace(Regex("\\s+"), " ").trim()
         // příkaz k psaní / překladu / úpravě textu nebo žádost o vysvětlení patří modelu, ne kalkulačce
         // („přelož: rozděl 1500 mezi 4 lidi“, „z 10 na 12 je kolik procent a jak se to počítá“)
         if (Regex("^(preloz\\w*|napis\\w*|oprav\\w*|shrn\\w*|prepis\\w*|preformuluj\\w*|vysvetli\\w*|translate)(\\s|:)").containsMatchIn(t) ||
@@ -43,6 +45,10 @@ object Quick {
         dateOffset(t, now.toLocalDate())?.let { return it }
         weekday(t)?.let { return it }
         age(t, now.toLocalDate())?.let { return it }
+        trip(t)?.let { return it }
+        stats(t)?.let { return it }
+        rounding(t)?.let { return it }
+        Regex("^(kcal|kj) (?:na|do|v) (kcal|kj) $N$").find(t)?.let { m -> convert("${m.groupValues[3]} ${m.groupValues[1]} na ${m.groupValues[2]}")?.let { return it } }
         convert(t, raw.lowercase().trim().trimEnd('?', '.', '!', ' '))?.let { return it }
         currency(t)?.let { return it }
         discount(t)?.let { return it }
@@ -203,6 +209,54 @@ object Quick {
         return "Spropitné ${fmt(p)} % z ${money(b)} je ${money(tipv)}; celkem zaplatíš ${money(b + tipv)}."
     }
 
+    /** Spotřeba a cena cesty: „spotřeba 6,5 l na 100 km, kolik na 450 km“, „kolik zaplatím za 450 km při spotřebě 6,5 l a ceně 38 Kč“. */
+    private fun trip(t: String): String? {
+        if (!t.contains("spotreb")) return null
+        val c = Regex("(\\d+(?:[.,]\\d+)?)\\s*(?:l|litr\\w*)(?:\\s*(?:na|/)\\s*100\\s*km)?(?![a-z])").find(t) ?: return null
+        val cons = num(c.groupValues[1])?.takeIf { it in 1.0..40.0 } ?: return null
+        val rest = t.removeRange(c.range)
+        val km = Regex("(\\d[\\d ]*(?:[.,]\\d+)?)\\s*km").findAll(rest).mapNotNull { num(it.groupValues[1]) }.firstOrNull { it != 100.0 || !rest.contains("na 100") } ?: return null
+        if (km <= 0 || km > 100_000) return null
+        val litres = cons * km / 100
+        val price = Regex("(\\d+(?:[.,]\\d+)?)\\s*(?:kc|korun\\w*)").find(rest)?.let { num(it.groupValues[1]) }?.takeIf { it in 5.0..200.0 }
+        val l = fmt(Math.round(litres * 100) / 100.0)
+        return "Na ${fmt(km)} km spotřebuješ $l l (${fmt(cons)} l / 100 km)" + (price?.let { "; při ${fmt(it)} Kč za litr to je ${money(litres * it)}." } ?: ".")
+    }
+
+    /** Medián, minimum, maximum a součet řady: „medián 3 8 1 9 4“, „součet 120, 80 a 45“. */
+    private fun stats(t: String): String? {
+        val m = Regex("^(?:kolik je |spocitej |vypocitej |jaky je )?(median|minimum|maximum|nejmensi|nejvetsi|soucet)\\w*(?: (?:z|ze|cisel|hodnot|cisla))? (.+)$").find(t) ?: return null
+        val body = m.groupValues[2].replace(Regex("(?<=\\d) (?=\\d{3}(?!\\d))"), "")
+        if (!Regex("^[\\d\\s.,;a+-]+$").matches(body)) return null
+        val xs = (if (Regex("^\\s*-?\\d+(,-?\\d+){2,}\\s*$").matches(body)) body.split(',') else body.split(Regex(";|,\\s+|\\s+a\\s+|\\s+"))).mapNotNull { num(it.trim()) }
+        if (xs.size < 2) return null
+        val s = xs.sorted(); val list = xs.joinToString(", ") { fmt(it) }
+        return when (m.groupValues[1]) {
+            "median" -> { val med = if (s.size % 2 == 1) s[s.size / 2] else (s[s.size / 2 - 1] + s[s.size / 2]) / 2
+                "Medián $list je ${fmt(med)} (prostřední hodnota po seřazení: ${s.joinToString(", ") { fmt(it) }})." }
+            "minimum", "nejmensi" -> "Nejmenší z $list je ${fmt(s.first())}."
+            "maximum", "nejvetsi" -> "Největší z $list je ${fmt(s.last())}."
+            else -> "Součet $list je ${fmt(xs.sum())}."
+        }
+    }
+
+    /** Zaokrouhlení: „zaokrouhli 3,14159 na 2 desetinná místa“, „… na celé číslo“, „… na stovky“. */
+    private fun rounding(t: String): String? {
+        val m = Regex("^zaokrouhl\\w* (-?\\d[\\d ]*(?:[.,]\\d+)?) na (.+)$").find(t) ?: return null
+        val v = num(m.groupValues[1]) ?: return null; val how = m.groupValues[2]
+        val words = mapOf("jedno" to 1, "jedno desetinne" to 1, "dve" to 2, "tri" to 3, "ctyri" to 4)
+        val bd = java.math.BigDecimal(m.groupValues[1].replace(" ", "").replace(',', '.'))
+        val r = when {
+            Regex("^(cel\\w*|jednotky)").containsMatchIn(how) -> bd.setScale(0, java.math.RoundingMode.HALF_UP)
+            how.startsWith("desitk") -> bd.setScale(-1, java.math.RoundingMode.HALF_UP)
+            how.startsWith("stovk") -> bd.setScale(-2, java.math.RoundingMode.HALF_UP)
+            how.startsWith("tisic") -> bd.setScale(-3, java.math.RoundingMode.HALF_UP)
+            else -> { val n = Regex("^(\\d|jedno|dve|tri|ctyri)\\s*(desetinn\\w*\\s*)?mist").find(how)?.groupValues?.get(1)?.let { it.toIntOrNull() ?: words[it] } ?: return null
+                bd.setScale(n, java.math.RoundingMode.HALF_UP) }
+        }
+        return "${fmt(v)} zaokrouhleno je ${r.toPlainString().let { x -> if (x.contains('E')) x else fmt(x.toDouble()).let { f -> if (r.scale() > 0) r.toPlainString().replace('.', ',').let { s2 -> s2.substringBefore(',').toLong().let { fmt(it.toDouble()) } + "," + s2.substringAfter(',') } else f } }}."
+    }
+
     /** Sleva: „sleva 30 % z 899“, „899 se slevou 30 %“, „899 Kč minus 30 %“ → výše slevy a cena po slevě. */
     private fun discount(t: String): String? {
         if (!Regex("slev|zlevn|minus|mene o|levnejsi o").containsMatchIn(t)) return null
@@ -354,10 +408,11 @@ object Quick {
         w.startsWith("kilogram") || w in setOf("kilo", "kila", "kil", "kilech", "kilum") -> "kg"; w.startsWith("gram") -> "g"; w.startsWith("tun") -> "t"; w.startsWith("hektar") -> "ha"
         w.startsWith("mililitr") -> "ml"; w.startsWith("litr") -> "l"; w.startsWith("galon") -> "gal"; w.startsWith("decilitr") || w == "dcl" || w == "deci" -> "dl"
         w.startsWith("hodin") -> "h"; w.startsWith("minut") -> "min"; w.startsWith("sekund") || w.startsWith("vterin") || w.startsWith("vterin") -> "s"; w.startsWith("tyd") -> "tydnu"; w in setOf("dny", "dnu", "dnech", "dni", "den") -> "den"
+        w.startsWith("kalori") || w.startsWith("kilokalori") -> "kcal"; w.startsWith("kilojoul") -> "kj"
         w.startsWith("libr") -> "lb"; w.startsWith("unc") -> "oz"; w.startsWith("palc") -> "palec"; w.startsWith("stop") -> "ft"; w in setOf("mile", "mil", "milich") -> "mi"
         else -> null
     }
-    private val DATA_SHOW = mapOf("b" to "B", "kb" to "kB", "mb" to "MB", "gb" to "GB", "tb" to "TB", "kib" to "KiB", "mib" to "MiB", "gib" to "GiB", "tib" to "TiB")
+    private val DATA_SHOW = mapOf("b" to "B", "kb" to "kB", "mb" to "MB", "gb" to "GB", "tb" to "TB", "kib" to "KiB", "mib" to "MiB", "gib" to "GiB", "tib" to "TiB", "kj" to "kJ", "j" to "J", "kwh" to "kWh", "wh" to "Wh")
     private val UNIT_SHOW = mapOf("tydnu" to "týdnů", "den" to "dní", "palec" to "palců", "gal" to "gal")
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
     /** Velikonoční neděle (gregoriánský výpočet). */
