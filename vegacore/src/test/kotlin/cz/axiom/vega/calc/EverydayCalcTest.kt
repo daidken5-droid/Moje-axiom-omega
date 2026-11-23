@@ -99,3 +99,16 @@ class DailyScanMon3Test {
         assertEquals("Z 10 na 12 je to nárůst o 20 % (o 2).", Quick.answer("z 10 na 12 je kolik procent"))
     }
 }
+
+/** Denní scan 23. 11., kolo 4: spoření, „ukaž mi paměť“, „smaž historii“, „jak se máš dnes“. */
+class DailyScanMon4Test {
+    @Test fun savingsAndRouting() {
+        val s = Quick.answer("spočítej mi kolik ušetřím když budu měsíčně dávat 2000 na 5 let s úrokem 4 %")!!
+        assertTrue(s, s.contains("132 597,96 Kč") && s.contains("vložíš 120 000 Kč"))
+        assertTrue(Quick.answer("kolik naspořím když budu odkládat 1000 Kč měsíčně 10 let")!!.contains("120 000 Kč"))  // bez úroku
+        assertNull("splátka úvěru není spoření", Quick.answer("splátka úvěru 200 000 na 4 roky s úrokem 6,9 %")?.takeIf { it.contains("ukládat") })
+        assertEquals(cz.axiom.vega.core.Router.Intent.WhatDoYouRemember, cz.axiom.vega.core.Router.route("ukaž mi paměť", cz.axiom.vega.core.Router.Ctx(false, null, false, false, null)))
+        assertTrue(SmallTalk.answer("smaž historii", true)!!.contains("Smazat"))
+        assertEquals("Díky, běžím. S čím pomůžu?", SmallTalk.answer("jak se máš dnes", true))
+    }
+}

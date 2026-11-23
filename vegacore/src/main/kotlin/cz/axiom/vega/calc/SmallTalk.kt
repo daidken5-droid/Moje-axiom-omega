@@ -24,13 +24,13 @@ object SmallTalk {
             m("co umis", "co umis delat", "co dokazes", "co vsechno umis", "pomoc", "help", "napoveda", "jak to funguje", "jak te pouzivat", "nevim co delat", "nevim co napsat", "s cim mi pomuzes") ->
                 "$mode. I tak umím: $CAN. Rozhovor, psaní textů a překlady potřebují model – ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
             m("kdo jsi", "co jsi", "kdo jsi ty", "jak se jmenujes") -> "Jsem VEGA – asistent v telefonu. Počítám přesně bez modelu, pracuju s tvými soubory a s modelem v cloudu i píšu a odpovídám na otázky."
-            m("jak se mas", "jak je", "jak se vede", "jak to jde") -> "Díky, běžím. S čím pomůžu?"
+            m("jak se mas", "jak se mas dnes", "jak se dnes mas", "jak je", "jak se vede", "jak to jde", "jak se mate") -> "Díky, běžím. S čím pomůžu?"
             m("co je noveho", "co je noveho ve svete", "zpravy", "novinky", "dnesni zpravy", "zpravy ze sveta", "co se deje", "co se deje ve svete") ->
                 "Zprávy ti můžu posílat každé ráno v 05:30 – Ranní přehled (Nastavení › Ranní přehled zpráv) stáhne RSS z českých zpravodajských webů a funguje i bez modelu. Hned ho zkusíš tlačítkem „Vyzkoušet teď“."
             m("nastaveni", "otevri nastaveni", "kde je nastaveni", "jak otevru nastaveni") -> "Nastavení je v menu ☰ vlevo nahoře → Nastavení."
             m("jak zapnu internet", "jak zapnu sit", "zapni internet", "zapni sit", "vypni bez site", "jak vypnu bez site") ->
                 if (airgap) "Režim Bez sítě vypneš klepnutím na „VEGA ▾“ nahoře → Bez sítě. Internet v telefonu musí být zapnutý." else "Síť VEGA používá, když je v telefonu internet. Model připojíš zdarma v Nastavení."
-            m("smaz (tuhle |tuto |celou )?konverzaci", "smaz (tenhle |tento )?chat", "jak smazu (tuhle |tuto )?konverzaci", "jak smazu chat") ->
+            m("smaz (historii|historii chatu|vsechny konverzace|vsechno)", "smaz (tuhle |tuto |celou )?konverzaci", "smaz (tenhle |tento )?chat", "jak smazu (tuhle |tuto )?konverzaci", "jak smazu chat") ->
                 "Konverzaci smažeš v menu ☰: u jejího názvu klepni na ⋯ → Smazat."
             else -> null
         }

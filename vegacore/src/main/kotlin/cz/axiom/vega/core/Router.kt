@@ -125,7 +125,7 @@ object Router {
         }
         if (cz.axiom.vega.calc.SmallTalk.isForgetAll(text)) return Intent.Forget("*")
         Regex("^(?:prosim\\s+)?(?:zapomen|zapomenout|smaz z pameti)\\s+(?:na\\s+)?(?:to,?\\s*ze\\s+)?(.+)$").find(t)?.let { return Intent.Forget(it.groupValues[1]) }
-        if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc")) return Intent.WhatDoYouRemember
+        if (has(t, "^co si (o mne )?pamatujes", "^co o mne vis", "co si pamatujes a proc", "^(ukaz|zobraz|otevri|vypis)( mi)? (moji |mou |svoji |svou |tvoji |tvou )?pamet", "^co (mas|je) v (tve |sve )?pameti")) return Intent.WhatDoYouRemember
         // jen samotný povel („zpět k tomu receptu“ ani „vrátím se zítra“ není vrácení změny)
         if (has(t, "^(vrat|vrat zpet|zpet|undo|vrat posledni zmenu|vrat to|vrat zmenu|vrat zmeny)([ ,]+prosim)?[.!]*$")) return Intent.Undo
         // --- víc výpisů najednou → porovnání (zadání v revizích)

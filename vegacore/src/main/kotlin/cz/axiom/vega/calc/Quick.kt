@@ -35,6 +35,7 @@ object Quick {
         days(t, now.toLocalDate())?.let { return it }
         untilDay(t, now.toLocalDate())?.let { return it }
         loan(t)?.let { return it }
+        savings(t)?.let { return it }
         tip(t)?.let { return it }
         everyday(t)?.let { return it }
         vat(t)?.let { return it }
@@ -395,6 +396,21 @@ object Quick {
         val pay = if (r == 0.0) p / n else p * r / (1 - Math.pow(1 + r, -n.toDouble()))
         return "Splátka ${money(p)} na $years ${if (years == 1) "rok" else if (years in 2..4) "roky" else "let"} při úroku ${fmt(rate)} % ročně: ${money(pay)} měsíčně; celkem zaplatíš ${money(pay * n)} (z toho úroky ${money(pay * n - p)}). " +
             "Orientačně – bez poplatků a pojištění; přesnou nabídku dá banka."
+    }
+
+    /** Spoření: „kolik ušetřím, když budu měsíčně dávat 2000 na 5 let s úrokem 4 %“ – vklad na konci měsíce, měsíční úročení. */
+    private fun savings(t: String): String? {
+        if (!Regex("usetri|nasporim|naspori|sporeni|sporit|odkladat|budu davat|budu ukladat|stavebk").containsMatchIn(t)) return null
+        val dep = Regex("(?:mesicne|kazdy mesic|mesicni\\w*)\\s*(?:davat |ukladat |odkladat |vklad\\w* |po )?$N|$N\\s*(?:kc|korun\\w*)?\\s*(?:mesicne|kazdy mesic|za mesic|/\\s*mesic)").find(t) ?: return null
+        val d = num(dep.groupValues[1].ifEmpty { dep.groupValues[2] }) ?: return null
+        val years = Regex("(?:(?:na|za|po)\\s+|\\s)(\\d{1,2})\\s*(let|roky|roku|rok)(?![a-z])").find(t)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+        val rate = Regex("(\\d+(?:[.,]\\d+)?)\\s*%").find(t)?.groupValues?.get(1)?.let { num(it) } ?: 0.0
+        if (d <= 0 || years !in 1..50 || rate !in 0.0..20.0) return null
+        val n = years * 12; val i = rate / 100 / 12
+        val fv = if (i == 0.0) d * n else d * (Math.pow(1 + i, n.toDouble()) - 1) / i
+        val paid = d * n
+        return "Když budeš ${years} ${if (years == 1) "rok" else if (years in 2..4) "roky" else "let"} měsíčně ukládat ${money(d)}${if (rate > 0) " s úrokem ${fmt(rate)} % ročně" else ""}, budeš mít ${money(fv)} – vložíš ${money(paid)}, úroky ${money(fv - paid)}. " +
+            "Orientačně: bez daně z úroku (15 %), poplatků a inflace."
     }
 
     private fun days(t: String, today: LocalDate): String? {
