@@ -186,4 +186,15 @@ class OpsNewsTest {
         // po doběhnutí jde spustit znovu
         assertTrue(o.newsDigest(later.plusMinutes(1), manual = true).ok)
     }
+
+    /** Denní scan 23. 11., kolo 18: záznamy news/<den>.json přibývaly navždy (365 souborů s titulky za rok) – drží se jen posledních 14 dní. */
+    @Test fun oldDayRecordsArePruned() {
+        val o = ops { u -> if ("novinky" in u) novinky else idnes }
+        (1..30).forEach { o.kv.write("news/2026-10-%02d.json".format(it), "{\"ok\":true,\"text\":\"x\"}") }
+        o.kv.write("news/chats", "")
+        assertTrue(o.newsDigest(now).ok)
+        val days = o.kv.keys("news/").filter { it.endsWith(".json") }.sorted()
+        assertTrue(days.toString(), days.size <= 14 && "news/2026-11-23.json" in days && "news/2026-10-01.json" !in days)
+        assertTrue("seznam chatů přehledu zůstal", o.kv.read("news/chats") != null)
+    }
 }

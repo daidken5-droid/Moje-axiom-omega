@@ -1775,6 +1775,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         old.forEach { id -> val m = messages(id); val touched = (0 until m.length()).any { m.getJSONObject(it).optString("role") == "user" }
             if (!touched) runCatching { deleteChat(id) } }
         kv.write("news/chats", keep.joinToString(","))
+        // výsledky dnů (news/RRRR-MM-DD.json) jen za posledních NEWS_KEEP dní – dřív přibývaly navždy
+        kv.keys("news/").filter { Regex("news/\\d{4}-\\d\\d-\\d\\d\\.json").matches(it) }.sorted().dropLast(NEWS_KEEP - 1).forEach { kv.delete(it) }  // dnešní se zapíše hned potom
     }
     private val NEWS_KEEP = 14
     fun newsLast(day: java.time.LocalDate): NewsResult? = kv.read(newsKey(day))?.let { runCatching { JSONObject(it) }.getOrNull() }
