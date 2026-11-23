@@ -285,3 +285,11 @@ table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } 
 .code .codecopy { position: absolute; top: 6px; right: 6px; min-height: 30px; padding: 0 10px; background: var(--sunk); }
 .dsearch { margin: 4px 12px 6px; width: calc(100% - 24px); }
 .code pre { padding-top: 40px; }
+
+/* Velké systémové písmo (textZoom 130–200 %) na 360 px: řady tlačítek se zalomí, dlouhé popisky se zalomí
+   (dřív panel šel posouvat do strany a tlačítka vpravo byla mimo displej) */
+.inline { flex-wrap: wrap; }
+.inline > .field { flex: 1 1 140px; min-width: 0; }
+.btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.switch > span { min-width: 0; overflow-wrap: anywhere; }
+.sheet { overflow-wrap: anywhere; }

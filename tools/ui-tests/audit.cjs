@@ -6,6 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const root = path.join(__dirname, '../../vega/src/main/assets/ui');
 const outDir = process.argv[2];
+// FONT_SCALE=1.3 / 2: velké systémové písmo (WebView textZoom podle fontScale) – stejné kontroly, zvětšené písmo
+const FONT_SCALE = parseFloat(process.env.FONT_SCALE || '1');
 
 const DATA = {
   isBusy: false,
@@ -103,6 +105,7 @@ const SCREENS = [
     }, [action, CHAT]);
     if (after) await page.evaluate(after);
     await page.waitForTimeout(450); // po doběhnutí animace panelu (0,2 s)
+    if (FONT_SCALE !== 1) { await page.evaluate(k => { const els = [...document.querySelectorAll('body *')].filter(el => !el.dataset.fs); const fs = els.map(el => parseFloat(getComputedStyle(el).fontSize)); els.forEach((el, i) => { el.dataset.fs = '1'; el.style.setProperty('font-size', (fs[i] * k) + 'px', 'important'); }); }, FONT_SCALE); await page.waitForTimeout(100); }
     const r = await page.evaluate(() => {
       const W = innerWidth, out = [];
       const vis = el => { const s = getComputedStyle(el); const b = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
@@ -147,5 +150,5 @@ const SCREENS = [
   }
   await browser.close();
   console.log(`\n${SCREENS.length} obrazovek, ${problems.length} s nálezy.`);
-  process.exitCode = problems.some(([, a]) => a.some(x => x.startsWith('CHYBA JS') || x.startsWith('stránka je širší'))) ? 1 : 0;
+  process.exitCode = problems.some(([, a]) => a.some(x => x.startsWith('CHYBA JS') || x.startsWith('stránka je širší') || (FONT_SCALE !== 1 && x.includes('jde posouvat do strany')))) ? 1 : 0;
 })();

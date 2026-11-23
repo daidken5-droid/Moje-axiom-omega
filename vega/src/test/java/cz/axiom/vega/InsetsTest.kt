@@ -34,4 +34,14 @@ class InsetsTest {
         ViewCompat.dispatchApplyWindowInsets(root, withIme)
         assertEquals(800, root.paddingBottom)
     }
+
+    /** Noční kolo N10: velké systémové písmo se přenese do WebView (textZoom); CSS je ověřené auditem při 130 % a 200 %. */
+    @Test fun systemFontScaleReachesWebView() {
+        org.robolectric.RuntimeEnvironment.setFontScale(1.3f)
+        val a = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val root = a.findViewById<ViewGroup>(android.R.id.content).getChildAt(0) as ViewGroup
+        val web = (0 until root.childCount).map { root.getChildAt(it) }.first { it is WebView } as WebView
+        assertEquals(130, web.settings.textZoom)
+        org.robolectric.RuntimeEnvironment.setFontScale(1f)
+    }
 }

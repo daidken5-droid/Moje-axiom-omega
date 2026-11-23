@@ -80,6 +80,8 @@ class MainActivity : ComponentActivity() {
             allowFileAccess = false; allowContentAccess = false
             blockNetworkLoads = true // UI se načítá jen z WebViewAssetLoader; modely volá Kotlin.
             setGeolocationEnabled(false); mediaPlaybackRequiresUserGesture = true
+            // velké systémové písmo (Nastavení › Displej › Velikost písma) i ve VEGA – WebView ho sám spolehlivě nepřebírá
+            textZoom = (resources.configuration.fontScale * 100).toInt().coerceIn(85, 200)
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
