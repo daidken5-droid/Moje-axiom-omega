@@ -27,6 +27,10 @@ object Statement {
         val columns: Map<String, String> = emptyMap(),
         /** Sloupec se SMĚREM pohybu (Debet/Kredit, Příchozí/Odchozí) u bank, které píšou částku bez znaménka; -1 = není. */
         val directionCol: Int = -1,
+        /** Sloupec se STAVEM transakce (Revolut „State“): REVERTED / DECLINED / FAILED se nepočítají; -1 = není. */
+        val stateCol: Int = -1,
+        /** Sloupec s POPLATKEM zvlášť (Revolut „Fee“): odečte se od částky; -1 = není. */
+        val feeCol: Int = -1,
     ) {
         fun json() = Json.encodeToString(serializer(), this)
         companion object { fun parse(s: String) = Json.decodeFromString(serializer(), s) }
@@ -44,6 +48,8 @@ object Statement {
     private fun f(s: String) = cz.axiom.vega.base.Text.fold(s).lowercase().trim()
     // jen jednoznačné hodnoty (ne „platba“, „vklad“ – mohou být v popisu a otočily by znaménko příjmu)
     private val DEBIT = setOf("debet", "debit", "odchozi", "vydaj", "odepsano", "d", "dr", "-", "odchozi platba", "outgoing")
+    /** Stavy transakce, které se nestaly (zrušené, odmítnuté, vrácené) – do součtů nepatří. */
+    private val VOID = setOf("reverted", "declined", "failed", "cancelled", "canceled", "zamitnuto", "zamitnuta", "zruseno", "zrusena", "stornovano", "odmitnuto")
     private val CREDIT = setOf("kredit", "credit", "prichozi", "prijem", "pripsano", "c", "cr", "+", "prichozi platba", "incoming")
     /** Výdaj podle sloupce se směrem (hodnota „Debet“, „Odchozí“…). */
     fun isDebit(v: String?) = v != null && f(v) in DEBIT
@@ -94,9 +100,13 @@ object Statement {
         if (decimalComma && amounts.any { it.contains(',') }) warnings += "Částky používají českou desetinnou čárku (např. „${amounts.first { it.contains(',') }.trim()}“) – převádím na čísla, ne na text."
         if (p.delimiter == ';') warnings += "Oddělovač je středník (český Excel)."
         if (p.issues.isNotEmpty()) warnings += "${p.issues.size} problémových řádků (např. řádek ${p.issues[0].line}: ${p.issues[0].message})."
+        val stateCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("state", "status", "stav transakce", "stav platby") } ?: -1
+        val feeCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("fee", "fees") && it != amountCol } ?: -1
         val spec = if (dateCol >= 0 && amountCol >= 0) ParserSpec(p.delimiter.toString(), decimalComma, dateCol, amountCol, descCols, currencyCol, debitCol,
             headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16), columns = namesOf(p.headers, dateCol, amountCol, descCols, currencyCol, debitCol) +
-                (p.headers.getOrNull(directionCol)?.let { mapOf("direction" to f(it)) } ?: emptyMap()), directionCol = directionCol) else null
+                (p.headers.getOrNull(directionCol)?.let { mapOf("direction" to f(it)) } ?: emptyMap()) +
+                (p.headers.getOrNull(stateCol)?.let { mapOf("state" to f(it)) } ?: emptyMap()) + (p.headers.getOrNull(feeCol)?.let { mapOf("fee" to f(it)) } ?: emptyMap()),
+            directionCol = directionCol, stateCol = stateCol, feeCol = feeCol) else null
         return Detection(spec, p.headers, warnings, p.rows.take(5))
     }
 
@@ -124,7 +134,8 @@ object Statement {
             return spec // bez rozpoznatelné hlavičky (soubor bez názvů sloupců) → uložené pozice
         }
         val descs = spec.columns.keys.filter { it.startsWith("desc") }.sorted().mapNotNull { k -> h.indexOf(spec.columns[k]).takeIf { it >= 0 } }
-        return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1), directionCol = idx("direction", -1))
+        return spec.copy(dateCol = date, amountCol = amount, descCols = descs, currencyCol = idx("currency", -1), debitCol = idx("debit", -1), directionCol = idx("direction", -1),
+            stateCol = idx("state", -1), feeCol = idx("fee", -1))
     }
 
     /** Oprava od uživatele („částka je ve sloupci Pohyb“): role → sloupec podle názvu. Null = sloupec neexistuje. */
@@ -177,7 +188,7 @@ object Statement {
         val p = if (headerIdx > 0) { offset = headerIdx; Csv.read(lines.drop(headerIdx).joinToString("\n"), d) } else p0
         val out = ArrayList<List<String>>()
         val failed = ArrayList<Pair<Int, String>>()
-        var inc = 0.0; var exp = 0.0
+        var inc = 0.0; var exp = 0.0; var voided = 0; var fees = 0.0
         val perCur = LinkedHashMap<String, DoubleArray>() // měna → [příjmy, výdaje, počet]
         p.rows.forEachIndexed { i, r ->
             val line = p.rowLines.getOrElse(i) { i + 2 } + offset
@@ -189,8 +200,10 @@ object Statement {
             }
             // částka bez znaménka + sloupec se směrem: výdaj (Debet/Odchozí) je záporný
             if (spec.directionCol >= 0 && amt != null && amt > 0 && isDebit(r.getOrNull(spec.directionCol))) amt = -amt
+            if (spec.feeCol >= 0 && amt != null) r.getOrNull(spec.feeCol)?.let { CzNum.parse(it, spec.decimalComma) }?.takeIf { it != 0.0 }?.let { fee -> amt = amt!! - kotlin.math.abs(fee); fees += kotlin.math.abs(fee) }
             when {
                 r.all { it.isBlank() } -> {}
+                spec.stateCol >= 0 && f(r.getOrNull(spec.stateCol) ?: "") in VOID -> voided++
                 // souhrnné řádky banky („Celkem“, „Konečný zůstatek“, „Obrat“) nejsou chyba – jen se nepočítají
                 date == null && Regex("celkem|zustatek|soucet|obrat|pocatecni|konecn|suma\\b|total|balance").containsMatchIn(cz.axiom.vega.base.Text.fold(r.joinToString(" ")).lowercase()) -> {}
                 date == null -> failed += line to "neplatné datum „${r.getOrNull(spec.dateCol) ?: ""}“"
@@ -212,6 +225,8 @@ object Statement {
                 add("Součty níže jsou jen v $main.")
             }
             add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)}${if (perCur.size > 1) " $main" else ""} · ${out.size} pohybů")
+            if (voided > 0) add("Vynecháno $voided ${if (voided == 1) "zrušená / odmítnutá platba" else if (voided in 2..4) "zrušené / odmítnuté platby" else "zrušených / odmítnutých plateb"} (stav REVERTED, DECLINED…) – nestaly se.")
+            if (fees > 0) add("Poplatky ze sloupce „Poplatek / Fee“ (${CzNum.format(-fees)}) jsou započtené ve výdajích.")
             if (failed.isNotEmpty()) add("Nezpracováno ${failed.size} řádků: " + failed.take(5).joinToString("; ") { "ř. ${it.first} ${it.second}" })
         }
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
