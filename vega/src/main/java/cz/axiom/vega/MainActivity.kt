@@ -60,12 +60,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         ops = (application as VegaApp).ops(sinkRef)
         web = WebView(this)
-        setContentView(web)
+        // WebView padding IGNORUJE (obsah kreslí dál pod stavový řádek a lištu gest) → odsazení nese obalový kontejner
+        val root = android.widget.FrameLayout(this)
+        root.addView(web, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
+        setContentView(root)
         // Android 15 (targetSdk 35) kreslí od okraje k okraji a adjustResize nefunguje: odsazení podle systémových lišt
         // a KLÁVESNICE ručně – jinak hlavička vjede pod stavový řádek a klávesnice zakryje pole pro psaní
-        web.setBackgroundColor(0xFF0B0D12.toInt()); window.decorView.setBackgroundColor(0xFF0B0D12.toInt()) // pruh pod lištami v barvě aplikace (ne bílý)
-        androidx.core.view.WindowCompat.getInsetsController(window, web).apply { isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false }
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
+        web.setBackgroundColor(0xFF0B0D12.toInt()); root.setBackgroundColor(0xFF0B0D12.toInt()); window.decorView.setBackgroundColor(0xFF0B0D12.toInt()) // pruh pod lištami v barvě aplikace (ne bílý)
+        androidx.core.view.WindowCompat.getInsetsController(window, root).apply { isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
             val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
             v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
