@@ -1791,6 +1791,13 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // ruční „Vyzkoušet teď“: posledních 24 h do TEĎ (ne zprávy staré do 05:20) a ranní plán se tím neoznačí jako hotový
         val w = if (manual) now.toInstant().minus(java.time.Duration.ofHours(24)) to now.toInstant().plusSeconds(1) else N.window(now)
         val day = java.time.LocalDateTime.ofInstant(w.second, N.ZONE).toLocalDate()
+        // pokus a notifikace mohou v Doze dorazit naráz – ranní přehled se staví jednou, druhý počká a vezme hotový
+        if (!manual) synchronized(newsLock) { newsLast(day)?.takeIf { it.ok }?.let { return it }; return newsBuild(now, false, w, day) }
+        return newsBuild(now, true, w, day)
+    }
+    private val newsLock = Any()
+    private fun newsBuild(now: java.time.ZonedDateTime, manual: Boolean, w: Pair<java.time.Instant, java.time.Instant>, day: java.time.LocalDate): NewsResult {
+        val N = cz.axiom.vega.news.News
         fun done(r: NewsResult) = r.also { if (!manual) kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
         if (settings.airgap) return done(NewsResult(false, "Je zapnutý režim Bez sítě – přehled jsem nestahoval.", null))
         val srcs = N.SOURCES.filter { it.id in settings.newsSources }

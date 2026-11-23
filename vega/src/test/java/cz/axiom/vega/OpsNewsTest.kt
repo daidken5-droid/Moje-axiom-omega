@@ -67,9 +67,12 @@ class OpsNewsTest {
         // vadné / prázdné RSS → úspěch, ale „nic nového“; jeden zdroj padá → ostatní stačí a výpadek se řekne
         val r2 = ops { "<html>503</html>".toByteArray() }.newsDigest(now)
         assertTrue(r2.ok); assertTrue(r2.text, r2.text.contains("nic nového"))
+        // úspěšný přehled dne se už znovu nestaví (kolo 11) → pro další krok uložený výsledek smazat
+        ops { novinky }.kv.delete("news/2026-11-23.json")
         val r3 = ops { u -> if ("idnes" in u) throw java.net.SocketTimeoutException() else novinky }.newsDigest(now)
         assertTrue(r3.ok); assertTrue(r3.text, r3.text.contains("nedostupné: iDNES.cz"))
         // žádný zapnutý zdroj
+        ops { novinky }.kv.delete("news/2026-11-23.json")
         val r4 = ops { novinky }.also { it.settings.newsSources = emptySet() }.newsDigest(now)
         assertFalse(r4.ok); assertTrue(r4.text.contains("žádný zdroj"))
     }
@@ -142,5 +145,19 @@ class OpsNewsTest {
         assertFalse("nejstarší pryč", ids[0] in left); assertFalse(ids[2] in left)
         assertTrue("s dotazem uživatele zůstal", ids[1] in left)
         assertTrue("posledních 14 zůstává", ids.takeLast(13).all { it in left })
+    }
+
+    /** Denní scan 23. 11., kolo 11: v Doze může systém doručit pokus (05:2x) a notifikaci (05:30) naráz → dva souběžné přehledy = dva chaty. */
+    @Test fun concurrentAttemptAndNotifyMakeOneDigest() {
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val o = ops { u -> calls.incrementAndGet(); Thread.sleep(300); if ("novinky" in u) novinky else idnes }
+        val later = now.plusMinutes(10)
+        val rs = java.util.Collections.synchronizedList(ArrayList<Ops.NewsResult>())
+        val ts = listOf(Thread { rs += o.newsDigest(now.plusMinutes(1)) }, Thread { rs += o.newsLast(later.toLocalDate())?.takeIf { it.ok } ?: o.newsDigest(later) })
+        ts.forEach { it.start() }; ts.forEach { it.join(10_000) }
+        assertEquals(2, rs.size); assertTrue(rs.all { it.ok })
+        assertEquals("jeden chat, ne dva", 1, o.chats().toString().split("Ranní přehled 23. 11.").size - 1)
+        assertEquals("stažení jen jednou (2 zdroje)", 2, calls.get())
+        assertEquals(rs[0].chat, rs[1].chat)
     }
 }
