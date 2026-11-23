@@ -216,4 +216,21 @@ class OpsNewsTest {
         val t = o.newsDigest(now).text
         assertTrue(t, t.startsWith("1 téma: Huangová byla v době vztahu se šéfem Nvidie v kontaktu s…"))
     }
+
+    /** Denní scan 23. 11., kolo 21: alarmy přes přechod času (28. 3. 2027 CET→CEST, 31. 10. 2027 CEST→CET) – vždy 05:20 / 05:30 místního času. */
+    @Test fun alarmTimesAcrossDst() {
+        val z = cz.axiom.vega.news.News.ZONE
+        assertEquals(java.time.Instant.parse("2027-03-28T03:20:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2027, 3, 28), 20))
+        assertEquals(java.time.Instant.parse("2027-03-27T04:30:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2027, 3, 27), 30))
+        assertEquals(java.time.Instant.parse("2027-10-31T04:20:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2027, 10, 31), 20))
+        assertEquals(java.time.Instant.parse("2027-10-30T03:30:00Z").toEpochMilli(), NewsAlarms.at(java.time.LocalDate.of(2027, 10, 30), 30))
+        // notifikace v 05:30 v den přechodu → další plán na zítřek (ne o hodinu vedle)
+        assertEquals(java.time.LocalDate.of(2027, 3, 29), NewsAlarms.nextDay(LocalDateTime.parse("2027-03-28T05:30:00").atZone(z)))
+        assertEquals(java.time.LocalDate.of(2027, 10, 31), NewsAlarms.nextDay(LocalDateTime.parse("2027-10-31T02:30:00").atZone(z).withLaterOffsetAtOverlap()))
+        // okno dne přechodu na zimní čas je 25 h, na letní 23 h – a obě končí v 05:20 místního času
+        val wOct = cz.axiom.vega.news.News.window(LocalDateTime.parse("2027-10-31T05:20:00").atZone(z))
+        assertEquals(25, java.time.Duration.between(wOct.first, wOct.second).toHours())
+        val wMar = cz.axiom.vega.news.News.window(LocalDateTime.parse("2027-03-28T05:20:00").atZone(z))
+        assertEquals(23, java.time.Duration.between(wMar.first, wMar.second).toHours())
+    }
 }
