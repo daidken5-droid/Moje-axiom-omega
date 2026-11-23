@@ -166,3 +166,35 @@ CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. T
   Kopírovat/Sdílet, Upravit/Znovu, hledání v konverzacích, 14 scénářů a měření v `PHONE-CHECKLIST.md`.
 
 ## Den 23. 11. 2026 (pondělí) – oblasti: dopoledne laické dotazy (kalkulačka, data, převody, měny, router), odpoledne ranní přehled zpráv
+
+### Souhrn dne 23. 11. (uzávěrka 20:02)
+
+24 kol, 23 commitů, testy **305 / 0** (ráno 288). Poslední CI „Build VEGA APK“ #172 (`f52471f`) zelené. Kola 23 a 24 skončila bez nálezu, žádný commit.
+
+**Dopoledne – laické dotazy (kola 1–9)**
+- Kola 1–5: nové formulace kalkulačky, dat a převodů (DailyScanMon1–5Test). Kolo 6: 40 náhodných úvěrů, spoření, slev a DPH proti nezávislému výpočtu – vše na haléř (FinanceCrossCheckTest).
+- Kolo 7: kalendář proti Pythonu 0/42 chyb. Oprava gramatiky: „před 1 dny“ → „před 1 dnem“.
+- Kolo 8: 51 nových formulací, 7 mezer v existujících výpočtech: „350 + DPH“ / „plus 21 % DPH“, „1999 po slevě 25 %“, „druhá/třetí mocnina N“, „kolik týdnů má rok“, „kolik hodin je 10 000 minut“, hektar, GB/MB velkými písmeny.
+- Kolo 9: falešné zásahy kalkulačky 0/24 (věty s čísly zůstávají modelu). Opraveny 4 varianty psaní: „1 500 g v kg“, „hypoteka 3000000 30 let 5%“, „za týden / před týdnem“ bez čísla, dvojité mezery.
+
+**Odpoledne – ranní přehled zpráv (kola 10–22)**
+- 10: perex se lámal po datu („10.“ | „července…“) → úlomek s malým písmenem se připojí k předchozí větě.
+- 11: **souběh pokusu a notifikace v Doze** stavěl dva přehledy (2 chaty, dvojí stahování) → zámek a hotový přehled dne se vrátí.
+- 12: **výjimka při notifikaci 05:30 rušila plán na zítřek** → přeplánování ve `finally`.
+- 13: 4 tvary pubDate se tiše zahodily (dvojitá mezera, „Monday,“, „November“, ISO s mezerou) → normalizace.
+- 14: perex se zakódovaným HTML („p … /p“), pojmenované entity (&bdquo; &ndash; &hellip;) a dvojí kódování Atomu → dva průchody a mapa entit. `javascript:` / `data:` odkazy zahozeny (bez nálezu).
+- 15: **chybné sloučení různých událostí** se shodou jen v obecných slovech (policie/zadržela/muže, vláda/schválila/zvýšení, ceny/ledna/procent) → nutný aspoň jeden konkrétní společný kmen.
+- 16: **stejná událost rozdělená do dvou témat** (shlukování nespojovalo skupiny) → živě „Agresivní jízda“ 3 + 2 → 5 zdrojů, „Nvidia vrátila Huanga“ 2 + 1 → 3.
+- 17: dvojí klepnutí na „Vyzkoušet teď“ zakládalo dva chaty → druhé klepnutí „Přehled se už stahuje“.
+- 18: záznamy `news/<den>.json` se hromadily navždy → posledních 14 dní.
+- 19: notifikace „1 témat / 3 témat“ → „1 téma / 3 témata“. 20: titulky v notifikaci se zkracují na celé slovo s „…“.
+- 21: alarmy přes přechod času (28. 3. / 31. 10. 2027) – bez nálezu, regresní test.
+- 22: „ranní přehled“, „přehled zpráv“, „zapni ranní přehled“, „co píšou noviny“… vedly do rešerše / na model → nápověda k Ranní přehledu i bez modelu.
+- 23: UI nastavení přehledu (escapování, whitelist zdrojů) – bez nálezu. 24: varování kompilátoru – 3 stará, žádné z dnešního kódu.
+
+**Neopraveno (návrh, nová funkce → jen na žádost):** synonyma ve slučování („paliva“ × „pohonné hmoty“, „atomovka“ × „jaderná zbraň“); kalkulačka: spotřeba/cena cesty, medián, zaokrouhli, „půl kila“, kJ↔kcal; položky RSS jen s `<guid>` bez `<link>`.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-f52471f.apk`, 39 865 482 B,
+SHA-256 `7211232e5e731a1e1094c4059744d5c93c12ea740d17f984de0ef84938a22dd1` (shoda se SHA256SUMS.txt z CI #172).
+
+**NEOVĚŘENO na telefonu:** všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md`; ranní přehled – skutečné doručení v 05:30 tři dny po sobě, chování v Doze (souběh pokusu a notifikace), obnova po restartu, „Zkusit znovu“ bez internetu.
