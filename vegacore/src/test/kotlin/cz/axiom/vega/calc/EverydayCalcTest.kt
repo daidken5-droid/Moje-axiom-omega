@@ -124,3 +124,24 @@ class DailyScanMon5Test {
         assertEquals("12+8 = 20", Quick.answer("12+8 ="))
     }
 }
+
+/** Denní scan 23. 11., kolo 6: finanční výpočty proti nezávislému vzorci (náhodná zadání, pevné semínko) – na haléř. */
+class FinanceCrossCheckTest {
+    private fun n(s: String) = s.replace(" ", "").replace(" ", "").replace(',', '.').replace("−", "-").toDouble()
+    @Test fun loansAndSavingsMatchFormula() {
+        val r = java.util.Random(2311)
+        repeat(40) {
+            val p = listOf(150_000, 300_000, 1_200_000, 2_500_000)[r.nextInt(4)]; val y = listOf(1, 3, 5, 10, 30)[r.nextInt(5)]; val rate = listOf(0.0, 2.5, 4.9, 6.9)[r.nextInt(4)]
+            val q = "splátka úvěru ${Quick.fmtPublic(p.toDouble())} na $y let s úrokem ${Quick.fmtPublic(rate)} %"
+            val a = Quick.answer(q) ?: error("bez odpovědi: $q")
+            val nn = y * 12; val i = rate / 1200
+            val exp = if (i == 0.0) p.toDouble() / nn else p * i / (1 - Math.pow(1 + i, -nn.toDouble()))
+            val got = n(Regex(": ([\\d  ,]+) Kč měsíčně").find(a)!!.groupValues[1])
+            assertEquals(q, Math.round(exp * 100) / 100.0, got, 0.011)
+            val d = listOf(500, 1000, 2500)[r.nextInt(3)]
+            val qs = "kolik naspořím když budu měsíčně ukládat $d na $y let s úrokem ${Quick.fmtPublic(rate)} %"
+            val fv = if (i == 0.0) d.toDouble() * nn else d * (Math.pow(1 + i, nn.toDouble()) - 1) / i
+            assertEquals(qs, Math.round(fv * 100) / 100.0, n(Regex("budeš mít ([\\d  ,]+) Kč").find(Quick.answer(qs)!!)!!.groupValues[1]), 0.011)
+        }
+    }
+}
