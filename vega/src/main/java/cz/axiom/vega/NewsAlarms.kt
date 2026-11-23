@@ -97,12 +97,16 @@ class NewsReceiver : BroadcastReceiver() {
                     NewsAlarms.ATTEMPT -> if (!ops.newsDoneFor(day)) { val r = ops.newsDigest()
                         if (!r.ok) NewsAlarms.scheduleRetry(app, day, intent.getIntExtra("n", 0)) }
                     NewsAlarms.NOTIFY -> { val r = ops.newsLast(day)?.takeIf { it.ok } ?: ops.newsDigest()  // poslední šance: pokusy selhaly nebo neproběhly (Doze)
-                        NewsAlarms.notify(app, r.ok, r.text, r.chat); NewsAlarms.schedule(app, s.newsEnabled) }
+                        NewsAlarms.notify(app, r.ok, r.text, r.chat) }
                     NewsAlarms.RETRY -> { val r = ops.newsDigest(); NewsAlarms.notify(app, r.ok, r.text, r.chat) }
                 }
             } catch (e: Throwable) {
                 runCatching { NewsAlarms.notify(app, false, "Chyba: ${e.javaClass.simpleName}. Zkus to znovu.", null) }
-            } finally { pending.finish() }
+            } finally {
+                // plán na zítřek i po výjimce – jinak by přehled přestal chodit, dokud uživatel neotevře aplikaci
+                if (intent.action == NewsAlarms.NOTIFY) runCatching { NewsAlarms.schedule(app, s.newsEnabled) }
+                pending?.finish()
+            }
         }.start()
     }
 }

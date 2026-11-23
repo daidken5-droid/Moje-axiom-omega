@@ -160,4 +160,16 @@ class OpsNewsTest {
         assertEquals("stažení jen jednou (2 zdroje)", 2, calls.get())
         assertEquals(rs[0].chat, rs[1].chat)
     }
+
+    /** Denní scan 23. 11., kolo 12: výjimka při notifikaci 05:30 nesmí zrušit plán na zítřek (dřív přeplánování jen po úspěchu). */
+    @Test fun notifyFailureStillSchedulesTomorrow() {
+        val sh = org.robolectric.Shadows.shadowOf(ctx.getSystemService(android.app.AlarmManager::class.java))
+        val s = Settings(ctx); s.newsEnabled = false; NewsAlarms.schedule(ctx, false); s.newsEnabled = true
+        assertEquals(0, sh.scheduledAlarms.size)
+        // v testu aplikace není VegaApp → opsHeadless() vyhodí výjimku = stejná cesta jako pád stahování / úložiště
+        NewsReceiver().onReceive(ctx, android.content.Intent(NewsAlarms.NOTIFY).putExtra("day", "2026-11-23"))
+        val until = System.currentTimeMillis() + 5_000
+        while (sh.scheduledAlarms.isEmpty() && System.currentTimeMillis() < until) Thread.sleep(50)
+        assertEquals("pokus + notifikace příštího dne", 2, sh.scheduledAlarms.size)
+    }
 }
