@@ -239,3 +239,15 @@ class NewsBridgeMergeTest {
         assertEquals(1, ts.size); assertEquals(3, ts[0].sources.size)
     }
 }
+
+/** Noční kolo N1 (23. 11.): stejná událost popsaná jinými slovy (živě: paliva × pohonné hmoty, atomovka × jaderná zbraň). */
+class NewsSynonymMergeTest {
+    @Test fun synonymsMergeSameEvent() {
+        assertTrue(News.similar("Vláda prodloužila opatření proti vysokým cenám nafty a benzinu do konce roku", "Vláda prodloužila regulaci cen paliv do konce prosince"))
+        assertTrue(News.similar("Vláda prodloužila opatření proti drahým pohonným hmotám do konce roku", "Vláda prodloužila regulaci cen paliv do konce prosince"))
+        assertTrue(News.similar("Rusko plánuje letos vynést do vesmíru družici s jadernou zbraní", "Rusko chce vyslat do vesmíru družici s atomovkou, varují západní rozvědky"))
+        // a dál nerozlišuje to, co rozlišovat má
+        assertFalse(News.similar("Ceny benzinu klesly pod 35 korun", "Vláda schválila zvýšení spotřební daně z alkoholu"))
+        assertFalse(News.similar("Rusko plánuje vynést do vesmíru družici s jadernou zbraní", "Lodě, které Ukrajinci zasáhli v Libyi, vezly zbraně pro ruský Africký sbor"))
+    }
+}

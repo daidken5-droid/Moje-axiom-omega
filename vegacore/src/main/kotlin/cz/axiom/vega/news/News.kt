@@ -127,7 +127,16 @@ object News {
     private val STOP = setOf("a", "i", "o", "u", "v", "ve", "na", "do", "z", "ze", "s", "se", "k", "ke", "po", "pro", "pri", "za", "od", "je", "jsou", "byl", "byla",
         "bylo", "by", "ze", "ale", "jak", "co", "kdo", "to", "ten", "ta", "tak", "uz", "jeste", "rika", "podle", "kvuli", "mezi", "nad", "pod", "pred", "jeho", "jeji", "sve")
     /** Kmeny slov titulku (bez diakritiky, bez spojek, první 4 znaky) – „konferenci“ ~ „konference“, „útok“ ~ „útoku“. */
-    fun stems(title: String): Set<String> = Text.words(Text.fold(title).lowercase(), 2).filter { it !in STOP }.map { it.take(4) }.toSet()
+    fun stems(title: String): Set<String> = Text.words(synonyms(Text.fold(title).lowercase()), 2).filter { it !in STOP }.map { it.take(4) }.toSet()
+    /** Různá slova pro totéž napříč redakcemi („paliva“ × „pohonné hmoty“ × „benzin a nafta“, „atomovka“ × „jaderná zbraň“) → jeden tvar. */
+    private val SYN = listOf(
+        Regex("pohonn\\w* hmot\\w*|benzin\\w*|naft\\w*|pohonk\\w*") to "paliva",
+        Regex("atomov\\w*|jadern\\w* zbran\\w*|nuklearn\\w* zbran\\w*") to "jaderna zbran",
+        Regex("exsef\\w*|byval\\w* sef\\w*|byval\\w* reditel\\w*") to "sef",
+        Regex("spojen\\w* stat\\w*|\\busa\\b|\\bspojenych statu\\b") to "usa",
+        Regex("premier\\w*|predsed\\w* vlady") to "premier",
+        Regex("rozvedk\\w*|tajn\\w* sluzb\\w*|zpravodajsk\\w* sluzb\\w*") to "rozvedka")
+    private fun synonyms(t: String) = SYN.fold(t) { acc, (r, w) -> acc.replace(r, w) }
     /** Podobnost titulků: aspoň 3 společné kmeny (4 písmena – „útok/útoku“, „ruskou/ruská“) a polovina menšího titulku. */
     fun similar(a: String, b: String): Boolean = similarStems(stems(a), stems(b))
     private fun similarStems(x: Set<String>, y: Set<String>): Boolean {
