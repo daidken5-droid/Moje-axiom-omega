@@ -22,7 +22,7 @@ object Quick {
     }
 
     fun answer(raw: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): String? {
-        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ')
+        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').let { if (Regex("^[\\d\\s.,+\\-*/×·:÷^()x]+=$").matches(it)) it.dropLast(1).trim() else it }
             .replace(Regex("^kolko "), "kolik ").replace(Regex("(?<![a-z])percent"), "procent").replace("vianoc", "vanoc") // slovensky
             .replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
         // příkaz k psaní / překladu / úpravě textu nebo žádost o vysvětlení patří modelu, ne kalkulačce
@@ -86,7 +86,7 @@ object Quick {
             if (v.isInfinite() && Regex("[/:÷]\\s*0+(?:[.,]0+)?\\s*(?:$|[+\\-*/)])").containsMatchIn(expr)) return "Nulou dělit nejde – výsledek není definovaný."
             if (v.isNaN() || v.isInfinite()) return null
             if (money || expr != t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()) return "${expr.replace("*", "×")} = ${fmt(v)}${if (money) " Kč" else ""}"
-            return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ')} = ${fmt(v)}"
+            return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ', '=')} = ${fmt(v)}"
         }
         return null
     }
@@ -122,7 +122,12 @@ object Quick {
         Regex("^(?:kolik je |spocitej |vypocitej )?(?:aritmeticky )?prumer\\w*(?: (?:z|ze|cisel|hodnot))? (.+)$").find(t)?.let { m ->
             val body = m.groupValues[1]
             if (!Regex("^[\\d\\s.,;a+]+(?:kc|korun\\w*)?$").matches(body)) return@let
-            val xs = Regex("\\d+(?:[.,]\\d+)?").findAll(body.replace(Regex("(?<=\\d) (?=\\d{3}(?!\\d))"), "")).mapNotNull { num(it.value) }.toList()
+            val cleaned = body.replace(Regex("(?<=\\d) (?=\\d{3}(?!\\d))"), "")
+            // „10,20,30“ je seznam, ne 10,2 a 30 (dřív průměr 20,1 místo 20): víc čárek mezi celými čísly = oddělovače;
+            // stejně „10,20“, když by jinak zbylo jediné číslo (průměr jednoho čísla nedává smysl)
+            val commaList = Regex("^\\s*\\d+(,\\d+){2,}\\s*$").matches(cleaned) || (Regex("^\\s*\\d+,\\d+\\s*$").matches(cleaned))
+            val xs = (if (commaList) cleaned.split(',').mapNotNull { num(it.trim()) }
+                else Regex("\\d+(?:[.,]\\d+)?").findAll(cleaned).mapNotNull { num(it.value) }.toList())
             if (xs.size < 2) return@let
             return "Průměr ${xs.joinToString(", ") { fmt(it) }} je ${out(xs.sum() / xs.size)} (součet ${fmt(xs.sum())} ÷ ${xs.size})."
         }

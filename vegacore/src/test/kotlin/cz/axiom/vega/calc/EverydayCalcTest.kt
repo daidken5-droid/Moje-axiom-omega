@@ -112,3 +112,15 @@ class DailyScanMon4Test {
         assertEquals("Díky, běžím. S čím pomůžu?", SmallTalk.answer("jak se máš dnes", true))
     }
 }
+
+/** Denní scan 23. 11., kolo 5: „prumer 10,20,30“ dával 20,1 (čárka brána jako desetinná); „5*5=“ bez odpovědi. */
+class DailyScanMon5Test {
+    @Test fun commaListsAndTrailingEquals() {
+        assertEquals("Průměr 10, 20, 30 je 20 (součet 60 ÷ 3).", Quick.answer("prumer 10,20,30"))
+        assertEquals("Průměr 10, 20 je 15 (součet 30 ÷ 2).", Quick.answer("prumer 10,20"))
+        assertEquals("Průměr 4,5, 5,5 je 5 (součet 10 ÷ 2).", Quick.answer("průměr 4,5; 5,5"))   // desetinná čárka dál funguje
+        assertEquals("Průměr 1,5, 2,5 je 2 (součet 4 ÷ 2).", Quick.answer("průměr 1,5 2,5"))
+        assertEquals("5*5 = 25", Quick.answer("5*5="))
+        assertEquals("12+8 = 20", Quick.answer("12+8 ="))
+    }
+}
