@@ -193,3 +193,18 @@ class NewsDateFormatsTest {
         listOf("", "včera", "2026-13-45 99:99:99 +0100", "Mon, 32 Nov 2026 05:20:00 +0100").forEach { org.junit.Assert.assertNull(it, News.date(it)) }
     }
 }
+
+/** Denní scan 23. 11., kolo 14: perex se zakódovaným HTML, pojmenované entity a dvojí kódování (Atom type="html"). */
+class NewsCleanEntitiesTest {
+    @Test fun encodedHtmlNamedEntitiesAndDoubleEncoding() {
+        org.junit.Assert.assertEquals("Vláda schválila rozpočet. Více", News.clean("&lt;p&gt;Vláda schválila rozpočet.&lt;/p&gt; &lt;a href=\"x\"&gt;Více&lt;/a&gt;"))
+        org.junit.Assert.assertEquals("Premiér řekl „ne“ – a odešel…", News.clean("<![CDATA[Premiér řekl &bdquo;ne&ldquo; &ndash; a odešel&hellip;]]>"))
+        org.junit.Assert.assertEquals("Atom – titulek", News.clean("Atom &amp;ndash; titulek"))
+        org.junit.Assert.assertEquals("«Citace» 5 %", News.clean("&laquo;Citace&raquo; 5&nbsp;%"))
+        org.junit.Assert.assertEquals("Text", News.clean("&lt;img src=x onerror=alert(1)&gt;Text"))
+        org.junit.Assert.assertEquals("cena 100 Kč a 50", News.clean("cena &lt; 100 Kč a &gt; 50"))  // < > nevytvoří značku, obsah zůstane
+        org.junit.Assert.assertEquals("rozpočet", News.clean("roz&shy;počet"))
+        org.junit.Assert.assertEquals("AT&T a &neznamá;", News.clean("AT&amp;T a &neznamá;"))
+        org.junit.Assert.assertEquals("odkaz", News.clean("<![CDATA[<a href=\"javascript:x\">odkaz</a>]]>"))
+    }
+}

@@ -71,14 +71,25 @@ object News {
 
     /** CDATA, HTML značky a entity pryč; jeden řádek. */
     fun clean(s: String): String {
-        var t = s.replace(Regex("(?s)<!\\[CDATA\\[(.*?)]]>"), "$1").replace(Regex("(?s)<[^>]*>"), " ")
-        t = t.replace(Regex("&#(\\d{1,6});")) { m -> m.groupValues[1].toIntOrNull()?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
-            .replace(Regex("&#x([0-9a-fA-F]{1,6});")) { m -> m.groupValues[1].toIntOrNull(16)?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
-            .replace("&nbsp;", " ").replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+        var t = s.replace(Regex("(?s)<!\\[CDATA\\[(.*?)]]>"), "$1")
+        // dva průchody: HTML zakódované v <description> („&lt;p&gt;…“) i dvojí kódování v Atomu type="html" („&amp;ndash;“)
+        repeat(2) { t = decode(t.replace(Regex("(?s)</?[A-Za-z!][^>]*>"), " ")) }
         // text z cizího kanálu nesmí v přehledu vytvořit odkaz ani formátování (markdown): [ ] ` * | < > pryč, # a _ na začátku slov taky
-        return t.replace('\u00a0', ' ').replace(Regex("[\\[\\]`*|<>]"), " ").replace(Regex("(^|\\s)[#_]+"), "$1").replace(Regex("\\s+"), " ").trim()
+        return t.replace('\u00a0', ' ').replace("\u00ad", "").replace(Regex("[\\[\\]`*|<>]"), " ").replace(Regex("(^|\\s)[#_]+"), "$1").replace(Regex("\\s+"), " ").trim()
     }
-
+    private val NAMED = mapOf("nbsp" to " ", "quot" to "\"", "apos" to "'", "lt" to "<", "gt" to ">", "ndash" to "–", "mdash" to "—", "hellip" to "…",
+        "bdquo" to "„", "ldquo" to "“", "rdquo" to "”", "sbquo" to "‚", "lsquo" to "‘", "rsquo" to "’", "laquo" to "«", "raquo" to "»", "euro" to "€",
+        "copy" to "©", "reg" to "®", "deg" to "°", "times" to "×", "shy" to "", "middot" to "·", "bull" to "•", "minus" to "−",
+        "aacute" to "á", "eacute" to "é", "iacute" to "í", "oacute" to "ó", "uacute" to "ú", "yacute" to "ý", "Aacute" to "Á", "Eacute" to "É", "Iacute" to "Í",
+        "Oacute" to "Ó", "Uacute" to "Ú", "Yacute" to "Ý", "scaron" to "š", "Scaron" to "Š", "ccaron" to "č", "Ccaron" to "Č", "ecaron" to "ě", "Ecaron" to "Ě",
+        "rcaron" to "ř", "Rcaron" to "Ř", "zcaron" to "ž", "Zcaron" to "Ž", "ncaron" to "ň", "Ncaron" to "Ň", "dcaron" to "ď", "Dcaron" to "Ď",
+        "tcaron" to "ť", "Tcaron" to "Ť", "uring" to "ů", "Uring" to "Ů", "ouml" to "ö", "uuml" to "ü", "auml" to "ä")
+    private fun decode(s: String): String {
+        val t = s.replace(Regex("&#(\\d{1,6});")) { m -> m.groupValues[1].toIntOrNull()?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
+            .replace(Regex("&#x([0-9a-fA-F]{1,6});")) { m -> m.groupValues[1].toIntOrNull(16)?.takeIf { it in 32..0x10FFFF }?.let { String(Character.toChars(it)) } ?: " " }
+            .replace(Regex("&([A-Za-z]{2,8});")) { m -> if (m.groupValues[1] == "amp") m.value else NAMED[m.groupValues[1]] ?: m.value }
+        return t.replace("&amp;", "&")
+    }
     private val RFC = DateTimeFormatter.RFC_1123_DATE_TIME
     private val RFC_NAMED = DateTimeFormatter.ofPattern("EEE, d MMM yyyy HH:mm:ss zzz", Locale.ENGLISH)
     /** RFC 822/1123 („Sun, 22 Nov 2026 15:41:32 +0100“, „… GMT“, „… CET“) i ISO 8601 (Atom). Nečitelné → null. */
