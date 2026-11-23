@@ -1799,6 +1799,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (!manualBusy.compareAndSet(false, true)) return NewsResult(false, "Přehled se už stahuje – objeví se jako nová konverzace.", null)
         try { return newsBuild(now, true, w, day) } finally { manualBusy.set(false) }
     }
+    /** Zkrácení na hranici slova s „…“ (notifikace) – ne „…v kontaktu s čí“. */
+    private fun short(t: String, max: Int) = if (t.length <= max) t else t.take(max + 1).substringBeforeLast(' ').trimEnd(',', ';', ':', '–', '-', ' ') + "…"
     private val newsLock = Any()
     private val manualBusy = java.util.concurrent.atomic.AtomicBoolean(false)
     private fun newsBuild(now: java.time.ZonedDateTime, manual: Boolean, w: Pair<java.time.Instant, java.time.Instant>, day: java.time.LocalDate): NewsResult {
@@ -1820,7 +1822,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (!manual) pruneNewsChats(chat)
         emit("chats", JSONObject())
         val failed = srcs.zip(got).filter { it.second == null }.map { it.first.name }
-        return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} ${when (topics.size) { 1 -> "téma"; in 2..4 -> "témata"; else -> "témat" }}: " + topics.take(3).joinToString(" · ") { it.title.take(60) } +
+        return done(NewsResult(true, if (topics.isEmpty()) "Za posledních 24 hodin nic nového." else "${topics.size} ${when (topics.size) { 1 -> "téma"; in 2..4 -> "témata"; else -> "témat" }}: " + topics.take(3).joinToString(" · ") { short(it.title, 60) } +
             if (failed.isNotEmpty()) " (nedostupné: ${failed.joinToString()})" else "", chat))
     }
 

@@ -208,4 +208,12 @@ class OpsNewsTest {
         val t = three.newsDigest(now).text
         assertTrue(t, t.startsWith("3 témata: "))
     }
+
+    /** Denní scan 23. 11., kolo 20: titulky v notifikaci se ořezávaly uprostřed slova („…v kontaktu s čí“). */
+    @Test fun notificationTitlesCutAtWordBoundary() {
+        val long = "Huangová byla v době vztahu se šéfem Nvidie v kontaktu s čínskou rozvědkou, píší americká média"
+        val o = ops { u -> if ("novinky" in u) rss(Triple(long, "https://www.novinky.cz/l", "Sun, 22 Nov 2026 15:00:00 +0100")) else rss() }
+        val t = o.newsDigest(now).text
+        assertTrue(t, t.startsWith("1 téma: Huangová byla v době vztahu se šéfem Nvidie v kontaktu s…"))
+    }
 }
