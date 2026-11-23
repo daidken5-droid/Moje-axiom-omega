@@ -148,8 +148,16 @@ object CzNum {
     private val MONTHS = listOf("ledn", "unor", "brez", "dub", "kvet", "cervna", "cervence", "srp", "zar", "rij", "listopad", "prosin")
 
     /** Datum → ISO (yyyy-mm-dd), nebo null. */
+    private val EN = mapOf("jan" to 1, "feb" to 2, "mar" to 3, "apr" to 4, "may" to 5, "jun" to 6, "jul" to 7, "aug" to 8, "sep" to 9, "oct" to 10, "nov" to 11, "dec" to 12)
+    private val CZ3 = mapOf("led" to 1, "uno" to 2, "bre" to 3, "dub" to 4, "kve" to 5, "cvn" to 6, "cvc" to 7, "srp" to 8, "zar" to 9, "rij" to 10, "lis" to 11, "pro" to 12)
     fun date(raw: String): String? {
-        val s0 = raw.trim()
+        val r0 = raw.trim()
+        // „02-Nov-2026“, „Nov 2, 2026“, „2 Nov 2026“, „2 lis 2026“ → d.m.rrrr
+        // (kompaktní „20250115“ záměrně NE – osmimístné číslo bývá variabilní symbol / číslo dokladu, StatementBanksTest)
+        val s0 = Regex("^(\\d{1,2})[-\\s.]+([A-Za-z]{3,9})\\.?[-\\s]+(\\d{4})").find(r0)?.let { m -> EN[m.groupValues[2].lowercase().take(3)]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
+            ?: Regex("^([A-Za-z]{3,9})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})").find(r0)?.let { m -> EN[m.groupValues[1].lowercase().take(3)]?.let { "${m.groupValues[2]}.$it.${m.groupValues[3]}" } }
+            ?: Regex("^(\\d{1,2})\\.?\\s+([a-zá-ž]{3})\\.?\\s+(\\d{4})$", RegexOption.IGNORE_CASE).find(r0)?.let { m -> CZ3[cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
+            ?: r0
         // „1. března 2026“ → „1.3.2026“ (český název měsíce; „června“ × „července“ se rozlišují celým kmenem)
         val s = Regex("^(\\d{1,2})\\.?\\s+([a-zA-Zá-žÁ-Ž]+)\\s+(\\d{4})").find(s0)?.let { m ->
             val w = cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()
