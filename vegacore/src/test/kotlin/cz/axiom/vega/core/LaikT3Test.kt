@@ -155,3 +155,25 @@ class UnitWordsTest {
         assertNull(Quick.answer("5 jablek na hrušky"))
     }
 }
+
+/** Denní scan 23. 11., kolo 8: laické formulace, na které kalkulačka mlčela (51 dotazů, 7 mezer v existujících funkcích). */
+class DailyScanMon8Test {
+    private val now = java.time.ZonedDateTime.of(2026, 11, 23, 10, 0, 0, 0, java.time.ZoneId.of("Europe/Prague"))
+    private fun q(s: String) = Quick.answer(s, now)
+
+    @Test fun plusVatIsUnambiguous() {
+        org.junit.Assert.assertEquals("350 Kč + DPH 21 % = 423,5 Kč (DPH 73,5 Kč).", q("350 plus 21 % DPH"))
+        org.junit.Assert.assertEquals("350 Kč + DPH 21 % = 423,5 Kč (DPH 73,5 Kč).", q("350 + DPH"))
+        assertTrue(q("1000 bez DPH")!!.contains("Pokud je 1 000 Kč cena už S DPH"))
+    }
+
+    @Test fun afterDiscountPowerAndUnits() {
+        assertTrue(q("1999 po slevě 25 %")!!.endsWith("po slevě zaplatíš 1 499,25 Kč."))
+        org.junit.Assert.assertEquals("17^2 = 289", q("druhá mocnina 17"))
+        org.junit.Assert.assertEquals("5^3 = 125", q("třetí mocnina z 5"))
+        org.junit.Assert.assertEquals("Rok má 52,14 týdnů (běžný rok, 365 dní).", q("kolik týdnů má rok"))
+        org.junit.Assert.assertEquals("10 000 minut = 166,6667 hodin", q("kolik hodin je 10 000 minut"))
+        org.junit.Assert.assertEquals("1 hektar = 10 000 m2", q("kolik je 1 hektar v m2"))
+        org.junit.Assert.assertEquals("1 GB = 1 000 MB", q("kolik je 1 GB v MB"))
+    }
+}
