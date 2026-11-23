@@ -148,8 +148,10 @@ object News {
         val groups = ArrayList<MutableList<Item>>()
         val st = inWin.associateWith { stems(it.title) }  // kmeny jednou na položku (dřív v každém porovnání znovu)
         for (x in inWin.sortedByDescending { it.published }) {
-            val g = groups.firstOrNull { g -> g.any { y -> similarStems(st.getValue(x), st.getValue(y)) } }
-            if (g != null) g += x else groups += mutableListOf(x)
+            // položka podobná víc skupinám je spojí (dřív jen do první → stejná událost rozdělená do dvou témat)
+            val hit = groups.filter { g -> g.any { y -> similarStems(st.getValue(x), st.getValue(y)) } }
+            if (hit.isEmpty()) groups += mutableListOf(x)
+            else { val g = hit.first(); hit.drop(1).forEach { g += it; groups.remove(it) }; g += x }
         }
         return groups.map { Topic(it) }.sortedWith(compareByDescending<Topic> { it.sources.size }.thenByDescending { it.newest }).take(max)
     }

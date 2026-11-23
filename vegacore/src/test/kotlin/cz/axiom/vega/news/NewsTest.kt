@@ -225,3 +225,17 @@ class NewsFalseMergeTest {
             .forEach { (a, b) -> assertTrue("$a ~ $b", News.similar(a, b)) }
     }
 }
+
+/** Denní scan 23. 11., kolo 16 (živý případ): položka podobná dvěma skupinám je musí spojit, ne jen padnout do první. */
+class NewsBridgeMergeTest {
+    @Test fun itemSimilarToTwoGroupsMergesThem() {
+        fun at(h: Int) = java.time.Instant.parse("2026-11-22T%02d:00:00Z".format(h))
+        val ct = News.Item("ct24", "Nvidia vrátila svého spoluzakladatele Huanga do funkce ředitele", "https://ct24.cz/1", at(14), "")
+        val idn = News.Item("idnes", "Nvidia vrátila Huanga do čela firmy. Skončil po aféře s údajnou špionkou", "https://idnes.cz/1", at(13), "")
+        val nov = News.Item("novinky", "Nvidia vrátila Huanga po aféře s čínskou špionkou do funkce ředitele", "https://novinky.cz/1", at(12), "")
+        assertFalse("předpoklad: první dvě si samy podobné nejsou", News.similar(ct.title, idn.title))
+        val w = java.time.Instant.parse("2026-11-22T04:20:00Z") to java.time.Instant.parse("2026-11-23T04:20:00Z")
+        val ts = News.topics(listOf(ct, idn, nov), w)
+        assertEquals(1, ts.size); assertEquals(3, ts[0].sources.size)
+    }
+}
