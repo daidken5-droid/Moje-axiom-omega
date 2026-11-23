@@ -25,6 +25,10 @@ object Quick {
         val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ')
             .replace(Regex("^kolko "), "kolik ").replace(Regex("(?<![a-z])percent"), "procent").replace("vianoc", "vanoc") // slovensky
             .replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
+        // příkaz k psaní / překladu / úpravě textu nebo žádost o vysvětlení patří modelu, ne kalkulačce
+        // („přelož: rozděl 1500 mezi 4 lidi“, „z 10 na 12 je kolik procent a jak se to počítá“)
+        if (Regex("^(preloz\\w*|napis\\w*|oprav\\w*|shrn\\w*|prepis\\w*|preformuluj\\w*|vysvetli\\w*|translate)(\\s|:)").containsMatchIn(t) ||
+            Regex("(^|\\s)(a jak se to pocita|jak se to pocita|a proc|a vysvetli|vysvetli (mi )?(proc|jak|postup)|a jak na to|krok za krokem)(\\s|$)").containsMatchIn(t)) return null
         if (Regex("^(kolik je hodin|kolik je cas|jaky je cas)$").matches(t)) return "Je %02d:%02d.".format(now.hour, now.minute)
         if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."

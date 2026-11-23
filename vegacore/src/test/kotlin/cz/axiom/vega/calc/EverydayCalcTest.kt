@@ -87,3 +87,15 @@ class DailyScanMon2Test {
         assertEquals("5 minut = 300 s", Quick.answer("kolik vteřin je 5 minut"))
     }
 }
+
+/** Denní scan 23. 11., kolo 3: kalkulačka nesmí „ukrást“ dotaz modelu (překlad, psaní, žádost o vysvětlení). */
+class DailyScanMon3Test {
+    @Test fun modelRequestsAreNotCalculated() {
+        for (q in listOf("přelož: rozděl 1500 mezi 4 lidi", "napiš e-mail: kolik dní zbývá do konce měsíce", "z 10 na 12 je kolik procent a jak se to počítá",
+                "vysvětli mi, kolik je 15 % z 2400", "napiš 3 věty po 5 slovech", "kolik stojí 3 lístky po 250 a jak je koupit"))
+            assertNull(q, Quick.answer(q))
+        // čisté výpočty dál fungují
+        assertEquals("1 500 ÷ 4 = 375 na každého.", Quick.answer("rozděl 1500 mezi 4 lidi"))
+        assertEquals("Z 10 na 12 je to nárůst o 20 % (o 2).", Quick.answer("z 10 na 12 je kolik procent"))
+    }
+}
