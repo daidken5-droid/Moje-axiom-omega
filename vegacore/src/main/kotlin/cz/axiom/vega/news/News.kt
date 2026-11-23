@@ -131,10 +131,16 @@ object News {
     /** Podobnost titulků: aspoň 3 společné kmeny (4 písmena – „útok/útoku“, „ruskou/ruská“) a polovina menšího titulku. */
     fun similar(a: String, b: String): Boolean = similarStems(stems(a), stems(b))
     private fun similarStems(x: Set<String>, y: Set<String>): Boolean {
-        val common = x.count { it in y }
-        val ratio = common.toDouble() / minOf(x.size, y.size).coerceAtLeast(1)
-        return common >= 3 && ratio >= 0.5
+        val common = x.filter { it in y }
+        val ratio = common.size.toDouble() / minOf(x.size, y.size).coerceAtLeast(1)
+        // aspoň jeden společný kmen musí být konkrétní – „Policie zadržela muže“ v Praze a v Brně jsou dvě různé události
+        return common.size >= 3 && ratio >= 0.5 && common.any { it !in GENERIC }
     }
+    /** Obecná zpravodajská slova (kmeny po 4 písmenech): sama o sobě neříkají, že jde o stejnou událost. */
+    private val GENERIC = setOf("poli", "zadr", "muze", "muzi", "zena", "zeny", "vlad", "schv", "zvys", "sniz", "ceny", "cena", "cen",
+        "ledn", "unor", "brez", "dube", "kvet", "cerv", "srpn", "zari", "rijn", "list", "pros", "proc", "koru", "mili", "mld",
+        "soud", "lide", "lidi", "stat", "mest", "kraj", "nove", "nova", "novy", "prvn", "dals", "rok", "roku", "let", "dnes", "vcer",
+        "zitr", "tyde", "chce", "zemr", "jedn", "pora", "sraz", "auta", "auto", "nehod", "dite", "deti", "hasi", "zach", "obce", "obec")
 
     /** Položky v okně → témata: stejný odkaz = jedna položka, podobné titulky = jedno téma; řazeno podle počtu zdrojů, pak času. */
     fun topics(items: List<Item>, w: Pair<Instant, Instant>, max: Int = MAX_TOPICS): List<Topic> {

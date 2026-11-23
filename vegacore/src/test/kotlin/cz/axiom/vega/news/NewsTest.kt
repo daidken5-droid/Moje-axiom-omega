@@ -208,3 +208,20 @@ class NewsCleanEntitiesTest {
         org.junit.Assert.assertEquals("odkaz", News.clean("<![CDATA[<a href=\"javascript:x\">odkaz</a>]]>"))
     }
 }
+
+/** Denní scan 23. 11., kolo 15: různé události se shodou jen v obecných slovech se nesmí sloučit do jednoho tématu. */
+class NewsFalseMergeTest {
+    @Test fun genericWordsAloneDoNotMerge() {
+        listOf("Policie v Praze zadržela muže, který ubodal souseda" to "Policie v Brně zadržela muže kvůli krádeži aut",
+            "Vláda schválila zvýšení platů učitelů od ledna" to "Vláda schválila zvýšení spotřební daně z alkoholu",
+            "Ceny elektřiny od ledna klesnou o deset procent" to "Ceny potravin od ledna vzrostou o pět procent",
+            "Na D1 u Humpolce se srazila tři auta, jeden mrtvý" to "Na D1 u Brna se srazila dvě auta, dálnice stojí",
+            "Zemřel herec Jiří Bartoška, bylo mu 78 let" to "Zemřel zpěvák Karel Gott, bylo mu 80 let")
+            .forEach { (a, b) -> assertFalse("$a ~ $b", News.similar(a, b)) }
+        listOf("Klimatická konference v Antalyi zkolabovala, státy se neshodly" to "Jednání na klimatické konferenci zkolabovala po neshodě",
+            "Vězeň z Valdic dostal doživotí za pokus o vraždu spoluvězně" to "Muž z Valdic, který se pokusil zabít spoluvězně, dostal doživotní trest",
+            "Sparta odvolala trenéra Priskeho" to "Sparta řeší mizérii radikálně. Skončil trenér Priske",
+            "Vláda schválila státní rozpočet na příští rok" to "Vláda schválila rozpočet s deficitem 230 miliard")
+            .forEach { (a, b) -> assertTrue("$a ~ $b", News.similar(a, b)) }
+    }
+}
