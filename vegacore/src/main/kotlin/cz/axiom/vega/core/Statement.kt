@@ -65,7 +65,10 @@ object Statement {
         return -1
     }
 
-    fun detect(text: String): Detection {
+    /** Konce řádků CRLF i samotné CR (CSV z Excelu na Macu) → \n; dřív CR-only ztratil popisy. */
+    private fun eol(t: String) = if (t.indexOf('\r') < 0) t else t.replace("\r\n", "\n").replace('\r', '\n')
+    fun detect(text0: String): Detection {
+        val text = eol(text0)
         val warnings = ArrayList<String>()
         // banky často přidávají úvodní řádky (číslo účtu, období) – hlavička je první řádek se známými názvy sloupců
         val lines = text.removePrefix("﻿").lines()
@@ -153,7 +156,8 @@ object Statement {
     }
 
     /** Hlavička souboru (stejné hledání jako [process]). */
-    fun headersOf(text: String, spec: ParserSpec): List<String> {
+    fun headersOf(text0: String, spec: ParserSpec): List<String> {
+        val text = eol(text0)
         // hlavička bývá v prvních řádcích (úvod banky) – neprocházet celý soubor
         val lines = text.removePrefix("\uFEFF").lineSequence().take(60).toList(); val d = spec.delimiter.first()
         val known = spec.columns.values.toSet()
@@ -174,7 +178,8 @@ object Statement {
         }
     }
 
-    fun process(text: String, spec0: ParserSpec): Result {
+    fun process(text0: String, spec0: ParserSpec): Result {
+        val text = eol(text0)
         val lines = text.removePrefix("\uFEFF").lines()
         val spec = remap(spec0, headersOf(text, spec0))
         val d = spec.delimiter.first()

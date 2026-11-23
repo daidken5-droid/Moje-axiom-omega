@@ -112,6 +112,12 @@ sealed class Value {
 object Encoding {
     fun decode(b: ByteArray): String {
         if (b.size >= 3 && b[0] == 0xEF.toByte() && b[1] == 0xBB.toByte() && b[2] == 0xBF.toByte()) return String(b, 3, b.size - 3, Charsets.UTF_8)
+        // UTF-16 (Excel „Text v kódování Unicode“, některé exporty bank): BOM FF FE / FE FF, nebo bez BOM s nulami v každém druhém bajtu
+        if (b.size >= 2 && b[0] == 0xFF.toByte() && b[1] == 0xFE.toByte()) return String(b, 2, b.size - 2, Charsets.UTF_16LE)
+        if (b.size >= 2 && b[0] == 0xFE.toByte() && b[1] == 0xFF.toByte()) return String(b, 2, b.size - 2, Charsets.UTF_16BE)
+        if (b.size >= 8) { val n = minOf(b.size, 400); val oddZero = (1 until n step 2).count { b[it] == 0.toByte() }; val evenZero = (0 until n step 2).count { b[it] == 0.toByte() }
+            if (oddZero > n / 4 && evenZero == 0) return String(b, Charsets.UTF_16LE)
+            if (evenZero > n / 4 && oddZero == 0) return String(b, Charsets.UTF_16BE) }
         val dec = Charsets.UTF_8.newDecoder()
         return try { dec.decode(java.nio.ByteBuffer.wrap(b)).toString() } catch (e: java.nio.charset.CharacterCodingException) { String(b, charset("windows-1250")) }
     }
