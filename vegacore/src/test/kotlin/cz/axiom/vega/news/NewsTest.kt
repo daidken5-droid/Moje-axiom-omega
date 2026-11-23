@@ -180,3 +180,16 @@ class NewsSentenceTest {
         org.junit.Assert.assertEquals(emptyList<String>(), News.sentences(""))
     }
 }
+
+/** Denní scan 23. 11., kolo 13: 16 tvarů pubDate z reálných CMS; 4 se dřív tiše zahodily (položka vypadla z přehledu). */
+class NewsDateFormatsTest {
+    @Test fun realWorldPubDateShapes() {
+        val exp = java.time.Instant.parse("2026-11-23T04:20:00Z")
+        listOf("Mon, 23 Nov 2026 05:20:00 +0100", "Mon, 23 Nov 2026 04:20:00 GMT", "Mon, 23 Nov 2026 05:20:00 CET", "Mon, 23 Nov 2026 05:20 +0100",
+            "23 Nov 2026 05:20:00 +0100", "Mon, 23 nov 2026 05:20:00 +0100", "2026-11-23T05:20:00+01:00", "2026-11-23T04:20:00.000Z",
+            "2026-11-23 05:20:00 +0100", "2026-11-23 05:20:00 +01:00", "2026-11-23 04:20:00Z", "Mon,  23 Nov 2026 05:20:00 +0100",
+            "Monday, 23 Nov 2026 05:20:00 +0100", "Mon, 23 November 2026 05:20:00 +0100", " Mon, 23 Nov 2026 05:20:00 +0100\n")
+            .forEach { org.junit.Assert.assertEquals(it, exp, News.date(it)) }
+        listOf("", "včera", "2026-13-45 99:99:99 +0100", "Mon, 32 Nov 2026 05:20:00 +0100").forEach { org.junit.Assert.assertNull(it, News.date(it)) }
+    }
+}

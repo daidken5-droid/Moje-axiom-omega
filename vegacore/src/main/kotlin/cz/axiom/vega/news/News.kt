@@ -83,7 +83,11 @@ object News {
     private val RFC_NAMED = DateTimeFormatter.ofPattern("EEE, d MMM yyyy HH:mm:ss zzz", Locale.ENGLISH)
     /** RFC 822/1123 („Sun, 22 Nov 2026 15:41:32 +0100“, „… GMT“, „… CET“) i ISO 8601 (Atom). Nečitelné → null. */
     fun date(s: String): Instant? {
-        val v = s.trim()
+        // normalizace tvarů z reálných CMS: víc mezer, „Monday,“ / „November“, ISO s mezerou místo „T“ („2026-11-23 05:20:00 +0100“)
+        val v = s.trim().replace(Regex("\\s+"), " ").replace(Regex("^([A-Za-z]{3})[A-Za-z]*,"), "$1,")
+            .replace(Regex("(?<=\\d )([A-Za-z]{3})[A-Za-z]+(?= \\d{4})"), "$1")
+            .replace(Regex("^(\\d{4}-\\d\\d-\\d\\d) (\\d\\d:\\d\\d(?::\\d\\d(?:\\.\\d+)?)?) ?(?:([+-]\\d\\d):?(\\d\\d)|(Z))$")) { m ->
+                "${m.groupValues[1]}T${m.groupValues[2]}${if (m.groupValues[5].isNotEmpty()) "Z" else "${m.groupValues[3]}:${m.groupValues[4]}"}" }
         return runCatching { ZonedDateTime.parse(v, RFC).toInstant() }.getOrNull()
             ?: runCatching { ZonedDateTime.parse(v, RFC_NAMED).toInstant() }.getOrNull()
             ?: runCatching { java.time.OffsetDateTime.parse(v).toInstant() }.getOrNull()
