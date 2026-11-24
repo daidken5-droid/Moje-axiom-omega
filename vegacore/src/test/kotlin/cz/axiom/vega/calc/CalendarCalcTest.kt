@@ -19,3 +19,14 @@ class CalendarCalcTest {
         listOf("kolik obyvatel má Praha", "kdy byla bitva na Bílé hoře").forEach { assertEquals(it, "null", a(it)) }
     }
 }
+
+/** Noc 24./25. 11., kolo NN6: krátké reakce („no nic“, „nevadí“, „výborně“) nejsou téma k hledání na webu; skutečná témata (Brno, operace Anthropoid) ano. */
+class ShortReplyRoutingTest {
+    private fun r(q: String) = cz.axiom.vega.core.Router.route(q, cz.axiom.vega.core.Router.Ctx(false, null, false, true, null))
+    @Test fun acksAreNotResearch() {
+        listOf("no nic", "nevadí", "výborně", "skvělé", "bezva", "v pohodě", "to je vše", "aha", "chápu", "dobrá práce").forEach { q ->
+            org.junit.Assert.assertFalse("$q → ${r(q)}", r(q) is cz.axiom.vega.core.Router.Intent.Research)
+            org.junit.Assert.assertNotNull(q, SmallTalk.answer(q, true)) }
+        listOf("Brno", "operace Anthropoid", "Petr Pavel").forEach { assertTrue(it, r(it) is cz.axiom.vega.core.Router.Intent.Research) }
+    }
+}

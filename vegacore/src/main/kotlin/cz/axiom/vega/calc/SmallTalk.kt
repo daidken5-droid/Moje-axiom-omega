@@ -19,7 +19,9 @@ object SmallTalk {
             m("ahoj\\w*", "cau\\w*", "nazdar", "zdravim", "dobry den", "dobre rano", "dobry vecer", "hej", "hello", "hi", "zdar", "ahoj vego", "ahoj vega", "cus") ->
                 "${if (t.startsWith("dobr")) "Dobrý den" else "Ahoj"}! $mode, ale i tak umím: $CAN."
             m("dek\\w*", "dik\\w*", "dikec", "diky moc", "dekuju moc", "dekuji pekne", "super diky", "thx", "thanks") -> "Rádo se stalo."
-            m("ok", "okej", "oki", "jo", "jj", "ano", "dobre", "fajn", "super", "parada", "jasne", "rozumim", "ne", "nene", "nic", "\\p{So}+") || Regex("^[\\p{So}\\p{Sk}\\u200d\\ufe0f\\s]+$").matches(raw.trim()) ->
+            m("ok", "okej", "oki", "jo", "jj", "ano", "dobre", "fajn", "super", "parada", "jasne", "rozumim", "ne", "nene", "nic",
+                "no nic", "nevadi", "to nevadi", "to nic", "vyborne", "skvele", "bezva", "dobra", "dobra prace", "perfektni", "prima", "tak jo", "tak dobre", "aha", "aha jasne", "chapu", "v pohode", "pohoda", "neva", "to je jedno", "jedno", "zadny problem", "nic dalsiho", "to je vse", "to je vsechno", "uz nic", "zatim nic",
+                "\\p{So}+") || Regex("^[\\p{So}\\p{Sk}\\u200d\\ufe0f\\s]+$").matches(raw.trim()) ->
                 "Dobře. Kdybys něco potřeboval/a, stačí napsat."
             m("co umis", "co umis delat", "co dokazes", "co vsechno umis", "pomoc", "help", "napoveda", "jak to funguje", "jak te pouzivat", "nevim co delat", "nevim co napsat", "s cim mi pomuzes") ->
                 "$mode. I tak umím: $CAN. Rozhovor, psaní textů a překlady potřebují model – ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
