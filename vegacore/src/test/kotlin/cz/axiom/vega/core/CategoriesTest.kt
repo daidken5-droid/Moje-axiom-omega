@@ -95,3 +95,17 @@ class SpendMonthTest {
         listOf("kolik stojí 3 kg jablek po 25 Kč", "kolik to stálo").forEach { org.junit.Assert.assertEquals(it, "null", a(it)) }
     }
 }
+
+/** Den 24. 11., kolo 12: kategorie bez falešných shod („transaction“ ≠ Action, „mobil“ ≠ OBI, „kurzový rozdíl“ ≠ kurz) + úřady, zásilky, sázky. */
+class CategoryPrecisionTest {
+    @Test fun noFalseHitsAndMoreMerchants() {
+        val c = Statement::categoryOf
+        listOf("Card transaction ACME LTD", "Mobilni platba 123", "Platba z mobilu", "Kurzovy rozdil", "Platba k temu", "Hromol s.r.o.", "Leon Novak", "Upce", "Platba pre Jan", "Internetove bankovnictvi")
+            .forEach { org.junit.Assert.assertNotEquals(it, c(it).let { k -> if (k == "Ostatní" || k == "Pojištění a finance") "ok" else k }, "x").also { _ -> assertTrue("$it → ${c(it)}", c(it) == "Ostatní" || c(it) == "Pojištění a finance") } }
+        val want = mapOf("OBI Praha" to "Nákupy", "ACTION Brno" to "Nákupy", "Zpetna uhrada temu.com" to "Nákupy", "MOL CS" to "Doprava a palivo", "E.ON Energie" to "Bydlení a energie", "PRE elektrina" to "Bydlení a energie",
+            "PRE a.s." to "Bydlení a energie", "UPC Ceska republika" to "Telefon a internet", "Internet Nordic" to "Telefon a internet", "Anglicky kurz" to "Děti a vzdělání", "Pilulka.cz" to "Zdraví a drogerie",
+            "Zasilkovna" to "Nákupy", "Sazka" to "Volný čas", "Tipsport" to "Volný čas", "SIPO" to "Bydlení a energie", "Financni urad Praha" to "Úřady a daně", "Ceska sprava socialniho zabezpeceni" to "Úřady a daně",
+            "Pokuta Policie CR" to "Úřady a daně", "Poplatek za odpad" to "Úřady a daně", "VZP" to "Pojištění a finance", "Kaufland" to "Potraviny", "Poplatek za vedeni uctu" to "Pojištění a finance")
+        want.forEach { (d, k) -> org.junit.Assert.assertEquals(d, k, c(d)) }
+    }
+}
