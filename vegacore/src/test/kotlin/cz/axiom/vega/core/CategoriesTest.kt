@@ -188,3 +188,17 @@ class StatementPersonalTest {
         listOf("kolik mi přišlo", "jaké mám příjmy", "kolik jsem ušetřil", "jsem v plusu?", "kolik nám přišlo na účet").forEach { org.junit.Assert.assertNotNull(it, Statement.spendQuery(t, it)) }
     }
 }
+
+/** Noc 24./25. 11., kolo NN4: otázky na obsah přiloženého CSV (řádky, sloupce, „ukaž mi ten soubor“) → Inspektor CSV, ne odhad modelu; jinde beze změny. */
+class CsvQuestionRoutingTest {
+    private fun r(q: String, f: String) = Router.route(q, Router.Ctx(true, f, false, false, null))
+    @Test fun csvQuestions() {
+        listOf("kolik řádků má ten soubor", "kolik je tam sloupců", "jaké má sloupce", "ukaž mi ten soubor", "kolik má záznamů").forEach { q ->
+            listOf("zakaznici.csv", "pohyby.csv", "data.tsv").forEach { f -> val i = r(q, f); assertTrue("$f: $q → $i", i is Router.Intent.Tool && i.id == "csv.inspect") } }
+        // výpis, výpočet, shrnutí a jiné soubory beze změny
+        assertTrue(r("kolik jsem utratil?", "pohyby.csv") is Router.Intent.BuildStatementTool)
+        org.junit.Assert.assertFalse((r("kolik řádků má ten soubor", "smlouva.pdf") as? Router.Intent.Tool)?.id == "csv.inspect")
+        org.junit.Assert.assertFalse((r("shrň mi to", "zakaznici.csv") as? Router.Intent.Tool)?.id == "csv.inspect")
+        org.junit.Assert.assertFalse((r("kolik je 15 % z 2400", "zakaznici.csv") as? Router.Intent.Tool)?.id == "csv.inspect")
+    }
+}

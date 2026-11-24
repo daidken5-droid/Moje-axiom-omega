@@ -165,6 +165,10 @@ object Router {
         Regex("(?:najdi|hledej|vyhledej)\\s+(?:v logu\\s+)?[„\"']?([^„\"'”“]+?)[“\"'”]?\\s+v logu|v logu\\s+(?:najdi|hledej)\\s+[„\"']?([^„\"'”“]+)").find(text.lowercase())?.let { m ->
             return Intent.Tool("log.search", mapOf("q" to (m.groupValues[1].ifBlank { m.groupValues[2] }).trim()), "hledání v logu")
         }
+        // přiložené CSV/TSV: „kolik má řádků / sloupců“, „ukaž mi ten soubor“ → Inspektor CSV spočítá přesně (ne odhad modelu); „co je v tom souboru“ = shrnutí → model
+        if (c.hasAttachment && c.attachmentName?.lowercase()?.let { it.endsWith(".csv") || it.endsWith(".tsv") } == true &&
+            has(t, "kolik (ma |je |tam |v nem |v tom |to ma )*(radk|radek|zaznam|sloupc|polozek|polozk)|jake (ma |jsou )?(tam )?sloupce|ukaz (mi )?(ten |co je v )?(soubor|tabulk)|otevri (to|ten soubor|tu tabulku)|prohledni|nacti to"))
+            return Intent.Tool("csv.inspect", emptyMap(), "obsah CSV")
         if ((has(t, "\\bcsv\\b") || (c.hasAttachment && has(t, "\\bimport"))) && has(t, "rozbil|nefunguje|proc|chyba|spatn|divn|nesedi|zkontroluj|nacti|prohlédni|prohledni")) return Intent.Tool("csv.inspect", emptyMap(), "diagnostika CSV")
         if (has(t, "\\bjson\\b") && (c.hasAttachment || text.trimStart().startsWith("{") || text.trimStart().startsWith("["))) return Intent.Tool("json.inspect", emptyMap(), "JSON")
         if (has(t, "najdi v (mych )?souborech|v mych souborech|v dokumentech najdi")) return Intent.Tool("index.search", emptyMap(), "lokální index")
