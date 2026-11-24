@@ -89,4 +89,11 @@ run("S.lastCard={type:'run',run:'r3',value:{kind:'TABLE',headers:['A','B'],rows:
 mock.messages=[{role:'user',text:'jaká byla největší platba?'},{role:'vega',text:'Největší platby:\n• −12 500,00 Kč – Nájem byt (5. 11.)\n_Z tabulky výpisu, bez modelu._'}];
 run("S.space={kind:'chat',id:'c2'}; S.busy=false; S.mc=null; render()");run('renderStream()');
 assert.ok(!/data-act="regen"/.test(field('#stream').innerHTML)&&/data-act="copyMsg"/.test(field('#stream').innerHTML),'bez Znovu, Kopírovat ano');
-console.log('35 UI logic scenarios passed.');
+// kolo 19: návrh na už položenou otázku (po kartě výpisu) zmizí, ostatní zůstanou; nová karta = znovu všechny
+const stc={type:'run',run:'r9',value:{kind:'TABLE',headers:['Měsíc','Příjmy','Výdaje','Saldo','Pohybů'],rows:[]}};
+mock.messages=[{role:'user',text:'Zpracuj výpis z banky.'},{role:'vega',text:'Výpis zpracován.',card:stc},{role:'user',text:'za co utrácím nejvíc'},{role:'vega',text:'Nejvíc utrácíš za: **Bydlení**.\n_bez modelu_'}];
+run("S.space={kind:'chat',id:'c3'}; S.busy=false; S.files=[]; S.mc=null; renderChips=()=>{}; render()");run('renderStream()');
+assert.equal(JSON.stringify(run("chips()").map(c=>c.t)),JSON.stringify(['Pravidelné platby','Uložit pohyby do Excelu']));
+mock.messages=[{role:'user',text:'za co utrácím nejvíc'},{role:'vega',text:'Výpis zpracován.',card:stc}];run("S.mc=null");run('renderStream()');
+assert.equal(run("chips().length"),3,'otázka PŘED kartou návrh neskrývá');
+console.log('36 UI logic scenarios passed.');

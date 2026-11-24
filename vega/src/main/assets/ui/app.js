@@ -121,6 +121,9 @@ function renderStream() {
   if (S.stick !== false) el.scrollTop = el.scrollHeight;
   el.setAttribute('aria-busy', S.busy ? 'true' : 'false');
   S.lastCard = [...list].reverse().find(m => m.card && m.card.type === 'run')?.card || null;
+  // co uživatel napsal po té kartě – návrh na už položenou otázku se znovu nenabízí
+  const ci = S.lastCard ? list.findIndex(m => m.card === S.lastCard) : -1;
+  S.askedAfter = ci < 0 ? [] : list.slice(ci + 1).filter(m => m.role === 'user').map(m => normQ(m.text));
   renderChips();
 }
 
@@ -287,6 +290,8 @@ function card(c, isLast) {
 
 /* ------------------------------------------------------------------ návrhy pod vstupem (max 4, jen co dává smysl teď) */
 /** Návrhy jen když něco konkrétního čeká (přiložený soubor, uložitelný výsledek) – nejvýš 3. Prázdná plocha je čistá. */
+/** Otázka pro porovnání návrhů: malá písmena, bez interpunkce a mezer navíc („Za co utrácím nejvíc?“ = „za co utrácím nejvíc“). */
+const normQ = t => String(t || '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').replace(/\s+/g, ' ').trim();
 function chips() {
   if (S.tool || S.busy) return [];
   const f = S.files[S.files.length - 1];
@@ -309,7 +314,7 @@ function chips() {
   const hd = (S.lastCard && S.lastCard.value && S.lastCard.value.headers) || [];
   if (hd.includes('Příjmy') && hd.includes('Výdaje'))
     out.push({ t: 'Za co utrácím nejvíc?', a: 'say:Za co utrácím nejvíc?' }, { t: 'Pravidelné platby', a: 'say:Jaké mám pravidelné platby?' }, { t: 'Uložit pohyby do Excelu', a: 'say:Ulož pohyby do Excelu.' });
-  return out.slice(0, 3);
+  return out.filter(c => !/^say:/.test(c.a) || !(S.askedAfter || []).includes(normQ(c.a.slice(4)))).slice(0, 3);
 }
 function renderChips() {
   $('#chips').innerHTML = chips().map(c => `<button class="chip ${c.sig ? 'sig' : ''}" data-act="chip" data-v="${esc(c.a)}">${esc(c.t)}</button>`).join('');
