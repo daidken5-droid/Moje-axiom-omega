@@ -64,12 +64,42 @@ object Extract {
                 else unescape(withBreaks.replace(Regex("<text:tab/>"), "\t").replace(Regex("<[^>]+>"), ""))
         return t.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
     }
-    private fun xlsx(parts: Map<String, String>): String {
+    private fun xlsx(parts: Map<String, String>): String =
+        sheets(parts).entries.joinToString("\n\n") { (name, rows) -> "## $name\n" + rows.joinToString("\n") { it.joinToString(";") } }
+
+    /** Číslo sloupce z adresy buňky („C12“ → 2). */
+    private fun colOf(ref: String): Int? = Regex("^([A-Z]+)\\d+$").find(ref)?.groupValues?.get(1)?.fold(0) { acc, ch -> acc * 26 + (ch - 'A' + 1) }?.minus(1)
+
+    /**
+     * Listy sešitu → řádky buněk ZAROVNANÉ podle adresy (Excel prázdné buňky vynechává – bez adresy by se sloupce posunuly).
+     * Hodnoty jsou syrové: data jsou pořadová čísla Excelu (převod řeší ten, kdo ví, který sloupec je datum).
+     */
+    private fun sheets(parts: Map<String, String>): Map<String, List<List<String>>> {
         val shared = parts["xl/sharedStrings.xml"]?.let { x -> Regex("(?s)<si>(.*?)</si>").findAll(x).map { si -> Regex("<t[^>]*>([^<]*)</t>").findAll(si.groupValues[1]).joinToString("") { unescape(it.groupValues[1]) } }.toList() } ?: emptyList()
-        return parts.filterKeys { it.startsWith("xl/worksheets/") }.entries.joinToString("\n\n") { (name, x) ->
-            "## " + name.substringAfterLast('/').removeSuffix(".xml") + "\n" + Regex("(?s)<row[^>]*>(.*?)</row>").findAll(x).joinToString("\n") { row ->
-                Regex("(?s)<c([^>]*)>(.*?)</c>").findAll(row.groupValues[1]).joinToString(";") { c ->
-                    val v = Regex("<v>([^<]*)</v>").find(c.groupValues[2])?.groupValues?.get(1) ?: Regex("<t[^>]*>([^<]*)</t>").find(c.groupValues[2])?.groupValues?.get(1) ?: ""
-                    if (c.groupValues[1].contains("t=\"s\"")) shared.getOrNull(v.toIntOrNull() ?: -1) ?: "" else unescape(v) } } }
+        val cell = Regex("(?s)<c([^>]*?)(?:/>|>(.*?)</c>)"); val vRx = Regex("<v>([^<]*)</v>"); val tRx = Regex("<t[^>]*>([^<]*)</t>"); val rRx = Regex("\\br=\"([A-Z]+\\d+)\"")
+        return parts.filterKeys { it.startsWith("xl/worksheets/") }.toSortedMap(compareBy({ it.length }, { it })).entries.associate { (name, x) ->
+            name.substringAfterLast('/').removeSuffix(".xml") to Regex("(?s)<row[^>]*>(.*?)</row>").findAll(x).map { row ->
+                val out = ArrayList<String>()
+                cell.findAll(row.groupValues[1]).forEach { c ->
+                    val attrs = c.groupValues[1]; val body = c.groupValues[2]
+                    val raw = vRx.find(body)?.groupValues?.get(1) ?: tRx.find(body)?.groupValues?.get(1) ?: ""
+                    val v = if (attrs.contains("t=\"s\"")) shared.getOrNull(raw.toIntOrNull() ?: -1) ?: "" else unescape(raw)
+                    val col = rRx.find(attrs)?.groupValues?.get(1)?.let { colOf(it) } ?: out.size
+                    while (out.size < col) out += ""
+                    if (col < out.size) out[col] = v else out += v
+                }
+                out.toList()
+            }.toList()
+        }
     }
+
+    /** První list sešitu jako řádky (pro výpis z banky v Excelu); null = není XLSX / nejde přečíst. */
+    fun xlsxRows(bytes: ByteArray): List<List<String>>? = runCatching {
+        val parts = sortedMapOf<String, String>()
+        ZipInputStream(ByteArrayInputStream(bytes)).use { z ->
+            while (true) { val e = z.nextEntry ?: break
+                if (!e.isDirectory && (e.name == "xl/sharedStrings.xml" || (e.name.startsWith("xl/worksheets/sheet") && e.name.endsWith(".xml")))) parts[e.name] = z.readBytes().take(20_000_000).toByteArray().toString(Charsets.UTF_8) }
+        }
+        sheets(parts).values.firstOrNull()
+    }.getOrNull()
 }

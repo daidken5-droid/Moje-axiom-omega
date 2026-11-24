@@ -938,8 +938,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private fun buildStatementTool(chat: String?) {
         val att0 = lastAttachment() ?: run { reply(chat, "Pošli mi soubor s výpisem (CSV z banky nebo účetnictví) – tlačítko 📎. Pak z něj udělám nástroj."); return }
         // PDF výpis: text z PdfBox → řádky „datum … částka (zůstatek)“ → CSV; nejistý převod (bez znaménka i zůstatku) se nepoužije
-        val pdf = if (!isTextual(att0) && att0.name.endsWith(".pdf", true)) runCatching { Statement.fromPdfText(fileTextHook?.invoke(att0) ?: files.read(att0.name, att0.mime, att0.bytes).text) }.getOrNull() else null
-        val att = pdf?.let { Value.Bytes(att0.name.substringBeforeLast('.') + "-z-pdf.csv", it.csv.toByteArray(), "text/csv") } ?: att0
+        val pdf = if (!isTextual(att0) && att0.name.endsWith(".pdf", true)) runCatching { Statement.fromPdfText(fileTextHook?.invoke(att0) ?: files.read(att0.name, att0.mime, att0.bytes).text) }.getOrNull()
+            // výpis v Excelu: první list, buňky zarovnané podle adresy, data z pořadových čísel Excelu
+            else if (att0.name.endsWith(".xlsx", true)) cz.axiom.vega.files.Extract.xlsxRows(att0.bytes)?.let { Statement.fromXlsxRows(it) } else null
+        val att = pdf?.let { Value.Bytes(att0.name.substringBeforeLast('.') + "-prevod.csv", it.csv.toByteArray(), "text/csv") } ?: att0
         if (!isTextual(att)) { reply(chat, "Výpis „${att.name}“ je ${att.name.substringAfterLast('.', "soubor").uppercase()} – ten spočítat neumím přesně. V internetovém bankovnictví si stáhni **export do CSV**:\n" +
             "• **Česká spořitelna (George):** Pohyby → ⋯ → Exportovat → CSV\n• **ČSOB:** Historie transakcí → Export → CSV\n• **Fio:** Pohyby na účtu → Export → CSV\n• **KB:** Historie plateb → Export → CSV\n• **Air Bank / Raiffeisen:** Historie → Stáhnout → CSV\n" +
             "Pak mi CSV pošli přes 📎. (Obsah PDF ti můžu shrnout – napiš „shrň mi to“.)"); return }

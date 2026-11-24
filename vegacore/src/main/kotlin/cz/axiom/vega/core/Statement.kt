@@ -317,6 +317,24 @@ object Statement {
             (if (hit.size > 1) ": " + hit.joinToString(", ") { "${it[0].lowercase()} ${it[1]} Kč" } else "") + ").\n_Podle obchodníka v popisu, bez modelu – část plateb může být v „Ostatní“._"
     }
 
+    /**
+     * Výpis z Excelu (řádky prvního listu) → CSV se středníkem. Sloupce s datem (hlavička „datum/date/splatnost…“) nesou
+     * pořadové číslo Excelu (46328 = 2. 11. 2026) → převést na d.m.rrrr; čísla zůstávají s desetinnou tečkou.
+     */
+    fun fromXlsxRows(rows: List<List<String>>): PdfConversion? {
+        val nonEmpty = rows.filter { r -> r.any { it.isNotBlank() } }
+        val hi = nonEmpty.indexOfFirst { r -> r.any { c -> f(c).let { h -> dateNames.any { h.contains(f(it)) } } } }.takeIf { it >= 0 } ?: return null
+        val header = nonEmpty[hi]
+        val dateCols = header.indices.filter { i -> f(header[i]).let { h -> dateNames.any { h.contains(f(it)) } } }.toSet()
+        fun serial(v: String): String { val n = v.toDoubleOrNull() ?: return v; if (n !in 20000.0..80000.0) return v
+            return java.time.LocalDate.of(1899, 12, 30).plusDays(n.toLong()).let { "${it.dayOfMonth}.${it.monthValue}.${it.year}" } }
+        fun q(s: String) = if (s.any { it == ';' || it == '"' || it == '\n' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
+        val body = nonEmpty.drop(hi + 1).map { r -> List(header.size) { i -> r.getOrElse(i) { "" }.let { if (i in dateCols) serial(it) else it } } }
+        if (body.size < 1) return null
+        val csv = (listOf(header) + body).joinToString("\n") { r -> r.joinToString(";") { q(it) } }
+        return PdfConversion(csv, body.size, listOf("Převedeno z Excelu (první list, ${body.size} řádků) – data převedena z čísel Excelu na datum."))
+    }
+
     /** Výpis z PDF převedený na CSV „Datum;Částka;Popis“ (+ poznámky); null = v textu nejsou rozpoznatelné pohyby. */
     data class PdfConversion(val csv: String, val rows: Int, val notes: List<String>)
 
