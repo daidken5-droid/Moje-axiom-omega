@@ -232,3 +232,31 @@ SHA-256 `d353415b8253446a527244f70d01c320576781a2d022d41db813a56d5ed5cda4` (shod
 zrušení čtení NFC, TalkBack; dál všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
 
 ## Den 24. 11. 2026 (úterý) – oblasti: dopoledne výpisy z banky, CSV, PDF, přílohy, export; odpoledne UI (audit 360 px, robust, xss, toky)
+
+### Souhrn dne 24. 11. (uzávěrka 20:02)
+
+28 kol, 28 commitů, testy **321 → 346 / 0** (Kotlin) + UI composer 38 scénářů, audit 31 obrazovek (100 / 130 / 200 % písma), robust, xss.
+Poslední CI „Build VEGA APK“ #213 (`1911d4b`) zelené. Červené bylo jen CI #190 (EdgeFuzzTest – rozpoznání výpisu 1,6 s > 1,5 s) → kolo 6 zrychlilo 5–10×;
+CI #192 padlo na výpadku Maven Central (429), další běh zelený.
+
+**Dopoledne – výpisy z banky (nové funkce, vše bez modelu)**
+- Výpis v **PDF** (k1–k2: datum bez roku, popis na dvou řádcích, kontrola proti zůstatku) a v **Excelu XLSX** (k7) → tabulka.
+- **Kategorie výdajů** (k4, přesnost k12 – „Card transaction“ ≠ Action, „mobil“ ≠ OBI, nová kategorie Úřady a daně), **pravidelné platby** (k9, čitelně k24).
+- Dotazy laika: „kolik jsem utratil za jídlo“, „za co utrácím nejvíc“ (k5, slovosled k22), měsíc / minulý měsíc / celkem (k10), příjmy a úspora (k13),
+  obchodník „v Lidlu / za Netflix“ a největší platby (k14, Netflix ≠ celé předplatné k24); 20 000 pohybů pod 120 ms (k15).
+- **Export do Excelu** (k3, k11): desetinná čárka, „ulož pohyby / kategorie / pravidelné platby do Excelu“, částky jako čísla; ochrana proti vloženým vzorcům z cizího výpisu (k20).
+
+**Odpoledne – UI**
+- Návrhy pod výpisem „Za co utrácím nejvíc? / Pravidelné platby / Uložit pohyby do Excelu“, u PDF/Excelu „Zpracovat výpis“ místo „Shrnout“ (k17);
+  zmizí po položení otázky (k19) i při odbočce k jinému tématu (k26); všechny vidět na 360 px (k25).
+- Skloňování „4 pohyby / 1 platba“ (k16), řádek Kopírovat/Sdílet se zalomí při velkém písmu, „Znovu“ ne u výpočtu bez modelu (k18).
+- Návrh nepřepíše rozepsaný text, dvojí klepnutí nepošle dvakrát (k21). První odpověď začíná výsledkem, ne „Formát / oddělovač“ (k23).
+
+**Pojistky (výpis nesmí přebírat cizí otázky):** „kolik stojí 3 kg jablek“ (k11), „kolik bych platil za hypotéku 3 mil.“, „kdybych…“, vlastní čísla (k27),
+„minimální mzda“, „příjmy státního rozpočtu“, „bilance obchodu ČR“ (k28) → kalkulačka / model.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-1911d4b.apk`, 39 899 538 B,
+SHA-256 `7a89f3089b619fd18faba3e01441de4d1b98d11c07a1a3d5e1473b679538309c` (shoda se SHA256SUMS.txt z CI #213).
+
+**NEOVĚŘENO na telefonu:** skutečný PDF a XLSX výpis z vlastní banky (George, ČSOB, Fio, KB, Air Bank), otevření uloženého CSV v Excelu / Tabulkách Google,
+návrhy pod polem (zalomení, zmizení), velké písmo, hlavička pod stavovým řádkem (oprava z noci); dál `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
