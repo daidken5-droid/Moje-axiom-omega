@@ -135,6 +135,9 @@ const SCREENS = [
         const lab = el.getAttribute('aria-label') || el.placeholder || (el.id && document.querySelector(`label[for="${el.id}"]`)) || el.closest('label');
         if (!lab) out.push(`pole bez názvu: <${el.tagName.toLowerCase()} id="${el.id}">`);
       }
+      // panel (dialog) musí mít nadpis – jinak ho čtečka nepojmenuje a fokus do něj nepřejde (TalkBack čte dál obsah pod ním)
+      const dlg = document.querySelector('#layer .sheet');
+      if (dlg && vis(dlg) && !dlg.getAttribute('aria-labelledby') && !dlg.getAttribute('aria-label')) out.push('panel bez nadpisu pro čtečku (h2 / aria-label)');
       // malé dotykové cíle (< 32 px výšky) u tlačítek – na telefonu se špatně trefují
       for (const el of document.querySelectorAll('#layer button, .bar button')) {
         if (!vis(el)) continue; const b = el.getBoundingClientRect();
