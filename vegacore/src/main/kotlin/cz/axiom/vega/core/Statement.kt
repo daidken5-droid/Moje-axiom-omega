@@ -335,8 +335,22 @@ object Statement {
      * „Kolik jsem utratil za jídlo / benzín / nájem?“, „za co nejvíc utrácím?“ nad tabulkou výpisu – bez modelu.
      * null = dotaz se výdajů netýká (zpracuje ho dál router / model).
      */
-    fun spendQuery(t: Value.Table, raw: String): String? {
+    fun spendQuery(t: Value.Table, raw: String, prev: String? = null): String? {
         val q = cz.axiom.vega.base.Text.fold(raw).lowercase()
+        // eliptická navazující otázka („a v říjnu?“, „a za benzín?“, „a kolik za jídlo?“) → doplnit podle PŘEDCHOZÍ otázky k výpisu
+        if (prev != null) {
+            val e = Regex("^a (?:co |kolik |jak )?((?:v|ve|za|u|na|v lidlu|minul|tento|tenhle|celkem|co |prijmy|vydaje)\\b.*)$").find(q.trim().trimEnd('?', '!', '.'))
+            if (e != null && q.split(' ').size <= 7 && spendQuery(t, prev) != null) {
+                val p = cz.axiom.vega.base.Text.fold(prev).lowercase()
+                val kind = when {
+                    Regex("prijm|prislo|prisl[ay]|vydelal|mzd|vyplat").containsMatchIn(p) -> "kolik mi prislo"
+                    Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu").containsMatchIn(p) -> "kolik jsem usetril"
+                    Regex("nejvetsi (platb|jednotliv|castk)|nejdrazsi|co jsem (nejvic|nejvice)").containsMatchIn(p) -> "jaka byla nejvetsi platba"
+                    Regex("(za|na) co\\b.{0,24}\\b(nejvic|nejvice)").containsMatchIn(p) -> "za co utracim nejvic"
+                    else -> "kolik jsem utratil" }
+                return spendQuery(t, "$kind ${e.groupValues[1]}")
+            }
+        }
         if (!t.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }) return null
         // „jaké mám pravidelné platby / předplatné?“, „co mi pravidelně odchází?“
         if (Regex("pravideln|predplatn|opakovan|kazdy mesic odchaz|mesicne (platim|odchazi)|trval[ey] prikaz").containsMatchIn(q)) {

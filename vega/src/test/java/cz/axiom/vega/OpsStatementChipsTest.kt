@@ -44,5 +44,9 @@ class OpsStatementChipsTest {
         val a3 = say(follow[2])
         assertTrue(a3.toString(), a3.optJSONObject("card")?.optString("type") == "file" && a3.getString("text").contains("5 pohyb").not() && a3.getString("text").contains("5 řádků"))
         assertFalse(a3.getString("text"), a3.getString("text").contains("souhrn"))
+        // noc NN5: eliptická navazující otázka bere předchozí otázku z historie chatu
+        say("kolik jsem utratil za jídlo")
+        val e1 = say("a za bydlení?").getString("text").replace('\u00a0', ' ')
+        assertTrue(e1, e1.contains("bydlení a energie") && e1.contains("−12 500,00"))
     }
 }

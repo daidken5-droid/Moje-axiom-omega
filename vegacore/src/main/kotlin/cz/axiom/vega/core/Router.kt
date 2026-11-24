@@ -208,6 +208,8 @@ object Router {
         // s přílohou je krátký popisek („účtenka“, „faktura za elektřinu“) o souboru, ne téma k hledání na webu
         // co spočítá kalkulačka v telefonu (datum, převod, procenta), nikdy nejde na web – i když to vypadá jako „název“
         // (nejdřív levný test názvu – 3 až 60 znaků –, kalkulačka až pak; dlouhé vložené texty se jí vůbec netýkají)
+        // „a v říjnu?“, „a za benzín?“, „a co zítra?“ – navazující otázka k předchozí odpovědi, ne téma k hledání na webu
+        if (has(t, "^a (co |kolik |jak |v |ve |za |u |na |kdy |proc |kde )") && t.split(' ').size <= 6) return Intent.Talk(false, false)
         if (!c.hasAttachment) cz.axiom.vega.calc.Topic.bare(text)?.let { topic ->
             if (runCatching { cz.axiom.vega.calc.Quick.answer(text) ?: cz.axiom.vega.calc.SmallTalk.answer(text, true) ?: cz.axiom.vega.calc.SmallTalk.phoneAction(text) ?: cz.axiom.vega.calc.CnbRates.query(text) }.getOrNull() == null) return Intent.Research(topic, Research.variants(topic))
         }

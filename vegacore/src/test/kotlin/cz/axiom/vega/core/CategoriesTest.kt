@@ -202,3 +202,22 @@ class CsvQuestionRoutingTest {
         org.junit.Assert.assertFalse((r("kolik je 15 % z 2400", "zakaznici.csv") as? Router.Intent.Tool)?.id == "csv.inspect")
     }
 }
+
+/** Noc 24./25. 11., kolo NN5: eliptické navazující otázky k výpisu („a v říjnu?“, „a za benzín?“) – dřív webové hledání „a v říjnu“ nebo model. */
+class EllipticFollowUpTest {
+    private val t = Statement.process("Datum;Částka;Popis\n02.10.2026;-1 000,00;Albert\n15.10.2026;-500,00;Shell\n20.10.2026;30 000,00;Mzda\n" +
+        "02.11.2026;-200,00;Lidl\n05.11.2026;-12 500,00;Nájem byt\n20.11.2026;31 000,00;Mzda\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    private fun a(q: String, prev: String) = Statement.spendQuery(t, q, prev)?.replace(' ', ' ')?.replace(' ', ' ') ?: "null"
+    @Test fun elliptic() {
+        a("a v říjnu?", "kolik jsem utratil v listopadu").let { assertTrue(it, it.contains("říjen 2026") && it.contains("−1 500,00")) }
+        a("a za benzín?", "kolik jsem utratil za jídlo").let { assertTrue(it, it.contains("−500,00")) }
+        a("a kolik za jídlo?", "kolik jsem utratil za benzín").let { assertTrue(it, it.contains("−1 200,00")) }
+        a("a v říjnu?", "kolik mi přišlo v listopadu").let { assertTrue(it, it.startsWith("Příjmy za říjen 2026: **30 000,00 Kč**")) }
+        a("a v listopadu?", "kolik jsem ušetřil v říjnu").let { assertTrue(it, it.contains("listopad 2026")) }
+        // bez předchozí otázky k výpisu nic (rozhodne router / model)
+        org.junit.Assert.assertEquals("null", a("a v říjnu?", "jaké bude počasí"))
+        org.junit.Assert.assertNull(Statement.spendQuery(t, "a v říjnu?"))
+        // router: krátká navazující otázka není téma k hledání na webu
+        listOf("a v říjnu?", "a za benzín?", "a co zítra?").forEach { org.junit.Assert.assertFalse(it, Router.route(it, Router.Ctx(false, null, false, true, null)) is Router.Intent.Research) }
+    }
+}
