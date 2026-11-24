@@ -280,6 +280,33 @@ object Statement {
         return Value.Table(listOf("Kategorie", "Výdaje", "Plateb", "Podíl"), rows, notes, "kategorie")
     }
 
+    /** Klíč obchodníka z popisu: bez diakritiky, bez čísel a obecných slov („Platba kartou NETFLIX.COM 123“ → „netflix com“). */
+    private val NOISE = setOf("platba", "kartou", "karta", "trvaly", "prikaz", "inkaso", "sepa", "prevod", "odchozi", "prichozi", "uhrada", "nakup", "transakce", "cz", "praha", "s", "r", "o", "a", "as", "sro")
+    fun merchantKey(desc: String): String = Regex("[a-z]{2,}").findAll(cz.axiom.vega.base.Text.fold(desc).lowercase()).map { it.value }.filter { it !in NOISE }.take(2).joinToString(" ")
+
+    /**
+     * Pravidelné platby (předplatné, nájem, pojištění…): stejný obchodník ve ≥ 2 různých měsících s podobnou částkou (±10 %).
+     * Tabulka: Platba, Měsíčně (průměr), Ročně (odhad ×12), Měsíců, Kategorie – seřazeno od nejdražší.
+     */
+    fun recurring(t: Value.Table): Value.Table {
+        val ai = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }.takeIf { it >= 0 } ?: 1
+        val di = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
+        data class P(val month: String, val amt: Double, val desc: String)
+        val byKey = t.rows.mapNotNull { r -> val a = r.getOrNull(ai)?.let { CzNum.parse(it, false) } ?: return@mapNotNull null; if (a >= 0) return@mapNotNull null
+            val d = r.getOrElse(di) { "" }; val k = merchantKey(d).takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            k to P(r.getOrElse(0) { "" }.take(7), a, d) }.groupBy({ it.first }, { it.second })
+        val rows = byKey.mapNotNull { (_, ps) ->
+            val months = ps.map { it.month }.distinct(); if (months.size < 2) return@mapNotNull null
+            val perMonth = months.map { m -> ps.filter { it.month == m }.sumOf { it.amt } }
+            val avg = perMonth.average(); if (perMonth.any { kotlin.math.abs(it - avg) > kotlin.math.abs(avg) * 0.10 }) return@mapNotNull null
+            listOf(ps.first().desc.take(60), CzNum.format(avg), CzNum.format(avg * 12), months.size.toString(), categoryOf(ps.first().desc)) to avg
+        }.sortedBy { it.second }.map { it.first }
+        val yearly = rows.sumOf { CzNum.parse(it[2], false) ?: 0.0 }
+        val notes = if (rows.isEmpty()) listOf("Pravidelné platby jsem nenašel – výpis musí pokrývat aspoň 2 měsíce.")
+            else listOf("Pravidelné platby: ${rows.size}, dohromady ${CzNum.format(yearly)} Kč ročně (odhad ×12). Hledám stejného obchodníka s podobnou částkou v ≥ 2 měsících – bez modelu.")
+        return Value.Table(listOf("Platba", "Měsíčně", "Ročně (odhad)", "Měsíců", "Kategorie"), rows, notes, "pravidelné platby")
+    }
+
     /** Slova laika → kategorie („jídlo“ = obchody i restaurace). */
     private val SPEND_WORDS: List<Pair<Regex, List<String>>> = listOf(
         Regex("jidl|jist|papani") to listOf("Potraviny", "Restaurace a kavárny"),
@@ -303,8 +330,13 @@ object Statement {
      */
     fun spendQuery(t: Value.Table, raw: String): String? {
         val q = cz.axiom.vega.base.Text.fold(raw).lowercase()
-        if (!Regex("utrat|utraci|utracim|utracel|stal[oa]?|stoji|stalo|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
         if (!t.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }) return null
+        // „jaké mám pravidelné platby / předplatné?“, „co mi pravidelně odchází?“
+        if (Regex("pravideln|predplatn|opakovan|kazdy mesic odchaz|mesicne (platim|odchazi)|trval[ey] prikaz").containsMatchIn(q)) {
+            val r = recurring(t)
+            return if (r.rows.isEmpty()) r.notes.first() else "**Pravidelné platby** (" + r.rows.size + "):\n" + r.rows.joinToString("\n") { "• ${it[0]} – ${it[1]} Kč měsíčně (${it[2]} Kč ročně)" } + "\n_${r.notes.first()}_"
+        }
+        if (!Regex("utrat|utraci|utracim|utracel|stal[oa]?|stoji|stalo|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
         val cats = categories(t)
         if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
             return "Nejvíc utrácíš za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"

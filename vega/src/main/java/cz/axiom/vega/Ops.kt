@@ -962,6 +962,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             // tři největší kategorie výdajů (bez modelu) – laik se hned ptá „kolik jsem utratil za jídlo“
             (r.results.firstOrNull()?.value as? Value.Table)?.let { Statement.categories(it) }?.rows?.filter { it[0] != "Ostatní" }?.take(3)?.takeIf { it.isNotEmpty() }
                 ?.let { top -> append("\n**Největší výdaje:** ").append(top.joinToString(" · ") { "${it[0]} ${it[1]} Kč (${it[3]})" }).append(" – celý přehled: nástroj „Výdaje podle kategorií“.") }
+            // pravidelné platby (předplatné, nájem…) – jen když je výpis aspoň za 2 měsíce a nějaké jsou
+            (r.results.firstOrNull()?.value as? Value.Table)?.let { Statement.recurring(it) }?.takeIf { it.rows.isNotEmpty() }
+                ?.let { rec -> append("\n**Pravidelné platby:** ${rec.rows.size} (").append(rec.rows.take(3).joinToString(", ") { it[0].take(30) }).append(if (rec.rows.size > 3) ", …" else "").append(") – zeptej se „jaké mám pravidelné platby?“") }
         }
         val card = runCard(r)
         // postup se ukládá jen pro CSV (uložený parser by u dalšího PDF dostal surové PDF, ne převedený text)

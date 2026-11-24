@@ -55,3 +55,23 @@ class StatementRoutingTest {
         org.junit.Assert.assertFalse(r("přelož mi to", "export.xlsx") is Router.Intent.BuildStatementTool)
     }
 }
+
+/** Den 24. 11., kolo 9 (nová funkce): pravidelné platby z výpisu – předplatné, nájem… měsíčně a ročně. */
+class RecurringTest {
+    private val csv = "Datum;Částka;Popis\n" +
+        "05.09.2026;-12 500,00;Trvalý příkaz NÁJEM BYT\n05.10.2026;-12 500,00;Trvalý příkaz NÁJEM BYT\n05.11.2026;-12 500,00;Trvalý příkaz NÁJEM BYT\n" +
+        "12.09.2026;-259,00;Platba kartou NETFLIX.COM 4412\n12.10.2026;-259,00;Platba kartou NETFLIX.COM 9921\n12.11.2026;-289,00;Platba kartou NETFLIX.COM 1033\n" +
+        "03.09.2026;-1 250,50;Albert Praha\n17.10.2026;-389,00;Albert Praha\n" +   // Albert: velmi rozdílné částky → není pravidelné
+        "20.10.2026;-5 000,00;Alza.cz\n" +                                          // jen jednou
+        "15.09.2026;35 000,00;Mzda\n15.10.2026;35 000,00;Mzda\n"                    // příjem se nepočítá
+    @Test fun findsSubscriptionsAndRent() {
+        val t = Statement.process(csv, Statement.detect(csv).spec!!).table
+        val r = Statement.recurring(t)
+        assertEquals(2, r.rows.size)
+        assertEquals("Trvalý příkaz NÁJEM BYT", r.rows[0][0]); assertEquals("−12 500,00", r.rows[0][1].replace(' ', ' ')); assertEquals("3", r.rows[0][3])
+        assertTrue(r.rows[1][0].contains("NETFLIX")); assertEquals("Předplatné a digitální", r.rows[1][4])
+        val a = Statement.spendQuery(t, "jaké mám pravidelné platby?")!!
+        assertTrue(a, a.startsWith("**Pravidelné platby** (2):") && a.contains("NETFLIX"))
+        assertTrue(Statement.recurring(Statement.process("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n", Statement.detect("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n").spec!!).table).notes[0].contains("aspoň 2 měsíce"))
+    }
+}

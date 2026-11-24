@@ -91,6 +91,8 @@ object Tools {
         },
         ToolDef("statement.categories", "Výdaje podle kategorií", "Tabulka výpisu → výdaje podle kategorií (potraviny, doprava, bydlení…) podle obchodníka v popisu – bez modelu.",
             setOf(Kind.TABLE), Kind.TABLE, group = "Data") { v, _, _ -> Statement.categories(v as? Value.Table ?: throw ToolError("Čekám tabulku výpisu")) },
+        ToolDef("statement.recurring", "Pravidelné platby", "Tabulka výpisu → předplatné, nájem, pojištění… (stejný obchodník a podobná částka v ≥ 2 měsících), měsíčně a ročně – bez modelu.",
+            setOf(Kind.TABLE), Kind.TABLE, group = "Data") { v, _, _ -> Statement.recurring(v as? Value.Table ?: throw ToolError("Čekám tabulku výpisu")) },
         ToolDef("csv.inspect", "Inspektor CSV", "Načte CSV (; , tab |), ukáže problémové řádky (uvozovky, počet polí) a umí filtrovat.",
             setOf(Kind.TEXT, Kind.BYTES), Kind.TABLE, errors = listOf("neuzavřené uvozovky", "nekonzistentní počet polí"),
             params = listOf(Param("filter", "Filtr", hint = "Částka < 0, Popis ~ nájem"), Param("delimiter", "Oddělovač", hint = "prázdné = rozpoznat")), group = "Data") { v, p, _ ->
