@@ -341,7 +341,12 @@ object Statement {
         // „jaké mám pravidelné platby / předplatné?“, „co mi pravidelně odchází?“
         if (Regex("pravideln|predplatn|opakovan|kazdy mesic odchaz|mesicne (platim|odchazi)|trval[ey] prikaz").containsMatchIn(q)) {
             val r = recurring(t)
-            return if (r.rows.isEmpty()) r.notes.first() else "**Pravidelné platby** (" + r.rows.size + "):\n" + r.rows.joinToString("\n") { "• ${it[0]} – ${it[1]} Kč měsíčně (${it[2]} Kč ročně)" } + "\n_${r.notes.first()}_"
+            if (r.rows.isEmpty()) return r.notes.first()
+            // částky kladně („platíš 259 Kč měsíčně“) – mínus u „měsíčně“ laika mate
+            fun pos(v: String) = CzNum.parse(v, false)?.let { CzNum.format(kotlin.math.abs(it)) } ?: v
+            val month = r.rows.sumOf { kotlin.math.abs(CzNum.parse(it[1], false) ?: 0.0) }
+            return "**Pravidelné platby** (${r.rows.size}) – dohromady **${CzNum.format(month)} Kč měsíčně**, asi ${CzNum.format(month * 12)} Kč ročně:\n" +
+                r.rows.joinToString("\n") { "• ${it[0]} – ${pos(it[1])} Kč měsíčně" } + "\n_Stejný obchodník s podobnou částkou aspoň ve 2 měsících – bez modelu._"
         }
         val incomeQ = Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
         val saldoQ = Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
@@ -392,7 +397,8 @@ object Statement {
             val stem = if (w.length >= 5) w.take(maxOf(4, w.length - 2)) else w
             val rx = Regex("\\b" + Regex.escape(stem))
             val hit = spent.filterIndexed { i, _ -> folded[i].contains(stem) && rx.containsMatchIn(folded[i]) }
-            if (hit.isNotEmpty() && SPEND_WORDS.none { it.first.matches(w) }) {
+            // značka („za Netflix“, „v Lidlu“) = konkrétní obchodník; obecné slovo („za jídlo“, „za nájem“) = kategorie
+            if (hit.isNotEmpty() && GENERIC.none { w.startsWith(it) }) {
                 val name = hit.first().second.let { d -> Regex("(?i)\\b" + Regex.escape(stem) + "\\S*").find(cz.axiom.vega.base.Text.fold(d))?.let { m -> d.substring(m.range.first, minOf(d.length, m.range.last + 1)) } ?: w }
                 return "U „$name“ jsi$per utratil **${CzNum.format(hit.sumOf { it.third })} Kč** (${plat(hit.size)}): " + hit.take(6).joinToString(", ") { (d, _, v) -> "${d.split('-').let { p -> if (p.size == 3) "${p[2].toInt()}. ${p[1].toInt()}." else d }} ${CzNum.format(v)}" } +
                     (if (hit.size > 6) " …" else "") + ".\n_Hledáno v popisu plateb, bez modelu._"
@@ -425,6 +431,8 @@ object Statement {
         return "Za ${want.joinToString(" a ") { it.lowercase() }}$per jsi utratil **${CzNum.format(sum)} Kč** (${plat(n)}" +
             (if (hit.size > 1) ": " + hit.joinToString(", ") { "${it[0].lowercase()} ${it[1]} Kč" } else "") + ").\n_Podle obchodníka v popisu, bez modelu – část plateb může být v „Ostatní“._"
     }
+    private val GENERIC = listOf("jidl", "potravin", "bydlen", "najem", "najm", "energi", "elektri", "plyn", "vod", "benzin", "naft", "palivo", "doprav", "restaura", "obed", "kafe", "kav",
+        "zdravi", "lek", "drogeri", "obleceni", "nakup", "telefon", "mobil", "internet", "predplat", "pojist", "det", "skol", "volny", "zabav", "kultur", "sport", "dovolen", "hotovost", "uver", "hypotek", "dan", "urad", "poplat")
     private val MONTH_NAMES = listOf("leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec")
     /** Český název měsíce ve všech pádech (bez diakritiky); červen × červenec rozlišeny celým tvarem. */
     private val MONTH_RX = listOf("led(en|na|nu|nem)", "unor(a|u|em)?", "brez(en|na|nu|nem)", "dub(en|na|nu|nem)", "kvet(en|na|nu|nem)", "cerv(en|na|nu|nem)",

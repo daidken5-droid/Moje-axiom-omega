@@ -71,7 +71,7 @@ class RecurringTest {
         assertEquals("Trvalý příkaz NÁJEM BYT", r.rows[0][0]); assertEquals("−12 500,00", r.rows[0][1].replace(' ', ' ')); assertEquals("3", r.rows[0][3])
         assertTrue(r.rows[1][0].contains("NETFLIX")); assertEquals("Předplatné a digitální", r.rows[1][4])
         val a = Statement.spendQuery(t, "jaké mám pravidelné platby?")!!
-        assertTrue(a, a.startsWith("**Pravidelné platby** (2):") && a.contains("NETFLIX"))
+        assertTrue(a, a.startsWith("**Pravidelné platby** (2) – dohromady") && a.contains("NETFLIX"))
         assertTrue(Statement.recurring(Statement.process("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n", Statement.detect("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n").spec!!).table).notes[0].contains("aspoň 2 měsíce"))
     }
 }
@@ -154,5 +154,17 @@ class StatementChipsTest {
         val inc = Statement.process("Datum;Částka;Popis\n02.11.2026;30 000,00;Mzda\n", sp).table
         assertTrue(Statement.spendQuery(inc, chips[0])!!.contains("nejsou žádné výdaje"))
         Statement.spendQuery(inc, "kolik jsem celkem utratil")!!.let { assertTrue(it, it.contains("nejsou žádné výdaje") && !it.contains("0 plateb")) }
+    }
+}
+
+/** Den 24. 11., kolo 24: pravidelné platby kladně + součet za měsíc; „za Netflix“ = obchodník, ne celá kategorie předplatného. */
+class RecurringWordingTest {
+    private val t = Statement.process("Datum;Částka;Popis\n03.10.2026;-259,00;NETFLIX.COM\n04.10.2026;-169,00;Spotify P1\n05.10.2026;-12 500,00;Najem byt\n" +
+        "03.11.2026;-259,00;NETFLIX.COM\n04.11.2026;-169,00;Spotify P1\n05.11.2026;-12 500,00;Najem byt\n20.11.2026;30 000,00;Mzda\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    private fun a(q: String) = Statement.spendQuery(t, q)!!.replace(' ', ' ').replace(' ', ' ')
+    @Test fun wording() {
+        a("Jaké mám pravidelné platby?").let { assertTrue(it, it.contains("dohromady **12 928,00 Kč měsíčně**") && it.contains("• Najem byt – 12 500,00 Kč měsíčně") && !it.contains("−")) }
+        a("kolik jsem utratil za Netflix").let { assertTrue(it, it.contains("NETFLIX") && it.contains("**−518,00 Kč**") && !it.contains("687")) }
+        a("kolik jsem utratil za nájem").let { assertTrue(it, it.startsWith("Za bydlení a energie")) }
     }
 }
