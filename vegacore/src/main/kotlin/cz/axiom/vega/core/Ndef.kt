@@ -11,13 +11,15 @@ data class NdefRecord(val tnf: Int, val type: String, val id: String, val payloa
     fun asValue(): Value = when (typeLabel) {
         // jen http(s) je adresa; „javascript:“, „intent:“, „file:“… ze štítku je jen TEXT (cizí štítek nesmí spustit kód)
         "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display)) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
-        "Text", "MIME text" -> Value.Text(display, "NFC")
+        "Text", "MIME text", "Kontakt" -> Value.Text(display, "NFC")
+        "WiFi" -> Value.Text(display, "NFC (WiFi štítek – bez hesla)")  // surová data nesou heslo – dál jen popis
         else -> Value.Bytes("ndef-$type.bin", payload)
     }
 
     fun toJson(): JsonObject = buildJsonObject {
         put("tnf", tnf); put("type", type); put("id", id); put("display", display); put("label", typeLabel); lang?.let { put("lang", it) }
-        put("b64", java.util.Base64.getEncoder().encodeToString(payload))
+        // WiFi štítek nese heslo – do uložených výsledků / historie ho nepouštět (jen zobrazit a zahodit)
+        put("b64", if (typeLabel == "WiFi") "" else java.util.Base64.getEncoder().encodeToString(payload))
     }
 
     companion object {
@@ -90,6 +92,18 @@ object NdefParser {
             val title = inner.firstOrNull { it.typeLabel == "Text" }?.display
             NdefRecord(tnf, type, id, p, if (title != null) "$uri ($title)" else uri, if (uri.isNotEmpty() && title == null) "URL" else "Smart Poster")
         }
+        // WiFi štítek „klepni a připoj se“ (Wi-Fi Simple Config): název sítě a zabezpečení; HESLO se nezobrazí ani neuloží
+        tnf == 2 && type.equals("application/vnd.wfa.wsc", true) -> wsc(p)?.let { (ssid, auth) ->
+            NdefRecord(tnf, type, id, p, "WiFi síť „$ssid“ ($auth)${if (auth != "otevřená") " – heslo je uložené na štítku (nezobrazuji ho)" else ""}", "WiFi") }
+            ?: NdefRecord(tnf, type, id, p, "${p.size} B dat ($type)", "MIME")
+        // vizitka: jméno · telefon · e-mail · firma místo syrového „BEGIN:VCARD…“
+        tnf == 2 && (type.equals("text/vcard", true) || type.equals("text/x-vcard", true)) -> {
+            val raw = String(p, Charsets.UTF_8)
+            fun f(key: String) = Regex("(?im)^$key(?:;[^:\\r\\n]*)?:(.+)$").findAll(raw).map { it.groupValues[1].trim().replace("\\,", ",").replace("\\;", ";") }.filter { it.isNotBlank() }.toList()
+            val name = f("FN").firstOrNull() ?: f("N").firstOrNull()?.split(';')?.filter { it.isNotBlank() }?.reversed()?.joinToString(" ")
+            val parts = listOfNotNull(name, f("ORG").firstOrNull()?.replace(';', ' ')?.trim()) + f("TEL") + f("EMAIL")
+            NdefRecord(tnf, type, id, p, if (parts.isEmpty()) raw else "Kontakt: " + parts.joinToString(" · "), if (parts.isEmpty()) "MIME text" else "Kontakt")
+        }
         tnf == 2 -> {
             val textual = type.startsWith("text/") || type == "application/json" || type.endsWith("+xml") || type == "text/vcard"
             NdefRecord(tnf, type, id, p, if (textual) String(p, Charsets.UTF_8) else "${p.size} B dat ($type)", if (textual) "MIME text" else "MIME")
@@ -98,6 +112,20 @@ object NdefParser {
         tnf == 4 -> NdefRecord(tnf, type, id, p, if (p.all { it in 0x20..0x7E }) String(p, Charsets.US_ASCII) else "${p.size} B", "Externí ($type)")
         tnf == 0 -> NdefRecord(tnf, type, id, p, "(prázdný záznam)", "Prázdný")
         else -> NdefRecord(tnf, type, id, p, "${p.size} B", TNF.getOrElse(tnf) { "?" })
+    }
+
+    /** Wi-Fi Simple Config (TLV: 2 B typ, 2 B délka): Credential 0x100E → SSID 0x1045, Auth 0x1003. Vrací (SSID, zabezpečení) bez hesla. */
+    private fun wsc(p: ByteArray): Pair<String, String>? {
+        fun tlv(b: ByteArray, from: Int, to: Int): Map<Int, ByteArray> { val m = HashMap<Int, ByteArray>(); var i = from
+            while (i + 4 <= to) { val t = ((b[i].toInt() and 0xFF) shl 8) or (b[i + 1].toInt() and 0xFF); val l = ((b[i + 2].toInt() and 0xFF) shl 8) or (b[i + 3].toInt() and 0xFF)
+                if (i + 4 + l > to) break; m.putIfAbsent(t, b.copyOfRange(i + 4, i + 4 + l)); i += 4 + l }
+            return m }
+        val cred = tlv(p, 0, p.size)[0x100E] ?: return null
+        val inner = tlv(cred, 0, cred.size)
+        val ssid = inner[0x1045]?.let { String(it, Charsets.UTF_8) }?.takeIf { it.isNotBlank() } ?: return null
+        val auth = inner[0x1003]?.takeIf { it.size == 2 }?.let { ((it[0].toInt() and 0xFF) shl 8) or (it[1].toInt() and 0xFF) }
+        val a = when { auth == null -> "zabezpečená"; auth == 0x0001 -> "otevřená"; auth and 0x0020 != 0 -> "WPA2"; auth and 0x0002 != 0 -> "WPA"; else -> "zabezpečená" }
+        return ssid to a
     }
 
     /** Sestavení zprávy (pro testy a fixture): krátké záznamy, MB/ME správně. */
