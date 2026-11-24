@@ -138,8 +138,11 @@ object Router {
         // výpočet nad přiloženým výpisem = deterministický nástroj, ne odhad modelu
         if (c.hasAttachment && has(t, "vypis|csv|export") && has(t, "spocitej|secti|kolik|prijm|vydaj|saldo|soucet|bilanc")) return Intent.BuildStatementTool
         // laik nenapíše „z výpisu“: „kolik jsem utratil“, „spočítej příjmy a výdaje“ u souboru, který výpisem je → přesný nástroj, ne odhad modelu
-        val statementFile = c.attachmentName?.let { f(it) }?.let { n -> Regex("\\.(csv|tsv)$|vypis|pohyb|transak|statement|ucet|banka|historie").containsMatchIn(n) } == true
-        if (c.hasAttachment && statementFile && has(t, "prijm|vydaj|utratil|utracen|prislo|saldo|bilanc|zustatek|kolik jsem (celkem )?(utratil|zaplatil|dostal|vydelal|prijal)")) return Intent.BuildStatementTool
+        // tabulka z banky bývá i „export.xlsx“ – Excel/CSV bez slova „výpis“ v názvu
+        val statementFile = c.attachmentName?.let { f(it) }?.let { n -> Regex("\\.(csv|tsv|xlsx)$|vypis|pohyb|transak|statement|ucet|banka|historie").containsMatchIn(n) } == true
+        if (c.hasAttachment && statementFile && has(t, "prijm|vydaj|utratil|utracen|utrac|prislo|saldo|bilanc|zustatek|kategor|kolik jsem (celkem |tento mesic |za mesic )?(utratil|zaplatil|dostal|vydelal|prijal|dal)|za co .*(utrac|nejvic)|dal za")) return Intent.BuildStatementTool
+        // „projdi mi výpis z banky“, „tady je výpis, co s tím“ u výpisu – zpracovat (shrnutí jiného dokumentu zůstává modelu)
+        if (c.hasAttachment && statementFile && has(t, "vypis") && has(t, "projdi|prohledni|zkontroluj|co s tim|podivej|rozeber|analyz|prehled")) return Intent.BuildStatementTool
         // --- NFC
         if (has(t, "\\bnfc\\b|\\bndef\\b|\\b(precti|nacti|naskenuj|oskenuj)\\w* (nfc |ten |muj |tento )?(stitek|tag)\\b")) return Intent.Nfc
         // --- předžalobní výzva

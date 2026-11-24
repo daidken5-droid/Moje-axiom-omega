@@ -40,3 +40,18 @@ class SpendQueryTest {
         listOf("shrň mi to", "kolik je 15 % z 2400", "co je divné na tom výpisu").forEach { org.junit.Assert.assertNull(it, Statement.spendQuery(t, it)) }
     }
 }
+
+/** Den 24. 11., kolo 8: běžné věty laika u výpisu (i „export.xlsx“) → zpracování výpisu, ne odhad modelu. */
+class StatementRoutingTest {
+    private fun r(q: String, f: String) = Router.route(q, Router.Ctx(true, f, false, false, null))
+    @Test fun laymanPhrasesRouteToStatement() {
+        listOf("kolik jsem utratil?", "spočítej příjmy a výdaje", "udělej mi přehled výdajů", "rozděl výdaje do kategorií", "výdaje podle kategorií",
+            "za co utrácím nejvíc?", "kolik jsem dal za jídlo", "kolik jsem tento měsíc utratil").forEach { q ->
+            listOf("vypis.pdf", "export.xlsx", "pohyby.csv").forEach { f -> assertTrue("$f: $q", r(q, f) is Router.Intent.BuildStatementTool) } }
+        listOf("projdi mi výpis z banky", "tady je výpis, co s tím").forEach { q -> assertTrue(q, r(q, "export.xlsx") is Router.Intent.BuildStatementTool) }
+        // jiný dokument / shrnutí zůstává modelu
+        org.junit.Assert.assertFalse(r("shrň mi to", "vypis.pdf") is Router.Intent.BuildStatementTool)
+        org.junit.Assert.assertFalse(r("kolik jsem utratil?", "smlouva.pdf") is Router.Intent.BuildStatementTool)
+        org.junit.Assert.assertFalse(r("přelož mi to", "export.xlsx") is Router.Intent.BuildStatementTool)
+    }
+}
