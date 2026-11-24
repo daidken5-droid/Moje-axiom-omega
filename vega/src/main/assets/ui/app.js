@@ -276,7 +276,8 @@ function card(c, isLast) {
       <div class="res-big">${fmt(c.total)} Kč</div><div class="res-sub">PDF zpětně zkontrolováno: ${c.checks.filter(k => k.ok).length}/${c.checks.length}</div>
       ${c.warnings.map(w => `<div class="res-body warn">⚠ ${esc(w)}</div>`).join('')}
       <div class="res-a"><button class="btn primary" data-act="openOut" data-f="${esc(c.files[1] || c.files[0])}">Otevřít PDF</button><span class="grow"></span><button class="more" data-act="demandMenu" data-d='${esc(JSON.stringify(c))}' aria-label="Další">⋯</button></div></div>`;
-    case 'nfcWait': return isLast && S.nfc ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span></div>` : '';
+    // čtení z chatu („načti NFC štítek“) neběží jako úloha → bez tlačítka stop by se čekalo celou minutu
+    case 'nfcWait': return isLast && S.nfc ? `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Přilož štítek k zadní straně telefonu…</span><button class="btn ghost" data-act="nfcCancel">Zrušit</button></div>` : '';
     case 'memRevert': return `<button class="pill sig" data-act="memRevert" data-id="${esc(c.id)}">Vrátit předchozí verzi</button>`;
     case 'memory': return `<button class="pill" data-act="library" data-tab="memory">Otevřít paměť ›</button>`;
     case 'selfupdate': return (call('settings') || {}).selfUpdate ? `<button class="pill" data-act="library" data-tab="improve">Úpravy aplikace – stav a instalace ›</button>` : '';
@@ -1077,6 +1078,7 @@ function act(a, d) {
     case 'testOwn': { const st = $('#kc-own'); if (st) st.textContent = 'Ptám se serveru (u usnutého Space může první odpověď trvat i minuty)…'; call('testOwn'); break; }
     case 'saveName': { call('setSetting', 'userName', ($('#uname') || {}).value || ''); S.home = null; toast('Uloženo.'); render(); break; }
     case 'stop': B.stop(); break;
+    case 'nfcCancel': B.stop(); S.nfc = false; render(); toast('Čtení NFC zrušeno.'); break;
     case 'plus': plusSheet(); break;
     case 'pick': closeSheet(true); if (S.space.kind === 'temp') { toast('Dočasný chat soubory nepoužívá – otevři běžnou konverzaci.'); return; } B.pickFiles(); break;
     case 'folder': closeSheet(true); B.pickFolder(); break;
