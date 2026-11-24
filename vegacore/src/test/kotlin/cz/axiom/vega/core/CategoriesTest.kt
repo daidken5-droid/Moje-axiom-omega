@@ -25,3 +25,18 @@ class CategoriesTest {
         assertTrue(t.rows.none { it[0].contains("Mzda") })
     }
 }
+
+/** Kolo 5: „kolik jsem utratil za jídlo?“ nad výpisem – bez modelu. */
+class SpendQueryTest {
+    private val t = Statement.process("Datum;Částka;Popis\n02.11.2026;-1 250,50;Albert Praha\n03.11.2026;-300,00;Lidl\n04.11.2026;-420,00;Wolt\n05.11.2026;35 000,00;Mzda\n" +
+        "07.11.2026;-12 500,00;Nájem byt\n09.11.2026;-899,00;Benzina\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    @Test fun answers() {
+        val j = Statement.spendQuery(t, "Kolik jsem utratil za jídlo?")!!.replace(' ', ' ')
+        assertTrue(j, j.contains("**−1 970,50 Kč** (3 platby: potraviny −1 550,50 Kč, restaurace a kavárny −420,00 Kč)"))
+        assertTrue(Statement.spendQuery(t, "kolik mě stál benzín")!!.replace(' ', ' ').contains("**−899,00 Kč** (1 platba"))
+        assertTrue(Statement.spendQuery(t, "za co nejvíc utrácím?")!!.startsWith("Nejvíc utrácíš za: **Bydlení a energie**"))
+        assertTrue(Statement.spendQuery(t, "kolik jsem utratil za léky")!!.contains("nenašel žádnou platbu"))
+        // dotazy mimo výdaje → null (dál router / model)
+        listOf("shrň mi to", "kolik je 15 % z 2400", "co je divné na tom výpisu").forEach { org.junit.Assert.assertNull(it, Statement.spendQuery(t, it)) }
+    }
+}

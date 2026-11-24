@@ -853,6 +853,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val ws = activeWorkspace()
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
         if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
+        // „kolik jsem utratil za jídlo?“ u právě zpracovaného výpisu v tomto chatu – z tabulky, bez modelu
+        if (msgAtt.isEmpty()) lastResultRun?.takeIf { resultInChat(chatId, it) }?.let { run(it) }?.results?.firstOrNull()?.value?.let { it as? Value.Table }
+            ?.let { tb -> Statement.spendQuery(tb, text) }?.let { a -> reply(chatId, a); note { selftune.routed("útraty z výpisu") }; return }
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun?.let { resultInChat(chatId, it) } == true, procedures, msgAtt.size, learned = tuning.active()))
         note { selftune.routed(SelfTune.area(intent)) }
         if (followUp != null) retune()

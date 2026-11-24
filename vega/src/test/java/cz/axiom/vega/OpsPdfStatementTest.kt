@@ -37,5 +37,12 @@ class OpsPdfStatementTest {
         val months = msg.getJSONObject("card").getJSONObject("value").getJSONArray("rows").getJSONArray(0).toString().replace('\u00a0', ' ')
         assertTrue(months, months.contains("30 000,00") && months.contains("−3 562,40") && months.contains("\"4\""))
         assertFalse("u PDF se postup neukládá (příště by dostal surové PDF)", msg.getJSONObject("card").has("save"))
+        // kolo 5: doplňující dotaz na útraty – z tabulky výpisu, bez modelu (režim Bez sítě)
+        events.clear(); o.chat(chat, "kolik jsem utratil za jídlo?", emptyList())
+        var ans: JSONObject? = null; val u2 = System.currentTimeMillis() + 15_000
+        while (ans == null && System.currentTimeMillis() < u2) { val e = events.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
+            if (e.first == "message" && e.second.getJSONObject("msg").optString("role") == "vega") ans = e.second.getJSONObject("msg") }
+        val at = ans!!.getString("text").replace('\u00a0', ' ')
+        assertTrue(at, at.contains("**−312,40 Kč** (1 platba"))
     }
 }

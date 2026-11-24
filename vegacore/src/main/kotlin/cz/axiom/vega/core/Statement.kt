@@ -274,6 +274,43 @@ object Statement {
         return Value.Table(listOf("Kategorie", "Výdaje", "Plateb", "Podíl"), rows, notes, "kategorie")
     }
 
+    /** Slova laika → kategorie („jídlo“ = obchody i restaurace). */
+    private val SPEND_WORDS: List<Pair<Regex, List<String>>> = listOf(
+        Regex("jidl|jist|papani") to listOf("Potraviny", "Restaurace a kavárny"),
+        Regex("potravin|nakup(y)? jidla|obchod|supermarket|albert|lidl|billa|tesco|kaufland") to listOf("Potraviny"),
+        Regex("restaura|kavarn|kafe|obed|vecer[ie] venku|dovaz|wolt|foodora") to listOf("Restaurace a kavárny"),
+        Regex("benzin|naft|palivo|tankov|auto|doprav|jizdenk|mhd|vlak|bus|taxi|bolt|uber|parkov") to listOf("Doprava a palivo"),
+        Regex("najem|bydlen|energi|elektri|plyn|vod[ua]|cez|zaloh") to listOf("Bydlení a energie"),
+        Regex("lek|lekarn|zdravi|doktor|lekar|drogeri") to listOf("Zdraví a drogerie"),
+        Regex("telefon|mobil|internet|tarif") to listOf("Telefon a internet"),
+        Regex("predplat|netflix|spotify|streaming|aplikac") to listOf("Předplatné a digitální"),
+        Regex("nakup|obleceni|boty|elektronik|alza|ikea|e-?shop") to listOf("Nákupy"),
+        Regex("hotovost|bankomat|vyber") to listOf("Hotovost"),
+        Regex("pojist|splatk|uver|hypote|poplat") to listOf("Pojištění a finance"),
+        Regex("deti|skol|krouz") to listOf("Děti a vzdělání"),
+        Regex("zabav|volny cas|kino|sport|dovolen|cestov") to listOf("Volný čas"),
+    )
+
+    /**
+     * „Kolik jsem utratil za jídlo / benzín / nájem?“, „za co nejvíc utrácím?“ nad tabulkou výpisu – bez modelu.
+     * null = dotaz se výdajů netýká (zpracuje ho dál router / model).
+     */
+    fun spendQuery(t: Value.Table, raw: String): String? {
+        val q = cz.axiom.vega.base.Text.fold(raw).lowercase()
+        if (!Regex("utrat|utraci|utracim|utracel|stal[oa]?|stoji|stalo|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
+        if (!t.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }) return null
+        val cats = categories(t)
+        if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
+            return "Nejvíc utrácíš za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"
+        val word = Regex("\\bza\\s+(.+)$").find(q)?.groupValues?.get(1) ?: q
+        val want = SPEND_WORDS.filter { it.first.containsMatchIn(word) }.flatMap { it.second }.distinct().takeIf { it.isNotEmpty() } ?: return null
+        val hit = cats.rows.filter { it[0] in want }
+        if (hit.isEmpty()) return "Ve výpisu jsem v kategorii ${want.joinToString(" ani ") { "„$it“" }} nenašel žádnou platbu. (Kategorie určuji podle obchodníka v popisu – co nepoznám, je v „Ostatní“.)"
+        val sum = hit.sumOf { CzNum.parse(it[1], false) ?: 0.0 }; val n = hit.sumOf { it[2].toInt() }
+        return "Za ${want.joinToString(" a ") { it.lowercase() }} jsi utratil **${CzNum.format(sum)} Kč** ($n ${if (n == 1) "platba" else if (n in 2..4) "platby" else "plateb"}" +
+            (if (hit.size > 1) ": " + hit.joinToString(", ") { "${it[0].lowercase()} ${it[1]} Kč" } else "") + ").\n_Podle obchodníka v popisu, bez modelu – část plateb může být v „Ostatní“._"
+    }
+
     /** Výpis z PDF převedený na CSV „Datum;Částka;Popis“ (+ poznámky); null = v textu nejsou rozpoznatelné pohyby. */
     data class PdfConversion(val csv: String, val rows: Int, val notes: List<String>)
 
