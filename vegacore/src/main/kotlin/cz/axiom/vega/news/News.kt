@@ -101,10 +101,38 @@ object News {
             .replace(Regex("(?<=\\d )([A-Za-z]{3})[A-Za-z]+(?= \\d{4})"), "$1")
             .replace(Regex("^(\\d{4}-\\d\\d-\\d\\d) (\\d\\d:\\d\\d(?::\\d\\d(?:\\.\\d+)?)?) ?(?:([+-]\\d\\d):?(\\d\\d)|(Z))$")) { m ->
                 "${m.groupValues[1]}T${m.groupValues[2]}${if (m.groupValues[5].isNotEmpty()) "Z" else "${m.groupValues[3]}:${m.groupValues[4]}"}" }
-        return runCatching { ZonedDateTime.parse(v, RFC).toInstant() }.getOrNull()
+        local(v)?.let { return it }
+        val w = czech(v)
+        return runCatching { ZonedDateTime.parse(w, RFC).toInstant() }.getOrNull()
+            ?: runCatching { ZonedDateTime.parse(w, RFC_NAMED).toInstant() }.getOrNull()
+            ?: runCatching { ZonedDateTime.parse(v, RFC).toInstant() }.getOrNull()
             ?: runCatching { ZonedDateTime.parse(v, RFC_NAMED).toInstant() }.getOrNull()
             ?: runCatching { java.time.OffsetDateTime.parse(v).toInstant() }.getOrNull()
             ?: runCatching { Instant.parse(v) }.getOrNull()
+    }
+
+    private val CZ_MON = listOf("cervence" to "Jul", "cervenec" to "Jul", "cvc" to "Jul", "cerven" to "Jun", "cervna" to "Jun", "cvn" to "Jun", "led" to "Jan", "uno" to "Feb", "bre" to "Mar",
+        "dub" to "Apr", "kve" to "May", "srp" to "Aug", "zar" to "Sep", "rij" to "Oct", "lis" to "Nov", "pro" to "Dec")
+    /**
+     * Tvary z českých a starších CMS: bez dne v týdnu nebo s českým („Út, 24 lis 2026“), bez mezery po čárce, dvouciferný rok RFC 822
+     * („24 Nov 26“ = 2026, ne rok 26) → tvar RFC 1123. Bez té úpravy zpráva tiše vypadla z přehledu (datum null / rok 0026).
+     */
+    private fun czech(v0: String): String {
+        var v = v0.replace(Regex("^[^\\d,]{1,12},\\s*"), "")   // den v týdnu (anglicky i česky) – RFC ho nevyžaduje
+        val f = cz.axiom.vega.base.Text.fold(v).lowercase()
+        Regex("^(\\d{1,2})\\.?\\s+([a-z]+)\\.?\\s+(\\d{2,4})(.*)$").find(f)?.let { m ->
+            val mon = m.groupValues[2]; val en = CZ_MON.firstOrNull { mon.startsWith(it.first) }?.second
+                ?: listOf("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec").firstOrNull { mon.startsWith(it) }?.replaceFirstChar { it.uppercase() } ?: return v
+            val y = m.groupValues[3].let { if (it.length == 2) "20$it" else it }
+            v = "${m.groupValues[1]} $en $y" + v.substring(v.length - m.groupValues[4].length)
+        }
+        return v
+    }
+    /** Bez časového pásma („2026-11-24 05:20“, „24.11.2026 05:20“) – české weby píšou místní čas → Europe/Prague. */
+    private fun local(v: String): Instant? {
+        Regex("^(\\d{4})-(\\d\\d)-(\\d\\d)[ T](\\d{1,2}):(\\d\\d)(?::(\\d\\d))?$").find(v)?.let { m -> return runCatching { java.time.LocalDateTime.of(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt(), m.groupValues[4].toInt(), m.groupValues[5].toInt(), m.groupValues[6].ifEmpty { "0" }.toInt()).atZone(ZONE).toInstant() }.getOrNull() }
+        Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4}),?\\s+(\\d{1,2}):(\\d\\d)(?::(\\d\\d))?$").find(v)?.let { m -> return runCatching { java.time.LocalDateTime.of(m.groupValues[3].toInt(), m.groupValues[2].toInt(), m.groupValues[1].toInt(), m.groupValues[4].toInt(), m.groupValues[5].toInt(), m.groupValues[6].ifEmpty { "0" }.toInt()).atZone(ZONE).toInstant() }.getOrNull() }
+        return null
     }
 
     // ------------------------------------------------------------------ okno 05:20 → 05:20

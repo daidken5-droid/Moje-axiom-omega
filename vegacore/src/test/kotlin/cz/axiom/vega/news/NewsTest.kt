@@ -263,3 +263,16 @@ class NewsGuidLinkTest {
         assertEquals(listOf("https://a.cz/g1", "https://a.cz/g2"), a.map { it.link })
     }
 }
+
+/** Noc 24./25. 11., kolo NN2: data z českých a starších RSS (dřív null nebo rok 0026 → zpráva tiše vypadla z přehledu). */
+class NewsDateCzechTest {
+    @org.junit.Test fun czechAndLegacyDates() {
+        val want = java.time.Instant.parse("2026-11-24T04:20:00Z")
+        listOf("Út, 24 lis 2026 05:20:00 +0100", "24. listopadu 2026 05:20:00 +0100", "2026-11-24 05:20", "24.11.2026 05:20", "24. 11. 2026 05:20:00",
+            "Tue, 24 Nov 26 05:20:00 +0100", "Tue,24 Nov 2026 05:20:00 +0100", "Tue, 24 Nov 2026 05:20:00 +0100", "2026-11-24T04:20:00.000Z")
+            .forEach { org.junit.Assert.assertEquals(it, want, News.date(it)) }
+        // léto: místní čas bez pásma = SELČ (+2)
+        org.junit.Assert.assertEquals(java.time.Instant.parse("2026-07-01T06:00:00Z"), News.date("1.7.2026 08:00"))
+        org.junit.Assert.assertNull(News.date("nějaký nesmysl"))
+    }
+}
