@@ -52,6 +52,7 @@ object Quick {
         percent(t)?.let { return it }
         dateOffset(t, now.toLocalDate())?.let { return it }
         weekday(t)?.let { return it }
+        calendar(t, now.toLocalDate())?.let { return it }
         age(t, now.toLocalDate())?.let { return it }
         trip(t)?.let { return it }
         stats(t)?.let { return it }
@@ -348,6 +349,35 @@ object Quick {
     }
 
     /** „kolik let je od 5. 3. 1990“, „kolik mi je, když jsem se narodil 5. 3. 1990“. */
+    private val MON_NOM = listOf("leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec")
+    /** Přestupný rok, počet dní v měsíci, Velikonoce (pátek / neděle / pondělí), věk jen z roku narození – přesně, bez modelu. */
+    private fun calendar(t: String, today: LocalDate): String? {
+        Regex("^je (?:rok )?(\\d{4}) (?:rok )?prestupn\\w*(?: rok)?$|^(?:je )?rok (\\d{4}) prestupn\\w*$").find(t)?.let { m ->
+            val y = (m.groupValues[1].ifEmpty { m.groupValues[2] }).toInt(); val leap = java.time.Year.isLeap(y.toLong())
+            return "Rok $y ${if (leap) "je" else "není"} přestupný – únor má ${if (leap) 29 else 28} dní." }
+        Regex("^kolik (?:je |ma )?dni (?:ma |je |v |mel |bude mit )?(leden|ledn\\w*|unor\\w*|brez\\w*|dub\\w*|kvet\\w*|cervenec|cervenc\\w*|cerven\\w*|srp\\w*|zari|rij\\w*|listopad\\w*|prosin\\w*)(?: (?:roku )?(\\d{4}))?$").find(t)?.let { m ->
+            val w = m.groupValues[1]
+            val mo = when { w.startsWith("led") -> 1; w.startsWith("uno") -> 2; w.startsWith("bre") -> 3; w.startsWith("dub") -> 4; w.startsWith("kve") -> 5
+                w.startsWith("cervenec") || w.startsWith("cervenc") -> 7; w.startsWith("cerv") -> 6; w.startsWith("srp") -> 8; w.startsWith("zar") -> 9; w.startsWith("rij") -> 10; w.startsWith("lis") -> 11; else -> 12 }
+            val y = m.groupValues[2].toIntOrNull() ?: today.year
+            val n = java.time.YearMonth.of(y, mo).lengthOfMonth()
+            return "${MON_NOM[mo - 1].replaceFirstChar { it.uppercase() }} $y má $n dní." }
+        Regex("^kdy (?:je|jsou|budou|bude|byl[ay]?) (velikonoc\\w*|velikonocni (?:pondeli|nedele|patek)|velky patek|bily patek)(?: (?:v )?(?:roce )?(\\d{4}))?$").find(t)?.let { m ->
+            val what = m.groupValues[1]; val yr = m.groupValues[2].toIntOrNull()
+            val y = yr ?: easter(today.year).plusDays(1).let { if (it.isBefore(today)) today.year + 1 else today.year }
+            val sun = easter(y); fun d(x: LocalDate) = "${x.dayOfMonth}. ${x.monthValue}. ${x.year}"
+            return when {
+                what.contains("pondeli") -> "Velikonoční pondělí $y je ${d(sun.plusDays(1))} (státní svátek)."
+                what.contains("patek") -> "Velký pátek $y je ${d(sun.minusDays(2))} (státní svátek)."
+                what.contains("nedele") -> "Velikonoční neděle $y je ${d(sun)}."
+                else -> "Velikonoce $y: Velký pátek ${d(sun.minusDays(2))}, neděle ${d(sun)}, pondělí ${d(sun.plusDays(1))}."
+            } }
+        // „kolik mi je, když jsem se narodil 1990“ – jen rok → dvě možnosti podle toho, jestli už letos byly narozeniny
+        Regex("^kolik (?:mi |ti |mu |ji )?(?:je|bude)(?: mi)?,? (?:kdyz|jestli|pokud) (?:jsem|jsi|je) (?:se )?narodil[a]? (?:v roce |roku )?(\\d{4})$").find(t)?.let { m ->
+            val y = m.groupValues[1].toInt(); if (y > today.year || y < today.year - 130) return null
+            val a = today.year - y; return "Je ti $a let, pokud už jsi letos měl/a narozeniny; jinak ${a - 1}. (Přesně spočítám s celým datem, třeba „kolik mi je, narozen 3. 5. $y“.)" }
+        return null
+    }
     private fun age(t: String, today: LocalDate): String? {
         if (!Regex("^(kolik (mi |mu |ji |mu bylo |je )?(je )?let|kolik let (je |uplynulo )?od|jaky (je )?vek|kolik je mi|kolik mi je|kolik mu je|kolik ji je|kolik mi bude)(?![a-z])").containsMatchIn(t)) return null
         val d = date(t)?.takeIf { it.isBefore(today) } ?: return null
