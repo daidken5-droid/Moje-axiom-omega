@@ -232,13 +232,13 @@ object Statement {
         perCur[main]?.let { inc = it[0]; exp = it[1] }
         val notes = buildList {
             if (perCur.size > 1) {
-                add("Výpis obsahuje víc měn – nesčítám je dohromady. " + perCur.entries.joinToString(" · ") { (c, a) -> "$c: příjmy ${CzNum.format(a[0])}, výdaje ${CzNum.format(a[1])}, saldo ${CzNum.format(a[0] + a[1])} (${a[2].toInt()} pohybů)" })
+                add("Výpis obsahuje víc měn – nesčítám je dohromady. " + perCur.entries.joinToString(" · ") { (c, a) -> "$c: příjmy ${CzNum.format(a[0])}, výdaje ${CzNum.format(a[1])}, saldo ${CzNum.format(a[0] + a[1])} (${cz.axiom.vega.base.Text.plural(a[2].toInt(), "pohyb", "pohyby", "pohybů")})" })
                 add("Součty níže jsou jen v $main.")
             }
-            add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)}${if (perCur.size > 1) " $main" else ""} · ${out.size} pohybů")
+            add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)}${if (perCur.size > 1) " $main" else ""} · ${cz.axiom.vega.base.Text.plural(out.size, "pohyb", "pohyby", "pohybů")}")
             if (voided > 0) add("Vynecháno $voided ${if (voided == 1) "zrušená / odmítnutá platba" else if (voided in 2..4) "zrušené / odmítnuté platby" else "zrušených / odmítnutých plateb"} (stav REVERTED, DECLINED…) – nestaly se.")
             if (fees > 0) add("Poplatky ze sloupce „Poplatek / Fee“ (${CzNum.format(-fees)}) jsou započtené ve výdajích.")
-            if (failed.isNotEmpty()) add("Nezpracováno ${failed.size} řádků: " + failed.take(5).joinToString("; ") { "ř. ${it.first} ${it.second}" })
+            if (failed.isNotEmpty()) add("Nezpracováno ${cz.axiom.vega.base.Text.plural(failed.size, "řádek", "řádky", "řádků")}: " + failed.take(5).joinToString("; ") { "ř. ${it.first} ${it.second}" })
         }
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
     }
@@ -281,8 +281,8 @@ object Statement {
             .map { (k, s, n) -> listOf(k, CzNum.format(s), n.toString(), if (total != 0.0) "${Math.round(s / total * 100)} %" else "–") }
         val other = rows.firstOrNull { it[0] == "Ostatní" }
         val notes = buildList {
-            add("Výdaje celkem ${CzNum.format(total)} · ${exp.size} plateb · kategorie podle obchodníka a popisu (bez modelu, v telefonu)")
-            if (other != null) add("„Ostatní“ = popis bez známého obchodníka (${other[2]} plateb) – kategorie jsou orientační.")
+            add("Výdaje celkem ${CzNum.format(total)} · ${cz.axiom.vega.base.Text.plural(exp.size, "platba", "platby", "plateb")} · kategorie podle obchodníka a popisu (bez modelu, v telefonu)")
+            if (other != null) add("„Ostatní“ = popis bez známého obchodníka (${cz.axiom.vega.base.Text.plural(other[2].toInt(), "platba", "platby", "plateb")}) – kategorie jsou orientační.")
         }
         return Value.Table(listOf("Kategorie", "Výdaje", "Plateb", "Podíl"), rows, notes, "kategorie")
     }
@@ -360,7 +360,7 @@ object Statement {
         val tt = if (ym == null) t else t.copy(rows = t.rows.filter { it.getOrNull(0)?.startsWith(ym) == true })
         val per = if (ym == null) "" else " za ${label(ym)}"
         if (ym != null && tt.rows.isEmpty()) return "Ve výpisu nejsou žádné pohyby za ${label(ym)}. Výpis má: ${months.joinToString(", ") { label(it) }.ifEmpty { "–" }}."
-        fun plat(n: Int) = "$n ${if (n == 1) "platba" else if (n in 2..4) "platby" else "plateb"}"
+        fun plat(n: Int) = cz.axiom.vega.base.Text.plural(n, "platba", "platby", "plateb")
         if (incomeQ || saldoQ) {
             val ai = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
             val di = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
@@ -441,7 +441,7 @@ object Statement {
         val body = nonEmpty.drop(hi + 1).map { r -> List(header.size) { i -> r.getOrElse(i) { "" }.let { if (i in dateCols) serial(it) else it } } }
         if (body.size < 1) return null
         val csv = (listOf(header) + body).joinToString("\n") { r -> r.joinToString(";") { q(it) } }
-        return PdfConversion(csv, body.size, listOf("Převedeno z Excelu (první list, ${body.size} řádků) – data převedena z čísel Excelu na datum."))
+        return PdfConversion(csv, body.size, listOf("Převedeno z Excelu (první list, ${cz.axiom.vega.base.Text.plural(body.size, "řádek", "řádky", "řádků")}) – data převedena z čísel Excelu na datum."))
     }
 
     /** Výpis z PDF převedený na CSV „Datum;Částka;Popis“ (+ poznámky); null = v textu nejsou rozpoznatelné pohyby. */
@@ -498,7 +498,7 @@ object Statement {
         val src = if (withBal) ls.filter { it.b != null } else ls
         fun q(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
         val csv = "Datum;Částka;Popis\n" + src.mapIndexed { i, l -> "${l.date};${String.format(java.util.Locale.ROOT, "%.2f", amounts[i])};${q(l.desc)}" }.joinToString("\n")
-        notes += "Převedeno z PDF (${src.size} pohybů) – PDF nemá pevnou strukturu, zkontroluj prosím pár řádků proti výpisu."
+        notes += "Převedeno z PDF (${cz.axiom.vega.base.Text.plural(src.size, "pohyb", "pohyby", "pohybů")}) – PDF nemá pevnou strukturu, zkontroluj prosím pár řádků proti výpisu."
         return PdfConversion(csv, src.size, notes)
     }
 

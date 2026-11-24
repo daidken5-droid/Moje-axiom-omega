@@ -125,3 +125,17 @@ class IncomeQueryTest {
         listOf("kdy přijde výplata", "přišlo mi SMS", "shrň mi to").forEach { org.junit.Assert.assertEquals(it, "null", a(it)) }
     }
 }
+
+/** Den 24. 11., kolo 16: skloňování po čísle v hlášeních výpisu („4 pohyby“, „1 platba“, ne „4 pohybů“ / „1 plateb“). */
+class PluralTest {
+    @Test fun czechPlurals() {
+        org.junit.Assert.assertEquals(listOf("0 řádků", "1 řádek", "3 řádky", "5 řádků", "22 řádků"), listOf(0, 1, 3, 5, 22).map { cz.axiom.vega.base.Text.plural(it, "řádek", "řádky", "řádků") })
+        val txt = "Datum;Částka;Popis\n02.11.2026;-100,00;Albert\n03.11.2026;-200,00;Lidl\n04.11.2026;500,00;Mzda\n"
+        val r = Statement.process(txt, Statement.detect(txt).spec!!)
+        assertTrue(r.table.notes.toString(), r.table.notes.any { it.endsWith("· 3 pohyby") })
+        val c = Statement.categories(r.table).notes.first()
+        assertTrue(c, c.contains("· 2 platby ·"))
+        val one = Statement.process("Datum;Částka;Popis\n02.11.2026;-100,00;Albert\n", Statement.detect(txt).spec!!)
+        assertTrue(one.table.notes.toString(), one.table.notes.any { it.endsWith("· 1 pohyb") } && Statement.categories(one.table).notes.first().contains("· 1 platba ·"))
+    }
+}

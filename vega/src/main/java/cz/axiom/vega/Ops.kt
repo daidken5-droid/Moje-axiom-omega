@@ -788,7 +788,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 val back = cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(sv.local.readBytes())).rows.size
                 if (back != n) throw java.io.IOException("zpětně přečteno $back z $n řádků") }
         } catch (e: java.io.IOException) { reply(chat, "Export se NEPODAŘIL: ${e.message?.take(160)}. Tabulka zůstala v chatu – zkus to znovu."); return true }
-        reply(chat, "Uloženo: **${s.name}** – ${n} ${if (n == 1) "řádek" else if (n in 2..4) "řádky" else "řádků"} pro Excel (středník, desetinná čárka, čeština)${if (s.public != null) "; najdeš ho ve Stažené/VEGA" else ""}. Otevři ho v Excelu nebo Tabulkách Google.",
+        reply(chat, "Uloženo: **${s.name}** – ${cz.axiom.vega.base.Text.plural(n, "řádek", "řádky", "řádků")} pro Excel (středník, desetinná čárka, čeština)${if (s.public != null) "; najdeš ho ve Stažené/VEGA" else ""}. Otevři ho v Excelu nebo Tabulkách Google.",
             JSONObject().put("type", "file").put("name", s.name))
         return true
     }
@@ -1941,7 +1941,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val first = run(runId)?.results?.firstOrNull()?.value as? Value.Table
             val hint = if (first != null && first !== run(runId)?.last && first.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") })
                 "\nVšechny pohyby (${first.rows.size}) uložím na „ulož pohyby do Excelu“, výdaje podle kategorií na „ulož kategorie do Excelu“." else ""
-            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Uloženo: **${r.getString("name")}** ($rows ${if (rows == 1) "řádek" else if (rows in 2..4) "řádky" else "řádků"}, ověřeno zpětným přečtením)${if (r.optBoolean("public")) " – najdeš ho ve Stažené/VEGA" else ""}.$hint",
+            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Uloženo: **${r.getString("name")}** (${cz.axiom.vega.base.Text.plural(rows, "řádek", "řádky", "řádků")}, ověřeno zpětným přečtením)${if (r.optBoolean("public")) " – najdeš ho ve Stažené/VEGA" else ""}.$hint",
                 JSONObject().put("type", "file").put("name", r.getString("name")).put("rows", rows))
         } catch (e: Exception) {
             if (e is CancelledException) throw e
@@ -2361,7 +2361,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val r = Runner.start("Čtení NFC", listOf(Step("ndef.parse")), Value.Bytes("nfc.ndef", bytes!!), toolCtx) { saveRun(kv, it) }
         lastResultRun = r.id
         val card = runCard(r).put("ndefRun", r.id)
-        reply(chat, if (r.done) "Štítek přečten (${(r.last as Value.Ndef).records.size} záznamů). Vyber záznam a nástroj, kterému ho předám." else "Štítek se nepodařilo přečíst:${r.results.last().error}", card)
+        reply(chat, if (r.done) "Štítek přečten (${cz.axiom.vega.base.Text.plural((r.last as Value.Ndef).records.size, "záznam", "záznamy", "záznamů")}). Vyber záznam a nástroj, kterému ho předám." else "Štítek se nepodařilo přečíst:${r.results.last().error}", card)
     }
 
     // ------------------------------------------------------------------ předžalobní výzva

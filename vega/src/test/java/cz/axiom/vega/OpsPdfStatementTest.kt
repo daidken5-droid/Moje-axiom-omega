@@ -30,7 +30,7 @@ class OpsPdfStatementTest {
         while (msg == null && System.currentTimeMillis() < until) { val e = events.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
             if (e.first == "message" && e.second.getJSONObject("msg").optString("role") == "vega") msg = e.second.getJSONObject("msg") }
         val text = msg!!.getString("text")
-        assertTrue(text, text.contains("Převedeno z PDF (4 pohybů)") && text.contains("návazností sedí"))
+        assertTrue(text, text.contains("Převedeno z PDF (4 pohyby)") && text.contains("návazností sedí"))
         assertFalse(text, text.contains("spočítat neumím"))
         // kolo 4: tři největší kategorie výdajů rovnou v odpovědi (bez modelu)
         assertTrue(text, text.contains("**Největší výdaje:** Hotovost") && text.contains("Bydlení a energie") && text.contains("Potraviny"))

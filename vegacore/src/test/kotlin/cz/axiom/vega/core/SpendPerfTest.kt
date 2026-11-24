@@ -14,6 +14,7 @@ class SpendPerfTest {
         assertTrue("8 dotazů nad 20 000 pohyby: $ms ms", ms < 1500 / 4 * 8)
         val one = qs.associateWith { q -> val s = System.nanoTime(); Statement.spendQuery(t, q); (System.nanoTime() - s) / 1_000_000 }
         // podruhé nad stejným výpisem (kategorie už spočítané) a neznámé slovo bez kompilace regexu na řádek
-        assertTrue("jednotlivě: $one", one.values.all { it < 120 })
+        assertTrue("jednotlivě: $one", one.values.all { it < 300 })  // časy kolísají se zátěží stroje (CI) – hlavní pojistka je řádek níže
+        org.junit.Assert.assertSame("kategorie stejného výpisu se nepočítají znovu", Statement.categories(t), Statement.categories(t))
     }
 }

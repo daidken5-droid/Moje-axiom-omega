@@ -98,7 +98,7 @@ object Tools {
             params = listOf(Param("filter", "Filtr", hint = "Částka < 0, Popis ~ nájem"), Param("delimiter", "Oddělovač", hint = "prázdné = rozpoznat")), group = "Data") { v, p, _ ->
             val parsed = Csv.read(text(v), p["delimiter"]?.firstOrNull())
             val notes = buildList {
-                add("Oddělovač „${if (parsed.delimiter == '\t') "tab" else parsed.delimiter}“ · ${parsed.headers.size} sloupců · ${parsed.rows.size} řádků")
+                add("Oddělovač „${if (parsed.delimiter == '\t') "tab" else parsed.delimiter}“ · ${cz.axiom.vega.base.Text.plural(parsed.headers.size, "sloupec", "sloupce", "sloupců")} · ${cz.axiom.vega.base.Text.plural(parsed.rows.size, "řádek", "řádky", "řádků")}")
                 if (parsed.issues.isEmpty()) add("Bez problémových řádků.")
                 parsed.issues.take(10).forEach { add("Řádek ${it.line}: ${it.message} → ${it.raw.take(120)}") }
             }
