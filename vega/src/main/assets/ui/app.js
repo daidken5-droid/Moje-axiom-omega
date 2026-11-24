@@ -768,9 +768,10 @@ function demandSheet(s) {
 }
 
 /* ------------------------------------------------------------------ odeslání */
-function send() {
-  const inp = $('#input'); const text = inp.value.trim();
-  if (S.tool) { runTool(); return; }
+/** Odeslat zprávu z pole – nebo [direct] (návrh pod polem): ten se pošle rovnou a rozepsaný text v poli zůstane. */
+function send(direct) {
+  const inp = $('#input'); const text = (direct != null ? String(direct) : inp.value).trim();
+  if (S.tool && direct == null) { runTool(); return; }
   if (!text && !S.files.length) return;
   if (busyGuard()) return;
   const t = text || 'Co s tímhle souborem?';
@@ -781,8 +782,8 @@ function send() {
   }
   if (S.space.kind === 'temp') S.tempMsgs.push({ role: 'user', text: t });
   S.stream = '';
-  S.files = []; inp.value = ''; autosize();
-  if (S.drafts) delete S.drafts[spaceKey()]; // odeslané už není rozpracované
+  S.files = [];
+  if (direct == null) { inp.value = ''; autosize(); if (S.drafts) delete S.drafts[spaceKey()]; } // odeslané už není rozpracované (návrh rozepsaný text nemaže)
   render();
 }
 function autosize() { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, innerHeight * .34) + 'px'; }
@@ -1044,7 +1045,7 @@ function act(a, d) {
     case 'send': send(); break;
     case 'voice': if (S.space.kind === 'temp' || !busyGuard()) { const g = $('#go'); if (g) g.classList.add('listen'); B.voice(JSON.stringify({ airgap: !!((call('settings') || {}).airgap) })); } break;
     case 'star': { const st = $('.star'); const h = $('#greet'); if (st) { st.classList.toggle('spin'); } if (h) { h.classList.add('fade'); setTimeout(() => { greetI = (greetI + 1) % GREETS.length; h.textContent = GREETS[greetI]((S.home || {}).userName); h.classList.remove('fade'); }, 300); } break; }
-    case 'say': $('#input').value = d.v; send(); break;
+    case 'say': if (busyGuard()) return; send(d.v); break; // tlačítka s hotovou větou (úvod, Pokračovat) nepřepíšou rozepsaný text
     case 'findDocs': { closeSheet(true); const i = $('#input'); if (i) { i.value = 'Najdi v mých dokumentech: '; autosize(); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } break; }
     case 'retry': if (busyGuard()) return; S.busy = true; if (call('retry', chatId(), d.req || '') === null) S.busy = false; render(); break;
     case 'resumeTask': if (busyGuard()) return; busyCall('resumeTask', chatId(), d.p); render(); break;
@@ -1284,7 +1285,7 @@ function passSheet(input) {
 
 function chipAct(v) {
   const [k, ...rest] = v.split(':'); const arg = rest.join(':');
-  if (k === 'say') { $('#input').value = arg; send(); }
+  if (k === 'say') { if (busyGuard()) return; send(arg); } // dvojí klepnutí během práce nic nepošle ani nenechá v poli
   else if (k === 'tool') useTool(arg);
   else if (k === 'proc') { if (busyGuard()) return; const f = S.files.pop(); busyCall('runProcedure', chatId(), arg, { file: f.id }); render(); }
   else if (k === 'panel') projectPanel();

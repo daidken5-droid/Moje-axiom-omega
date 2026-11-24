@@ -96,4 +96,13 @@ run("S.space={kind:'chat',id:'c3'}; S.busy=false; S.files=[]; S.mc=null; renderC
 assert.equal(JSON.stringify(run("chips()").map(c=>c.t)),JSON.stringify(['Pravidelné platby','Uložit pohyby do Excelu']));
 mock.messages=[{role:'user',text:'za co utrácím nejvíc'},{role:'vega',text:'Výpis zpracován.',card:stc}];run("S.mc=null");run('renderStream()');
 assert.equal(run("chips().length"),3,'otázka PŘED kartou návrh neskrývá');
-console.log('36 UI logic scenarios passed.');
+// kolo 21: návrh pod polem nepřepíše rozepsaný text; dvojí klepnutí během práce nepošle podruhé ani nenechá otázku v poli
+run("toast=()=>{}; S.busy=false; S.tool=null; S.files=[]; S.space={kind:'chat',id:'c4'}");mock.send=true;calls.length=0;
+field('#input').value='rozepsaná zpráva pro bábu';
+run("chipAct('say:Za co utrácím nejvíc?')");
+assert.deepEqual(calls.filter(c=>c[0]==='send').map(c=>c[2]),['Za co utrácím nejvíc?']);
+assert.equal(field('#input').value,'rozepsaná zpráva pro bábu','rozepsaný text zůstal');
+run("S.busy=true; chipAct('say:Za co utrácím nejvíc?')");
+assert.equal(calls.filter(c=>c[0]==='send').length,1,'během práce se podruhé neposílá');assert.equal(field('#input').value,'rozepsaná zpráva pro bábu');
+run("S.busy=false");
+console.log('37 UI logic scenarios passed.');
