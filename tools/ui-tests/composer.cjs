@@ -105,4 +105,11 @@ assert.equal(field('#input').value,'rozepsaná zpráva pro bábu','rozepsaný te
 run("S.busy=true; chipAct('say:Za co utrácím nejvíc?')");
 assert.equal(calls.filter(c=>c[0]==='send').length,1,'během práce se podruhé neposílá');assert.equal(field('#input').value,'rozepsaná zpráva pro bábu');
 run("S.busy=false");
-console.log('37 UI logic scenarios passed.');
+// kolo 26: po výpisu odpověď na jiné téma (model) → návrhy k výpisu zmizí; výpočty z výpisu a uložený soubor je nechají
+const stc2={type:'run',run:'r10',value:{kind:'TABLE',headers:['Měsíc','Příjmy','Výdaje','Saldo','Pohybů'],rows:[]}};
+mock.messages=[{role:'vega',text:'Výpis zpracován.',card:stc2},{role:'user',text:'ulož pohyby do excelu'},{role:'vega',text:'Uloženo: **vypis.csv** – 5 řádků pro Excel.',card:{type:'file',name:'vypis.csv'}},{role:'user',text:'kolik mi přišlo'},{role:'vega',text:'Příjmy: **30 000 Kč**.\n_Spočítáno z tabulky výpisu, bez modelu._'}];
+run("S.space={kind:'chat',id:'c5'}; S.busy=false; S.files=[]; S.mc=null; render()");run('renderStream()');
+assert.equal(run("chips().length"),2,'výpočty a soubor návrhy nechají (bez už položené otázky)');
+mock.messages.push({role:'user',text:'napiš e-mail šéfovi, že zítra nepřijdu'},{role:'vega',text:'Dobrý den, pane Nováku, zítra bohužel nepřijdu do práce…'});run("S.mc=null");run('renderStream()');
+assert.equal(run("chips().length"),0,'jiné téma → bez návrhů k výpisu');
+console.log('38 UI logic scenarios passed.');

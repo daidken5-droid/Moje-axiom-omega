@@ -124,6 +124,8 @@ function renderStream() {
   // co uživatel napsal po té kartě – návrh na už položenou otázku se znovu nenabízí
   const ci = S.lastCard ? list.findIndex(m => m.card === S.lastCard) : -1;
   S.askedAfter = ci < 0 ? [] : list.slice(ci + 1).filter(m => m.role === 'user').map(m => normQ(m.text));
+  // rozhovor se po výpisu stočil jinam (odpověď modelu, ne výpočet z výpisu / soubor) → návrhy k výpisu už nepatří
+  S.offTopic = ci >= 0 && list.slice(ci + 1).some(m => m.role === 'vega' && m.text && !/bez modelu|výpis|^Uloženo:/i.test(m.text));
   renderChips();
 }
 
@@ -312,7 +314,7 @@ function chips() {
   if (S.lastCard && S.lastCard.save && !S.savedRuns.has(S.lastCard.run)) out.push({ t: 'Uložit jako nástroj', a: 'saveLast', sig: true });
   // po zpracovaném výpisu (souhrn Příjmy / Výdaje): doplňující dotazy, které VEGA spočítá z tabulky bez modelu
   const hd = (S.lastCard && S.lastCard.value && S.lastCard.value.headers) || [];
-  if (hd.includes('Příjmy') && hd.includes('Výdaje'))
+  if (hd.includes('Příjmy') && hd.includes('Výdaje') && !S.offTopic)
     out.push({ t: 'Za co utrácím nejvíc?', a: 'say:Za co utrácím nejvíc?' }, { t: 'Pravidelné platby', a: 'say:Jaké mám pravidelné platby?' }, { t: 'Uložit pohyby do Excelu', a: 'say:Ulož pohyby do Excelu.' });
   return out.filter(c => !/^say:/.test(c.a) || !(S.askedAfter || []).includes(normQ(c.a.slice(4)))).slice(0, 3);
 }
