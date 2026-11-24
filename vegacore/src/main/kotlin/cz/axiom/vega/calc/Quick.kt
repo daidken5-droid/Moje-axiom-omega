@@ -22,11 +22,15 @@ object Quick {
     }
 
     fun answer(raw: String, now: java.time.ZonedDateTime = java.time.ZonedDateTime.now()): String? {
-        val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').let { if (Regex("^[\\d\\s.,+\\-*/×·:÷^()x]+=$").matches(it)) it.dropLast(1).trim() else it }
+        val t0 = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').let { if (Regex("^[\\d\\s.,+\\-*/×·:÷^()x]+=$").matches(it)) it.dropLast(1).trim() else it }
             .replace(Regex("^kolko "), "kolik ").replace(Regex("(?<![a-z])percent"), "procent").replace("vianoc", "vanoc") // slovensky
             .replace(Regex("(?<=\\d)\\s*(procent[a-z]*|procenta)(?![a-z])"), " %")
             // „půl kila“, „čtvrt litru“, „půl hodiny“ → číslo (převody)
             .replace(Regex("(^|\\s)pul (?=(kil|kg|litr|metr|hodin|tun|kilometr))"), "$1 0,5 ").replace(Regex("(^|\\s)ctvrt (?=(kil|kg|litr|metr|hodin|tun))"), "$1 0,25 ").replace(Regex("\\s+"), " ").trim()
+        // laické tvary → tvary, které už umíme: „12 % z 35 000 Kč hrubého“, „5 % úrok z …“, „za kolik dní je 1. ledna“
+        val t = t0.replace(Regex("\\s+(hrubeho|hrube|cisteho|ciste|v hrubem|v cistem)$"), "")
+            .replace(Regex("(\\d+(?:[.,]\\d+)?)\\s*% urok\\w*"), "urok $1 %")
+            .replace(Regex("^za kolik dni (?:je|bude|jsou|budou|mam) "), "kolik dni do ")
         // příkaz k psaní / překladu / úpravě textu nebo žádost o vysvětlení patří modelu, ne kalkulačce
         // („přelož: rozděl 1500 mezi 4 lidi“, „z 10 na 12 je kolik procent a jak se to počítá“)
         if (Regex("^(preloz\\w*|napis\\w*|oprav\\w*|shrn\\w*|prepis\\w*|preformuluj\\w*|vysvetli\\w*|translate)(\\s|:)").containsMatchIn(t) ||
@@ -39,7 +43,11 @@ object Quick {
         loan(t)?.let { return it }
         savings(t)?.let { return it }
         tip(t)?.let { return it }
+        hoursMinutes(t)?.let { return it }
+        // „kolik je 100 °F ve stupních“ → °C
+        Regex("^(?:kolik je |preved |prevod )?(-?\\d+(?:[.,]\\d+)?)\\s*°?\\s*f(?:ahrenheit\\w*)?\\s+(?:ve|v|na|do)\\s+(?:stupn\\w*|celsi\\w*|°?c)(?: celsi\\w*)?$").find(t)?.let { m -> convert("${m.groupValues[1]} f na c")?.let { return it } }
         everyday(t)?.let { return it }
+        split(t)?.let { return it } // „rozpočítej 1840 na 4 lidi“ (rozděl … mezi … umí už everyday)
         vat(t)?.let { return it }
         percent(t)?.let { return it }
         dateOffset(t, now.toLocalDate())?.let { return it }
@@ -258,10 +266,25 @@ object Quick {
     }
 
     /** Sleva: „sleva 30 % z 899“, „899 se slevou 30 %“, „899 Kč minus 30 %“ → výše slevy a cena po slevě. */
+    /** „rozpočítej 1840 na 4 lidi“, „rozděl 1500 korun mezi 3 kamarády“ → částka na osobu. */
+    private fun split(t: String): String? {
+        val m = Regex("^(?:rozpocitej|rozpocti|rozdel|vydel|rozpocitat|rozdelit)\\s+(?:mi\\s+)?$N\\s*(kc|korun\\w*)?\\s+(?:na|mezi)\\s+(\\d{1,3})\\s*(lidi|lid|osob\\w*|clen\\w*|kamarad\\w*|deti|lidmi)?$").find(t) ?: return null
+        val v = num(m.groupValues[1]) ?: return null; val n = m.groupValues[3].toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val kc = m.groupValues[2].isNotBlank() || m.groupValues[4].isNotBlank()
+        val per = v / n; val show = { x: Double -> if (kc) money(Math.round(x * 100) / 100.0) else fmt(Math.round(x * 100) / 100.0) }
+        return "${show(v)} ÷ $n = ${show(per)}${if (kc) " na osobu" else ""}." + (if (kc && Math.round(per * 100) % 100 != 0L) " (zaokrouhleno na haléře)" else "")
+    }
+    /** „3 hodiny 45 minut v minutách“ → 225 minut; „2 h 30 min v hodinách“ → 2,5 h. */
+    private fun hoursMinutes(t: String): String? {
+        val m = Regex("^(?:kolik je |preved )?(\\d+)\\s*(?:h|hod\\w*)\\s*(?:a\\s*)?(\\d+)\\s*(?:min\\w*)\\s+(?:v|na|do)\\s+(minut\\w*|min|hodin\\w*|h)$").find(t) ?: return null
+        val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt(); val tot = h * 60 + mi
+        return if (m.groupValues[3].startsWith("min")) "$h h $mi min = $tot minut." else "$h h $mi min = ${fmt(Math.round(tot / 60.0 * 100) / 100.0)} h."
+    }
     private fun discount(t: String): String? {
         if (!Regex("slev|zlevn|minus|mene o|levnejsi o").containsMatchIn(t)) return null
         val m = Regex("(?:sleva|slevou|zlevneni|zlevnene)\\s*(?:o\\s*)?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze|na)\\s*$N").find(t)?.let { num(it.groupValues[1]) to num(it.groupValues[2]) }
             ?: Regex("$N\\s*(?:kc|korun\\w*)?\\s*(?:se slevou|po sleve(?: o)?|zlevnene o|minus|mene o|levnejsi o)\\s*(\\d+(?:[.,]\\d+)?)\\s*%").find(t)?.let { num(it.groupValues[2]) to num(it.groupValues[1]) }
+            ?: Regex("(\\d+(?:[.,]\\d+)?)\\s*%\\s*slev\\w*\\s*(?:z|ze|na)\\s*$N").find(t)?.let { num(it.groupValues[1]) to num(it.groupValues[2]) }
             ?: return null
         val p = m.first ?: return null; val b = m.second ?: return null
         if (p < 0 || p > 100) return null
@@ -393,7 +416,9 @@ object Quick {
         val loc = mapOf("librach" to "liber", "palcich" to "palců", "kilogramech" to "kg", "metrech" to "m", "centimetrech" to "cm", "litrech" to "l")
         // cílová jednotka napsaná slovem v jiném pádě („v gramech“, „na minuty“) → zkratka, ať nevznikne „= 2 000 gramech“
         val target = DATA_SHOW[kb] ?: loc[b] ?: if (b == kb) shown(3) else (UNIT_SHOW[kb] ?: kb)
-        return "${fmt(v)} ${DATA_SHOW[ka]?.takeIf { a == ka } ?: shown(2)} = ${fmt(Math.round(r * 10000) / 10000.0)} $target"
+        // dny a týdny na 2 desetinná místa – „14,29 týdnů“, ne „14,2857“
+        val prec = if (kb == "den" || kb == "tydnu") 100.0 else 10000.0
+        return "${fmt(v)} ${DATA_SHOW[ka]?.takeIf { a == ka } ?: shown(2)} = ${fmt(Math.round(r * prec) / prec)} $target"
     }
 
     /** „31. 2. 2027“ – tvar data sedí, ale den neexistuje → srozumitelně říct (ne mlčet). */
@@ -402,7 +427,7 @@ object Quick {
         if (runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.isFailure) "Datum ${m.groupValues[1]}. ${m.groupValues[2]}.${m.groupValues[3].let { if (it.isNotEmpty()) " $it" else "" }} neexistuje – zkontroluj den a měsíc." else null }
     /** Tvar slova → jednotka: „metry/metrů“ → m, „kila/kilogramů“ → kg, „hodiny“ → h, „týdny“ → týden … (text je bez diakritiky). */
     /** Obrácené převody dostávají text bez diakritiky – v odpovědi vrátit české tvary („mile“ → „míle“). */
-    private fun unfold(r: String) = r.replace(Regex("(?<=\\d) mile(?= )"), " míle").replace(Regex("(?<=\\d) mil(?= =)"), " mil").replace(Regex("(?<=\\d) vterin"), " vteřin")
+    private fun unfold(r: String) = r.replace(Regex("(?<=\\d) dni(?= |$)"), " dní").replace(Regex("(?<=\\d) tydnu(?= |$)"), " týdnů").replace(Regex("(?<=\\d) tydny(?= |$)"), " týdny").replace(Regex("(?<=\\d) mesicu(?= |$)"), " měsíců").replace(Regex("(?<=\\d) mile(?= )"), " míle").replace(Regex("(?<=\\d) mil(?= =)"), " mil").replace(Regex("(?<=\\d) vterin"), " vteřin")
     private fun unitKey(w: String): String? = UNITS[w]?.let { w } ?: when {
         w.startsWith("kilometr") -> "km"; w.startsWith("centimetr") -> "cm"; w.startsWith("milimetr") -> "mm"; w.startsWith("metr") -> "m"
         w.startsWith("kilogram") || w in setOf("kilo", "kila", "kil", "kilech", "kilum") -> "kg"; w.startsWith("gram") -> "g"; w.startsWith("tun") -> "t"; w.startsWith("hektar") -> "ha"
@@ -435,6 +460,11 @@ object Quick {
             what.startsWith("nov") && what.contains("rok") -> "Nového roku" to next { LocalDate.of(it, 1, 1) }
             what.startsWith("velikonoc") -> "Velikonoční neděle" to next { easter(it) }
             what.startsWith("leta") || what.startsWith("prazdnin") -> (if (what.startsWith("leta")) "léta (21. 6.)" else "prázdnin (1. 7.)") to next { LocalDate.of(it, if (what.startsWith("leta")) 6 else 7, if (what.startsWith("leta")) 21 else 1) }
+            // „1. ledna“, „15. března“ (měsíc slovem, bez roku) → nejbližší takový den
+            Regex("^(\\d{1,2})\\.?\\s*(ledna|unora|brezna|dubna|kvetna|cervna|cervence|srpna|zari|rijna|listopadu|prosince)$").find(what) != null -> {
+                val mm = Regex("^(\\d{1,2})\\.?\\s*(\\p{L}+)$").find(what)!!; val mo = listOf("ledna", "unora", "brezna", "dubna", "kvetna", "cervna", "cervence", "srpna", "zari", "rijna", "listopadu", "prosince").indexOf(mm.groupValues[2]) + 1
+                val dd = mm.groupValues[1].toInt(); val d0 = runCatching { next { LocalDate.of(it, mo, dd) } }.getOrNull() ?: return null
+                "${d0.dayOfMonth}. ${d0.monthValue}. ${d0.year}" to d0 }
             else -> date(what)?.let { "${it.dayOfMonth}. ${it.monthValue}. ${it.year}" to it }
                 ?: Regex("^(\\d{1,2})\\.\\s?(\\d{1,2})\\.?$").find(what)?.let { m -> runCatching { val dd = m.groupValues[1].toInt(); val mm = m.groupValues[2].toInt()
                     LocalDate.of(today.year, mm, dd); next { LocalDate.of(it, mm, dd) } }.getOrNull()?.let { "${it.dayOfMonth}. ${it.monthValue}." to it } }
