@@ -103,7 +103,10 @@ object Tools {
         ToolDef("csv.export", "Export CSV", "Tabulka → CSV (výchozí středník a UTF-8 s BOM pro český Excel).", setOf(Kind.TABLE), Kind.BYTES,
             params = listOf(Param("delimiter", "Oddělovač", ";"), Param("name", "Název souboru", "export.csv")), group = "Data") { v, p, _ ->
             val t = v as? Value.Table ?: throw ToolError("Čekám tabulku")
-            Value.Bytes(p["name"] ?: "export.csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + Csv.write(t, p["delimiter"]?.firstOrNull() ?: ';').toByteArray(), "text/csv")
+            val d = p["delimiter"]?.firstOrNull() ?: ';'
+            // český Excel (středník) čte desetinnou ČÁRKU – „-1250.50“ by byl text/datum a sloupec nejde sečíst
+            val out = if (d == ';') t.copy(rows = t.rows.map { r -> r.map { c -> if (Regex("^-?\\d+\\.\\d+$").matches(c)) c.replace('.', ',') else c } }) else t
+            Value.Bytes(p["name"] ?: "export.csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + Csv.write(out, d).toByteArray(), "text/csv")
         },
         ToolDef("table.filter", "Filtr tabulky", "Řádky podle podmínky (sloupec op hodnota).", setOf(Kind.TABLE), Kind.TABLE,
             params = listOf(Param("expr", "Podmínka", hint = "Částka < -1000")), group = "Data") { v, p, _ ->
