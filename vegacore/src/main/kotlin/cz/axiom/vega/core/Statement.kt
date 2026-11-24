@@ -266,7 +266,13 @@ object Statement {
     fun categoryOf(desc: String): String { val d = cz.axiom.vega.base.Text.fold(desc).lowercase(); return CATEGORIES.firstOrNull { it.second.containsMatchIn(d) }?.first ?: "Ostatní" }
 
     /** Tabulka výpisu (Datum · Částka · Měna · Popis) → výdaje podle kategorií, seřazeno od největší. */
+    /** Posledních pár výsledků podle IDENTITY tabulky – doplňující dotazy nad stejným výpisem nepočítají 20 000 řádků znovu. */
+    private val catCache = java.util.Collections.synchronizedMap(object : java.util.IdentityHashMap<Value.Table, Value.Table>() {})
     fun categories(t: Value.Table): Value.Table {
+        catCache[t]?.let { return it }
+        return categories0(t).also { synchronized(catCache) { if (catCache.size > 8) catCache.clear(); catCache[t] = it } }
+    }
+    private fun categories0(t: Value.Table): Value.Table {
         val ai = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }.takeIf { it >= 0 } ?: 1
         val di = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
         val exp = t.rows.mapNotNull { r -> r.getOrNull(ai)?.let { CzNum.parse(it, false) }?.takeIf { it < 0 }?.let { categoryOf(r.getOrElse(di) { "" }) to it } }
@@ -381,9 +387,11 @@ object Statement {
         // „kolik jsem utratil v Lidlu / za Netflix / u Alzy“ → platby, jejichž popis obsahuje toho obchodníka (přednost před kategorií)
         val stop = setOf("mesic", "mesici", "celkem", "dohromady", "jidlo", "jidla", "potraviny", "obchode", "obchodech", "kartou", "hotovost", "tom", "tomhle", "tohle", "to", "ten", "tento", "tenhle", "co", "nej", "cem", "mne", "mi", "me", "sebe")
         val cand = Regex("\\b(v|ve|u|za|na|do|pro|od)\\s+(\\p{L}{3,})").findAll(MONTH_RX.fold(q) { acc, rx -> rx.replace(acc, " ") }).map { it.groupValues[2] }.filter { it !in stop }.toList()
+        val folded by lazy { spent.map { cz.axiom.vega.base.Text.fold(it.second).lowercase() } }  // jednou pro všechny kandidáty, ne na každý řádek
         for (w in cand) {
             val stem = if (w.length >= 5) w.take(maxOf(4, w.length - 2)) else w
-            val hit = spent.filter { Regex("\\b" + Regex.escape(stem)).containsMatchIn(cz.axiom.vega.base.Text.fold(it.second).lowercase()) }
+            val rx = Regex("\\b" + Regex.escape(stem))
+            val hit = spent.filterIndexed { i, _ -> folded[i].contains(stem) && rx.containsMatchIn(folded[i]) }
             if (hit.isNotEmpty() && SPEND_WORDS.none { it.first.matches(w) }) {
                 val name = hit.first().second.let { d -> Regex("(?i)\\b" + Regex.escape(stem) + "\\S*").find(cz.axiom.vega.base.Text.fold(d))?.let { m -> d.substring(m.range.first, minOf(d.length, m.range.last + 1)) } ?: w }
                 return "U „$name“ jsi$per utratil **${CzNum.format(hit.sumOf { it.third })} Kč** (${plat(hit.size)}): " + hit.take(6).joinToString(", ") { (d, _, v) -> "${d.split('-').let { p -> if (p.size == 3) "${p[2].toInt()}. ${p[1].toInt()}." else d }} ${CzNum.format(v)}" } +
