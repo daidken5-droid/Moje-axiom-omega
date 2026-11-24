@@ -119,7 +119,8 @@ class WifiPasswordTest {
     @org.junit.Test fun weakPatterns() {
         for (p in listOf("1qaz2wsx3edc", "zxcvbnm123", "qwertzuiop", "asdfghjkl1", "Monika1990", "Praha2024!"))
             org.junit.Assert.assertTrue(p, WifiTools.checkPassword(p).score <= 1)
-        for (p in listOf("Xk9#mQ2\$vL7pR4", "kočka-strom-okno-mrak", "correct horse battery staple"))
+        // noc 24./25. 11.: WPA přístupová fráze je jen tisknutelné ASCII (802.11i) – „kočka-…“ s diakritikou je teď „riskantní“, silná je verze bez háčků
+        for (p in listOf("Xk9#mQ2\$vL7pR4", "kocka-strom-okno-mrak", "correct horse battery staple"))
             org.junit.Assert.assertEquals(p, 4, WifiTools.checkPassword(p).score)
     }
     @org.junit.Test fun ownSuggestionsAreNeverFlaggedWeak() {

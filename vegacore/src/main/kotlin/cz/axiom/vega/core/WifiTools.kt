@@ -30,14 +30,30 @@ object WifiTools {
 
     /** Lokální hodnocení hesla s JEDNOU konkrétní větou proč. Nezkouší se přihlášení, jen rozbor textu. */
     fun checkPassword(pw: String, ssid: String? = null): Check {
+        val c = check0(pw, ssid)
+        // mezera na začátku / konci je platný znak hesla – často ale omylem (zkopírováno s mezerou) → upozornit
+        return if (pw.isNotEmpty() && pw != pw.trim() && pw.trim().isNotEmpty()) c.copy(reason = c.reason + " Pozor: na začátku nebo na konci je mezera – je opravdu součástí hesla?") else c
+    }
+    private val BASE_WORDS = setOf("password", "passwort", "heslo", "admin", "qwerty", "qwertz", "iloveyou", "welcome", "letmein", "internet", "wifi", "sunshine", "monkey",
+        "dragon", "master", "football", "princess", "superman", "batman", "pokemon", "minecraft", "abc", "test", "router", "domov", "doma", "praha", "brno", "ahoj", "lasko", "miluju")
+    /** „P@ssw0rd“ → „password“ (záměna znaků, kterou slovníky hesel zkoušejí automaticky). */
+    private fun unleet(s: String) = s.lowercase().map { when (it) { '@', '4' -> 'a'; '0' -> 'o'; '1', '!' -> 'i'; '3' -> 'e'; '$', '5' -> 's'; '7' -> 't'; else -> it } }.joinToString("")
+    private fun check0(pw: String, ssid: String?): Check {
         val p = pw.trim()
         val low = p.lowercase()
         fun r(level: String, reason: String, score: Int) = Check(score, level, reason)
         if (p.length < 8) return r("slabé", "WiFi (WPA2) vyžaduje aspoň 8 znaků – tohle má ${p.length}.", 0)
+        // WPA2/WPA3: přístupová fráze 8–63 znaků, jen tisknutelné ASCII – delší nebo s diakritikou router nepřijme / zařízení zadá jinak
+        if (pw.length > 63) return r("nepoužitelné", "WiFi heslo může mít nejvýš 63 znaků – tohle má ${pw.length}, router ho nepřijme. Zkrať ho.", 0)
+        if (pw.any { it !in ' '..'~' }) return r("riskantní", "Heslo obsahuje znaky mimo základní sadu (diakritika jako „ž“, „ů“, emoji…) – řada routerů, televizí a tiskáren je nepřijme. Použij písmena bez diakritiky, číslice a symboly.", 1)
         if (ssid != null && ssid.isNotBlank() && low.contains(ssid.lowercase()) && ssid.length >= 3)
             return r("slabé", "Heslo obsahuje název sítě „$ssid“ – to útočník zkusí mezi prvními.", 0)
         if (low in COMMON || COMMON.any { low == it }) return r("slabé", "Je to jedno z nejčastějších hesel ze slovníků – prolomí se okamžitě.", 0)
         if (p.all { it == p[0] }) return r("slabé", "Celé heslo je jeden opakovaný znak.", 0)
+        // běžné slovo (i „P@ssw0rd“) s číslem / znakem na konci: „Password123!“, „Heslo2024“ – slovníky zkoušejí jako první
+        unleet(low.trimEnd { it.isDigit() || it in "!?.#*@\$_-" }.trimStart { it.isDigit() }).let { core -> if (core in BASE_WORDS || COMMON.contains(core))
+            return r("slabé", "Je to běžné slovo ze slovníků hesel („$core“) s čísly nebo znakem navíc – útočník takové varianty zkouší mezi prvními.", 0) }
+        if (Regex("^(.{2,6})\\1+$").matches(low)) return r("slabé", "Heslo je jeden krátký úsek několikrát za sebou – opakování skoro nepřidá sílu.", 1)
         if (isSequential(low)) return r("slabé", "Je to souvislá řada znaků (např. „abcdefgh“ nebo „12345678“) – snadno uhodnutelné.", 0)
         if (isKeyboardWalk(low)) return r("slabé", "Je to tah po klávesnici (např. „qwertz“, „1qaz2wsx“) – takové řady jsou ve slovnících hesel mezi prvními.", 0)
         // jméno / slovo + rok („Monika1990“, „Praha2024!“) – jeden z prvních vzorů, které útočník zkouší
@@ -81,7 +97,7 @@ object WifiTools {
         return up >= s.length - 2 || down >= s.length - 2
     }
 
-    private const val WORDS = "jablko,mesic,reka,hora,kniha,kolo,strom,kveten,kamen,vlak,more,pole,hvezda,lampa,klic,most,zahrada,oblak,prsten,duha,kotva,maják,sova,liska,bobr,delfin,orel,tygr,panda,jezek"
+    private const val WORDS = "jablko,mesic,reka,hora,kniha,kolo,strom,kveten,kamen,vlak,more,pole,hvezda,lampa,klic,most,zahrada,oblak,prsten,duha,kotva,majak,sova,liska,bobr,delfin,orel,tygr,panda,jezek"
 
     /** Náhodná přístupová fráze: 4 česká slova bez diakritiky + číslo + symbol (dobře se opisuje, přitom silná). */
     fun passphrase(rnd: java.util.Random = java.security.SecureRandom()): String {
