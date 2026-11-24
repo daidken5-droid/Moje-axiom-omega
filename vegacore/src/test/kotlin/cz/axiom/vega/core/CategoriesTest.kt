@@ -179,3 +179,12 @@ class StatementNoHijackTest {
         listOf("kolik jsem utratil za hypotéku", "kolik jsem utratil v říjnu 2026", "kolik mi přišlo v listopadu 2026", "jaké mám pravidelné platby?").forEach { org.junit.Assert.assertNotNull(it, Statement.spendQuery(t, it)) }
     }
 }
+
+/** Den 24. 11., kolo 28: obecné otázky na mzdy / příjmy / bilanci (ne osobní) si nepřivlastní výpis. */
+class StatementPersonalTest {
+    private val t = Statement.process("Datum;Částka;Popis\n03.10.2026;-259,00;NETFLIX.COM\n20.11.2026;30 000,00;Mzda\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    @Test fun onlyPersonal() {
+        listOf("kolik je minimální mzda 2026", "kolik je průměrná mzda v Česku", "jaké jsou příjmy státního rozpočtu", "jaká je bilance obchodu ČR").forEach { org.junit.Assert.assertNull(it, Statement.spendQuery(t, it)) }
+        listOf("kolik mi přišlo", "jaké mám příjmy", "kolik jsem ušetřil", "jsem v plusu?", "kolik nám přišlo na účet").forEach { org.junit.Assert.assertNotNull(it, Statement.spendQuery(t, it)) }
+    }
+}

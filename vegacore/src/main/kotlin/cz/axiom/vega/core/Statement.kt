@@ -351,8 +351,10 @@ object Statement {
         // výpočet / hypotéza, ne dotaz na výpis: „kolik BYCH platil za hypotéku 3 mil.“, „kdybych utratil 500 Kč denně“, „kolik zbylo z 30 000 po 12 500“
         // (podmiňovací / budoucí tvar nebo vlastní čísla v otázce – letopočet „v říjnu 2026“ se nepočítá) → kalkulačka / model
         if (Regex("\\b(bych|bys|by|bysme|bychom|kdyby\\w*|budu|bude|budes|budeme|budou)\\b").containsMatchIn(q) || Regex("\\d").containsMatchIn(q.replace(Regex("\\b(19|20)\\d{2}\\b"), ""))) return null
-        val incomeQ = Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
-        val saldoQ = Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
+        // příjmy / úspora z VÝPISU jen u osobní otázky („kolik MI přišlo“, „jaké MÁM příjmy“, „kolik JSEM ušetřil“) – „minimální mzda“, „příjmy státního rozpočtu“, „bilance obchodu ČR“ nejsou dotaz na výpis
+        val personal = Regex("\\b(mi|mne|me|jsem|jsme|jsi|mam|mame|muj|moje|moji|meho|nam|nas|nase|nasi)\\b").containsMatchIn(q)
+        val incomeQ = personal && Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
+        val saldoQ = personal && Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
         // „kolik stojí…“ (přítomný čas) je otázka na cenu, ne na výpis
         val biggestQ = Regex("nejvetsi (platb|jednotliv|castk)|nejdrazsi (platb|nakup|vec)|co jsem (nejvic|nejvice) (zaplatil|utratil|platil)").containsMatchIn(q)
         if (!incomeQ && !saldoQ && !biggestQ && !Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
