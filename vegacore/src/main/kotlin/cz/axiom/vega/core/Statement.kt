@@ -247,14 +247,28 @@ object Statement {
      */
     fun fromPdfText(text: String): PdfConversion? {
         val num = "[-−+]?\\(?\\d{1,3}(?:[ \u00a0.]\\d{3})*(?:,\\d{2})\\)?(?:\\s*(?:CZK|Kč|EUR|€))?(?:\\s*(?:CR|DR))?"
-        val rx = Regex("^\\s*(\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?(?:\\d{4}|\\d{2}))\\s+(.*?)\\s+($num)(?:\\s+($num))?\\s*$")
-        data class L(val date: String, val desc: String, val a: Double, val b: Double?, val signed: Boolean)
-        val ls = text.lines().mapNotNull { line -> rx.find(line)?.let { m ->
-            val d = CzNum.date(m.groupValues[1]) ?: return@let null
-            val a = CzNum.parse(m.groupValues[3]) ?: return@let null
+        // datum i bez roku („02.11.“) – rok ze záhlaví výpisu („Období 01.11.2026 – 30.11.2026“), jinak žádný převod
+        val rx = Regex("^\\s*(\\d{1,2}\\.\\s?\\d{1,2}\\.(?:\\s?(?:\\d{4}|\\d{2}))?)\\s+(.*?)\\s+($num)(?:\\s+($num))?\\s*$")
+        val year = Regex("(?<!\\d)(20\\d{2})(?!\\d)").find(text)?.groupValues?.get(1)
+        data class L(val date: String, var desc: String, val a: Double, val b: Double?, val signed: Boolean)
+        val ls = ArrayList<L>()
+        for (line in text.lines()) {
+            val m = rx.find(line)
+            if (m == null) {
+                // pokračování popisu na dalším řádku (bez data a bez částky) – připojit k poslednímu pohybu
+                val t = line.trim()
+                if (ls.isNotEmpty() && t.length in 2..80 && !Regex("\\d{1,2}\\.\\s?\\d{1,2}\\.").containsMatchIn(t) && !Regex("(?i)strana|celkem|zůstatek|zustatek|obrat|součet|soucet|period|období|obdobi").containsMatchIn(t)
+                    && !Regex("\\d{1,3}(?:[ .]\\d{3})*,\\d{2}").containsMatchIn(t)) ls.last().desc = (ls.last().desc + " " + t).take(300)
+                continue
+            }
+            val raw = m.groupValues[1].trim()
+            val ds = if (!raw.endsWith(".")) raw else if (year != null) raw + year else continue
+            val d = CzNum.date(ds) ?: continue
+            val a = CzNum.parse(m.groupValues[3]) ?: continue
             val b = m.groupValues[4].takeIf { it.isNotBlank() }?.let { CzNum.parse(it) }
             val desc = m.groupValues[2].replace(Regex("\\s+"), " ").trim()
-            L(d, desc, a, b, Regex("^[-−+(]|CR|DR").containsMatchIn(m.groupValues[3].trim()) || m.groupValues[3].trim().endsWith("-")) } }
+            ls += L(d, desc, a, b, Regex("^[-−+(]|CR|DR").containsMatchIn(m.groupValues[3].trim()) || m.groupValues[3].trim().endsWith("-"))
+        }
         if (ls.size < 2) return null
         val notes = ArrayList<String>()
         // dvě čísla na konci: [pohyb, zůstatek] – ověřit návaznost zůstatků (bal[i] = bal[i-1] + pohyb[i])
