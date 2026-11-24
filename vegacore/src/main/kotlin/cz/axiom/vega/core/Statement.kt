@@ -237,6 +237,50 @@ object Statement {
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
     }
 
+    /** Výpis z PDF převedený na CSV „Datum;Částka;Popis“ (+ poznámky); null = v textu nejsou rozpoznatelné pohyby. */
+    data class PdfConversion(val csv: String, val rows: Int, val notes: List<String>)
+
+    /**
+     * PDF výpis (text z PdfBox, řazený podle pozice): řádek = datum na začátku … částka na konci. Když řádek končí DVĚMA
+     * čísly (pohyb a průběžný zůstatek), rozhodne návaznost zůstatků – bez ní by se jako částka sečetl zůstatek.
+     * Částky bez znaménka a bez návaznosti → nevím, co je příjem a výdaj → null (raději nic než špatně).
+     */
+    fun fromPdfText(text: String): PdfConversion? {
+        val num = "[-−+]?\\(?\\d{1,3}(?:[ \u00a0.]\\d{3})*(?:,\\d{2})\\)?(?:\\s*(?:CZK|Kč|EUR|€))?(?:\\s*(?:CR|DR))?"
+        val rx = Regex("^\\s*(\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?(?:\\d{4}|\\d{2}))\\s+(.*?)\\s+($num)(?:\\s+($num))?\\s*$")
+        data class L(val date: String, val desc: String, val a: Double, val b: Double?, val signed: Boolean)
+        val ls = text.lines().mapNotNull { line -> rx.find(line)?.let { m ->
+            val d = CzNum.date(m.groupValues[1]) ?: return@let null
+            val a = CzNum.parse(m.groupValues[3]) ?: return@let null
+            val b = m.groupValues[4].takeIf { it.isNotBlank() }?.let { CzNum.parse(it) }
+            val desc = m.groupValues[2].replace(Regex("\\s+"), " ").trim()
+            L(d, desc, a, b, Regex("^[-−+(]|CR|DR").containsMatchIn(m.groupValues[3].trim()) || m.groupValues[3].trim().endsWith("-")) } }
+        if (ls.size < 2) return null
+        val notes = ArrayList<String>()
+        // dvě čísla na konci: [pohyb, zůstatek] – ověřit návaznost zůstatků (bal[i] = bal[i-1] + pohyb[i])
+        val withBal = ls.count { it.b != null } >= ls.size * 0.8
+        val amounts: List<Double> = if (withBal) {
+            val pairs = ls.filter { it.b != null }
+            val ok = (1 until pairs.size).count { i -> kotlin.math.abs(pairs[i - 1].b!! + pairs[i].a - pairs[i].b!!) < 0.011 }
+            if (pairs.size >= 3 && ok < (pairs.size - 1) * 0.8) {
+                // možná je pořadí obrácené (zůstatek, pohyb) nebo jsou pohyby bez znaménka – zkusit znaménko z rozdílu zůstatků
+                val diffs = (1 until pairs.size).map { i -> pairs[i].b!! - pairs[i - 1].b!! }
+                val unsignedMatch = (1 until pairs.size).count { i -> kotlin.math.abs(kotlin.math.abs(diffs[i - 1]) - kotlin.math.abs(pairs[i].a)) < 0.011 }
+                if (unsignedMatch < (pairs.size - 1) * 0.8) return null
+                notes += "Znaménko pohybů jsem určil z průběžného zůstatku (výpis píše částky bez +/−)."
+                listOf(if (pairs[0].signed) pairs[0].a else return null) + diffs
+            } else { notes += "Kontrola proti zůstatku v PDF: ${ok}/${pairs.size - 1} návazností sedí ✓"; pairs.map { it.a } }
+        } else {
+            if (ls.none { it.signed || it.a < 0 }) return null // samé kladné částky bez znaménka a bez zůstatku → nevím, co je výdaj
+            ls.map { it.a }
+        }
+        val src = if (withBal) ls.filter { it.b != null } else ls
+        fun q(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
+        val csv = "Datum;Částka;Popis\n" + src.mapIndexed { i, l -> "${l.date};${String.format(java.util.Locale.ROOT, "%.2f", amounts[i])};${q(l.desc)}" }.joinToString("\n")
+        notes += "Převedeno z PDF (${src.size} pohybů) – PDF nemá pevnou strukturu, zkontroluj prosím pár řádků proti výpisu."
+        return PdfConversion(csv, src.size, notes)
+    }
+
     /**
      * Pohyby, které jsou ve VÍCE souborech zároveň (překrývající se exporty: 1.–15. a 10.–30.) – stejné datum, částka a popis.
      * Vrací (počet zdvojených pohybů, jejich součet) – stejná platba dvakrát v JEDNOM souboru se nepočítá (dvě kávy jsou dvě kávy).

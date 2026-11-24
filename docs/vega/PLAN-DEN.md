@@ -230,3 +230,5 @@ SHA-256 `d353415b8253446a527244f70d01c320576781a2d022d41db813a56d5ed5cda4` (shod
 
 **NEOVĚŘENO na telefonu:** hlavička pod stavovým řádkem (oprava z noci), velké písmo (PHONE-CHECKLIST #24), „Pokračovat“ u starší zprávy,
 zrušení čtení NFC, TalkBack; dál všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
+
+## Den 24. 11. 2026 (úterý) – oblasti: dopoledne výpisy z banky, CSV, PDF, přílohy, export; odpoledne UI (audit 360 px, robust, xss, toky)

@@ -933,7 +933,10 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Ukázka prvního spuštění: soubor → rozpoznání → upozornění → parser → ověření na vzorku → nabídka postupu. */
     private fun buildStatementTool(chat: String?) {
-        val att = lastAttachment() ?: run { reply(chat, "Pošli mi soubor s výpisem (CSV z banky nebo účetnictví) – tlačítko 📎. Pak z něj udělám nástroj."); return }
+        val att0 = lastAttachment() ?: run { reply(chat, "Pošli mi soubor s výpisem (CSV z banky nebo účetnictví) – tlačítko 📎. Pak z něj udělám nástroj."); return }
+        // PDF výpis: text z PdfBox → řádky „datum … částka (zůstatek)“ → CSV; nejistý převod (bez znaménka i zůstatku) se nepoužije
+        val pdf = if (!isTextual(att0) && att0.name.endsWith(".pdf", true)) runCatching { Statement.fromPdfText(fileTextHook?.invoke(att0) ?: files.read(att0.name, att0.mime, att0.bytes).text) }.getOrNull() else null
+        val att = pdf?.let { Value.Bytes(att0.name.substringBeforeLast('.') + "-z-pdf.csv", it.csv.toByteArray(), "text/csv") } ?: att0
         if (!isTextual(att)) { reply(chat, "Výpis „${att.name}“ je ${att.name.substringAfterLast('.', "soubor").uppercase()} – ten spočítat neumím přesně. V internetovém bankovnictví si stáhni **export do CSV**:\n" +
             "• **Česká spořitelna (George):** Pohyby → ⋯ → Exportovat → CSV\n• **ČSOB:** Historie transakcí → Export → CSV\n• **Fio:** Pohyby na účtu → Export → CSV\n• **KB:** Historie plateb → Export → CSV\n• **Air Bank / Raiffeisen:** Historie → Stáhnout → CSV\n" +
             "Pak mi CSV pošli přes 📎. (Obsah PDF ti můžu shrnout – napiš „shrň mi to“.)"); return }
@@ -946,13 +949,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         lastResultRun = r.id
         val msg = buildString {
             append("**Formát:** oddělovač „${spec.delimiter}“, sloupce ").append(d.headers.joinToString(", ")).append(".\n")
+            pdf?.notes?.forEach { append("📄 ").append(it).append('\n') }
             d.warnings.forEach { append("⚠ ").append(it).append('\n') }
             append(ver).append(if (ok) " ✓" else " – parser zatím neukládej").append('\n')
             Statement.reconcileText(text, spec)?.let { append(it).append('\n') }
             append((r.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "")
         }
         val card = runCard(r)
-        if (ok) card.put("save", JSONObject().put("name", "Zpracovat výpis").put("description", "Export z banky → tabulka pohybů a měsíční součty")
+        // postup se ukládá jen pro CSV (uložený parser by u dalšího PDF dostal surové PDF, ne převedený text)
+        if (ok && pdf == null) card.put("save", JSONObject().put("name", "Zpracovat výpis").put("description", "Export z banky → tabulka pohybů a měsíční součty")
             .put("inputKind", "BYTES").put("inputDesc", "CSV export (oddělovač ${spec.delimiter}, ${if (spec.decimalComma) "desetinná čárka" else "desetinná tečka"})").put("outputKind", "TABLE")
             .put("steps", JSONArray().apply { steps.forEach { s -> put(JSONObject().put("tool", s.tool).put("params", JSONObject(s.params))) } }))
         reply(chat, msg, card)
@@ -1764,6 +1769,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     data class NewsResult(val ok: Boolean, val text: String, val chat: String?)
     /** Stažení zdroje (test ho nahradí). Jen https, veřejná síť, max 2 MB, 10 s čtení. */
+    /** Test: text ze souboru (PDF) bez PdfBox – v JVM testech chybí fonty knihovny. V aplikaci null. */
+    @Volatile var fileTextHook: ((Value.Bytes) -> String)? = null
     @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
 
     private fun newsKey(day: java.time.LocalDate) = "news/$day.json"
