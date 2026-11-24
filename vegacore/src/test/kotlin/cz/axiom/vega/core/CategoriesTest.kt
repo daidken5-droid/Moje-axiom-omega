@@ -75,3 +75,22 @@ class RecurringTest {
         assertTrue(Statement.recurring(Statement.process("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n", Statement.detect("Datum;Částka;Popis\n01.11.2026;-100,00;Netflix\n").spec!!).table).notes[0].contains("aspoň 2 měsíce"))
     }
 }
+
+/** Den 24. 11., kolo 10: dotaz na měsíc („v říjnu“, „minulý měsíc“) a celkový součet („kolik jsem celkem utratil“) bez modelu. */
+class SpendMonthTest {
+    private val t = Statement.process("Datum;Částka;Popis\n02.10.2026;-1 000,00;Albert\n15.10.2026;-500,00;Shell\n20.10.2026;30 000,00;Mzda\n" +
+        "02.11.2026;-200,00;Lidl\n05.11.2026;-12 500,00;Nájem byt\n20.11.2026;31 000,00;Mzda\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    private fun a(q: String) = Statement.spendQuery(t, q)?.replace('\u00a0', ' ')?.replace('\u202f', ' ') ?: "null"
+    @Test fun monthAndTotal() {
+        a("Kolik jsem celkem utratil?").let { assertTrue(it, it.contains("**−14 200,00 Kč**") && it.contains("4 platby") && it.contains("saldo 46 800,00")) }
+        a("kolik jsem utratil v říjnu").let { assertTrue(it, it.contains("říjen 2026") && it.contains("**−1 500,00 Kč**") && it.contains("2 platby")) }
+        a("kolik jsem utratil za listopad?").let { assertTrue(it, it.contains("listopad 2026") && it.contains("**−12 700,00 Kč**")) }
+        a("kolik jsem v říjnu utratil za jídlo").let { assertTrue(it, it.contains("říjen 2026") && it.contains("**−1 000,00 Kč**") && !it.contains("200,00")) }
+        a("kolik jsem utratil minulý měsíc").let { assertTrue(it, it.contains("říjen 2026") && it.contains("−1 500,00")) }
+        a("kolik jsem tento měsíc utratil").let { assertTrue(it, it.contains("listopad 2026") && it.contains("−12 700,00")) }
+        a("kolik jsem utratil v březnu").let { assertTrue(it, it.contains("březen") && it.contains("nejsou") && it.contains("říjen 2026")) }
+        // červen × červenec se nepletou; neznámá věc zůstává modelu
+        assertTrue(a("kolik jsem utratil v červenci").contains("červenec"))
+        org.junit.Assert.assertEquals("null", a("kolik jsem utratil za ponožky"))
+    }
+}

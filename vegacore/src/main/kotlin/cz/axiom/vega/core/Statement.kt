@@ -337,17 +337,45 @@ object Statement {
             return if (r.rows.isEmpty()) r.notes.first() else "**Pravidelné platby** (" + r.rows.size + "):\n" + r.rows.joinToString("\n") { "• ${it[0]} – ${it[1]} Kč měsíčně (${it[2]} Kč ročně)" } + "\n_${r.notes.first()}_"
         }
         if (!Regex("utrat|utraci|utracim|utracel|stal[oa]?|stoji|stalo|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
-        val cats = categories(t)
+        // měsíc v dotazu („v říjnu“, „za listopad“, „minulý / tento měsíc“) → jen pohyby toho měsíce (data v tabulce jsou ISO rrrr-mm-dd)
+        val months = t.rows.mapNotNull { r -> r.getOrNull(0)?.takeIf { Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(it) }?.take(7) }.distinct().sorted()
+        val mi = MONTH_RX.indexOfFirst { it.containsMatchIn(q) }
+        val ym: String? = when {
+            mi >= 0 -> months.lastOrNull { it.endsWith("-%02d".format(mi + 1)) } ?: "?-%02d".format(mi + 1)
+            Regex("(tento|tenhle|letosni|tomto|tomhle) mesic|tento mesic|tomto mesici|tenhle mesic").containsMatchIn(q) -> months.lastOrNull()
+            Regex("minul(y|em|ej) mesic|minulem mesici|predchozi mesic").containsMatchIn(q) -> months.dropLast(1).lastOrNull() ?: months.lastOrNull()?.let { java.time.YearMonth.parse(it).minusMonths(1).toString() }
+            else -> null }
+        fun label(m: String) = m.substringAfter('-').toInt().let { MONTH_NAMES[it - 1] } + (m.substringBefore('-').takeIf { it != "?" }?.let { " $it" } ?: "")
+        val tt = if (ym == null) t else t.copy(rows = t.rows.filter { it.getOrNull(0)?.startsWith(ym) == true })
+        val per = if (ym == null) "" else " za ${label(ym)}"
+        if (ym != null && tt.rows.isEmpty()) return "Ve výpisu nejsou žádné pohyby za ${label(ym)}. Výpis má: ${months.joinToString(", ") { label(it) }.ifEmpty { "–" }}."
+        fun plat(n: Int) = "$n ${if (n == 1) "platba" else if (n in 2..4) "platby" else "plateb"}"
+        val cats = categories(tt)
         if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
-            return "Nejvíc utrácíš za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"
-        val word = Regex("\\bza\\s+(.+)$").find(q)?.groupValues?.get(1) ?: q
-        val want = SPEND_WORDS.filter { it.first.containsMatchIn(word) }.flatMap { it.second }.distinct().takeIf { it.isNotEmpty() } ?: return null
+            return "Nejvíc utrácíš$per za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"
+        val stripped = MONTH_RX.fold(q) { acc, rx -> rx.replace(acc, " ") }.replace(Regex("(minul\\w*|predchozi|tento|tenhle|tomto|tomhle|letosni)\\s+mesic\\w*"), " ")
+        val after = Regex("\\bza\\s+(.+)$").find(stripped)?.groupValues?.get(1)?.trim()?.takeIf { a -> a.any { it.isLetter() } }
+        val word = after ?: stripped
+        val want = SPEND_WORDS.filter { it.first.containsMatchIn(word) }.flatMap { it.second }.distinct()
+        if (want.isEmpty()) {
+            // „kolik jsem (celkem) utratil (v říjnu)?“ → všechny výdaje; „za ponožky“ (neznámá věc) → null, rozhodne model
+            if (!after.isNullOrBlank() && !Regex("^(celkem|dohromady|vsechno|vse|ten mesic|mesic|obdobi|to)\\W*$").matches(after)) return null
+            val ai = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
+            val am = tt.rows.mapNotNull { it.getOrNull(ai)?.let { v -> CzNum.parse(v, false) } }
+            val ex = am.filter { it < 0 }; val inc = am.filter { it > 0 }.sum()
+            return "Celkem jsi$per utratil **${CzNum.format(ex.sum())} Kč** (${plat(ex.size)}); příjmy ${CzNum.format(inc)} Kč, saldo ${CzNum.format(inc + ex.sum())} Kč." +
+                (cats.rows.firstOrNull()?.let { "\nNejvíc: ${it[0].lowercase()} ${it[1]} Kč (${it[3]})." } ?: "") + "\n_Spočítáno z tabulky výpisu, bez modelu._"
+        }
         val hit = cats.rows.filter { it[0] in want }
-        if (hit.isEmpty()) return "Ve výpisu jsem v kategorii ${want.joinToString(" ani ") { "„$it“" }} nenašel žádnou platbu. (Kategorie určuji podle obchodníka v popisu – co nepoznám, je v „Ostatní“.)"
+        if (hit.isEmpty()) return "Ve výpisu$per jsem v kategorii ${want.joinToString(" ani ") { "„$it“" }} nenašel žádnou platbu. (Kategorie určuji podle obchodníka v popisu – co nepoznám, je v „Ostatní“.)"
         val sum = hit.sumOf { CzNum.parse(it[1], false) ?: 0.0 }; val n = hit.sumOf { it[2].toInt() }
-        return "Za ${want.joinToString(" a ") { it.lowercase() }} jsi utratil **${CzNum.format(sum)} Kč** ($n ${if (n == 1) "platba" else if (n in 2..4) "platby" else "plateb"}" +
+        return "Za ${want.joinToString(" a ") { it.lowercase() }}$per jsi utratil **${CzNum.format(sum)} Kč** (${plat(n)}" +
             (if (hit.size > 1) ": " + hit.joinToString(", ") { "${it[0].lowercase()} ${it[1]} Kč" } else "") + ").\n_Podle obchodníka v popisu, bez modelu – část plateb může být v „Ostatní“._"
     }
+    private val MONTH_NAMES = listOf("leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec")
+    /** Český název měsíce ve všech pádech (bez diakritiky); červen × červenec rozlišeny celým tvarem. */
+    private val MONTH_RX = listOf("led(en|na|nu|nem)", "unor(a|u|em)?", "brez(en|na|nu|nem)", "dub(en|na|nu|nem)", "kvet(en|na|nu|nem)", "cerv(en|na|nu|nem)",
+        "cervene?c(e|i|em)?", "srp(en|na|nu|nem)", "zari", "rij(en|na|nu|nem)", "listopad(u|em)?", "prosin(ec|ce|ci|cem)").map { Regex("\\b$it\\b") }
 
     /**
      * Výpis z Excelu (řádky prvního listu) → CSV se středníkem. Sloupce s datem (hlavička „datum/date/splatnost…“) nesou
