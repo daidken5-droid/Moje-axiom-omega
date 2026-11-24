@@ -293,6 +293,9 @@ function chips() {
   if (f) {
     const ext = (f.name.split('.').pop() || '').toLowerCase();
     const proc = procs().find(p => p.inputKind === 'BYTES');
+    // výpis z banky v PDF / Excelu podle názvu → zpracovat bez modelu (ne „Shrnout“, které by šlo do modelu)
+    const stmt = /v[yý]pis|statement|pohyb|transakc|[uú][cč]et|bank|export|historie/i.test(f.name);
+    if (stmt && ['pdf', 'xlsx'].includes(ext)) return [{ t: 'Zpracovat výpis', a: 'say:Zpracuj výpis z banky.', sig: true }, { t: 'Přečíst text', a: 'tool:file.text' }];
     if (['csv', 'tsv'].includes(ext)) return [...(proc ? [{ t: proc.name, a: 'proc:' + proc.id, sig: true }] : [{ t: 'Zpracovat výpis', a: 'say:Udělej z toho nástroj, který každý týden použiju na výpis.', sig: true }]), { t: 'Najít chyby', a: 'tool:csv.inspect' }];
     if (['log', 'txt'].includes(ext)) return [{ t: 'Rozbor pádu', a: 'tool:log.crash', sig: true }, { t: 'Shrnout', a: 'say:Shrň mi, co je v souboru.' }];
     if (ext === 'json') return [{ t: 'Prozkoumat', a: 'tool:json.inspect', sig: true }];
@@ -300,8 +303,13 @@ function chips() {
     return [];
   }
   if (S.space.kind === 'project' && !msgsCount) return [{ t: 'Testy, změny a návrat', a: 'panel' }];
-  if (S.lastCard && S.lastCard.save && !S.savedRuns.has(S.lastCard.run)) return [{ t: 'Uložit jako nástroj', a: 'saveLast', sig: true }];
-  return [];
+  const out = [];
+  if (S.lastCard && S.lastCard.save && !S.savedRuns.has(S.lastCard.run)) out.push({ t: 'Uložit jako nástroj', a: 'saveLast', sig: true });
+  // po zpracovaném výpisu (souhrn Příjmy / Výdaje): doplňující dotazy, které VEGA spočítá z tabulky bez modelu
+  const hd = (S.lastCard && S.lastCard.value && S.lastCard.value.headers) || [];
+  if (hd.includes('Příjmy') && hd.includes('Výdaje'))
+    out.push({ t: 'Za co utrácím nejvíc?', a: 'say:Za co utrácím nejvíc?' }, { t: 'Pravidelné platby', a: 'say:Jaké mám pravidelné platby?' }, { t: 'Uložit pohyby do Excelu', a: 'say:Ulož pohyby do Excelu.' });
+  return out.slice(0, 3);
 }
 function renderChips() {
   $('#chips').innerHTML = chips().map(c => `<button class="chip ${c.sig ? 'sig' : ''}" data-act="chip" data-v="${esc(c.a)}">${esc(c.t)}</button>`).join('');

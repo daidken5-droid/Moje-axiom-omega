@@ -74,4 +74,15 @@ mock.chats=[];run("drawer()");assert.ok(!/data-tab="projects"/.test(field('#laye
 mock.newsExact={exact:false};const nh=run("newsSettingsHtml({enabled:true,sources:[{id:'novinky',name:'Novinky.cz',on:true},{id:'ct24',name:'ČT24',on:false}],last:'3 témat: <b>x</b>'})");
 assert.ok(/data-news-src="novinky" checked/.test(nh)&&/data-news-src="ct24" >/.test(nh)&&/data-act="newsNow"/.test(nh)&&/data-act="newsExact"/.test(nh)&&/&lt;b&gt;/.test(nh));
 assert.ok(!/data-news-src/.test(run("newsSettingsHtml({enabled:false})")),'vypnuto = jen přepínač');
-console.log('33 UI logic scenarios passed.');
+// den 24. 11., kolo 17: výpis v PDF/Excelu → první návrh „Zpracovat výpis“ (ne „Shrnout“ do modelu); po výpisu návrhy dotazů bez modelu
+run("S.tool=null; S.busy=false; S.space={kind:'chat',id:'s1'}");mock.procedures=[];
+run("S.files=[{id:'f',name:'vypis-listopad.pdf'}]");assert.equal(run("chips()[0].t"),'Zpracovat výpis');
+run("S.files=[{id:'f',name:'Pohyby_na_uctu.xlsx'}]");assert.equal(run("chips()[0].t"),'Zpracovat výpis');
+run("S.files=[{id:'f',name:'smlouva.pdf'}]");assert.equal(run("chips()[0].t"),'Shrnout');
+run("S.files=[]; S.savedRuns=new Set(); S.lastCard={type:'run',run:'r1',value:{kind:'TABLE',headers:['Měsíc','Příjmy','Výdaje','Saldo','Pohybů'],rows:[]}}");
+const sc=run("chips()");assert.equal(JSON.stringify(sc.map(c=>c.t)),JSON.stringify(['Za co utrácím nejvíc?','Pravidelné platby','Uložit pohyby do Excelu']));
+assert.ok(sc.every(c=>/^say:/.test(c.a)));
+run("S.lastCard={type:'run',run:'r2',save:{x:1},value:{kind:'TABLE',headers:['Měsíc','Příjmy','Výdaje','Saldo','Pohybů'],rows:[]}}");
+assert.equal(JSON.stringify(run("chips()").map(c=>c.t)),JSON.stringify(['Uložit jako nástroj','Za co utrácím nejvíc?','Pravidelné platby']));
+run("S.lastCard={type:'run',run:'r3',value:{kind:'TABLE',headers:['A','B'],rows:[]}}");assert.equal(run("chips().length"),0);
+console.log('34 UI logic scenarios passed.');
