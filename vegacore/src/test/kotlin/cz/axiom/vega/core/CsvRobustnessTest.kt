@@ -20,3 +20,19 @@ class CsvRobustnessTest { @Test fun structureAndEncodings() {
     val w1250 = base.toByteArray(charset("windows-1250")); val u16 = ("﻿" + base).toByteArray(Charsets.UTF_16LE)
     listOf("cp1250" to w1250, "utf16le" to u16, "utf16le-nobom" to base.toByteArray(Charsets.UTF_16LE), "utf16be" to ("\uFEFF" + base).toByteArray(Charsets.UTF_16BE), "utf16be-nobom" to base.toByteArray(Charsets.UTF_16BE)).forEach { (k, b) -> val t = Encoding.decode(b); org.junit.Assert.assertEquals(k, base, t.removePrefix("\uFEFF")) }
 } }
+
+/** Den 24. 11., kolo 20: export do Excelu – popis platby z cizího výpisu nesmí být vzorec (=HYPERLINK, +, @, -cmd); čísla zůstanou čísly. */
+class CsvFormulaInjectionTest { @Test fun formulasBecomeText() {
+    val t = Value.Table(listOf("Datum", "Částka", "Popis"), listOf(
+        listOf("2026-11-02", "-1250,50", "=HYPERLINK(\"http://zly.example\";\"Klikni\")"),
+        listOf("2026-11-03", "-12 500,00", "+420 777 123 456"),
+        listOf("2026-11-04", "30000,00", "@SUM(A1:A9)"),
+        listOf("2026-11-05", "-5,00", "-2+3+cmd|' /C calc'!A0"),
+        listOf("2026-11-06", "-7,00", "Platba = OK")))
+    val csv = Csv.write(t, ';', excel = true)
+    org.junit.Assert.assertTrue(csv, csv.contains("\"'=HYPERLINK(\"\"http://zly.example\"\";\"\"Klikni\"\")\"") && csv.contains(";'+420 777 123 456") && csv.contains(";'@SUM(A1:A9)") && csv.contains("'-2+3+cmd"))
+    // čísla a obyčejný text beze změny
+    org.junit.Assert.assertTrue(csv, csv.contains(";-1250,50;") && csv.contains(";-12 500,00;") && csv.contains(";-5,00;") && csv.contains(";Platba = OK"))
+    // bez excel=true (vnitřní text) se nic nemění
+    org.junit.Assert.assertTrue(Csv.write(t, ';').contains("\"=HYPERLINK"))
+} }

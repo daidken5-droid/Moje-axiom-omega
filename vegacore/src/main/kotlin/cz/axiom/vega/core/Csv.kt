@@ -75,8 +75,16 @@ object Csv {
         return Parsed(d, headers, body.map { it.second }, issues.distinctBy { it.line to it.message }, body.map { it.first })
     }
 
-    fun write(t: Value.Table, d: Char = ';'): String {
-        fun q(s: String) = if (s.any { it == d || it == '"' || it == '\n' || it == '\r' } || s != s.trim()) "\"" + s.replace("\"", "\"\"") + "\"" else s
+    /**
+     * Buňka pro Excel/Tabulky: text začínající „= + @“ (nebo „-“, když to není číslo) by se spustil jako VZOREC
+     * (=HYPERLINK, =WEBSERVICE… z popisu platby v cizím výpisu) → předsadit apostrof, Excel ho zobrazí jako text.
+     */
+    fun excelSafe(s: String): String = if (s.isNotEmpty() && (s[0] in "=+@\t\r" || (s[0] == '-' && !RX_NUM.matches(s)))) "'$s" else s
+    private val RX_NUM = Regex("^-[\\d \u00a0.,]+$")
+
+    fun write(t: Value.Table, d: Char = ';', excel: Boolean = false): String {
+        fun q(s0: String): String { val s = if (excel) excelSafe(s0) else s0
+            return if (s.any { it == d || it == '"' || it == '\n' || it == '\r' } || s != s.trim()) "\"" + s.replace("\"", "\"\"") + "\"" else s }
         return (listOf(t.headers) + t.rows).joinToString("\r\n") { r -> r.joinToString(d.toString()) { q(it) } } + "\r\n"
     }
 }

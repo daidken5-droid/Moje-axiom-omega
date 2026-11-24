@@ -110,7 +110,7 @@ object Tools {
             val d = p["delimiter"]?.firstOrNull() ?: ';'
             // český Excel (středník) čte desetinnou ČÁRKU – „-1250.50“ by byl text/datum a sloupec nejde sečíst
             val out = if (d == ';') t.copy(rows = t.rows.map { r -> r.map { c -> if (Regex("^-?\\d+\\.\\d+$").matches(c)) c.replace('.', ',') else c } }) else t
-            Value.Bytes(p["name"] ?: "export.csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + Csv.write(out, d).toByteArray(), "text/csv")
+            Value.Bytes(p["name"] ?: "export.csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + Csv.write(out, d, excel = true).toByteArray(), "text/csv")
         },
         ToolDef("table.filter", "Filtr tabulky", "Řádky podle podmínky (sloupec op hodnota).", setOf(Kind.TABLE), Kind.TABLE,
             params = listOf(Param("expr", "Podmínka", hint = "Částka < -1000")), group = "Data") { v, p, _ ->

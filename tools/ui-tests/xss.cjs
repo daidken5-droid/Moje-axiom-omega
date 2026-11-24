@@ -45,6 +45,16 @@ deep.id = P; deep.url = 'javascript:window.__xss="u"';
     await page.waitForTimeout(40);
     await check('karta ' + t);
   }
+  // den 24. 11., kolo 20: výpis z cizího souboru – popis platby v odpovědi, karta souhrnu, návrhy pod polem, název přílohy
+  await page.evaluate(([p]) => {
+    window.__msgs = [{ role: 'user', text: p }, { role: 'vega', text: 'U „' + p + '“ jsi utratil **−5,00 Kč** (1 platba).\n• −5,00 Kč – ' + p + '\n_Hledáno v popisu plateb, bez modelu._',
+      card: { type: 'run', run: p, name: p, value: { kind: 'TABLE', headers: ['Měsíc', 'Příjmy', 'Výdaje', 'Saldo', 'Pohybů', p], rows: [[p, p, p, p, p, p]], total: 1, notes: [p] } } }, { role: 'user', text: p }];
+    S.mc = null; S.busy = false; S.files = []; try { render(); } catch (x) { }
+  }, [P]).catch(() => { });
+  await page.waitForTimeout(40); await check('výpis + návrhy');
+  await page.evaluate(([p]) => { S.files = [{ id: p, name: 'vypis' + p + '.pdf' }, { id: 'x', name: p + '.xlsx' }]; try { renderChips(); } catch (x) { } }, [P]).catch(() => { });
+  await page.waitForTimeout(40); await check('příloha výpisu');
+  await page.evaluate(() => { S.files = []; });
   // názvy konverzací v menu
   await page.evaluate(([p]) => { S.chats = [{ id: p, title: p }]; try { openDrawer && openDrawer(); } catch (x) { } }, [P]).catch(() => { });
   await page.waitForTimeout(40); await check('menu');

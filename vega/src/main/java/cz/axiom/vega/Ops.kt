@@ -770,7 +770,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             // zobrazené částky „−1 250,50“ (minus U+2212, nezlomitelné mezery) → „-1250,50“, aby je Excel sečetl
             Regex("^[−-]?\\d{1,3}(?:[ \u00a0\u202f]\\d{3})*,\\d+$").matches(c) -> c.replace('−', '-').replace(Regex("[ \u00a0\u202f]"), "")
             else -> c } } }) else v
-        return byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d).toByteArray() }
+        return byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d, excel = true).toByteArray() }
 
     /** „ulož mi to do Excelu / pošli kategorie jako CSV“ po zpracovaném výpisu v tomto chatu → soubor bez modelu. */
     private fun exportFollowUp(chat: String?, tb: Value.Table, text: String): Boolean {
