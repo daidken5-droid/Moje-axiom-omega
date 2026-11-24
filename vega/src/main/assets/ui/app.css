@@ -94,9 +94,9 @@ tr:last-child td { border-bottom: 0; }
 
 /* ---------- spodek: návrhy + jeden vstup ---------- */
 .dock { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 4px 10px; scrollbar-width: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 4px 10px; } /* max 3 návrhy – zalomit, ať jsou všechny vidět (posouvání do strany laik neobjeví) */
 .chips::-webkit-scrollbar { display: none; }
-.chip { flex: none; padding: 9px 14px; border-radius: 999px; background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.chip { flex: none; max-width: 100%; padding: 9px 14px; border-radius: 999px; background: var(--sheet); box-shadow: var(--shadow); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip.sig { background: var(--signal-soft); color: var(--signal-ink); box-shadow: none; }
 .chip.sig { color: var(--signal2); }
 .files { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 6px 8px; }

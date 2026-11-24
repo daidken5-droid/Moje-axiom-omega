@@ -126,6 +126,9 @@ const SCREENS = [
         if (b.right > W + 1 && !scroller(el)) out.push(`přetéká (${Math.round(b.right)} > ${W}px): <${el.tagName.toLowerCase()} class="${el.className}"> „${(el.textContent || '').trim().slice(0, 40)}“`);
       }
       if (document.documentElement.scrollWidth > W + 1) out.push(`stránka je širší než displej: ${document.documentElement.scrollWidth}px`);
+      // návrhy pod polem: každý celý na displeji (laik posouvání do strany neobjeví – třetí návrh by zůstal schovaný)
+      for (const el of document.querySelectorAll('#chips .chip')) { if (!vis(el)) continue; const b = el.getBoundingClientRect();
+        if (b.right > W + 1 || b.left < -1) out.push(`návrh mimo displej (${Math.round(b.left)}–${Math.round(b.right)} px): „${el.textContent.trim().slice(0, 30)}“`); }
       // svislé posuvné plochy (chat, panel): obsah nesmí jít posouvat do strany (overflow-y:auto dělá i overflow-x:auto)
       for (const el of document.querySelectorAll('#stream, #layer .sheet')) {
         if (vis(el) && el.scrollWidth > el.clientWidth + 1) {
@@ -162,5 +165,5 @@ const SCREENS = [
   }
   await browser.close();
   console.log(`\n${SCREENS.length} obrazovek, ${problems.length} s nálezy.`);
-  process.exitCode = problems.some(([, a]) => a.some(x => x.startsWith('CHYBA JS') || x.startsWith('stránka je širší') || (FONT_SCALE !== 1 && x.includes('jde posouvat do strany')))) ? 1 : 0;
+  process.exitCode = problems.some(([, a]) => a.some(x => x.startsWith('CHYBA JS') || x.startsWith('návrh mimo displej') || x.startsWith('stránka je širší') || (FONT_SCALE !== 1 && x.includes('jde posouvat do strany')))) ? 1 : 0;
 })();
