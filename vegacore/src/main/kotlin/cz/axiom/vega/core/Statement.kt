@@ -399,8 +399,11 @@ object Statement {
             }
         }
         val cats = categories(tt)
-        if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
+        // „za co nejvíc utrácím“ i „za co utrácím nejvíc“ (slovosled návrhu pod polem)
+        if (Regex("(za|na) co\\b.{0,24}\\b(nejvic|nejvice)\\b|nejvetsi vydaj|kde\\b.{0,24}\\bnejvic").containsMatchIn(q)) {
+            if (cats.rows.isEmpty()) return "Ve výpisu$per nejsou žádné výdaje – jen příjmy."
             return "Nejvíc utrácíš$per za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"
+        }
         val stripped = MONTH_RX.fold(q) { acc, rx -> rx.replace(acc, " ") }.replace(Regex("(minul\\w*|predchozi|tento|tenhle|tomto|tomhle|letosni)\\s+mesic\\w*"), " ")
         val after = Regex("\\bza\\s+(.+)$").find(stripped)?.groupValues?.get(1)?.trim()?.takeIf { a -> a.any { it.isLetter() } }
         val word = after ?: stripped
@@ -412,6 +415,7 @@ object Statement {
             val ai = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
             val am = tt.rows.mapNotNull { it.getOrNull(ai)?.let { v -> CzNum.parse(v, false) } }
             val ex = am.filter { it < 0 }; val inc = am.filter { it > 0 }.sum()
+            if (ex.isEmpty()) return "Ve výpisu$per nejsou žádné výdaje – jen příjmy ${CzNum.format(inc)} Kč."
             return "Celkem jsi$per utratil **${CzNum.format(ex.sum())} Kč** (${plat(ex.size)}); příjmy ${CzNum.format(inc)} Kč, saldo ${CzNum.format(inc + ex.sum())} Kč." +
                 (cats.rows.firstOrNull()?.let { "\nNejvíc: ${it[0].lowercase()} ${it[1]} Kč (${it[3]})." } ?: "") + "\n_Spočítáno z tabulky výpisu, bez modelu._"
         }

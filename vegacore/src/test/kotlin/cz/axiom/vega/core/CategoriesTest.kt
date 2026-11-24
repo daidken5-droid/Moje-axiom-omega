@@ -139,3 +139,20 @@ class PluralTest {
         assertTrue(one.table.notes.toString(), one.table.notes.any { it.endsWith("· 1 pohyb") } && Statement.categories(one.table).notes.first().contains("· 1 platba ·"))
     }
 }
+
+/** Den 24. 11., kolo 22: přesné texty návrhů pod výpisem (app.js chips()) musí odpovědět jádro bez modelu – i u hraničních výpisů. */
+class StatementChipsTest {
+    private val sp = Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!
+    @Test fun chipQuestionsAnswered() {
+        val js = java.io.File("../vega/src/main/assets/ui/app.js").readText()
+        val chips = Regex("a: 'say:([^']+)' \\}").findAll(js.substringAfter("hd.includes('Příjmy')")).map { it.groupValues[1] }.take(2).toList()
+        assertTrue("návrhy v app.js: $chips", chips.size == 2 && chips[0].startsWith("Za co"))
+        val full = Statement.process("Datum;Částka;Popis\n02.10.2026;-259,00;NETFLIX.COM\n02.11.2026;-259,00;NETFLIX.COM\n05.11.2026;-12 500,00;Najem byt\n20.11.2026;30 000,00;Mzda\n", sp).table
+        chips.forEach { q -> assertTrue(q, Statement.spendQuery(full, q) != null) }
+        assertTrue(Statement.spendQuery(full, chips[0])!!.startsWith("Nejvíc utrácíš za: **Bydlení a energie**"))
+        // jen příjmy: žádný prázdný výčet ani „0 plateb“
+        val inc = Statement.process("Datum;Částka;Popis\n02.11.2026;30 000,00;Mzda\n", sp).table
+        assertTrue(Statement.spendQuery(inc, chips[0])!!.contains("nejsou žádné výdaje"))
+        Statement.spendQuery(inc, "kolik jsem celkem utratil")!!.let { assertTrue(it, it.contains("nejsou žádné výdaje") && !it.contains("0 plateb")) }
+    }
+}
