@@ -5,8 +5,8 @@ import java.text.Normalizer
 /** Práce s českým textem: bez diakritiky pro porovnávání, slova pro vyhledávání. */
 object Text {
     private val marks = Regex("\\p{Mn}+")
-    /** „Příliš žluťoučký“ → „Prilis zlutoucky“ (stejná délka u češtiny, bezpečné pro posuny v textu). */
-    fun fold(s: String): String = marks.replace(Normalizer.normalize(s, Normalizer.Form.NFD), "").let { if (it.length == s.length) it else foldByChar(s) }
+    /** „Příliš žluťoučký“ → „Prilis zlutoucky“ (stejná délka u češtiny, bezpečné pro posuny v textu). Čisté ASCII beze změny a bez normalizace (rychle). */
+    fun fold(s: String): String = if (s.all { it.code < 128 }) s else marks.replace(Normalizer.normalize(s, Normalizer.Form.NFD), "").let { if (it.length == s.length) it else foldByChar(s) }
     private fun foldByChar(s: String): String = buildString(s.length) { s.forEach { c -> append(marks.replace(Normalizer.normalize(c.toString(), Normalizer.Form.NFD), "").firstOrNull() ?: c) } }
 
     /** Slova (písmena a číslice) delší než [min] znaků, malými písmeny. */

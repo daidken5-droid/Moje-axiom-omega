@@ -58,10 +58,12 @@ object Statement {
         c !in skip && rows.take(200).mapNotNull { it.getOrNull(c)?.takeIf { v -> v.isNotBlank() }?.let { v -> f(v) } }.let { v ->
             v.size >= 1 && v.count { it in DEBIT || it in CREDIT } >= v.size * 0.8 && v.any { it in DEBIT } }
     } ?: -1
-    private fun findCol(headers: List<String>, names: List<String>): Int {
-        val h = headers.map { f(it) }
-        names.forEach { n -> h.indexOfFirst { it == f(n) }.takeIf { it >= 0 }?.let { return it } }
-        names.forEach { n -> h.indexOfFirst { it.contains(f(n)) }.takeIf { it >= 0 }?.let { return it } }
+    private fun findCol(headers: List<String>, names: List<String>, folded: List<String>? = null): Int {
+        val h = folded ?: headers.map { f(it) }
+        // jména převést jednou (dřív f(n) pro KAŽDOU hlavičku – export s 20 000 sloupci: statisíce převodů, v CI 1,6 s)
+        val fn = names.map { f(it) }
+        fn.forEach { n -> h.indexOfFirst { it == n }.takeIf { it >= 0 }?.let { return it } }
+        fn.forEach { n -> h.indexOfFirst { it.contains(n) }.takeIf { it >= 0 }?.let { return it } }
         return -1
     }
 
@@ -80,17 +82,21 @@ object Statement {
         val body = if (headerAt > 0) { warnings += "Přeskočeno $headerAt úvodních řádků před hlavičkou."; lines.drop(headerAt).joinToString("\n") } else text
         val p = Csv.read(body)
         if (p.headers.size < 2) return Detection(null, p.headers, warnings + "Nepodařilo se rozpoznat sloupce (oddělovač?).", emptyList())
-        val dateCol = findCol(p.headers, dateNames).takeIf { it >= 0 } ?: p.headers.indices.firstOrNull { c -> p.rows.take(20).count { CzNum.date(it.getOrElse(c) { "" }) != null } >= minOf(3, p.rows.size) } ?: -1
-        var amountCol = findCol(p.headers, amountNames)
+        // hlavičky převést (bez diakritiky, malá písmena) JEDNOU – export s 20 000 sloupci dřív stál statisíce převodů (CI: 1,6 s)
+        val hf = p.headers.map { f(it) }
+        val dateCol = findCol(p.headers, dateNames, hf).takeIf { it >= 0 } ?: p.headers.indices.firstOrNull { c -> p.rows.take(20).count { CzNum.date(it.getOrElse(c) { "" }) != null } >= minOf(3, p.rows.size) } ?: -1
+        var amountCol = findCol(p.headers, amountNames, hf)
         var debitCol = -1
-        if (amountCol < 0) { amountCol = findCol(p.headers, creditNames); debitCol = findCol(p.headers, debitNames) }
+        if (amountCol < 0) { amountCol = findCol(p.headers, creditNames, hf); debitCol = findCol(p.headers, debitNames, hf) }
         if (amountCol < 0) amountCol = p.headers.indices.firstOrNull { c -> c != dateCol && p.rows.take(20).count { CzNum.parse(it.getOrElse(c) { "" }) != null } >= minOf(3, p.rows.size) } ?: -1
         val directionCol = if (debitCol < 0 && amountCol >= 0) directionColumn(p.rows, setOf(dateCol, amountCol), p.headers.size) else -1
         if (directionCol >= 0) warnings += "Směr pohybu beru ze sloupce „${p.headers[directionCol]}“ (Debet/Odchozí = výdaj)."
-        val descCols = p.headers.indices.filter { c -> c != dateCol && c != amountCol && c != debitCol && c != directionCol && descNames.any { f(p.headers[c]).contains(f(it)) } }.take(3)
+        val descFolded = descNames.map { f(it) }
+        val descCols = p.headers.indices.filter { c -> c != dateCol && c != amountCol && c != debitCol && c != directionCol && descFolded.any { hf[c].contains(it) } }.take(3)
         // „Originální měna“ (KB) je měna transakce před převodem – částka je v měně účtu
-        val currencyCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("mena", "currency", "mena uctu") }
-            ?: p.headers.indices.firstOrNull { c -> f(p.headers[c]).let { h -> currencyNames.any { h.contains(f(it)) } && !Regex("origin|puvodn").containsMatchIn(h) } } ?: -1
+        val currencyCol = p.headers.indices.firstOrNull { hf[it] in setOf("mena", "currency", "mena uctu") }
+            ?: run { val cn = currencyNames.map { f(it) }; val orig = Regex("origin|puvodn")
+                p.headers.indices.firstOrNull { c -> hf[c].let { h -> cn.any { h.contains(it) } && !orig.containsMatchIn(h) } } } ?: -1
         if (dateCol < 0) warnings += "Nenašel jsem sloupec s datem."
         if (amountCol < 0) warnings += "Nenašel jsem sloupec s částkou."
         // průběžný zůstatek vypadá jako částka (čísla v každém řádku) – výsledek by byl tiše špatně → říct a nabídnout opravu větou
@@ -103,8 +109,8 @@ object Statement {
         if (decimalComma && amounts.any { it.contains(',') }) warnings += "Částky používají českou desetinnou čárku (např. „${amounts.first { it.contains(',') }.trim()}“) – převádím na čísla, ne na text."
         if (p.delimiter == ';') warnings += "Oddělovač je středník (český Excel)."
         if (p.issues.isNotEmpty()) warnings += "${p.issues.size} problémových řádků (např. řádek ${p.issues[0].line}: ${p.issues[0].message})."
-        val stateCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("state", "status", "stav transakce", "stav platby") } ?: -1
-        val feeCol = p.headers.indices.firstOrNull { f(p.headers[it]) in setOf("fee", "fees") && it != amountCol } ?: -1
+        val stateCol = p.headers.indices.firstOrNull { hf[it] in setOf("state", "status", "stav transakce", "stav platby") } ?: -1
+        val feeCol = p.headers.indices.firstOrNull { hf[it] in setOf("fee", "fees") && it != amountCol } ?: -1
         val spec = if (dateCol >= 0 && amountCol >= 0) ParserSpec(p.delimiter.toString(), decimalComma, dateCol, amountCol, descCols, currencyCol, debitCol,
             headerHash = p.headers.joinToString("|") { f(it) }.hashCode().toString(16), columns = namesOf(p.headers, dateCol, amountCol, descCols, currencyCol, debitCol) +
                 (p.headers.getOrNull(directionCol)?.let { mapOf("direction" to f(it)) } ?: emptyMap()) +

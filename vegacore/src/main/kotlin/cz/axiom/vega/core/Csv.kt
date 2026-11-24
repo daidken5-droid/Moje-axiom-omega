@@ -90,16 +90,18 @@ object CzNum {
      * „1 234,56“, „-1.234,56“, „1234.5“, „1 234,56 Kč“, „(12,00)“ → Double. Pro dvojznačné „1.234“ rozhodne
      * [decimalComma]: true = česky (tečka = tisíce), false = tečka je desetinná.
      */
+    private val RX_DRCR = Regex("(?i)^(.*\\d)\\s*(dr|cr)\\.?$")
+    private val RX_TAG = Regex("[,.]\\s*[-–]$")
     fun parse(raw: String, decimalComma: Boolean = true): Double? {
         var s = raw.trim().replace(currency, "").replace(' ', ' ').replace(' ', ' ').replace('−', '-').replace(' ', ' ').let { if (it.startsWith('–')) "-" + it.drop(1) else it }.trim()
         if (s.isEmpty()) return null
         var neg = false
         // „1 234,56 DR“ / „… CR“ (debet / kredit za částkou, anglické exporty): DR = výdaj
-        Regex("(?i)^(.*\\d)\\s*(dr|cr)\\.?$").find(s)?.let { m -> s = m.groupValues[1].trim(); if (m.groupValues[2].lowercase() == "dr") neg = true }
+        RX_DRCR.find(s)?.let { m -> s = m.groupValues[1].trim(); if (m.groupValues[2].lowercase() == "dr") neg = true }
         if (s.startsWith("(") && s.endsWith(")")) { neg = true; s = s.substring(1, s.length - 1) }
         // „1.000,-“ / „100,–“ = celé koruny (česká cenovka), NE záporné číslo
         var dc = decimalComma
-        if (Regex("[,.]\\s*[-–]$").containsMatchIn(s)) { s = s.replace(Regex("[,.]\\s*[-–]$"), ""); dc = true } // česká cenovka → tečky jsou tisíce
+        if (RX_TAG.containsMatchIn(s)) { s = s.replace(RX_TAG, ""); dc = true } // česká cenovka → tečky jsou tisíce
         else if (s.endsWith("-")) { neg = true; s = s.dropLast(1) }
         if (s.startsWith("+")) s = s.drop(1)
         if (s.startsWith("-")) { neg = !neg; s = s.drop(1) }
@@ -150,16 +152,22 @@ object CzNum {
     /** Datum → ISO (yyyy-mm-dd), nebo null. */
     private val EN = mapOf("jan" to 1, "feb" to 2, "mar" to 3, "apr" to 4, "may" to 5, "jun" to 6, "jul" to 7, "aug" to 8, "sep" to 9, "oct" to 10, "nov" to 11, "dec" to 12)
     private val CZ3 = mapOf("led" to 1, "uno" to 2, "bre" to 3, "dub" to 4, "kve" to 5, "cvn" to 6, "cvc" to 7, "srp" to 8, "zar" to 9, "rij" to 10, "lis" to 11, "pro" to 12)
+    // předkompilované (dřív se 4 regexy kompilovaly při KAŽDÉM volání – detect výpisu s 20 000 buňkami trval v CI 1,6 s)
+    private val RX_DMON = Regex("^(\\d{1,2})[-\\s.]+([A-Za-z]{3,9})\\.?[-\\s]+(\\d{4})")
+    private val RX_MOND = Regex("^([A-Za-z]{3,9})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})")
+    private val RX_CZ3 = Regex("^(\\d{1,2})\\.?\\s+([a-zá-ž]{3})\\.?\\s+(\\d{4})$", RegexOption.IGNORE_CASE)
+    private val RX_CZMONTH = Regex("^(\\d{1,2})\\.?\\s+([a-zA-Zá-žÁ-Ž]+)\\s+(\\d{4})")
     fun date(raw: String): String? {
         val r0 = raw.trim()
+        if (r0.length < 6 || r0.length > 40 || r0.none { it.isDigit() }) return null  // datum má aspoň „1.1.26“ – rychlé odmítnutí
         // „02-Nov-2026“, „Nov 2, 2026“, „2 Nov 2026“, „2 lis 2026“ → d.m.rrrr
         // (kompaktní „20250115“ záměrně NE – osmimístné číslo bývá variabilní symbol / číslo dokladu, StatementBanksTest)
-        val s0 = Regex("^(\\d{1,2})[-\\s.]+([A-Za-z]{3,9})\\.?[-\\s]+(\\d{4})").find(r0)?.let { m -> EN[m.groupValues[2].lowercase().take(3)]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
-            ?: Regex("^([A-Za-z]{3,9})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})").find(r0)?.let { m -> EN[m.groupValues[1].lowercase().take(3)]?.let { "${m.groupValues[2]}.$it.${m.groupValues[3]}" } }
-            ?: Regex("^(\\d{1,2})\\.?\\s+([a-zá-ž]{3})\\.?\\s+(\\d{4})$", RegexOption.IGNORE_CASE).find(r0)?.let { m -> CZ3[cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
+        val s0 = RX_DMON.find(r0)?.let { m -> EN[m.groupValues[2].lowercase().take(3)]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
+            ?: RX_MOND.find(r0)?.let { m -> EN[m.groupValues[1].lowercase().take(3)]?.let { "${m.groupValues[2]}.$it.${m.groupValues[3]}" } }
+            ?: RX_CZ3.find(r0)?.let { m -> CZ3[cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()]?.let { "${m.groupValues[1]}.$it.${m.groupValues[3]}" } }
             ?: r0
         // „1. března 2026“ → „1.3.2026“ (český název měsíce; „června“ × „července“ se rozlišují celým kmenem)
-        val s = Regex("^(\\d{1,2})\\.?\\s+([a-zA-Zá-žÁ-Ž]+)\\s+(\\d{4})").find(s0)?.let { m ->
+        val s = RX_CZMONTH.find(s0)?.let { m ->
             val w = cz.axiom.vega.base.Text.fold(m.groupValues[2]).lowercase()
             val i = MONTHS.indexOfFirst { w.startsWith(it) }.takeIf { it >= 0 } ?: when { w == "cerven" -> 5; w.startsWith("cervenec") -> 6; else -> -1 }
             if (i >= 0) "${m.groupValues[1]}.${i + 1}.${m.groupValues[3]}" else null } ?: s0
