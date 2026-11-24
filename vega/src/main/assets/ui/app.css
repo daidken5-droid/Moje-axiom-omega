@@ -276,7 +276,7 @@ table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } 
 .examples small { color: var(--ink2); }
 .btnchip.ex { background: var(--sheet); border: 1px solid var(--line); color: var(--ink); font-weight: 500; }
 /* Kopírovat / Sdílet pod odpovědí – nenápadné, ale na dosah palce */
-.msg-a { display: flex; gap: 6px; margin-top: 4px; }
+.msg-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .mini { min-height: 36px; padding: 0 12px; border-radius: 10px; font-size: 13.5px; color: var(--muted); background: transparent; border: 1px solid var(--line); }
 .btn.danger { color: var(--bad); border-color: var(--bad); }
 /* kolo C1: Upravit / Znovu / Kopírovat kód / hledání v konverzacích */

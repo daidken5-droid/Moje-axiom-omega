@@ -47,7 +47,16 @@ const CHAT = [
     audit: { outcome: 'PARTIAL', render: 'doložená tvrzení', sources: 1, origins: 1, claims: 2, supported: 1, conflicts: 0, revisions: 0 } } },
 ];
 
+// den 24. 11., kolo 18: výpis → souhrn po měsících + doplňující odpovědi (dlouhé popisy plateb) + tři návrhy pod polem
+const CHAT_STMT = [
+  { role: 'user', text: 'Zpracuj výpis z banky.' },
+  { role: 'vega', text: 'Výpis zpracován: 412 pohybů. **Největší výdaje:** Bydlení a energie −12 500,00 · Potraviny −8 431,20 · Restaurace a kavárny −2 310,00\n**Pravidelné platby:** 4 (Netflix, nájem, O2, pojištění)',
+    card: { type: 'run', run: 'rs', name: 'Výpis z banky', value: { kind: 'TABLE', headers: ['Měsíc', 'Příjmy', 'Výdaje', 'Saldo', 'Pohybů'], rows: [['2026-10', '61 000,00', '−48 210,50', '12 789,50', '203'], ['2026-11', '31 000,00', '−40 120,00', '−9 120,00', '209']], total: 2, notes: ['Příjmy 92 000,00 · výdaje −88 330,50 · saldo 3 669,50 · 412 pohybů'] } } },
+  { role: 'user', text: 'jaká byla největší platba?' },
+  { role: 'vega', text: 'Největší platby:\n• −12 500,00 Kč – Platba kartou VELMIDLOUHYNAZEVOBCHODNIKABEZMEZERKTERYSENEVEJDE*PRAHA (5. 11.)\n• −3 400,00 Kč – ALZA.CZ (18. 11.)\n_Z tabulky výpisu, bez modelu._' },
+];
 const SCREENS = [
+  ['výpis-návrhy', ['__chat', CHAT_STMT]],
   ['konverzace-karty', ['__chat']],
   ['úvod', null],
   ['menu', ['library']],
@@ -102,7 +111,7 @@ const SCREENS = [
       if (a && a[0] === '__chat') { window.__chat = chat; S.mc = null; render(); return; }
       if (window.__chat) { window.__chat = null; S.mc = null; render(); }
       if (a) act(a[0], a[1] || {});
-    }, [action, CHAT]);
+    }, [action, action && action[0] === '__chat' && action[1] ? action[1] : CHAT]);
     if (after) await page.evaluate(after);
     await page.waitForTimeout(450); // po doběhnutí animace panelu (0,2 s)
     if (FONT_SCALE !== 1) { await page.evaluate(k => { const els = [...document.querySelectorAll('body *')].filter(el => !el.dataset.fs); const fs = els.map(el => parseFloat(getComputedStyle(el).fontSize)); els.forEach((el, i) => { el.dataset.fs = '1'; el.style.setProperty('font-size', (fs[i] * k) + 'px', 'important'); }); }, FONT_SCALE); await page.waitForTimeout(100); }

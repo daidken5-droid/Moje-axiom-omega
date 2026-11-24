@@ -85,4 +85,8 @@ assert.ok(sc.every(c=>/^say:/.test(c.a)));
 run("S.lastCard={type:'run',run:'r2',save:{x:1},value:{kind:'TABLE',headers:['Měsíc','Příjmy','Výdaje','Saldo','Pohybů'],rows:[]}}");
 assert.equal(JSON.stringify(run("chips()").map(c=>c.t)),JSON.stringify(['Uložit jako nástroj','Za co utrácím nejvíc?','Pravidelné platby']));
 run("S.lastCard={type:'run',run:'r3',value:{kind:'TABLE',headers:['A','B'],rows:[]}}");assert.equal(run("chips().length"),0);
-console.log('34 UI logic scenarios passed.');
+// kolo 18: „↻ Znovu“ jen u odpovědi modelu – výpočet z výpisu („bez modelu“) by vyšel stejně
+mock.messages=[{role:'user',text:'jaká byla největší platba?'},{role:'vega',text:'Největší platby:\n• −12 500,00 Kč – Nájem byt (5. 11.)\n_Z tabulky výpisu, bez modelu._'}];
+run("S.space={kind:'chat',id:'c2'}; S.busy=false; S.mc=null; render()");run('renderStream()');
+assert.ok(!/data-act="regen"/.test(field('#stream').innerHTML)&&/data-act="copyMsg"/.test(field('#stream').innerHTML),'bez Znovu, Kopírovat ano');
+console.log('35 UI logic scenarios passed.');
