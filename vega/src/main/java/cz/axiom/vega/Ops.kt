@@ -954,6 +954,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             append(ver).append(if (ok) " ✓" else " – parser zatím neukládej").append('\n')
             Statement.reconcileText(text, spec)?.let { append(it).append('\n') }
             append((r.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "")
+            // tři největší kategorie výdajů (bez modelu) – laik se hned ptá „kolik jsem utratil za jídlo“
+            (r.results.firstOrNull()?.value as? Value.Table)?.let { Statement.categories(it) }?.rows?.filter { it[0] != "Ostatní" }?.take(3)?.takeIf { it.isNotEmpty() }
+                ?.let { top -> append("\n**Největší výdaje:** ").append(top.joinToString(" · ") { "${it[0]} ${it[1]} Kč (${it[3]})" }).append(" – celý přehled: nástroj „Výdaje podle kategorií“.") }
         }
         val card = runCard(r)
         // postup se ukládá jen pro CSV (uložený parser by u dalšího PDF dostal surové PDF, ne převedený text)

@@ -237,6 +237,43 @@ object Statement {
         return Result(Value.Table(listOf("Datum", "Částka", "Měna", "Popis"), out, notes, "výpis"), out.size, failed, inc, exp)
     }
 
+    /**
+     * Kategorie výdajů bez modelu: pravidla podle českých obchodníků a klíčových slov v popisu (první shoda vyhrává).
+     * Nejisté → „Ostatní“ (raději přiznat než hádat); příjmy se do výdajů nepočítají.
+     */
+    private val CATEGORIES: List<Pair<String, Regex>> = listOf(
+        "Potraviny" to "albert|lidl|billa|tesco|kaufland|penny|globus|rohlik|kosik|coop|jednota|norma|potravin|zabka|zabka|hruska|tamda",
+        "Restaurace a kavárny" to "restaura|bistro|kavarn|cafe|pizz|burger|mcdonald|kfc|starbucks|costa coffee|wolt|foodora|dame jidlo|bageterie|pivnic|hospod",
+        "Doprava a palivo" to "benzina|shell|omv|orlen|mol |mol$|eurooil|cerpaci|tank ono|dpp|dpmb|ceske drahy|cd\\.cz|regiojet|leo express|flixbus|uber|bolt|liftago|parkov|dalnicni|myto|jizdenk|litacka",
+        "Bydlení a energie" to "najem|najemne|cez|pre |pražská energetika|prazska energetika|innogy|e\\.on|eon |plyn|vodne|vodarny|svj|fond oprav|zaloha na|energie|elektri|bytove druzstvo",
+        "Zdraví a drogerie" to "lekarn|dr\\.? ?max|benu|lekar|nemocnic|zubar|optik|dm drogerie|^dm |rossmann|teta drogerie|drogeri",
+        "Telefon a internet" to "o2 |o2$|o2 czech|t-mobile|tmobile|vodafone|upc|vodafone|internet|nordic telecom",
+        "Předplatné a digitální" to "netflix|spotify|youtube|google|apple\\.com|itunes|disney|hbo|max\\.com|voyo|microsoft|steam|playstation|xbox|patreon|chatgpt|openai",
+        "Nákupy" to "alza|mall\\.cz|ikea|decathlon|h&m|zara|amazon|aliexpress|temu|notino|datart|electro world|okay|hornbach|obi|bauhaus|sportisimo|ccc|deichmann|pepco|action",
+        "Hotovost" to "vyber|bankomat|atm|hotovost",
+        "Pojištění a finance" to "pojist|pojišt|kooperativ|allianz|generali|uniqa|csob pojist|splatk|uver|hypote|leasing|poplatek|vedeni uctu",
+        "Děti a vzdělání" to "skolk|skola|krouzek|druzin|obedy|skolne|knih|knihkupect|kurz",
+        "Volný čas" to "kino|cinema city|divadl|koncert|ticketportal|goout|vstupen|fitness|posilov|bazen|sport|dovolen|booking|airbnb|hotel|cestovn",
+    ).map { (k, v) -> k to Regex(v) }
+
+    fun categoryOf(desc: String): String { val d = cz.axiom.vega.base.Text.fold(desc).lowercase(); return CATEGORIES.firstOrNull { it.second.containsMatchIn(d) }?.first ?: "Ostatní" }
+
+    /** Tabulka výpisu (Datum · Částka · Měna · Popis) → výdaje podle kategorií, seřazeno od největší. */
+    fun categories(t: Value.Table): Value.Table {
+        val ai = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }.takeIf { it >= 0 } ?: 1
+        val di = t.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
+        val exp = t.rows.mapNotNull { r -> r.getOrNull(ai)?.let { CzNum.parse(it, false) }?.takeIf { it < 0 }?.let { categoryOf(r.getOrElse(di) { "" }) to it } }
+        val total = exp.sumOf { it.second }
+        val rows = exp.groupBy { it.first }.map { (k, v) -> Triple(k, v.sumOf { it.second }, v.size) }.sortedBy { it.second }
+            .map { (k, s, n) -> listOf(k, CzNum.format(s), n.toString(), if (total != 0.0) "${Math.round(s / total * 100)} %" else "–") }
+        val other = rows.firstOrNull { it[0] == "Ostatní" }
+        val notes = buildList {
+            add("Výdaje celkem ${CzNum.format(total)} · ${exp.size} plateb · kategorie podle obchodníka a popisu (bez modelu, v telefonu)")
+            if (other != null) add("„Ostatní“ = popis bez známého obchodníka (${other[2]} plateb) – kategorie jsou orientační.")
+        }
+        return Value.Table(listOf("Kategorie", "Výdaje", "Plateb", "Podíl"), rows, notes, "kategorie")
+    }
+
     /** Výpis z PDF převedený na CSV „Datum;Částka;Popis“ (+ poznámky); null = v textu nejsou rozpoznatelné pohyby. */
     data class PdfConversion(val csv: String, val rows: Int, val notes: List<String>)
 

@@ -32,6 +32,8 @@ class OpsPdfStatementTest {
         val text = msg!!.getString("text")
         assertTrue(text, text.contains("Převedeno z PDF (4 pohybů)") && text.contains("návazností sedí"))
         assertFalse(text, text.contains("spočítat neumím"))
+        // kolo 4: tři největší kategorie výdajů rovnou v odpovědi (bez modelu)
+        assertTrue(text, text.contains("**Největší výdaje:** Hotovost") && text.contains("Bydlení a energie") && text.contains("Potraviny"))
         val months = msg.getJSONObject("card").getJSONObject("value").getJSONArray("rows").getJSONArray(0).toString().replace('\u00a0', ' ')
         assertTrue(months, months.contains("30 000,00") && months.contains("−3 562,40") && months.contains("\"4\""))
         assertFalse("u PDF se postup neukládá (příště by dostal surové PDF)", msg.getJSONObject("card").has("save"))
