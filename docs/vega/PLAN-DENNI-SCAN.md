@@ -37,6 +37,15 @@ zapíše „bez nálezu“ a co bylo prověřeno.
 | 00–02 | UI toky a přístupnost (360 px, velké písmo, čtečka obrazovky, Upravit/Znovu/Kopírovat/hledání) |
 | 02–03:47 | Bezpečnost (most JS↔Kotlin, injekce z příloh/RSS/webu) + regrese noci; **03:47 uzávěrka noci** do `PLAN-DEN.md` |
 
+## Noční kola (24. 11. 20:17 → 25. 11. 03:47, na žádost uživatele „klasická večerní kola jako včera“)
+
+| Čas | Oblast |
+|---|---|
+| 20–22 | Ranní přehled zpráv (slučování, zdroje, notifikace, okno 05:20→05:20) a kalkulačka / převody bez modelu – nové tvary dotazů laika |
+| 22–00 | Router a kontext: co si přivlastní výpis / kalkulačka / paměť / projekt (sondy jako kola 27–28), záměny témat, navazující dotazy |
+| 00–02 | Hardware sekce (NFC, NDEF, WiFi, BLE) a soubory (DOCX, PDF, fotky dokumentů) – hraniční vstupy, texty pro laika |
+| 02–03:47 | Bezpečnost (most JS↔Kotlin, injekce z příloh / RSS / webu, export) + regrese noci; **03:47 uzávěrka noci** do `PLAN-DEN.md` |
+
 ## Pravidla
 - Každá oprava s testem; plná sada zelená před commitem (commit jen řetězeně `&&` po testech).
 - CI: po pushi ověřit poslední běh „Build VEGA APK“; červený = první úkol dalšího kola.
