@@ -198,3 +198,35 @@ CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. T
 SHA-256 `7211232e5e731a1e1094c4059744d5c93c12ea740d17f984de0ef84938a22dd1` (shoda se SHA256SUMS.txt z CI #172).
 
 **NEOVĚŘENO na telefonu:** všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md`; ranní přehled – skutečné doručení v 05:30 tři dny po sobě, chování v Doze (souběh pokusu a notifikace), obnova po restartu, „Zkusit znovu“ bez internetu.
+
+## Noc 23./24. 11. 2026 – noční kola 20:17 → 03:47 (feature freeze zrušen uživatelem)
+
+16 kol (N1–N16), 15 commitů, testy **305 → 321 / 0**. Poslední CI „Build VEGA APK“ #185 (`fff0224`) zelené.
+CI #181 bylo nejdřív červené kvůli výpadku Maven Central (429 Too Many Requests, ne kód) – po opakování zelené.
+
+**Priorita od uživatele (snímek z telefonu):** hlavička vjížděla pod stavový řádek – ☰ a „VEGA ▾“ nešly klepnout.
+Příčina: odsazení od lišt se dávalo jako padding přímo na WebView, který ho ignoruje → WebView v obalovém kontejneru,
+odsazení (stavový řádek, výřez, lišta gest, klávesnice) nese kontejner. Test InsetsTest na skutečné aktivitě. APK `121dd5c` poslané do chatu.
+
+**Nové funkce / vylepšení**
+- N1: slučování zpráv podle synonym (paliva × pohonné hmoty × benzin/nafta, atomovka × jaderná zbraň, rozvědka, premiér, USA); „D1 = dálnice“ vyřazeno (slučovalo různé nehody).
+- N2: kalkulačka bez modelu – spotřeba a cena cesty, medián/součet/min/max, zaokrouhlení, „půl kila / čtvrt litru“, kJ ↔ kcal.
+- N3: RSS jen s `<guid isPermaLink>`; „kolik stojí 1 euro“.
+- N9: porovnání výpisů upozorní na pohyby ve víc souborech zároveň (překrývající se exporty) – nic se nemaže potichu.
+- N10: velké systémové písmo – textZoom podle fontScale; rozvržení zalamuje při 130 % i 200 % (audit UI s FONT_SCALE).
+- N13: čekání na NFC štítek z chatu jde zrušit.
+
+**Skutečné nálezy a opravy**
+- N4: Revolut – zrušené/odmítnuté platby (REVERTED/DECLINED) se sčítaly do výdajů, sloupec Fee se ignoroval. 9 tvarů bank (Revolut, Fio, Air Bank, KB, ČSOB, mBank, George, Moneta, Raiffeisen) jako regresní test.
+- N5: částky s příponou CR/DR. N6: data „02-Nov-2026“, „Nov 2, 2026“, „2 Nov 2026“, „2 lis 2026“ (kompaktní „20261102“ záměrně ne – variabilní symbol).
+- N7: CSV v UTF-16 (Excel „Text v kódování Unicode“) se četlo jako nečitelný text; CSV s konci řádků jen CR (Excel na Macu) ztratilo popisy.
+- N11: „Odpověď se nedokončila… klepni na Pokračovat“ – tlačítko zmizelo, jakmile uživatel napsal další zprávu (snímek z telefonu).
+- N14 (bezpečnost): text ranního přehledu z RSS šel při dotazu v chatu modelu jako řeč asistenta – teď zabalený jako nedůvěryhodný dokument.
+
+**Bez nálezu:** N8 (kódování příloh – stejná cesta jako N7), N12 (TalkBack – audit nově hlídá nadpis panelu), N15 (most JS↔Kotlin, živá sonda zpráv 176 článků / 10 témat bez chybného spojení), N16 (kompilátor 3 stará varování, lint 0 chyb; TrustAll jen v knihovně BouncyCastle, http:// jen do lokální sítě, přesměrování kontrolované po krocích).
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-fff0224.apk`, 39 865 850 B,
+SHA-256 `d353415b8253446a527244f70d01c320576781a2d022d41db813a56d5ed5cda4` (shoda se SHA256SUMS.txt z CI #185).
+
+**NEOVĚŘENO na telefonu:** hlavička pod stavovým řádkem (oprava z noci), velké písmo (PHONE-CHECKLIST #24), „Pokračovat“ u starší zprávy,
+zrušení čtení NFC, TalkBack; dál všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
