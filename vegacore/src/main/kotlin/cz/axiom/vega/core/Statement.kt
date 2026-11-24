@@ -337,8 +337,10 @@ object Statement {
             val r = recurring(t)
             return if (r.rows.isEmpty()) r.notes.first() else "**Pravidelné platby** (" + r.rows.size + "):\n" + r.rows.joinToString("\n") { "• ${it[0]} – ${it[1]} Kč měsíčně (${it[2]} Kč ročně)" } + "\n_${r.notes.first()}_"
         }
+        val incomeQ = Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
+        val saldoQ = Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
         // „kolik stojí…“ (přítomný čas) je otázka na cenu, ne na výpis
-        if (!Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
+        if (!incomeQ && !saldoQ && !Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
         // měsíc v dotazu („v říjnu“, „za listopad“, „minulý / tento měsíc“) → jen pohyby toho měsíce (data v tabulce jsou ISO rrrr-mm-dd)
         val months = t.rows.mapNotNull { r -> r.getOrNull(0)?.takeIf { Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(it) }?.take(7) }.distinct().sorted()
         val mi = MONTH_RX.indexOfFirst { it.containsMatchIn(q) }
@@ -352,6 +354,20 @@ object Statement {
         val per = if (ym == null) "" else " za ${label(ym)}"
         if (ym != null && tt.rows.isEmpty()) return "Ve výpisu nejsou žádné pohyby za ${label(ym)}. Výpis má: ${months.joinToString(", ") { label(it) }.ifEmpty { "–" }}."
         fun plat(n: Int) = "$n ${if (n == 1) "platba" else if (n in 2..4) "platby" else "plateb"}"
+        if (incomeQ || saldoQ) {
+            val ai = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
+            val di = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
+            val mv = tt.rows.mapNotNull { r -> r.getOrNull(ai)?.let { CzNum.parse(it, false) }?.let { r.getOrElse(di) { "" } to it } }
+            val inc = mv.filter { it.second > 0 }; val exp = mv.filter { it.second < 0 }.sumOf { it.second }; val incSum = inc.sumOf { it.second }
+            if (saldoQ && !incomeQ) {
+                val bal = incSum + exp
+                return "${if (bal >= 0) "Ušetřil jsi" else "Utratil jsi víc, než ti přišlo – rozdíl"}$per **${CzNum.format(kotlin.math.abs(bal))} Kč**: příjmy ${CzNum.format(incSum)} Kč, výdaje ${CzNum.format(exp)} Kč." +
+                    (if (incSum > 0) " Utratil jsi ${Math.round(-exp / incSum * 100)} % příjmů." else "") + "\n_Spočítáno z tabulky výpisu, bez modelu (převody mezi vlastními účty se počítají jako pohyb)._"
+            }
+            if (inc.isEmpty()) return "Ve výpisu$per nejsou žádné příjmy (kladné částky)."
+            val top = inc.groupBy { merchantKey(it.first).ifBlank { it.first.take(30) } }.map { (_, v) -> v.first().first.take(40) to v.sumOf { it.second } }.sortedByDescending { it.second }.take(3)
+            return "Příjmy$per: **${CzNum.format(incSum)} Kč** (${plat(inc.size)}). Největší: " + top.joinToString(" · ") { "${it.first} ${CzNum.format(it.second)} Kč" } + ".\n_Spočítáno z tabulky výpisu, bez modelu._"
+        }
         val cats = categories(tt)
         if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
             return "Nejvíc utrácíš$per za: " + cats.rows.take(3).joinToString(" · ") { "**${it[0]}** ${it[1]} Kč (${it[3]})" } + ".\n_${cats.notes.first()}_"

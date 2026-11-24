@@ -109,3 +109,19 @@ class CategoryPrecisionTest {
         want.forEach { (d, k) -> org.junit.Assert.assertEquals(d, k, c(d)) }
     }
 }
+
+/** Den 24. 11., kolo 13: příjmy a úspora z výpisu („kolik mi přišlo v říjnu“, „kolik jsem ušetřil“) bez modelu. */
+class IncomeQueryTest {
+    private val t = Statement.process("Datum;Částka;Popis\n02.10.2026;-1 000,00;Albert\n15.10.2026;-500,00;Shell\n20.10.2026;30 000,00;Mzda ACME\n25.10.2026;2 000,00;Vraceni preplatku\n" +
+        "02.11.2026;-200,00;Lidl\n05.11.2026;-40 000,00;Nájem byt\n20.11.2026;31 000,00;Mzda ACME\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    private fun a(q: String) = Statement.spendQuery(t, q)?.replace(' ', ' ')?.replace(' ', ' ') ?: "null"
+    @Test fun incomeAndSavings() {
+        a("kolik mi přišlo v říjnu?").let { assertTrue(it, it.contains("Příjmy za říjen 2026: **32 000,00 Kč** (2 platby)") && it.contains("Mzda ACME 30 000,00")) }
+        a("jaké mám příjmy?").let { assertTrue(it, it.contains("**63 000,00 Kč** (3 platby)") && it.contains("Mzda ACME 61 000,00")) }
+        a("kolik jsem ušetřil v říjnu").let { assertTrue(it, it.startsWith("Ušetřil jsi za říjen 2026 **30 500,00 Kč**") && it.contains("5 % příjmů")) }
+        a("kolik jsem ušetřil minulý měsíc").let { assertTrue(it, it.contains("říjen 2026")) }
+        a("jsem v listopadu v plusu?").let { assertTrue(it, it.startsWith("Utratil jsi víc, než ti přišlo – rozdíl za listopad 2026 **9 200,00 Kč**")) }
+        // mimo výpis
+        listOf("kdy přijde výplata", "přišlo mi SMS", "shrň mi to").forEach { org.junit.Assert.assertEquals(it, "null", a(it)) }
+    }
+}
