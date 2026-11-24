@@ -981,19 +981,23 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val r = Runner.start("Zpracovat výpis", steps, att, toolCtx) { saveRun(kv, it) }
         lastResultRun = r.id
         val msg = buildString {
-            append("**Formát:** oddělovač „${spec.delimiter}“, sloupce ").append(d.headers.joinToString(", ")).append(".\n")
-            pdf?.notes?.forEach { append("📄 ").append(it).append('\n') }
-            d.warnings.forEach { append("⚠ ").append(it).append('\n') }
-            append(ver).append(if (ok) " ✓" else " – parser zatím neukládej").append('\n')
-            Statement.reconcileText(text, spec)?.let { append(it).append('\n') }
-            append((r.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "")
+            // nejdřív VÝSLEDEK (laik chce vědět, kolik přišlo a odešlo), technické podrobnosti až pod ním
+            append((r.results.firstOrNull()?.value as? Value.Table)?.notes?.lastOrNull { it.startsWith("Příjmy") } ?: (r.results.firstOrNull()?.value as? Value.Table)?.notes?.firstOrNull() ?: "")
             // tři největší kategorie výdajů (bez modelu) – laik se hned ptá „kolik jsem utratil za jídlo“
             (r.results.firstOrNull()?.value as? Value.Table)?.let { Statement.categories(it) }?.rows?.filter { it[0] != "Ostatní" }?.take(3)?.takeIf { it.isNotEmpty() }
                 ?.let { top -> append("\n**Největší výdaje:** ").append(top.joinToString(" · ") { "${it[0]} ${it[1]} Kč (${it[3]})" }).append(" – celý přehled: nástroj „Výdaje podle kategorií“.") }
             // pravidelné platby (předplatné, nájem…) – jen když je výpis aspoň za 2 měsíce a nějaké jsou
             (r.results.firstOrNull()?.value as? Value.Table)?.let { Statement.recurring(it) }?.takeIf { it.rows.isNotEmpty() }
                 ?.let { rec -> append("\n**Pravidelné platby:** ${rec.rows.size} (").append(rec.rows.take(3).joinToString(", ") { it[0].take(30) }).append(if (rec.rows.size > 3) ", …" else "").append(") – zeptej se „jaké mám pravidelné platby?“") }
-        }
+            // další upozornění z tabulky (víc měn, zrušené platby, poplatky, nezpracované řádky)
+            (r.results.firstOrNull()?.value as? Value.Table)?.notes?.filter { !it.startsWith("Příjmy") }?.forEach { append("\n").append(it) }
+            append("\n\n")
+            pdf?.notes?.forEach { append("📄 ").append(it).append('\n') }
+            // formát a oddělovač patří jen ke skutečnému CSV – u PDF / Excelu je to náš vnitřní převod (laika by mátl)
+            if (pdf == null) { append("**Formát:** oddělovač „${spec.delimiter}“, sloupce ").append(d.headers.joinToString(", ")).append(".\n"); d.warnings.forEach { append("⚠ ").append(it).append('\n') } }
+            append(ver).append(if (ok) " ✓" else " – parser zatím neukládej")
+            Statement.reconcileText(text, spec)?.let { append('\n').append(it) }
+        }.trim()
         val card = runCard(r)
         // postup se ukládá jen pro CSV (uložený parser by u dalšího PDF dostal surové PDF, ne převedený text)
         if (ok && pdf == null) card.put("save", JSONObject().put("name", "Zpracovat výpis").put("description", "Export z banky → tabulka pohybů a měsíční součty")
