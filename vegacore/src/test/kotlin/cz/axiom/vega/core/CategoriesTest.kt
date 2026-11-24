@@ -168,3 +168,14 @@ class RecurringWordingTest {
         a("kolik jsem utratil za nájem").let { assertTrue(it, it.startsWith("Za bydlení a energie")) }
     }
 }
+
+/** Den 24. 11., kolo 27: po výpisu v chatu si výpočty a hypotézy nepřivlastní tabulka výpisu (kalkulačka / model je spočítá správně). */
+class StatementNoHijackTest {
+    private val t = Statement.process("Datum;Částka;Popis\n03.10.2026;-259,00;NETFLIX.COM\n05.10.2026;-12 500,00;Splatka hypoteky\n20.11.2026;30 000,00;Mzda\n", Statement.detect("Datum;Částka;Popis\n02.11.2026;-1,00;x\n03.11.2026;-1,00;x\n").spec!!).table
+    @Test fun calculationsStayOut() {
+        listOf("kolik bych platil měsíčně za hypotéku 3 miliony na 30 let při 5 %", "kdybych utratil 500 Kč denně, kolik je to za měsíc", "kolik mi zbylo z 30 000 po zaplacení 12 500",
+            "kolik budu platit za elektřinu", "kolik bych ušetřil, kdybych zrušil Netflix").forEach { org.junit.Assert.assertNull(it, Statement.spendQuery(t, it)) }
+        // skutečné dotazy na výpis dál fungují, i s letopočtem
+        listOf("kolik jsem utratil za hypotéku", "kolik jsem utratil v říjnu 2026", "kolik mi přišlo v listopadu 2026", "jaké mám pravidelné platby?").forEach { org.junit.Assert.assertNotNull(it, Statement.spendQuery(t, it)) }
+    }
+}

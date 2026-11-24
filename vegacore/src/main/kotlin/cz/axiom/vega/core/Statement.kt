@@ -348,6 +348,9 @@ object Statement {
             return "**Pravidelné platby** (${r.rows.size}) – dohromady **${CzNum.format(month)} Kč měsíčně**, asi ${CzNum.format(month * 12)} Kč ročně:\n" +
                 r.rows.joinToString("\n") { "• ${it[0]} – ${pos(it[1])} Kč měsíčně" } + "\n_Stejný obchodník s podobnou částkou aspoň ve 2 měsících – bez modelu._"
         }
+        // výpočet / hypotéza, ne dotaz na výpis: „kolik BYCH platil za hypotéku 3 mil.“, „kdybych utratil 500 Kč denně“, „kolik zbylo z 30 000 po 12 500“
+        // (podmiňovací / budoucí tvar nebo vlastní čísla v otázce – letopočet „v říjnu 2026“ se nepočítá) → kalkulačka / model
+        if (Regex("\\b(bych|bys|by|bysme|bychom|kdyby\\w*|budu|bude|budes|budeme|budou)\\b").containsMatchIn(q) || Regex("\\d").containsMatchIn(q.replace(Regex("\\b(19|20)\\d{2}\\b"), ""))) return null
         val incomeQ = Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
         val saldoQ = Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
         // „kolik stojí…“ (přítomný čas) je otázka na cenu, ne na výpis
