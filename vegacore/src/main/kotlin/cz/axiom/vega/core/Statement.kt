@@ -314,7 +314,7 @@ object Statement {
         Regex("restaura|kavarn|kafe|obed|vecer[ie] venku|dovaz|wolt|foodora") to listOf("Restaurace a kavárny"),
         Regex("benzin|naft|palivo|tankov|auto|doprav|jizdenk|mhd|vlak|bus|taxi|bolt|uber|parkov") to listOf("Doprava a palivo"),
         Regex("najem|bydlen|energi|elektri|plyn|vod[ua]|cez|zaloh") to listOf("Bydlení a energie"),
-        Regex("lek|lekarn|zdravi|doktor|lekar|drogeri") to listOf("Zdraví a drogerie"),
+        Regex("\\blek|lekarn|zdravi|doktor|lekar|drogeri") to listOf("Zdraví a drogerie"),
         Regex("telefon|mobil|internet|tarif") to listOf("Telefon a internet"),
         Regex("predplat|netflix|spotify|streaming|aplikac") to listOf("Předplatné a digitální"),
         Regex("nakup|obleceni|boty|elektronik|alza|ikea|e-?shop") to listOf("Nákupy"),
@@ -336,7 +336,8 @@ object Statement {
             val r = recurring(t)
             return if (r.rows.isEmpty()) r.notes.first() else "**Pravidelné platby** (" + r.rows.size + "):\n" + r.rows.joinToString("\n") { "• ${it[0]} – ${it[1]} Kč měsíčně (${it[2]} Kč ročně)" } + "\n_${r.notes.first()}_"
         }
-        if (!Regex("utrat|utraci|utracim|utracel|stal[oa]?|stoji|stalo|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
+        // „kolik stojí…“ (přítomný čas) je otázka na cenu, ne na výpis
+        if (!Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
         // měsíc v dotazu („v říjnu“, „za listopad“, „minulý / tento měsíc“) → jen pohyby toho měsíce (data v tabulce jsou ISO rrrr-mm-dd)
         val months = t.rows.mapNotNull { r -> r.getOrNull(0)?.takeIf { Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(it) }?.take(7) }.distinct().sorted()
         val mi = MONTH_RX.indexOfFirst { it.containsMatchIn(q) }
@@ -359,6 +360,7 @@ object Statement {
         val want = SPEND_WORDS.filter { it.first.containsMatchIn(word) }.flatMap { it.second }.distinct()
         if (want.isEmpty()) {
             // „kolik jsem (celkem) utratil (v říjnu)?“ → všechny výdaje; „za ponožky“ (neznámá věc) → null, rozhodne model
+            if (!Regex("utrat|utrac|vydaj|vydal|zaplatil|platil|dal[a]? jsem").containsMatchIn(q)) return null  // „kolik stojí 3 kg jablek“ není dotaz na výpis
             if (!after.isNullOrBlank() && !Regex("^(celkem|dohromady|vsechno|vse|ten mesic|mesic|obdobi|to)\\W*$").matches(after)) return null
             val ai = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
             val am = tt.rows.mapNotNull { it.getOrNull(ai)?.let { v -> CzNum.parse(v, false) } }

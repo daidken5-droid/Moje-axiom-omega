@@ -132,7 +132,9 @@ class OpsDecideTest {
         val files = good.listFiles()!!.filter { !it.name.startsWith(".") }
         assertEquals(1, files.size)
         val table = o.run(run)!!.last as cz.axiom.vega.core.Value.Table
-        assertEquals(table.rows, cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(files[0].readBytes())).rows)
+        // částky jdou do CSV jako čísla pro Excel („−16 124,46“ → „-16124,46“), jinak beze změny (den 24. 11., kolo 11)
+        fun excel(c: String) = c.replace('−', '-').replace("\u00a0", "").replace("\u202f", "")
+        assertEquals(table.rows.map { r -> r.map(::excel) }, cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(files[0].readBytes())).rows)
     }
 
     @Test fun groundingPerCitationAndMissingBundle() {

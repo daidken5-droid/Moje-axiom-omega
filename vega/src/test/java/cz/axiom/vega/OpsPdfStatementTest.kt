@@ -44,5 +44,21 @@ class OpsPdfStatementTest {
             if (e.first == "message" && e.second.getJSONObject("msg").optString("role") == "vega") ans = e.second.getJSONObject("msg") }
         val at = ans!!.getString("text").replace('\u00a0', ' ')
         assertTrue(at, at.contains("**−312,40 Kč** (1 platba"))
+        // kolo 11: „ulož mi to do Excelu“ po výpisu → CSV pro český Excel (středník, desetinná čárka, BOM), bez modelu
+        fun ask(q: String): JSONObject { events.clear(); o.chat(chat, q, emptyList()); var m: JSONObject? = null; val u = System.currentTimeMillis() + 15_000
+            while (m == null && System.currentTimeMillis() < u) { val e = events.poll(500, java.util.concurrent.TimeUnit.MILLISECONDS) ?: continue
+                if (e.first == "message" && e.second.getJSONObject("msg").optString("role") == "vega") m = e.second.getJSONObject("msg") }
+            return m!! }
+        // obecné „ulož to“ = zobrazený souhrn (1 řádek) + rada, jak dostat celé pohyby
+        val sum = ask("ulož mi to do Excelu")
+        assertTrue(sum.toString(), sum.getString("text").contains("(1 řádek,") && sum.getString("text").contains("ulož pohyby do Excelu"))
+        val ex = ask("ulož pohyby do Excelu")
+        assertTrue(ex.toString(), ex.optJSONObject("card")?.optString("type") == "file" && ex.getString("text").contains("4 řádky"))
+        val f = o.out.file(ex.getJSONObject("card").getString("name"))!!
+        val csv = f.readText(Charsets.UTF_8)
+        assertTrue(csv, csv.startsWith("\uFEFFDatum;Částka;Měna;Popis") && csv.contains(";-312,40;") && !csv.contains("-312.40"))
+        val cat = ask("pošli mi kategorie jako csv")
+        val cf = o.out.file(cat.getJSONObject("card").getString("name"))!!.readText(Charsets.UTF_8)
+        assertTrue(cf, cf.contains("Kategorie;Výdaje") && cf.contains("Potraviny"))
     }
 }

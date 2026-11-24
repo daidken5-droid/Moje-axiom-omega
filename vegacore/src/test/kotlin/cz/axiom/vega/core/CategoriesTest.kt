@@ -92,5 +92,6 @@ class SpendMonthTest {
         // červen × červenec se nepletou; neznámá věc zůstává modelu
         assertTrue(a("kolik jsem utratil v červenci").contains("červenec"))
         org.junit.Assert.assertEquals("null", a("kolik jsem utratil za ponožky"))
+        listOf("kolik stojí 3 kg jablek po 25 Kč", "kolik to stálo").forEach { org.junit.Assert.assertEquals(it, "null", a(it)) }
     }
 }

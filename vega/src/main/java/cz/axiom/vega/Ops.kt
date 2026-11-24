@@ -763,14 +763,41 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             ?: all.filter { it.scope == "global" }.firstNotNullOfOrNull { of(it.text) } ?: ';'
     }
 
+    /** Tabulka → CSV pro Excel (UTF-8 s BOM). Se středníkem = český Excel: desetinná ČÁRKA (jinak z „1.05“ udělá datum a „1234.50“ nejde sečíst). */
+    fun tableCsv(v: Value.Table): ByteArray { val d = csvDelimiter()
+        val t = if (d == ';') v.copy(rows = v.rows.map { r -> r.map { c -> when {
+            Regex("^-?\\d+\\.\\d+$").matches(c) -> c.replace('.', ',')
+            // zobrazené částky „−1 250,50“ (minus U+2212, nezlomitelné mezery) → „-1250,50“, aby je Excel sečetl
+            Regex("^[−-]?\\d{1,3}(?:[ \u00a0\u202f]\\d{3})*,\\d+$").matches(c) -> c.replace('−', '-').replace(Regex("[ \u00a0\u202f]"), "")
+            else -> c } } }) else v
+        return byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d).toByteArray() }
+
+    /** „ulož mi to do Excelu / pošli kategorie jako CSV“ po zpracovaném výpisu v tomto chatu → soubor bez modelu. */
+    private fun exportFollowUp(chat: String?, tb: Value.Table, text: String): Boolean {
+        val q = cz.axiom.vega.base.Text.fold(text).lowercase()
+        if (!Regex("\\b(do|v|na|pro|jako)\\s+(excel\\w*|xlsx|csv|tabulk\\w*)|\\b(excel\\w*|csv)\\b").containsMatchIn(q) ||
+            !Regex("\\b(uloz|ulozit|exportuj|export|stahni|posli|poslat|dej|preved|prevest|chci|udelej|vytvor|potrebuju|muzes|hod)").containsMatchIn(q)) return false
+        val (t, base) = when {
+            Regex("kategori").containsMatchIn(q) -> Statement.categories(tb) to "kategorie"
+            Regex("pravideln|predplatn").containsMatchIn(q) -> Statement.recurring(tb) to "pravidelne-platby"
+            Regex("pohyb|transakc|\\bplatby|vypis|vsechn|\\bcel[yaeou]\\b|polozk|radk").containsMatchIn(q) -> tb to "vypis"
+            else -> return false }  // obecné „ulož to“ = zobrazený výsledek (exportChat se Zkusit znovu)
+        if (t.rows.isEmpty()) { reply(chat, "Tabulka „$base“ je prázdná – není co uložit."); return true }
+        val n = t.rows.size
+        val s = try { out.save("$base-${java.time.LocalDate.now()}.csv", "text/csv", tableCsv(t)).also { sv ->
+                val back = cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(sv.local.readBytes())).rows.size
+                if (back != n) throw java.io.IOException("zpětně přečteno $back z $n řádků") }
+        } catch (e: java.io.IOException) { reply(chat, "Export se NEPODAŘIL: ${e.message?.take(160)}. Tabulka zůstala v chatu – zkus to znovu."); return true }
+        reply(chat, "Uloženo: **${s.name}** – ${n} ${if (n == 1) "řádek" else if (n in 2..4) "řádky" else "řádků"} pro Excel (středník, desetinná čárka, čeština)${if (s.public != null) "; najdeš ho ve Stažené/VEGA" else ""}. Otevři ho v Excelu nebo Tabulkách Google.",
+            JSONObject().put("type", "file").put("name", s.name))
+        return true
+    }
+
     fun exportValue(runId: String, step: Int): JSONObject {
         val r = run(runId) ?: throw ToolError("Výsledek už neexistuje")
         val v = if (step >= 0) r.results.getOrNull(step)?.value ?: r.last else r.last
         val (name, mime, bytes) = when (v) {
-            is Value.Table -> { val d = csvDelimiter()
-                // se středníkem = český Excel: desetinná ČÁRKA (jinak z „1.05“ udělá datum a „1234.50“ nejde sečíst)
-                val t = if (d == ';') v.copy(rows = v.rows.map { r -> r.map { c -> if (Regex("^-?\\d+\\.\\d+$").matches(c)) c.replace('.', ',') else c } }) else v
-                Triple("${v.name ?: "tabulka"}.csv", "text/csv", byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d).toByteArray()) }
+            is Value.Table -> Triple("${v.name ?: "tabulka"}.csv", "text/csv", tableCsv(v))
             is Value.Bytes -> Triple(v.name, v.mime ?: "application/octet-stream", v.bytes)
             is Value.Json -> Triple("vystup.json", "application/json", v.asText().toByteArray())
             is Value.DiffV -> Triple("zmeny.diff", "text/x-diff", v.asText().toByteArray())
@@ -852,10 +879,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if (!again) addMsg(chatId, JSONObject().put("role", "user").put("text", text).put("files", JSONArray(msgAtt.map { it.name })))
         val ws = activeWorkspace()
         // deterministické cesty, které rozhodují dřív než model: výpočty, důkazy, export
+        // „kolik jsem utratil za jídlo?“ / „ulož mi to do Excelu“ u právě zpracovaného výpisu v tomto chatu – z tabulky pohybů (ne ze souhrnu po měsících), bez modelu
+        val lastTable = if (msgAtt.isEmpty()) lastResultRun?.takeIf { resultInChat(chatId, it) }?.let { run(it) }?.results?.firstOrNull()?.value as? Value.Table else null
+        lastTable?.let { tb -> Statement.spendQuery(tb, text) }?.let { a -> reply(chatId, a); note { selftune.routed("útraty z výpisu") }; return }
+        if (lastTable != null && lastTable.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") } && exportFollowUp(chatId, lastTable, text)) { note { selftune.routed("export výpisu") }; return }
         if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
-        // „kolik jsem utratil za jídlo?“ u právě zpracovaného výpisu v tomto chatu – z tabulky, bez modelu
-        if (msgAtt.isEmpty()) lastResultRun?.takeIf { resultInChat(chatId, it) }?.let { run(it) }?.results?.firstOrNull()?.value?.let { it as? Value.Table }
-            ?.let { tb -> Statement.spendQuery(tb, text) }?.let { a -> reply(chatId, a); note { selftune.routed("útraty z výpisu") }; return }
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun?.let { resultInChat(chatId, it) } == true, procedures, msgAtt.size, learned = tuning.active()))
         note { selftune.routed(SelfTune.area(intent)) }
         if (followUp != null) retune()
@@ -1909,7 +1937,11 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val f = out.file(r.getString("name")) ?: throw java.io.IOException("uložený soubor nejde najít")
             val back = cz.axiom.vega.core.Csv.read(cz.axiom.vega.core.Encoding.decode(f.readBytes()))
             if (back.rows.size != rows) throw java.io.IOException("zpětně přečteno ${back.rows.size} z $rows řádků")
-            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Uloženo: **${r.getString("name")}** ($rows řádků, ověřeno zpětným přečtením)${if (r.optBoolean("public")) " – najdeš ho ve Stažené/VEGA" else ""}.",
+            // výpis: uložený je souhrn, pohyby jsou v prvním kroku → poradit, jak dostat celé pohyby / kategorie
+            val first = run(runId)?.results?.firstOrNull()?.value as? Value.Table
+            val hint = if (first != null && first !== run(runId)?.last && first.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") })
+                "\nVšechny pohyby (${first.rows.size}) uložím na „ulož pohyby do Excelu“, výdaje podle kategorií na „ulož kategorie do Excelu“." else ""
+            reply(chat, (if (intro.isNotBlank()) "$intro\n\n" else "") + "Uloženo: **${r.getString("name")}** ($rows ${if (rows == 1) "řádek" else if (rows in 2..4) "řádky" else "řádků"}, ověřeno zpětným přečtením)${if (r.optBoolean("public")) " – najdeš ho ve Stažené/VEGA" else ""}.$hint",
                 JSONObject().put("type", "file").put("name", r.getString("name")).put("rows", rows))
         } catch (e: Exception) {
             if (e is CancelledException) throw e
