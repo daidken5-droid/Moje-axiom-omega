@@ -340,7 +340,8 @@ object Statement {
         val incomeQ = Regex("\\b(kolik|jak[ey]|jaky|celkem|prehled|souhrn)\\b").containsMatchIn(q) && Regex("prijm|prislo|prisl[ay]|dosl[oa]|vydelal|mzd[auy]|vyplat|dostal jsem").containsMatchIn(q)
         val saldoQ = Regex("usetril|zbylo|zustalo|bilanc|saldo|v plusu|v minusu|vic nez vydelam|vic nez jsem vydelal").containsMatchIn(q)
         // „kolik stojí…“ (přítomný čas) je otázka na cenu, ne na výpis
-        if (!incomeQ && !saldoQ && !Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
+        val biggestQ = Regex("nejvetsi (platb|jednotliv|castk)|nejdrazsi (platb|nakup|vec)|co jsem (nejvic|nejvice) (zaplatil|utratil|platil)").containsMatchIn(q)
+        if (!incomeQ && !saldoQ && !biggestQ && !Regex("utrat|utraci|utracim|utracel|\\bstal[oa]?\\b|dal[a]? jsem|zaplatil|platil|vydaj|vydal").containsMatchIn(q)) return null
         // měsíc v dotazu („v říjnu“, „za listopad“, „minulý / tento měsíc“) → jen pohyby toho měsíce (data v tabulce jsou ISO rrrr-mm-dd)
         val months = t.rows.mapNotNull { r -> r.getOrNull(0)?.takeIf { Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(it) }?.take(7) }.distinct().sorted()
         val mi = MONTH_RX.indexOfFirst { it.containsMatchIn(q) }
@@ -367,6 +368,27 @@ object Statement {
             if (inc.isEmpty()) return "Ve výpisu$per nejsou žádné příjmy (kladné částky)."
             val top = inc.groupBy { merchantKey(it.first).ifBlank { it.first.take(30) } }.map { (_, v) -> v.first().first.take(40) to v.sumOf { it.second } }.sortedByDescending { it.second }.take(3)
             return "Příjmy$per: **${CzNum.format(incSum)} Kč** (${plat(inc.size)}). Největší: " + top.joinToString(" · ") { "${it.first} ${CzNum.format(it.second)} Kč" } + ".\n_Spočítáno z tabulky výpisu, bez modelu._"
+        }
+        val amtI = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") }
+        val descI = tt.headers.indexOfFirst { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("popis") }.takeIf { it >= 0 } ?: 3
+        val spent = tt.rows.mapNotNull { r -> r.getOrNull(amtI)?.let { CzNum.parse(it, false) }?.takeIf { it < 0 }?.let { Triple(r.getOrElse(0) { "" }, r.getOrElse(descI) { "" }, it) } }
+        // „jaká byla největší platba?“, „co jsem nejvíc zaplatil v říjnu“ → největší JEDNOTLIVÉ platby
+        if (biggestQ) {
+            if (spent.isEmpty()) return "Ve výpisu$per nejsou žádné výdaje."
+            return "Největší platby$per:\n" + spent.sortedBy { it.third }.take(5).joinToString("\n") { (d, desc, v) ->
+                "• ${CzNum.format(v)} Kč – ${desc.take(50).ifBlank { "bez popisu" }} (${d.split('-').let { p -> if (p.size == 3) "${p[2].toInt()}. ${p[1].toInt()}." else d }})" } + "\n_Z tabulky výpisu, bez modelu._"
+        }
+        // „kolik jsem utratil v Lidlu / za Netflix / u Alzy“ → platby, jejichž popis obsahuje toho obchodníka (přednost před kategorií)
+        val stop = setOf("mesic", "mesici", "celkem", "dohromady", "jidlo", "jidla", "potraviny", "obchode", "obchodech", "kartou", "hotovost", "tom", "tomhle", "tohle", "to", "ten", "tento", "tenhle", "co", "nej", "cem", "mne", "mi", "me", "sebe")
+        val cand = Regex("\\b(v|ve|u|za|na|do|pro|od)\\s+(\\p{L}{3,})").findAll(MONTH_RX.fold(q) { acc, rx -> rx.replace(acc, " ") }).map { it.groupValues[2] }.filter { it !in stop }.toList()
+        for (w in cand) {
+            val stem = if (w.length >= 5) w.take(maxOf(4, w.length - 2)) else w
+            val hit = spent.filter { Regex("\\b" + Regex.escape(stem)).containsMatchIn(cz.axiom.vega.base.Text.fold(it.second).lowercase()) }
+            if (hit.isNotEmpty() && SPEND_WORDS.none { it.first.matches(w) }) {
+                val name = hit.first().second.let { d -> Regex("(?i)\\b" + Regex.escape(stem) + "\\S*").find(cz.axiom.vega.base.Text.fold(d))?.let { m -> d.substring(m.range.first, minOf(d.length, m.range.last + 1)) } ?: w }
+                return "U „$name“ jsi$per utratil **${CzNum.format(hit.sumOf { it.third })} Kč** (${plat(hit.size)}): " + hit.take(6).joinToString(", ") { (d, _, v) -> "${d.split('-').let { p -> if (p.size == 3) "${p[2].toInt()}. ${p[1].toInt()}." else d }} ${CzNum.format(v)}" } +
+                    (if (hit.size > 6) " …" else "") + ".\n_Hledáno v popisu plateb, bez modelu._"
+            }
         }
         val cats = categories(tt)
         if (Regex("za co (nejvic|nejvice)|na co (nejvic|nejvice)|nejvetsi vydaj|kde nejvic").containsMatchIn(q))
