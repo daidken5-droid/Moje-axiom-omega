@@ -92,8 +92,13 @@ object Extract {
                 val out = ArrayList<String>()
                 cell.findAll(row.groupValues[1]).forEach { c ->
                     val attrs = c.groupValues[1]; val body = c.groupValues[2]
-                    val raw = vRx.find(body)?.groupValues?.get(1) ?: tRx.find(body)?.groupValues?.get(1) ?: ""
-                    val v = if (attrs.contains("t=\"s\"")) shared.getOrNull(raw.toIntOrNull() ?: -1) ?: "" else unescape(raw)
+                    // vložený text (t="inlineStr") může být rozdělený do více <r><t>…</t></r> („Čás“+„tka“) → spojit všechny části
+                    val raw = vRx.find(body)?.groupValues?.get(1) ?: tRx.findAll(body).joinToString("") { it.groupValues[1] }
+                    val v = when {
+                        attrs.contains("t=\"s\"") -> shared.getOrNull(raw.toIntOrNull() ?: -1) ?: ""
+                        attrs.contains("t=\"b\"") -> if (raw == "1") "PRAVDA" else "NEPRAVDA"
+                        attrs.contains("t=\"inlineStr\"") || attrs.contains("t=\"str\"") || attrs.contains("t=\"e\"") -> unescape(raw)
+                        else -> num(unescape(raw)) }
                     val col = rRx.find(attrs)?.groupValues?.get(1)?.let { colOf(it) } ?: out.size
                     while (out.size < col) out += ""
                     if (col < out.size) out[col] = v else out += v
@@ -101,6 +106,13 @@ object Extract {
                 out.toList()
             }.toList()
         }
+    }
+
+    /** Číslo z Excelu tak, jak ho ukazuje Excel: 15 platných číslic („-312.39999999999998“ → „-312.4“), bez exponentu („1.5E-2“ → „0.015“). */
+    private fun num(v: String): String {
+        if (!Regex("^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?$").matches(v)) return v
+        if (!v.contains('E', true) && v.substringAfter('.', "").length <= 10) return v
+        return runCatching { java.math.BigDecimal(v).round(java.math.MathContext(15)).stripTrailingZeros().toPlainString() }.getOrDefault(v)
     }
 
     /** První list sešitu jako řádky (pro výpis z banky v Excelu); null = není XLSX / nejde přečíst. */
