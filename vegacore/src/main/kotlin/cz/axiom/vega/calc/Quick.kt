@@ -355,7 +355,9 @@ object Quick {
         Regex("^je (?:rok )?(\\d{4}) (?:rok )?prestupn\\w*(?: rok)?$|^(?:je )?rok (\\d{4}) prestupn\\w*$").find(t)?.let { m ->
             val y = (m.groupValues[1].ifEmpty { m.groupValues[2] }).toInt(); val leap = java.time.Year.isLeap(y.toLong())
             return "Rok $y ${if (leap) "je" else "není"} přestupný – únor má ${if (leap) 29 else 28} dní." }
-        Regex("^kolik (?:je |ma )?dni (?:ma |je |v |mel |bude mit )?(leden|ledn\\w*|unor\\w*|brez\\w*|dub\\w*|kvet\\w*|cervenec|cervenc\\w*|cerven\\w*|srp\\w*|zari|rij\\w*|listopad\\w*|prosin\\w*)(?: (?:roku )?(\\d{4}))?$").find(t)?.let { m ->
+        // „kolik dní má únor“ i „kolik má únor dní“ (slovosled se slovesem před měsícem)
+        val dm = t.replace(Regex("^kolik (ma|mel|bude mit) (\\p{L}+)(?: (\\d{4}))? dni$"), "kolik dni ma $2 $3").trim()
+        Regex("^kolik (?:je |ma )?dni (?:ma |je |v |mel |bude mit )?(leden|ledn\\w*|unor\\w*|brez\\w*|dub\\w*|kvet\\w*|cervenec|cervenc\\w*|cerven\\w*|srp\\w*|zari|rij\\w*|listopad\\w*|prosin\\w*)(?: (?:roku )?(\\d{4}))?$").find(dm)?.let { m ->
             val w = m.groupValues[1]
             val mo = when { w.startsWith("led") -> 1; w.startsWith("uno") -> 2; w.startsWith("bre") -> 3; w.startsWith("dub") -> 4; w.startsWith("kve") -> 5
                 w.startsWith("cervenec") || w.startsWith("cervenc") -> 7; w.startsWith("cerv") -> 6; w.startsWith("srp") -> 8; w.startsWith("zar") -> 9; w.startsWith("rij") -> 10; w.startsWith("lis") -> 11; else -> 12 }

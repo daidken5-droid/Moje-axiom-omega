@@ -11,6 +11,9 @@ class CalendarCalcTest {
         assertTrue(a("je rok 2028 přestupný?").startsWith("Rok 2028 je přestupný"))
         assertEquals("Únor 2028 má 29 dní.", a("kolik je dní v únoru 2028"))
         assertEquals("Listopad 2026 má 30 dní.", a("kolik dní má listopad"))
+        // kolo NN13 (regresní sonda noci): slovosled „kolik má únor dní“
+        assertEquals("Únor 2026 má 28 dní.", a("kolik má únor dní"))
+        assertEquals("Únor 2028 má 29 dní.", a("kolik má únor 2028 dní"))
         a("kdy je Velikonoční pondělí 2027").let { assertTrue(it, it.contains("29. 3. 2027")) }
         a("kdy jsou velikonoce").let { assertTrue(it, it.contains("neděle 28. 3. 2027") && it.contains("pondělí 29. 3. 2027")) }
         a("kdy je Velký pátek 2027").let { assertTrue(it, it.contains("26. 3. 2027")) }
