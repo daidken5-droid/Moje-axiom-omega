@@ -605,9 +605,15 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     @Synchronized fun deleteChat(id: String) {
         require(Regex("^c[0-9a-z]{1,20}$").matches(id)) { "Tuhle konverzaci smazat nejde." }
         val arr = chats(); val n = JSONArray(); for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("id") != id) n.put(it) }
+        // výsledky běhů z tohoto chatu (zpracovaný výpis = všechny pohyby, přečtený štítek…) – dřív zůstaly v telefonu, dokud jich nebylo přes 30
+        val runs = runsIn(id).let { mine -> if (mine.isEmpty()) mine else mine - (0 until n.length()).flatMap { runsIn(n.getJSONObject(it).optString("id")) }.toSet() }
         kv.write("chats.json", n.toString())
+        runs.forEach { kv.delete("run/$it") }
+        if (runs.isNotEmpty()) { if (lastResultRun in runs) { lastResultRun = null; kv.delete("state/lastRun") }; runCatching { cz.axiom.vega.core.pruneRunBlobs(kv) } }
         kv.delete(chatKey(id)); kv.delete(chatKey(id) + ".bad"); kv.delete(evidenceKey(id)); kv.keys("resume/$id/").forEach { kv.delete(it) }; chatWrites.incrementAndGet()
     }
+    private fun runsIn(chat: String): Set<String> = runCatching { val a = messages(chat)
+        (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optJSONObject("card") }.flatMap { c -> listOf(c.optString("run"), c.optString("ndefRun")) }.filter { Regex("^[A-Za-z0-9_-]{1,40}$").matches(it) }.toSet() }.getOrDefault(emptySet())
     @Synchronized fun renameChat(id: String, title: String) {
         val t = title.trim().take(60); require(t.isNotEmpty()) { "Název nesmí být prázdný." }
         val arr = chats(); for (i in 0 until arr.length()) arr.getJSONObject(i).let { if (it.optString("id") == id) it.put("title", t) }
