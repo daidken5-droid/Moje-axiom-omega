@@ -54,20 +54,25 @@ object Mem {
     }
 
     private val secretRx = listOf(
-        Regex("(?i)\\b(sk|pk|rk)-[a-z0-9_-]{16,}"), Regex("(?i)\\bghp_[A-Za-z0-9]{20,}"), Regex("(?i)\\bAKIA[0-9A-Z]{16}\\b"), Regex("(?i)\\bAIza[0-9A-Za-z_-]{30,}"),
-        Regex("(?i)(?<!\\p{L})(hesl[oaemu]\\p{L}*|password|passwd|pin|token|api[ _-]?key|klíč k api|secret)(?!\\p{L}).{0,30}?(\\s(je|is|zní)\\s|[:=])\\s*\\S{4,}"),
+        Regex("(?iu)\\b(sk|pk|rk)-[a-z0-9_-]{16,}"), Regex("(?iu)\\bghp_[A-Za-z0-9]{20,}"), Regex("(?iu)\\bAKIA[0-9A-Z]{16}\\b"), Regex("(?iu)\\bAIza[0-9A-Za-z_-]{30,}"),
+        Regex("(?iu)(?<!\\p{L})(hesl[oaemu]\\p{L}*|password|passwd|pin|token|api[ _-]?key|klíč k api|secret)(?!\\p{L}).{0,30}?(\\s(je|is|zní)\\s|[:=])\\s*\\S{4,}"),
         // čísla účtů / IBAN / rodné číslo
-        Regex("\\b[A-Z]{2}\\d{2}(?: ?[A-Z0-9]{4}){3,7}\\b"), Regex("\\b(\\d{2,6}-)?\\d{6,10}/\\d{4}\\b"), Regex("\\b\\d{6}/\\d{3,4}\\b"), Regex("(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+        Regex("\\b[A-Z]{2}\\d{2}(?: ?[A-Z0-9]{4}){3,7}\\b"), Regex("\\b(\\d{2,6}-)?\\d{6,10}/\\d{4}\\b"), Regex("\\b\\d{6}/\\d{3,4}\\b"), Regex("(?iu)-----BEGIN [A-Z ]*PRIVATE KEY-----"),
         Regex("\\b\\d{4}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{4}\\b"),
         // PIN / CVV s číslem kdekoli poblíž („můj PIN 4321“, „pin kód od trezoru 0000“, „CVV 123“)
-        Regex("(?i)(?<!\\p{L})(pin|cvv|cvc|cvv2|puk)(?!\\p{L})[^\\n]{0,25}?(?<!\\d)\\d{3,8}(?!\\d)"),
+        Regex("(?iu)(?<!\\p{L})(pin|cvv|cvc|cvv2|puk)(?!\\p{L})[^\\n]{0,25}?(?<!\\d)\\d{3,8}(?!\\d)"),
         // jednorázové kódy („kód z SMS 482913“, „ověřovací kód 123456“)
-        Regex("(?i)(sms|ověřovací|overovaci|jednorázov\\p{L}*|jednorazov\\p{L}*|potvrzovací|potvrzovaci|autorizační|autorizacni)[^\\n]{0,15}?(kód|kod|code)[^\\n]{0,15}?(?<!\\d)\\d{4,8}(?!\\d)|(kód|kod)\\p{L}* z sms[^\\n]{0,10}?\\d{4,8}"),
+        Regex("(?iu)(sms|ověřovací|overovaci|jednorázov\\p{L}*|jednorazov\\p{L}*|potvrzovací|potvrzovaci|autorizační|autorizacni)[^\\n]{0,15}?(kód|kod|code)[^\\n]{0,15}?(?<!\\d)\\d{4,8}(?!\\d)|(kód|kod)\\p{L}* z sms[^\\n]{0,10}?\\d{4,8}"),
         // heslo s hodnotou i bez „je“ / dvojtečky, i krátké („heslo k e-mailu: Pes“, „a heslo xyz12345“)
-        Regex("(?i)(?<!\\p{L})(hesl[oaemu]\\p{L}*|password)(?!\\p{L})[^\\n]{0,25}?[:=]\\s*\\S{2,}"),
-        Regex("(?i)(?<!\\p{L})(heslo|password)\\s+(?!(je|jsou|k|ke|do|od|na|pro|zní|zni|mám|mam|jsem|si|se|nevím|nevim|zapomněl\\p{L}*|zapomnel\\p{L}*)(?!\\p{L}))(?=\\S*\\d)\\S{4,}"),
+        Regex("(?iu)(?<!\\p{L})(hesl[oaemu]\\p{L}*|password)(?!\\p{L})[^\\n]{0,25}?[:=]\\s*\\S{2,}"),
+        Regex("(?iu)(?<!\\p{L})(heslo|password)\\s+(?!(je|jsou|k|ke|do|od|na|pro|zní|zni|mám|mam|jsem|si|se|nevím|nevim|zapomněl\\p{L}*|zapomnel\\p{L}*)(?!\\p{L}))(?=\\S*\\d)\\S{4,}"),
+        // rodné číslo i bez lomítka („rodné číslo 9001011234“), číslo OP / pasu, kód k trezoru / alarmu / zámku, odpověď na bezpečnostní otázku
+        Regex("(?iu)(rodn\\p{L}* č\\p{L}*|rodn\\p{L}* c\\p{L}*|(?<!\\p{L})rč(?!\\p{L})|(?<!\\p{L})rc(?!\\p{L}))[^\\n]{0,15}?(?<!\\d)\\d{9,10}(?!\\d)"),
+        Regex("(?iu)(číslo|cislo|č\\.)\\s*(op|občansk\\p{L}*|obcansk\\p{L}*|pasu|cestovního pasu|řidičák\\p{L}*|ridicak\\p{L}*)[^\\n]{0,15}?(?<![\\dA-Z])[A-Z]{0,2}\\d{6,9}(?!\\d)"),
+        Regex("(?iu)(kód|kod|heslo|kombinace)\\p{L}*\\s+(k|ke|od|do|na|pro)\\s+(trezor|alarm|zámk|zamk|zabezpečen|zabezpecen|dveř|dver|bran|schránk|schrank)\\p{L}*[^\\n]{0,15}?(?<!\\d)\\d{3,10}(?!\\d)"),
+        Regex("(?iu)bezpečnostní otázk|bezpecnostni otazk|kontrolní otázk|kontrolni otazk"),
         // klíče poskytovatelů (Groq gsk_, Cerebras csk-, xAI, Google OAuth, Slack, Hugging Face)
-        Regex("(?i)\\b(gsk_|csk-|xai-|ya29\\.|xox[bpa]-|hf_)[A-Za-z0-9_.-]{12,}"),
+        Regex("(?iu)\\b(gsk_|csk-|xai-|ya29\\.|xox[bpa]-|hf_)[A-Za-z0-9_.-]{12,}"),
         // obecně: dlouhý token s písmeny i číslicemi bez mezer (32+ znaků)
         Regex("(?<![A-Za-z0-9])(?=[A-Za-z0-9_-]{32,})(?=[^\\s]*\\d)(?=[^\\s]*[A-Za-z])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9])"),
     )
