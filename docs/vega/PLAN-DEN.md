@@ -260,3 +260,38 @@ SHA-256 `7a89f3089b619fd18faba3e01441de4d1b98d11c07a1a3d5e1473b679538309c` (shod
 
 **NEOVĚŘENO na telefonu:** skutečný PDF a XLSX výpis z vlastní banky (George, ČSOB, Fio, KB, Air Bank), otevření uloženého CSV v Excelu / Tabulkách Google,
 návrhy pod polem (zalomení, zmizení), velké písmo, hlavička pod stavovým řádkem (oprava z noci); dál `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
+
+## Noc 24./25. 11. 2026 – noční kola 21:20 → 03:47 (na žádost „klasická večerní kola jako včera“)
+
+13 kol (NN1–NN13), 13 commitů, testy **346 → 362 / 0** (Kotlin) + UI composer / audit / robust / xss zelené. Poslední CI „Build VEGA APK“ #226 (`35446ec`) zelené, všech 13 nočních buildů zelených.
+
+**Kalkulačka a kalendář bez modelu**
+- NN1: „15 % sleva z 899“, „12 % z 35 000 Kč hrubého“, „rozpočítej 1840 na 4 lidi“, „3 hodiny 45 minut v minutách“, „100 °F ve stupních“, „5 % úrok z 200 000“, „za kolik dní je 1. ledna“; „100 dní = 14,29 týdnů“ (dřív „100 dni = 14,2857 tydnu“).
+- NN3 + NN13: přestupný rok, dny v měsíci (i „kolik má únor dní“), Velikonoce / Velký pátek / pondělí, věk jen z roku narození. Sonda 24 faktických otázek: kalkulačka si žádnou nepřivlastnila.
+
+**Ranní přehled zpráv (bez modelu)**
+- NN2: zprávy s českým datem („Út, 24 lis 2026“), bez časového pásma („24.11.2026 05:20“) nebo s dvouciferným rokem RFC 822 (dřív rok 0026) už tiše nevypadávají z okna 05:20→05:20.
+
+**Kdo odpovídá (router a kontext)**
+- NN4: „kolik řádků / sloupců má ten soubor“ u CSV → Inspektor CSV (přesně), „co je v tom souboru“ dál shrnutí.
+- NN5: „a v říjnu?“, „a za benzín?“, „a kolik za jídlo?“ po výpisu – doplnění podle předchozí otázky (dřív webové hledání doslova „a v říjnu“).
+- NN6: „no nic“, „nevadí“, „výborně“, „v pohodě“… už nespouští hledání na webu.
+
+**Hardware a soubory**
+- NN7: WiFi heslo podle WPA – > 63 znaků „nepoužitelné“, diakritika „riskantní“, „Password123!“ / „P@ssw0rd“ slabé; vlastní generátor obsahoval slovo „maják“ → jen ASCII.
+- NN8: NFC WiFi štítek ukáže síť a zabezpečení (heslo se nezobrazí, neuloží ani nepředá dál); vizitka jako „Kontakt: jméno · firma · telefon · e-mail“.
+- NN9: text z Wordu / PowerPointu / ODT bez slepených slov (tabulátory, zalomení, buňky tabulek, číselné entity).
+- NN10: XLSX – vložený text po částech („Čás“+„tka“ → výpis nešel rozpoznat), čísla jako v Excelu (-312.4), PRAVDA/NEPRAVDA.
+
+**Bezpečnost**
+- NN11: podvržený XLSX (zip bomba 400 kB → 400 MB) zabral ~269 MB paměti → čtení po kouscích s limitem 20 / 60 MB.
+- NN12: cizí text z příloh a webu nepodstrčí falešný konec bloku (`</ZDROJ>`, titulek stránky, `<<<KONEC  DOKUMENTU>>>`, ＜＜＜…＞＞＞).
+
+**Regresní sonda (NN13):** 89 laických dotazů na stavu před nocí (`415b0ce`) a teď – 14 změn, všechny záměrné, 0 regresí.
+
+**Upravené starší testy (s důvodem v commitu):** WifiPasswordTest – „kočka-strom-okno-mrak“ s diakritikou už není „silné“ (WPA = jen ASCII), silná je verze bez háčků.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-35446ec.apk`, 39 915 926 B,
+SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shoda se SHA256SUMS.txt z CI #226).
+
+**NEOVĚŘENO na telefonu:** skutečný NFC WiFi štítek a vizitka, kontrola WiFi hesla v Hardware, DOCX / ODT / XLSX z vlastních souborů, navazující dotazy k výpisu v chatu, ranní přehled s českými zdroji; dál seznam ze dne 24. 11. a `PHONE-CHECKLIST.md`.
