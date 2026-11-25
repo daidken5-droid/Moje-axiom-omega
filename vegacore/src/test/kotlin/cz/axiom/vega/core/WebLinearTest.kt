@@ -18,7 +18,8 @@ class WebLinearTest {
             "skripty bez konce" to "<script>".repeat(n / 8),
             "značky bez >" to "<a ".repeat(n / 3),
         )
-        val slow = cases.mapNotNull { (k, h) -> ms { Web.htmlToText(h) }.takeIf { it > 2_000 }?.let { "$k: $it ms" } }
+        val slow = cases.mapNotNull { (k, h) -> ms { Web.htmlToText(h) }.takeIf { it > 2_000 }?.let { "$k: $it ms" } } +
+            listOfNotNull(ms { Web.duckParse("<a class=\"result__a\" href=\"x\">".repeat(n / 30), 10) }.takeIf { it > 2_000 }?.let { "výsledky hledání bez konce: $it ms" })
         assertEquals(emptyList(), slow)
     }
 

@@ -116,11 +116,20 @@ object Web {
     fun duckParse(html: String, n: Int): List<Snippet> {
         if (html.contains("anomaly-modal") || html.contains("challenge-form")) return emptyList()
         val out = ArrayList<Snippet>()
-        Regex("(?is)<a[^>]+class=\"result__a\"[^>]+href=\"([^\"]+)\"[^>]*>(.*?)</a>.*?class=\"result__snippet\"[^>]*>(.*?)</a>").findAll(html).forEach { m ->
-            var href = entities(m.groupValues[1]); if (href.startsWith("//")) href = "https:$href"
+        // odkazy jedním průchodem (dřív „<a…result__a…>(.*?)</a>.*?result__snippet…>(.*?)</a>“ – kvadraticky u rozbité stránky)
+        val links = cz.axiom.vega.base.Tags.elements(html, "a")
+        var i = 0
+        while (i < links.size) {
+            val a = links[i]; i++
+            if (!a.attrs.contains("class=\"result__a\"")) continue
+            // úryvek = nejbližší další odkaz „result__snippet“ (ne až u dalšího výsledku)
+            var j = i; while (j < links.size && !links[j].attrs.contains("class=\"result__snippet\"") && !links[j].attrs.contains("class=\"result__a\"")) j++
+            if (j >= links.size || !links[j].attrs.contains("class=\"result__snippet\"")) continue
+            val sn = links[j]; i = j + 1
+            var href = entities(Regex("href=\"([^\"]+)\"").find(a.attrs)?.groupValues?.get(1) ?: continue); if (href.startsWith("//")) href = "https:$href"
             Regex("[?&]uddg=([^&]+)").find(href)?.let { href = URLDecoder.decode(it.groupValues[1], "UTF-8") }
-            if (!href.startsWith("http") || href.contains("duckduckgo.com/y.js")) return@forEach
-            val title = entities(m.groupValues[2].replace(Regex("<[^>]+>"), "")).trim(); val snip = entities(m.groupValues[3].replace(Regex("<[^>]+>"), "")).trim()
+            if (!href.startsWith("http") || href.contains("duckduckgo.com/y.js")) continue
+            val title = entities(cz.axiom.vega.base.Tags.strip(a.body)).trim(); val snip = entities(cz.axiom.vega.base.Tags.strip(sn.body)).trim()
             if (title.isNotBlank() && snip.length > 30) out += Snippet(0, title, snip, href)
             if (out.size >= n) return out
         }
