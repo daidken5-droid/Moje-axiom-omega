@@ -38,6 +38,7 @@ object News {
     /** Kolik vět z perexů na jedno téma (z různých webů, bez opakování). */
     const val SENTENCES_PER_TOPIC = 4
     const val MAX_TOPICS = 10
+    private const val CLEAN_MAX = 20_000
 
     data class Item(val source: String, val title: String, val link: String, val published: Instant?, val perex: String)
 
@@ -45,14 +46,13 @@ object News {
 
     /** Vadný, prázdný nebo HTML místo RSS → prázdný seznam (nikdy výjimka). Položka bez titulku nebo odkazu se vynechá. */
     fun parse(xml: String, source: String): List<Item> = runCatching {
-        val blocks = Regex("(?is)<item\\b[^>]*>(.*?)</item>").findAll(xml).map { it.groupValues[1] }.toList()
-            .ifEmpty { Regex("(?is)<entry\\b[^>]*>(.*?)</entry>").findAll(xml).map { it.groupValues[1] }.toList() }
+        val blocks = blocks(xml, "item").ifEmpty { blocks(xml, "entry") }
         blocks.mapNotNull { b ->
             val title = clean(tag(b, "title") ?: return@mapNotNull null).take(300)
             val link = (tag(b, "link")?.let { clean(it) }?.takeIf { it.isNotBlank() }
-                ?: Regex("(?is)<link\\b[^>]*href=[\"']([^\"']+)[\"']").find(b)?.groupValues?.get(1)?.let { clean(it) }
+                ?: Regex("(?is)<link\\b[^>]{0,500}href=[\"']([^\"']+)[\"']").find(b)?.groupValues?.get(1)?.let { clean(it) }
                 // RSS bez <link>, jen <guid isPermaLink="true">https://…</guid> (výchozí isPermaLink je true)
-                ?: Regex("(?is)<guid\\b(?![^>]*isPermaLink=[\"']false)[^>]*>(.*?)</guid>").find(b)?.groupValues?.get(1)?.let { clean(it) })
+                ?: GUID_OPEN.find(b)?.let { o -> Regex("(?i)</guid\\s*>").find(b, o.range.last + 1)?.let { c -> clean(b.substring(o.range.last + 1, c.range.first)) } })
                 ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { untrack(it) } ?: return@mapNotNull null
             if (title.isBlank()) return@mapNotNull null
             val date = (tag(b, "pubDate") ?: tag(b, "dc:date") ?: tag(b, "published") ?: tag(b, "updated"))?.let { date(clean(it)) }
@@ -69,13 +69,33 @@ object News {
         return noFrag.substringBefore('?') + if (keep.isEmpty()) "" else "?" + keep.joinToString("&")
     }
 
-    private fun tag(b: String, name: String): String? = Regex("(?is)<$name\\b[^>]*>(.*?)</$name>").find(b)?.groupValues?.get(1)
+    private val GUID_OPEN = Regex("(?i)<guid\\b(?![^>]{0,500}isPermaLink=[\"']false)[^>]{0,500}>")
+    private val openRx = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+    private val closeRx = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+    /**
+     * Obsahy <name …>…</name> jedním průchodem dopředu. Dřív „(?is)<item…>(.*?)</item>“: u feedu s otevřenými značkami
+     * bez konce hledal regex od KAŽDÉHO začátku až na konec souboru – kvadraticky (100 kB = 10 s, 2 MB ≈ hodina, ranní přehled stál).
+     */
+    private fun blocks(xml: String, name: String, max: Int = Int.MAX_VALUE): List<String> {
+        val open = openRx.getOrPut(name) { Regex("(?i)<${Regex.escape(name)}\\b[^>]{0,500}>") }
+        val close = closeRx.getOrPut(name) { Regex("(?i)</${Regex.escape(name)}\\s*>") }
+        val out = ArrayList<String>(); var from = 0
+        while (out.size < max) {
+            val o = open.find(xml, from) ?: break
+            val c = close.find(xml, o.range.last + 1) ?: break  // bez konce = dál už nic celého není
+            out += xml.substring(o.range.last + 1, c.range.first); from = c.range.last + 1
+        }
+        return out
+    }
+    private fun tag(b: String, name: String): String? = blocks(b, name, max = 1).firstOrNull()
 
     /** CDATA, HTML značky a entity pryč; jeden řádek. */
-    fun clean(s: String): String {
+    fun clean(s0: String): String {
+        // strop vstupu: neuzavřené „<![CDATA[“ / „<a“ bez „>“ by jinak regexy níže procházely kvadraticky (titulek i perex se stejně zkracují)
+        val s = if (s0.length > CLEAN_MAX) s0.take(CLEAN_MAX) else s0
         var t = s.replace(Regex("(?s)<!\\[CDATA\\[(.*?)]]>"), "$1")
         // dva průchody: HTML zakódované v <description> („&lt;p&gt;…“) i dvojí kódování v Atomu type="html" („&amp;ndash;“)
-        repeat(2) { t = decode(t.replace(Regex("(?s)</?[A-Za-z!][^>]*>"), " ")) }
+        repeat(2) { t = decode(t.replace(Regex("(?s)</?[A-Za-z!][^>]{0,500}>"), " ")) }
         // text z cizího kanálu nesmí v přehledu vytvořit odkaz ani formátování (markdown): [ ] ` * | < > pryč, # a _ na začátku slov taky
         return t.replace('\u00a0', ' ').replace("\u00ad", "").replace(Regex("[\\[\\]`*|<>]"), " ").replace(Regex("(^|\\s)[#_]+"), "$1").replace(Regex("\\s+"), " ").trim()
     }
