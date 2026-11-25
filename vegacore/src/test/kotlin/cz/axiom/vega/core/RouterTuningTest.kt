@@ -47,7 +47,8 @@ class RouterTuningTest {
         // „jak se máš“ → nástroj: změnilo by kontrolní případ → nesmí se zapnout
         val bad = RouterTuning.Rule("x", listOf("jak", "mas"), "nástroj:hash", listOf("jak se máš"), 5, "PROPOSED")
         val why = tune.validate(bad, emptyList())
-        assertNotNull(why); assertTrue(why.contains("kontrolní případ"), why)
+        // od 25. 11. (T2) informační otázka „jak …“ akci nespustí vůbec – pravidlo se odmítne už jako nespustitelné; výsledek (zamítnutí) stejný
+        assertNotNull(why); assertTrue(why.contains("kontrolní případ") || why.contains("nejde spustit"), why)
         // akce, která v kontextu nejde spustit (oprava kódu bez otevřeného projektu) → odmítnuto
         val code = RouterTuning.Rule("y", listOf("sleva", "nesedi"), "záměr:Code", listOf("sleva nesedí"), 3, "PROPOSED")
         assertNotNull(tune.validate(code, emptyList()))

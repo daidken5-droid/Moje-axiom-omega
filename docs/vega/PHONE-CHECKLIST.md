@@ -59,3 +59,26 @@ Referenční sestavení na hostu (ne telefon): release 39,8 MB, debug 74,7 MB (2
 | Obrazovka zhasne sama | Totéž, ale nech obrazovku zhasnout časovačem | Totéž | NEOVĚŘENO |
 | Oznámení zmizí | Po dokončení odpovědi | Oznámení „VEGA dokončuje odpověď…“ zmizí do ~1 s; u rychlého výpočtu („kolik je 12 × 250“) se vůbec neukáže | NEOVĚŘENO |
 | Baterie | Nastavení › Baterie › VEGA po dni běžného používání | Žádné dlouhé držení probuzení (wake lock nejvýš po dobu odpovědi, strop 15 min) | NEOVĚŘENO |
+
+## Autonomie na Pixelu 9a (doporučení S3, 25. 11.) – telefon = NEOVĚŘENO
+
+Ke každému běhu zapiš: **revize** (commit z názvu APK, např. `ce6543a`), **zařízení** (Pixel 9a), **verze Androidu** (Nastavení › O telefonu), **výsledek**.
+Stabilní scénáře se pak převedou do emulátorového CI.
+
+| Scénář | Postup | Co zaznamenat | Výsledek |
+|---|---|---|---|
+| Naučené pravidlo a vrácení | Opakovaně oprav VEGA u stejného typu dotazu („ne, chci to jako tabulku“), až nabídne pravidlo; zapni ho. Polož stejný dotaz → Menu › Autonomie › Vrátit → stejný dotaz → zavři VEGA ze seznamu aplikací → otevři → stejný dotaz | Odpověď na stejný dotaz před aktivací, po aktivaci a po vrácení; vrácení přetrvá restart | NEOVĚŘENO |
+| Verze rozšíření | Aktivuj rozšíření, vyzkoušej druhou verzi, vrať první; restartuj aplikaci | Verze uvedená v UI odpovídá skutečnému výstupu nástroje před i po restartu | NEOVĚŘENO |
+| Selhání testu nové verze | Nová verze rozšíření s chybou (nebo zhasni obrazovku během testu) | Předchozí funkční verze zůstane dostupná; UI popíše stav rozpracované změny | NEOVĚŘENO |
+| Rešerše v pozadí | Spusť rešerši („rešerše: uzavírka mostu v Ústí“), přepni do jiné aplikace / zamkni telefon; podruhé ukonči VEGA ze seznamu aplikací během rešerše | Po návratu lze otevřít dokončený výsledek (oznámení „VEGA dokončuje odpověď…“); nedokončený běh má srozumitelný stav a „Pokračovat“ | NEOVĚŘENO |
+| Samoaktualizace | Nech vypnuté (výchozí); samostatně: zapnout v pokročilém nastavení, přerušit stahování (letadlový režim) | Obnova po přerušení, žádná poloviční instalace | NEOVĚŘENO |
+
+## Výkon na cílovém telefonu (doporučení T3) – telefon = NEOVĚŘENO
+
+Stejná sada místních dokumentů (např. 20 PDF/TXT, ~5 MB celkem – zapsat přesnou velikost vstupu). Měřit zvlášť **první** a **opakovaný** běh.
+
+| Měření | Postup | Výsledek |
+|---|---|---|
+| Čas k prvnímu výsledku | Od odeslání otázky nad dokumenty do první zobrazené části odpovědi (stopky) | NEOVĚŘENO |
+| Čas k úplnému rozboru | Do konce odpovědi / karty „Síla doložení“ | NEOVĚŘENO |
+| Max. paměť | `adb shell dumpsys meminfo cz.axiom.vega` během rozboru → `TOTAL PSS` | NEOVĚŘENO |

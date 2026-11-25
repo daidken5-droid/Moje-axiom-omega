@@ -99,7 +99,22 @@ object Router {
     /** Vzory se kompilují jednou (dřív ~45 kompilací na každou zprávu). */
     private fun has(t: String, vararg rx: String) = rx.any { rxCache.getOrPut(it) { Regex(it) }.containsMatchIn(t) }
 
+    /** Otázka „jak / kde / co je / co umí / k čemu / proč …“ = chce vysvětlení, ne provedení (doporučení T2: „Jak se zapíná …?“ × „Zapni …“). */
+    private val HOW_TO = Regex("^(?:a\\s+)?(?:jak(?:ym zpusobem)?|kde|co (?:je|jsou|znamena|umi|dela|delaji)|k cemu|proc|cim)(?!\\p{L})")
+    private fun isAction(i: Intent) = i is Intent.Remember || i is Intent.Forget || i is Intent.Undo || i is Intent.MakeButton || i is Intent.BuildStatementTool ||
+        i is Intent.FixColumn || i is Intent.Continue || i is Intent.Tool || i is Intent.RunProcedure || i is Intent.Nfc || i is Intent.Demand ||
+        (i is Intent.Code && i.kind != CodeKind.EXPLAIN)
+
+    /**
+     * Záměr zprávy. Informační otázka bez přílohy nikdy nespustí akci (nástroj, paměť, vrácení změny, čtení NFC…) – změřeno sadou
+     * parafrází (RouterParaphraseMetricTest): dřív „Jak se dělá nástroj na výpis?“ rovnou stavělo nástroj, „Co umí čtení NFC?“ spustilo čtečku.
+     */
     fun route(raw: String, c: Ctx): Intent {
+        val r = routeRaw(raw, c)
+        return if (!c.hasAttachment && isAction(r) && HOW_TO.containsMatchIn(f(raw))) Intent.Talk(thinkingAloud = false, creative = false) else r
+    }
+
+    private fun routeRaw(raw: String, c: Ctx): Intent {
         val text = raw.trim()
         val t = f(text)
         // --- navázání na práci (dřív než „pokračuj“ jako pouhé opakování)
