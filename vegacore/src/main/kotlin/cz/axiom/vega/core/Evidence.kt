@@ -22,7 +22,9 @@ object Evidence {
     /** Přesná věta z dokladu, o kterou se část závěru opírá (doslovná citace – jde otevřít a porovnat se zdrojem). */
     data class Passage(val doc: String, val text: String, val url: String? = null, val published: String? = null, val fetched: String? = null)
     data class Part(val label: String, val status: String, val lines: Int, val support: List<String>, val passages: List<Passage> = emptyList())
-    data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
+    data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?,
+                          /** Nejdůležitější rozpor mezi zdroji (výchozí přehled = odpověď + tohle; zbytek v podrobném auditu). */
+                          val contradiction: String? = null)
 
     private fun f(s: String) = Text.fold(s).lowercase()
     private val citeRx = Regex("(?:podle|cituje|odkazuje na|prevzato z|zdroj(?:em)?:?|jak uvedl[ao]?|informoval[ao]?)\\s+(?:anonymni(?:ho)?\\s+)?((?:prispev\\w*|zprav\\w*|clan\\w*|tweet\\w*|video\\w*|post\\w*|blog\\w*|svedect\\w*|vypoved\\w*)[^.;\\n]{0,60})")
@@ -156,7 +158,15 @@ object Evidence {
                 (if (open.isNotEmpty()) "; " + open.joinToString("; ") { it.substringBefore(":").lowercase() + " zůstává otevřený" } + "." else ".")
             else -> "Podklady nestačí k závěru o pravdivosti. " + (missing ?: "")
         }
-        return Assessment(headline.trim(), parts, direct, inferred, open, missing)
+        // hlavní rozpor: jiný důvod > neurčená nezávislost > jedna výpověď ve více textech > doložené × otevřené
+        val contradiction = when {
+            alt.isNotEmpty() -> "doklady se rozcházejí v důvodu – ${(ps.filter { same(it) }.take(1) + alt).joinToString(" × ") { "${it.doc.name}: „${it.reasonText.take(80)}“" }}."
+            parts.any { "nezávislost neurčena" in it.status } -> parts.first { "nezávislost neurčena" in it.status }.let { "u části „${it.label}“ nejde určit, zda jsou zdroje nezávislé – neuvádějí, odkud údaj mají." }
+            oneLine -> "všechny texty (${spread.size}) přebírají jednu výpověď – opakování není další potvrzení."
+            inferred.isNotEmpty() && open.isNotEmpty() -> "${inferred.first().substringBefore(":").lowercase()} je doložené, ale ${open.first().substringBefore(":").lowercase()} zůstává otevřený."
+            else -> null
+        }
+        return Assessment(headline.trim(), parts, direct, inferred, open, missing, contradiction)
     }
 
     /**
@@ -173,8 +183,15 @@ object Evidence {
         return text.substring(a, minOf(text.length, b + 1)).trim()
     }
 
+    /** Výchozí přehled: odpověď + nejdůležitější rozpor. Podrobnosti (přímo / odvozeno / otevřené, kritéria) jsou v [renderAudit] / kartě. */
     fun render(a: Assessment): String = buildString {
-        append(a.headline).append("\n\n")
+        append(a.headline)
+        a.contradiction?.let { append("\n\n**Hlavní rozpor:** ").append(it) }
+        append("\n\n_Podrobný audit (co je doloženo přímo, co odvozuji, co zůstává otevřené a podle čeho hodnotím) a přesné pasáže otevřeš v kartě pod odpovědí._")
+    }
+
+    /** Podrobný audit na vyžádání. */
+    fun renderAudit(a: Assessment): String = buildString {
         if (a.direct.isNotEmpty()) append("**Přímo doloženo:** ").append(a.direct.joinToString(" ")).append('\n')
         if (a.inferred.isNotEmpty()) append("**Odvozuji:** ").append(a.inferred.joinToString(" ")).append('\n')
         if (a.open.isNotEmpty()) append("**Otevřené:** ").append(a.open.joinToString(" ")).append('\n')

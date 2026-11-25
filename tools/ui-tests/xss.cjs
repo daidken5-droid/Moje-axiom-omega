@@ -46,11 +46,12 @@ deep.id = P; deep.url = 'javascript:window.__xss="u"';
     await check('karta ' + t);
   }
   // den 25. 11., sprint S2: pasáž dokladu = doslovný text cizího dokumentu (a jeho název) v kartě „Síla doložení“, rozbalená
-  await page.evaluate((p) => { window.__msgs = [{ role: 'vega', text: 'Hodnocení', card: { type: 'evidence', parts: [{ label: p, status: p, lines: 1, support: [p],
+  await page.evaluate((p) => { window.__msgs = [{ role: 'vega', text: 'Hodnocení', card: { type: 'evidence', audit: { direct: [p], inferred: [p], open: [p], missing: p, criteria: p }, parts: [{ label: p, status: p, lines: 1, support: [p],
     passages: [{ doc: p, text: p, url: p, published: p, fetched: p }, { doc: 'b.txt', text: p, url: 'javascript:window.__xss=1' }] }] } }, { role: 'user', text: 'x' }]; S.mc = null; S.busy = false; try { render(); } catch (x) { }
     document.querySelectorAll('details.ev-pass').forEach(d => d.open = true); }, P).catch(() => { });
   await page.waitForTimeout(40);
   if (!(await page.evaluate(() => document.querySelectorAll('details.ev-pass blockquote').length))) hits.push('karta evidence: pasáže se nevykreslily');
+  if (!(await page.evaluate(() => document.querySelectorAll('details.ev-audit p').length))) hits.push('karta evidence: podrobný audit se nevykreslil');
   await check('karta evidence – pasáže');
   // den 24. 11., kolo 20: výpis z cizího souboru – popis platby v odpovědi, karta souhrnu, návrhy pod polem, název přílohy
   await page.evaluate(([p]) => {

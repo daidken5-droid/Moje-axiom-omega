@@ -35,7 +35,10 @@ class OpsBridgeEvidenceTest {
         assertTrue(date.getString("status"), date.getString("status").startsWith("potvrzeno"))
         // příčina: žádná pasáž ji nedokládá → otevřená, bez pasáží
         assertEquals(0, motive.getJSONArray("passages").length())
-        assertTrue(r.text, r.text.contains("Motiv / důvod: nedoloženo – zůstává otevřené"))
+        // výchozí přehled = odpověď + hlavní rozpor; „otevřené“ je v podrobném auditu karty
+        val open = r.card!!.getJSONObject("audit").getJSONArray("open").let { a -> (0 until a.length()).map { a.getString(it) } }
+        assertTrue(open.toString(), open.any { it.startsWith("Motiv / důvod: nedoloženo – zůstává otevřené") })
+        assertTrue(r.text, r.text.contains("**Hlavní rozpor:**") && r.text.contains("motiv"))
     }
 
     /** Stejná otázka nad předem uloženými webovými stránkami (bez živého webu): stejný verdikt, pasáž bez HTML, u webu datum vydání a zvlášť načtení. */
