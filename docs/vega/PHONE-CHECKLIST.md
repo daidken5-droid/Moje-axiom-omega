@@ -50,3 +50,12 @@ internetu a klepnutí přijde přehled. Výsledek: ______
 | Velikost APK | `ls -l VEGA-<sha>.apk` z artefaktu CI (release) a velikost po instalaci (Nastavení telefonu › Aplikace › VEGA › Úložiště) | release < 60 MB | |
 
 Referenční sestavení na hostu (ne telefon): release 39,8 MB, debug 74,7 MB (22. 11., lokální build bez podpisu z CI).
+
+## Odpověď se zhasnutou / zamčenou obrazovkou (hlášení uživatele 25. 11., oprava WorkService)
+
+| Krok | Postup na Pixelu 9a | Očekávání | Výsledek |
+|---|---|---|---|
+| Zamknout během odpovědi | S modelem v cloudu napiš „napiš podrobný plán stěhování na 10 bodů“, hned po odeslání zamkni telefon, počkej 1 minutu, odemkni | V liště oznámení během práce „VEGA dokončuje odpověď…“; po odemčení je celá odpověď v chatu, nic „nezamrzlo“ | NEOVĚŘENO |
+| Obrazovka zhasne sama | Totéž, ale nech obrazovku zhasnout časovačem | Totéž | NEOVĚŘENO |
+| Oznámení zmizí | Po dokončení odpovědi | Oznámení „VEGA dokončuje odpověď…“ zmizí do ~1 s; u rychlého výpočtu („kolik je 12 × 250“) se vůbec neukáže | NEOVĚŘENO |
+| Baterie | Nastavení › Baterie › VEGA po dni běžného používání | Žádné dlouhé držení probuzení (wake lock nejvýš po dobu odpovědi, strop 15 min) | NEOVĚŘENO |

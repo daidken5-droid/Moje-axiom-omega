@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- rozpracovaná odpověď doběhne i se zhasnutou obrazovkou (služba v popředí jen po dobu práce) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Ranní přehled zpráv: notifikace v 05:30, přesný budík 05:20, obnova plánu po restartu -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -64,6 +68,8 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <service android:name=".WorkService" android:exported="false" android:foregroundServiceType="dataSync" />
 
         <receiver android:name=".NewsReceiver" android:exported="false">
             <intent-filter>

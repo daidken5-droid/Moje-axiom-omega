@@ -88,6 +88,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Otevřené dotazy na uživatele (souhlas, schválení) – po obnovení stránky se zobrazí znovu. */
     private val pendingPayload = ConcurrentHashMap<String, Pair<String, JSONObject>>()
     @Volatile var busy = false; private set
+    /** Začátek / konec práce (true / false) – aplikace podle toho drží službu v popředí, aby odpověď doběhla i se zhasnutou obrazovkou. */
+    @Volatile var onWork: ((Boolean) -> Unit)? = null
     /** Signál, že chyba už je vyřízená zprávou (rozepsaná odpověď uložena) – nevolat znovu „error“. */
     private class Handled : Exception()
     /** Poslední výsledek (přežije restart – „udělej mi z toho tlačítko“ / „částka je ve sloupci…“ navážou i po zabití aplikace). */
@@ -444,7 +446,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
 
     fun submit(block: () -> Unit) {
-        val c = CancelToken(); activeTokens += c
+        val c = CancelToken(); val first = activeTokens.isEmpty(); activeTokens += c
+        if (first) runCatching { onWork?.invoke(true) }
         exec.execute {
             cancel = c; busy = true; val t0 = System.currentTimeMillis()
             try { c.check(); block(); (System.currentTimeMillis() - t0).let { if (it > SLOW_MS) note { selftune.observe(SelfTune.Kind.SLOW, selftune.lastArea(), detail = "${it / 1000} s") } } }
@@ -459,7 +462,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 note { selftune.observe(SelfTune.Kind.ERROR, jobArea ?: if (model) "model" else selftune.lastArea(), detail = if (model) human(e) else "${e.javaClass.simpleName}: ${human(e)}") }
                 emit("error", JSONObject().put("text", human(e)))
             }
-            finally { activeChat = null; jobArea = null; liveText = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) emit("idle", JSONObject()) }
+            finally { activeChat = null; jobArea = null; liveText = null; engines.clearRun(); msgAtt = emptyList(); activeTokens -= c; busy = activeTokens.isNotEmpty(); if (!busy) { emit("idle", JSONObject()); runCatching { onWork?.invoke(false) } } }
         }
     }
 
