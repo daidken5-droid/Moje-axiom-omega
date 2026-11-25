@@ -70,6 +70,8 @@
         </provider>
 
         <service android:name=".WorkService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- pojistka ranního přehledu bez přesných budíků: úloha s podmínkou sítě (běží i ve spánku telefonu) -->
+        <service android:name=".NewsJob" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <receiver android:name=".NewsReceiver" android:exported="false">
             <intent-filter>

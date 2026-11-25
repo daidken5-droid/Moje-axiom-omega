@@ -1887,6 +1887,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun newsLast(day: java.time.LocalDate): NewsResult? = kv.read(newsKey(day))?.let { runCatching { JSONObject(it) }.getOrNull() }
         ?.let { NewsResult(it.optBoolean("ok"), it.optString("text"), it.optString("chat").ifBlank { null }) }
     fun newsDoneFor(day: java.time.LocalDate) = newsLast(day)?.ok == true
+    /** Oznámení s hotovým přehledem pro [day] už odešlo (budík 05:30 i pojistná úloha – ne dvakrát). */
+    fun newsNotified(day: java.time.LocalDate) = kv.read("news/$day.notified") != null
+    fun markNewsNotified(day: java.time.LocalDate) = kv.write("news/$day.notified", System.currentTimeMillis().toString())
 
     /**
      * Přehled za okno včera 05:20 → dnes 05:20. Zdroje paralelně; selže-li jeden, ostatní stačí. ŽÁDNÝ jazykový model ani

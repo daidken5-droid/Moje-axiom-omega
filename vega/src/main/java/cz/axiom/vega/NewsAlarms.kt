@@ -42,11 +42,41 @@ object NewsAlarms {
         if (exactAllowed(ctx)) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, p) else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMs, p)
     }
 
+    const val JOB_ID = 5520
+
+    /**
+     * Pojistka bez přesných budíků: úloha JobScheduleru od 05:20 s podmínkou „připojená síť“. Android ji spustí i ve spánku (Doze, okno
+     * údržby) a během ní aplikaci síť povolí – na rozdíl od přibližného budíku, ze kterého nejde spustit službu v popředí (Android 14+
+     * přesné budíky novým instalacím ve výchozím stavu nepovoluje). Může přijít později než 05:30 – pak oznámení pošle sama, jednou.
+     */
+    fun scheduleJob(ctx: Context, enabled: Boolean, day: LocalDate, now: ZonedDateTime, replace: Boolean = false) {
+        val js = ctx.getSystemService(android.app.job.JobScheduler::class.java) ?: return
+        if (!enabled) { js.cancel(JOB_ID); return }
+        // čekající úloha zůstane (budík 05:30 ji nesmí přeplánovat na zítřek, když dnešní přehled ještě nedoběhl) – po úspěchu se přeplánuje sama
+        if (!replace && js.allPendingJobs.any { it.id == JOB_ID }) return
+        js.cancel(JOB_ID)
+        val delay = (at(day, ATTEMPT_MIN.first()) - now.toInstant().toEpochMilli()).coerceAtLeast(0)
+        runCatching {
+            js.schedule(android.app.job.JobInfo.Builder(JOB_ID, android.content.ComponentName(ctx, NewsJob::class.java))
+                .setMinimumLatency(delay).setRequiredNetworkType(android.app.job.JobInfo.NETWORK_TYPE_ANY).setPersisted(true)
+                .setExtras(android.os.PersistableBundle().apply { putString("day", day.toString()) }).build())
+        }
+    }
+
+    /** Oznámení s hotovým přehledem jen jednou za den (budík 05:30 i pojistná úloha); neúspěch se ukáže, jen dokud nebyl úspěch. */
+    fun notifyOnce(ctx: Context, ops: Ops, day: LocalDate, r: Ops.NewsResult): Boolean {
+        if (ops.newsNotified(day)) return false
+        notify(ctx, r.ok, r.text, r.chat)
+        if (r.ok) ops.markNewsNotified(day)
+        return true
+    }
+
     /** Naplánuje první pokus (05:20) a notifikaci (05:30) příštího dne; vypnuto → zruší vše. */
     fun schedule(ctx: Context, enabled: Boolean, now: ZonedDateTime = ZonedDateTime.now(News.ZONE)) {
         val am = ctx.getSystemService(AlarmManager::class.java) ?: return
         val day = nextDay(now)
         ATTEMPT_MIN.indices.forEach { am.cancel(pi(ctx, ATTEMPT, day, it)) }; am.cancel(pi(ctx, NOTIFY, day))
+        scheduleJob(ctx, enabled, day, now)
         if (!enabled) return
         val first = ATTEMPT_MIN.indexOfFirst { at(day, it) > now.toInstant().toEpochMilli() }
         if (first >= 0) set(ctx, at(day, ATTEMPT_MIN[first]), pi(ctx, ATTEMPT, day, first))
@@ -100,8 +130,8 @@ class NewsReceiver : BroadcastReceiver() {
                     NewsAlarms.ATTEMPT -> if (!ops.newsDoneFor(day)) { val r = ops.newsDigest()
                         if (!r.ok) NewsAlarms.scheduleRetry(app, day, intent.getIntExtra("n", 0)) }
                     NewsAlarms.NOTIFY -> { val r = ops.newsLast(day)?.takeIf { it.ok } ?: ops.newsDigest()  // poslední šance: pokusy selhaly nebo neproběhly (Doze)
-                        NewsAlarms.notify(app, r.ok, r.text, r.chat) }
-                    NewsAlarms.RETRY -> { val r = ops.newsDigest(); NewsAlarms.notify(app, r.ok, r.text, r.chat) }
+                        NewsAlarms.notifyOnce(app, ops, day, r) }
+                    NewsAlarms.RETRY -> { val r = ops.newsDigest(); NewsAlarms.notify(app, r.ok, r.text, r.chat); if (r.ok) ops.markNewsNotified(day) }
                 }
             } catch (e: Throwable) {
                 runCatching { NewsAlarms.notify(app, false, "Chyba: ${e.javaClass.simpleName}. Zkus to znovu.", null) }
@@ -113,4 +143,31 @@ class NewsReceiver : BroadcastReceiver() {
             }
         }.start()
     }
+}
+
+/** Pojistná úloha ranního přehledu (bez přesných budíků / ve spánku): přehled + oznámení, pokud ho ještě nikdo neposlal. */
+class NewsJob : android.app.job.JobService() {
+    override fun onStartJob(params: android.app.job.JobParameters): Boolean {
+        val app = applicationContext
+        Thread {
+            var again = false
+            try {
+                val s = Settings(app)
+                if (s.newsEnabled) {
+                    val ops = (app as VegaApp).opsHeadless()
+                    // den = aktuální okno přehledu (ne uložený parametr – u zpožděné úlohy by ukázal starý přehled)
+                    val day = java.time.LocalDateTime.ofInstant(News.window(ZonedDateTime.now(News.ZONE)).second, News.ZONE).toLocalDate()
+                    val r = ops.newsLast(day)?.takeIf { it.ok } ?: ops.newsDigest()
+                    if (r.ok) NewsAlarms.notifyOnce(app, ops, day, r) else again = true  // nepodařilo se → systém úlohu zopakuje
+                }
+            } catch (e: Throwable) { again = true }
+            finally {
+                jobFinished(params, again)
+                // úloha na další den (pravidelná úloha by se v Doze posouvala; jednorázová se vždy naplánuje znovu)
+                if (!again) runCatching { NewsAlarms.scheduleJob(app, Settings(app).newsEnabled, NewsAlarms.nextDay(), ZonedDateTime.now(News.ZONE), replace = true) }
+            }
+        }.start()
+        return true
+    }
+    override fun onStopJob(params: android.app.job.JobParameters): Boolean = true
 }

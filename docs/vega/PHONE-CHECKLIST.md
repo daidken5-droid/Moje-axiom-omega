@@ -89,4 +89,5 @@ Stejná sada místních dokumentů (např. 20 PDF/TXT, ~5 MB celkem – zapsat p
 |---|---|---|---|
 | Noc | Telefon na noc bez nabíječky, VEGA zavřená, ranní přehled zapnutý, režim Bez sítě VYPNUTÝ | V 05:20 krátce oznámení „VEGA stahuje ranní přehled…“, v 05:30 oznámení s tématy; v chatu „Ranní přehled d. m.“ | NEOVĚŘENO |
 | Bez sítě zapnutý | Totéž se zapnutým režimem Bez sítě ve VEGA | Oznámení výslovně: přehled AI nepoužívá, blokuje ho jen režim Bez sítě | NEOVĚŘENO |
+| Bez přesných budíků | Nastavení telefonu › Aplikace › VEGA › Budíky a připomenutí = vypnuto; noc jako výše | Přehled přijde i tak (pojistná úloha se sítí) – případně o něco později než 05:30, oznámení jen jednou | NEOVĚŘENO |
 | Diagnostika (adb) | `adb shell dumpsys deviceidle force-idle`, pak `adb shell cmd alarm` nebo počkat na 05:20 | Přehled se stáhne i ve vynuceném Doze | NEOVĚŘENO |
