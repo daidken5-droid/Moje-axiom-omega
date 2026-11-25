@@ -483,15 +483,46 @@ object Statement {
      * čísly (pohyb a průběžný zůstatek), rozhodne návaznost zůstatků – bez ní by se jako částka sečetl zůstatek.
      * Částky bez znaménka a bez návaznosti → nevím, co je příjem a výdaj → null (raději nic než špatně).
      */
+    internal const val PDF_NUM = "[-−+]?\\(?\\d{1,3}(?:[ \u00a0.]\\d{3})*(?:,\\d{2})\\)?(?:\\s*(?:CZK|Kč|EUR|€))?(?:\\s*(?:CR|DR))?"
+    /** Řádek PDF výpisu: datum na začátku, popis, jedna nebo dvě částky na konci. */
+    internal data class PdfRow(val date: String, val desc: String, val a: String, val b: String)
+    // datum s rokem má u regexu přednost; když s ním řádek nesedí, zkusí se bez roku (rok pak patří do popisu)
+    private val PDF_DATES = listOf(Regex("^[ \\t\\x0B\\f\\r]*(\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?(?:\\d{4}|\\d{2}))(\\s+)"), Regex("^[ \\t\\x0B\\f\\r]*(\\d{1,2}\\.\\s?\\d{1,2}\\.)(\\s+)"))
+    private val PDF_TAIL = Regex("($PDF_NUM)(?:\\s+($PDF_NUM))?$")
+    private const val PDF_TAIL_MAX = 160
+    private fun isRxSpace(c: Char) = c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\u000C' || c == '\r'
+    /**
+     * Totéž jako dřív „^\\s*(datum)\\s+(.*?)\\s+(num)(?:\\s+(num))?\\s*$“ (stejné pořadí voleb jako regex: datum s rokem,
+     * nejkratší neprázdný popis, teprve pak prázdný popis, teprve pak datum bez roku), ale bez zpětného hledání přes celý
+     * řádek – to u řádku s datem a dlouhou mezerou (PdfBox u řídkého PDF) běželo kvadraticky: 40 kB řádek 24 s, výpis = VEGA stojí.
+     * Částky se hledají jen v posledních [PDF_TAIL_MAX] znacích (dvě částky s měnou se tam vždy vejdou).
+     */
+    internal fun pdfRow(line: String): PdfRow? {
+        val trimmed = line.trimEnd { isRxSpace(it) }
+        for (rx in PDF_DATES) {
+            val dm = rx.find(trimmed) ?: continue
+            val p = dm.range.last + 1
+            val from = maxOf(p, trimmed.length - PDF_TAIL_MAX)
+            fun tailAt(q: Int) = PDF_TAIL.matchAt(trimmed, q)?.takeIf { it.range.last == trimmed.length - 1 }
+            // nejkratší neprázdný popis: nejlevější částka za mezerou, která sahá až na konec
+            for (q in maxOf(from, p + 2) until trimmed.length) {
+                if (!isRxSpace(trimmed[q - 1]) || trimmed[q].isWhitespace()) continue
+                val m = tailAt(q) ?: continue
+                return PdfRow(dm.groupValues[1], trimmed.substring(p, q - 1), m.groupValues[1], m.groupValues[2])
+            }
+            // prázdný popis: regex vrátí jednu mezeru za datem (jen když tam byly aspoň dvě)
+            if (dm.groupValues[2].length >= 2) tailAt(p)?.let { return PdfRow(dm.groupValues[1], "", it.groupValues[1], it.groupValues[2]) }
+        }
+        return null
+    }
+
     fun fromPdfText(text: String): PdfConversion? {
-        val num = "[-−+]?\\(?\\d{1,3}(?:[ \u00a0.]\\d{3})*(?:,\\d{2})\\)?(?:\\s*(?:CZK|Kč|EUR|€))?(?:\\s*(?:CR|DR))?"
         // datum i bez roku („02.11.“) – rok ze záhlaví výpisu („Období 01.11.2026 – 30.11.2026“), jinak žádný převod
-        val rx = Regex("^\\s*(\\d{1,2}\\.\\s?\\d{1,2}\\.(?:\\s?(?:\\d{4}|\\d{2}))?)\\s+(.*?)\\s+($num)(?:\\s+($num))?\\s*$")
         val year = Regex("(?<!\\d)(20\\d{2})(?!\\d)").find(text)?.groupValues?.get(1)
         data class L(val date: String, var desc: String, val a: Double, val b: Double?, val signed: Boolean)
         val ls = ArrayList<L>()
         for (line in text.lines()) {
-            val m = rx.find(line)
+            val m = pdfRow(line)
             if (m == null) {
                 // pokračování popisu na dalším řádku (bez data a bez částky) – připojit k poslednímu pohybu
                 val t = line.trim()
@@ -499,13 +530,13 @@ object Statement {
                     && !Regex("\\d{1,3}(?:[ .]\\d{3})*,\\d{2}").containsMatchIn(t)) ls.last().desc = (ls.last().desc + " " + t).take(300)
                 continue
             }
-            val raw = m.groupValues[1].trim()
+            val raw = m.date.trim()
             val ds = if (!raw.endsWith(".")) raw else if (year != null) raw + year else continue
             val d = CzNum.date(ds) ?: continue
-            val a = CzNum.parse(m.groupValues[3]) ?: continue
-            val b = m.groupValues[4].takeIf { it.isNotBlank() }?.let { CzNum.parse(it) }
-            val desc = m.groupValues[2].replace(Regex("\\s+"), " ").trim()
-            ls += L(d, desc, a, b, Regex("^[-−+(]|CR|DR").containsMatchIn(m.groupValues[3].trim()) || m.groupValues[3].trim().endsWith("-"))
+            val a = CzNum.parse(m.a) ?: continue
+            val b = m.b.takeIf { it.isNotBlank() }?.let { CzNum.parse(it) }
+            val desc = m.desc.replace(Regex("\\s+"), " ").trim()
+            ls += L(d, desc, a, b, Regex("^[-−+(]|CR|DR").containsMatchIn(m.a.trim()) || m.a.trim().endsWith("-"))
         }
         if (ls.size < 2) return null
         val notes = ArrayList<String>()
