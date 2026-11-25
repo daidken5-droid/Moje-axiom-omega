@@ -583,7 +583,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         if ((m.optJSONArray("files")?.length() ?: 0) > 0) return null
         val keep = JSONArray(); for (k in 0 until i) keep.put(arr.get(k))
         kv.write(chatKey(chat), keep.toString()); chatWrites.incrementAndGet()
-        return m.optString("text")
+        return m.optString("full").ifEmpty { m.optString("text") }
     }
     /** Hledání v obsahu všech konverzací (bez diakritiky): id, název a úryvek kolem shody. Max 30. */
     fun searchChats(q: String): JSONArray {
@@ -597,7 +597,9 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         return out
     }
     /** „Znovu“: stejná otázka ještě jednou (nová odpověď místo staré). false = není co / zpráva s přílohou. */
-    fun regenerate(chat: String): Boolean { val t = takeLastUser(chat)?.takeIf { it.isNotBlank() } ?: return false; chat(chat, t, emptyList()); return true }
+    fun regenerate(chat: String): Boolean { val t = takeLastUser(chat)?.takeIf { it.isNotBlank() } ?: return false
+        // dlouhé zadání znovu stejnou cestou jako poprvé (rozdělení na dílčí otázky), ne jako krátký dotaz
+        if (t.length > 6000) longTask(chat, t) else chat(chat, t, emptyList()); return true }
 
     /** Smazat konverzaci (zprávy, rozpracovaný stav, důkazy) – citlivý rozhovor nesmí zůstat v telefonu natrvalo. */
     @Synchronized fun deleteChat(id: String) {
@@ -1336,7 +1338,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun longTask0(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean = false, req: String = "r" + System.nanoTime().toString(36)) = submit { msgAtt = att; resumable(chat, "long", text0, att, again, req) { longTask1(chat, text0, att, again) } }
 
     private fun longTask1(chat: String?, text0: String, att: List<Value.Bytes>, again: Boolean) {
-        if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name })))
+        // v bublině náhled 2 000 znaků, CELÝ text zvlášť („full“) – „Upravit“ a „Znovu“ ho potřebují celý (dřív poslaly jen náhled)
+        if (!again) addMsg(chat, JSONObject().put("role", "user").put("text", text0.take(2000) + if (text0.length > 2000) "\n…(${text0.length} znaků)" else "").put("files", JSONArray(att.map { it.name }))
+            .apply { if (text0.length > 2000) put("full", text0.take(LONG_DOC_MAX)) })
         // přílohy jsou součást zadání (data, ne pokyny)
         // „projdi CELÝ dokument“: dřív tiše jen prvních 60 000 znaků (konec smlouvy model neviděl); teď 240 000 a oříznutí se řekne
         val cutNotes = ArrayList<String>()
