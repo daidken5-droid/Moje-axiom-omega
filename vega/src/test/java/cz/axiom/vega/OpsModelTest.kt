@@ -165,4 +165,14 @@ class OpsModelTest {
         val sys2 = f.seen.last().first().content
         assertTrue("související dotaz má mít dokument", sys2.contains("31. 3. 2027"))
     }
+
+    /** Den 25. 11., kolo 12: heslo z dřívější zprávy (odeslané se souhlasem) se v dalších dotazech modelu neopakuje – jen „[skryto]“. */
+    @Test fun secretFromEarlierMessageNotResent() {
+        val (o, ev, f) = setup(); val c = o.newChat()
+        ask(o, ev, c, "heslo k wifi je Kocka-Pes-2024!, je dost silné?")
+        ask(o, ev, c, "a jak ho mám bezpečně sdílet s návštěvou?")
+        val last = f.seen.last()
+        assertFalse(last.toString(), last.any { it.content.contains("Kocka-Pes-2024") })
+        assertTrue(last.toString(), last.any { it.role == Role.USER && it.content.contains("[skryto]") })
+    }
 }

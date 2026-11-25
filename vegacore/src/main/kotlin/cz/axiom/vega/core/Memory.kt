@@ -78,6 +78,8 @@ object Mem {
     )
 
     fun looksSecret(s: String) = secretRx.any { it.containsMatchIn(s) }
+    /** Citlivé údaje v textu nahradit „[skryto]“ – pro historii chatu posílanou modelu (souhlas platil jen pro tu jednu zprávu). */
+    fun redact(s: String): String = if (!looksSecret(s)) s else secretRx.fold(s) { acc, rx -> rx.replace(acc, "[skryto]") }
 
     /**
      * Název konverzace z první zprávy (vidí ho každý, kdo otevře menu): jeden řádek, celé slovo do 40 znaků s „…“,

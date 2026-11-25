@@ -26,3 +26,11 @@ class MemorySecretsTest {
             .forEach { org.junit.Assert.assertFalse(it, Mem.looksSecret(it)) }
     }
 }
+
+class MemRedactTest {
+    @Test fun redact() {
+        org.junit.Assert.assertEquals("kolik je 15 % z 2400", Mem.redact("kolik je 15 % z 2400"))
+        listOf("heslo k wifi je Kocka123" to "Kocka123", "můj PIN je 4821" to "4821", "karta 4111 1111 1111 1111" to "4111 1111", "klíč sk-ant-abc123def456ghi789jkl" to "abc123def").forEach { (t, secret) ->
+            val r = Mem.redact(t); assertTrue("$t → $r", !r.contains(secret) && r.contains("[skryto]")) }
+    }
+}
