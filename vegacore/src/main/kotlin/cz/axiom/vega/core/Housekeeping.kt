@@ -11,7 +11,8 @@ import kotlinx.serialization.json.contentOrNull
  *  - data chatů, které vypadly ze seznamu (max. 50): zprávy, podklady, rozpracované dotazy, návrhy, porovnání,
  *  - dočasný chat a nedokončené „Pokračovat“ po [resumeDays] dnech, mezivýsledky dlouhých zadání po [cacheDays],
  *  - úlohy s revizemi bez odkazu z chatu po [taskDays] dnech,
- *  - přílohy úloh (taskfile/<otisk>), na které už žádná úloha neodkazuje (uložené jednou podle otisku).
+ *  - přílohy úloh (taskfile/<otisk>), na které už žádná úloha neodkazuje (uložené jednou podle otisku),
+ *  - zálohy poškozených souborů (.bad) po [badDays] dnech.
  * Soubor bez známého času změny (0) se podle stáří nemaže.
  */
 object Housekeeping {
@@ -23,7 +24,7 @@ object Housekeeping {
     private val json = Json { ignoreUnknownKeys = true }
 
     /** [keepChat] = chaty mimo seznam, které žijí jinde (konverzace projektu „proj-<id>“, dokud projekt existuje). */
-    fun run(kv: Kv, now: Long = System.currentTimeMillis(), resumeDays: Int = 7, cacheDays: Int = 3, taskDays: Int = 30, tempDays: Int = 1,
+    fun run(kv: Kv, now: Long = System.currentTimeMillis(), resumeDays: Int = 7, cacheDays: Int = 3, taskDays: Int = 30, tempDays: Int = 1, badDays: Int = 30,
             keepChat: (String) -> Boolean = { it.startsWith("proj-") }): Report {
         val del = LinkedHashMap<String, String>() // klíč → důvod (prefix)
         fun old(k: String, days: Int) = kv.modified(k).let { it > 0 && now - it > days * DAY }
@@ -40,6 +41,9 @@ object Housekeeping {
         // 2) podle stáří
         kv.keys("resume/").filter { old(it, resumeDays) }.forEach { del.putIfAbsent(it, "resume/") }
         kv.keys("cache/long/").filter { old(it, cacheDays) }.forEach { del[it] = "cache/long/" }
+        // 2b) zálohy poškozených souborů (chat/…json.bad, chats.json.bad, memory/entries.bad-…): k diagnóze, ne navždy
+        (kv.keys("chat/") + kv.keys("memory/") + kv.keys("evidence/") + listOf("chats.json.bad").filter { kv.read(it) != null })
+            .filter { (it.endsWith(".bad") || it.contains(".bad-")) && old(it, badDays) }.forEach { del[it] = "zálohy .bad" }
         // 3) úlohy s revizemi: bez odkazu z (zbývajícího) porovnání a staré
         val referenced = kv.keys("state/compare/").filter { it !in del }.mapNotNull { kv.read(it)?.trim() }.toSet()
         kv.keys("task/").filter { it.endsWith(".json") }.forEach { k -> val id = k.removePrefix("task/").removeSuffix(".json")

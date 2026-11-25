@@ -42,3 +42,17 @@ class MemoryBackupOnceTest {
         }
     }
 }
+
+/** Den 25. 11., kolo 10: zálohy poškozených souborů (.bad) se po 30 dnech uklidí; mladší a živá data zůstanou. */
+class HousekeepingBadTest {
+    @Test fun oldBackupsCleaned() {
+        var t = 1L; val kv = MemKv { t }
+        kv.write("chats.json", "[{\"id\":\"c1\"}]"); kv.write("chat/c1.json", "[]")
+        kv.write("chat/c1.json.bad", "[{\"x\""); kv.write("memory/entries.bad-1", "{rozbit"); kv.write("chats.json.bad", "\u0000")
+        t = 40L * 86_400_000L; kv.write("memory/entries.bad-2", "nový")   // čerstvá záloha
+        val r = Housekeeping.run(kv, now = t)
+        assertTrue(r.toString(), kv.read("chat/c1.json.bad") == null && kv.read("memory/entries.bad-1") == null && kv.read("chats.json.bad") == null)
+        assertTrue("mladší záloha zůstane", kv.read("memory/entries.bad-2") != null)
+        assertTrue("živý chat zůstane", kv.read("chat/c1.json") != null && kv.read("chats.json") != null)
+    }
+}
