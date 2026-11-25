@@ -36,3 +36,11 @@ class CsvFormulaInjectionTest { @Test fun formulasBecomeText() {
     // bez excel=true (vnitřní text) se nic nemění
     org.junit.Assert.assertTrue(Csv.write(t, ';').contains("\"=HYPERLINK"))
 } }
+
+/** Den 25. 11., kolo 7: české regexy s (?i) bez UNICODE_CASE nerozlišily „KČ/Kč“, „VYSVĚTLI/vysvětli“ – text VELKÝMI písmeny (PDF výpisy, CAPS LOCK). */
+class UnicodeCaseTest { @Test fun czechUppercase() {
+    org.junit.Assert.assertEquals(1250.0, CzNum.parse("1 250,00 KČ", true)!!, 0.001)
+    org.junit.Assert.assertEquals(-312.4, CzNum.parse("-312,40 Kč", true)!!, 0.001)
+    val subs = cz.axiom.vega.calc.LongText.subQuestions("Smlouva o nájmu.\nVYSVĚTLI výpovědní lhůtu.\nPOPIŠ povinnosti nájemce.")
+    org.junit.Assert.assertTrue("$subs", subs.size >= 2)
+} }

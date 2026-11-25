@@ -21,7 +21,7 @@ object Grounding {
     /** Atomické tvrzení s citacemi [n]; souvětí s příčinou se rozdělí (datum/událost × motiv se hodnotí zvlášť). */
     data class Claim(val text: String, val cites: List<Int>, val kind: String = "tvrzení")
 
-    private val causal = Regex("(?i),?\\s+(protože|neboť|jelikož|aby|kvůli tomu, že|kvůli|z důvodu|za účelem)\\s+")
+    private val causal = Regex("(?iu),?\\s+(protože|neboť|jelikož|aby|kvůli tomu, že|kvůli|z důvodu|za účelem)\\s+")
     private val ABBR = setOf("např", "tzv", "tj", "č", "str", "resp", "mj", "apod", "atd", "aj", "př", "sv", "ing", "mgr", "dr", "prof", "p", "s", "r", "o", "vč", "cca", "max", "min", "mil", "mld", "tis", "kč", "e", "g", "i", "vs", "jr", "st", "no", "fig", "etc")
 
     /** Délka „ [12]“ začínajícího přesně na [j] (mezery + 1–2 číslice v hranatých závorkách), jinak 0. */
@@ -184,7 +184,7 @@ class OnnxGrounding(private val dir: File) : Grounding.Checker, java.io.Closeabl
 
     /** Okno pasáže: celé, když se vejde; jinak věty s největším překryvem s tvrzením. Klíčové údaje tvrzení musí zůstat. */
     private data class Win(val text: String, val start: Int, val end: Int, val droppedRisk: Boolean = false)
-    private val NEG = Regex("(?<!\\p{L})(ne\\p{L}*|nikdy|zadn\\p{L}*|popřel\\p{L}*|popiral\\p{L}*|vyvrátil\\p{L}*|vyvratil\\p{L}*|not|never|no|denied|false)(?!\\p{L})", RegexOption.IGNORE_CASE)
+    private val NEG = Regex("(?u)(?<!\\p{L})(ne\\p{L}*|nikdy|zadn\\p{L}*|popřel\\p{L}*|popiral\\p{L}*|vyvrátil\\p{L}*|vyvratil\\p{L}*|not|never|no|denied|false)(?!\\p{L})", RegexOption.IGNORE_CASE)
     private fun window(claim: String, passage: String, maxTok: Int): Win {
         val t = tok!!; val budget = maxTok - 4 - t.tokenize(claim).size
         if (t.tokenize(passage).size <= budget) return Win(passage, 0, passage.length)

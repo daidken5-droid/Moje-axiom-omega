@@ -975,7 +975,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val input: Value = lastAttachment()?.takeIf { tool.accepts(it) } ?: when (intent.id) {
             "url.read" -> Value.Url(Regex("https?://\\S+").find(text)!!.value)
             // hledat jen výraz, ne celý příkaz („najdi v mých souborech Netflix“ → „Netflix“)
-            "index.search" -> Value.Text(text.replace(Regex("(?i)^.*?(?<!\\p{L})(souborech|dokumentech|souborů|dokumentů)(?!\\p{L})\\s*[:,]?\\s*"), "").trim().trim('„', '“', '"').ifBlank { text })
+            "index.search" -> Value.Text(text.replace(Regex("(?iu)^.*?(?<!\\p{L})(souborech|dokumentech|souborů|dokumentů)(?!\\p{L})\\s*[:,]?\\s*"), "").trim().trim('„', '“', '"').ifBlank { text })
             "text.diff" -> { val parts = text.split(Regex("\\n-{3,}\\n|\\n={3,}\\n")); if (parts.size >= 2) Value.Text(parts[0].substringAfter('\n', parts[0])) else throw ToolError("Pro porovnání vlož dva texty oddělené řádkem ---, nebo použij nástroj Rozdíl ručně.") }
             else -> lastResultRun?.let { run(it)?.last }?.takeIf { tool.accepts(it) } ?: Value.Text(text)
         }
@@ -1066,7 +1066,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     }
 
     private fun paidHelps(e: cz.axiom.vega.llm.ChainEngine.ChainException) = e.failures.isNotEmpty() &&
-        e.failures.all { it.budget || it.rateLimited || Regex("denní limit|limit|kvót|quota|tier", RegexOption.IGNORE_CASE).containsMatchIn(it.message) }
+        e.failures.all { it.budget || it.rateLimited || Regex("(?u)denní limit|limit|kvót|quota|tier", RegexOption.IGNORE_CASE).containsMatchIn(it.message) }
 
     /** Nabídne placený klíč (nejdřív kredit Pro) pro TENTO úkol s odhadem ceny; null = uživatel odmítl / není co nabídnout. */
     private fun approvePaid(chars: Int, maxTokens: Int, calls: Int, why: String, overCap: List<String> = emptyList()): Engines.Pick? {
@@ -1420,7 +1420,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     }
 
     private fun newProject(chat: String?, spec: String, extraConsent: List<String> = emptyList(), fixedName: String? = null) {
-        val name = fixedName ?: Regex("(?i)(?:projekt|program|skript|nástroj|aplikaci|parser|rozšíření|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
+        val name = fixedName ?: Regex("(?iu)(?:projekt|program|skript|nástroj|aplikaci|parser|rozšíření|kalkulačk\\w*)\\s+(?:na\\s+|pro\\s+)?[„\"]?([^„\"“”,.]{3,40})").find(spec)?.groupValues?.get(1)?.trim() ?: "Nový projekt"
         val id = createProject(name, emptyMap())
         emit("project", JSONObject().put("id", id))
         // odpověď patří do prostoru nového projektu (UI se tam přepne), ne do původního chatu
@@ -1747,7 +1747,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** true = vyřízeno bez modelu. Parametry se drží v rozsahu projektu (jiný projekt má vlastní). */
     private fun decide(chat: String?, text: String, ws: Workspace?): Boolean {
         val scope = scopeOf(ws)
-        if (ws != null && Regex("(?i)(ulož|uložit|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
+        if (ws != null && Regex("(?iu)(ulož|uložit|publikuj)(?!\\p{L}).{0,30}(jako |z (toho |projektu )?)?rozšířen").containsMatchIn(text)) { saveExtension(chat, ws); return true }
         // samoúprava: „vylepši se: …“, „uprav aplikaci, aby …“, „změň sebe – …“
         // rozpoznání na textu bez diakritiky (stejně na JVM i v telefonu); zadání se vezme z původního textu (stejná délka)
         // samoúprava jen s nastaveným GitHubem a jen když jde o VEGU („Uprav aplikaci Word…“, „Vylepši se v psaní e-mailů“ jsou běžné prosby)
@@ -1775,15 +1775,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 val res = cz.axiom.vega.core.Econ.unitAnswer(u) ?: run { reply(chat, "Uloženo; ještě chybí údaj pro výpočet."); return true }
                 reply(chat, "Přepočteno s opravou (${diffUnit(econ, u)}${if (scope != "global") ", platí pro tento projekt" else ""}). " + res.text, econCard(u, res)); return true
             }
-            if (cz.axiom.vega.core.Econ.isInsisting(text) && cz.axiom.vega.core.Econ.claim(text) != 0 || cz.axiom.vega.core.Econ.isInsisting(text) && Regex("(?i)plus|zisk|vyděl|ztrát").containsMatchIn(text)) {
+            if (cz.axiom.vega.core.Econ.isInsisting(text) && cz.axiom.vega.core.Econ.claim(text) != 0 || cz.axiom.vega.core.Econ.isInsisting(text) && Regex("(?iu)plus|zisk|vyděl|ztrát").containsMatchIn(text)) {
                 cz.axiom.vega.core.Econ.unitAnswer(econ, cz.axiom.vega.core.Econ.claim(text).takeIf { it != 0 } ?: 1, insisting = true)?.let { reply(chat, it.text, econCard(econ, it)); return true }
             }
         }
         // tarif
         val tariff = kv.read(tariffKey(scope))?.let { cz.axiom.vega.core.Econ.Tariff.parse(it) }
         // navázání na uložený tarif jen čerstvě (30 min) a s číslem / měsíci – „Jak vrátit zboží?“ za hodinu není dotaz na tarif
-        val tariffFresh = tariff != null && System.currentTimeMillis() - kv.modified(tariffKey(scope)) < 30 * 60_000L && Regex("(?i)\\d|měsíc|tarif").containsMatchIn(text)
-        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariffFresh && (Regex("(?i)tarif|ročn|předplat|členst|vrát|refund|poměrn|závaz|výpověd").containsMatchIn(text) || Regex("(?i)(používat|platit|potřebovat)\\s+(ho|to|je)?\\s*\\d+\\s*měsíc").containsMatchIn(text))) {
+        val tariffFresh = tariff != null && System.currentTimeMillis() - kv.modified(tariffKey(scope)) < 30 * 60_000L && Regex("(?iu)\\d|měsíc|tarif").containsMatchIn(text)
+        if (cz.axiom.vega.core.Econ.isTariffQuestion(text) || tariffFresh && (Regex("(?iu)tarif|ročn|předplat|členst|vrát|refund|poměrn|závaz|výpověd").containsMatchIn(text) || Regex("(?iu)(používat|platit|potřebovat)\\s+(ho|to|je)?\\s*\\d+\\s*měsíc").containsMatchIn(text))) {
             cz.axiom.vega.core.Econ.parseTariff(text, if (cz.axiom.vega.core.Econ.isTariffQuestion(text) && Regex("\\d").containsMatchIn(text)) null else tariff)?.let { t ->
                 kv.write(tariffKey(scope), t.json()); reply(chat, cz.axiom.vega.core.Econ.tariffAnswer(t)); return true }
         }
@@ -1805,8 +1805,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             return true
         }
         // „ulož to do Wordu / jako PDF“ po textové odpovědi (dopis, e-mail, plán): uložit TU odpověď jako dokument (scan S37)
-        if (chat != null && Regex("(?i)(?<!\\p{L})(ulož|uložit|exportuj|převeď|dej|udělej|vytvoř|stáhni|chci)(?!\\p{L}).{0,30}(?<!\\p{L})(word\\p{L}*|docx|pdf\\p{L}*|dokument\\p{L}*)(?!\\p{L})").containsMatchIn(text) &&
-            !Regex("(?i)tabulk|csv|excel|výpis").containsMatchIn(text)) {
+        if (chat != null && Regex("(?iu)(?<!\\p{L})(ulož|uložit|exportuj|převeď|dej|udělej|vytvoř|stáhni|chci)(?!\\p{L}).{0,30}(?<!\\p{L})(word\\p{L}*|docx|pdf\\p{L}*|dokument\\p{L}*)(?!\\p{L})").containsMatchIn(text) &&
+            !Regex("(?iu)tabulk|csv|excel|výpis").containsMatchIn(text)) {
             val arr = messages(chat)
             val last = (arr.length() - 1 downTo 0).map { arr.getJSONObject(it) }.firstOrNull { it.optString("role") == "vega" && it.optString("text").isNotBlank() }
             val body = last?.optString("text")?.let { plainOf(it) }
@@ -1821,9 +1821,9 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             }
         }
         // export výsledku do souboru – hotovo jen podle skutečného výsledku zápisu
-        if (Regex("(?i)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?i)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && resultInChat(chat, lastResultRun!!) &&
+        if (Regex("(?iu)(?<!\\p{L})(ulož|exportuj|stáhni|vytvoř|dej mi|zkus)(?!\\p{L}).{0,40}(?<!\\p{L})(csv|excel|export|tabulk)").containsMatchIn(text) && !(ws != null && Regex("(?iu)\\.(js|kt|py|java|ts|json)(?!\\p{L})|funkc|soubor \\S+\\.").containsMatchIn(text)) && lastResultRun != null && resultInChat(chat, lastResultRun!!) &&
             // „vytvoř mi tabulku na svatbu“ je nová tabulka, ne export výsledku (pokud věta na výsledek neodkazuje)
-            !(Regex("(?i)tabulk\\p{L}*\\s+(na |pro |s |kde |o |do které |(?!(?:z|ze|toho|jako|do|v|ve|csv|excel)(?!\\p{L}))\\p{L}{3,})").containsMatchIn(text) && !Regex("(?i)z toho|výsled|výpis|tohle|tuhle|tu tabulk|tuto").containsMatchIn(text)) &&
+            !(Regex("(?iu)tabulk\\p{L}*\\s+(na |pro |s |kde |o |do které |(?!(?:z|ze|toho|jako|do|v|ve|csv|excel)(?!\\p{L}))\\p{L}{3,})").containsMatchIn(text) && !Regex("(?iu)z toho|výsled|výpis|tohle|tuhle|tu tabulk|tuto").containsMatchIn(text)) &&
             run(lastResultRun!!)?.last is Value.Table) {
             exportChat(chat, lastResultRun!!); return true
         }
@@ -2140,7 +2140,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         var src: List<Snippet> = emptyList()
         if (web) {
             emit("phase", JSONObject().put("text", "Hledám podklady pro i proti…"))
-            val q = text.replace(Regex("(?i)^(je možné,? že|je pravda,? že|myslím,? že|co když|mám teorii,? že)\\s*"), "").take(160)
+            val q = text.replace(Regex("(?iu)^(je možné,? že|je pravda,? že|myslím,? že|co když|mám teorii,? že)\\s*"), "").take(160)
             src = runCatching { Web.gather(q, 5).snippets }.getOrDefault(emptyList()).take(6)
         }
         val card = if (src.isNotEmpty()) JSONObject().put("type", "sources").put("items", JSONArray().apply { src.forEachIndexed { i, s -> put(JSONObject().put("n", i + 1).put("title", s.title).put("url", s.source).put("text", s.text.take(2500)).put("fetched", java.time.LocalDate.now().toString())) } }) else null

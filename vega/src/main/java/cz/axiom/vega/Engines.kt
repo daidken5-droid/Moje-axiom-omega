@@ -194,7 +194,7 @@ class Engines(private val settings: Settings, private val vault: Vault) {
         } catch (e: Exception) {
             val msg = e.message.orEmpty()
             KeyCheck(false, when {
-                Regex("HTTP 40[013]").containsMatchIn(msg) && Regex("(?i)key|klíč|API_KEY|auth|permission").containsMatchIn(msg) || Regex("HTTP 40[13]").containsMatchIn(msg) ->
+                Regex("HTTP 40[013]").containsMatchIn(msg) && Regex("(?iu)key|klíč|API_KEY|auth|permission").containsMatchIn(msg) || Regex("HTTP 40[13]").containsMatchIn(msg) ->
                     "Klíč nefunguje (neplatný nebo bez oprávnění). Zkontroluj, že je celý a z účtu, kde je Gemini API povolené."
                 Regex("HTTP 429").containsMatchIn(msg) -> "Klíč funguje, ale limit je teď vyčerpaný – zkus to za chvíli."
                 generateSequence(e as Throwable) { it.cause }.any { it is java.net.UnknownHostException || it is java.net.ConnectException } -> "Bez připojení. Až budeš online, klepni na ověření klíče."

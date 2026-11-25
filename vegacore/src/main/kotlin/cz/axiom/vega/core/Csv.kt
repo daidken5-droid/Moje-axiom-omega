@@ -92,7 +92,7 @@ object Csv {
 /** Čísla a data v českém zápisu. */
 object CzNum {
     private val NUM_CHARS = Regex("[0-9.,]+")
-    private val currency = Regex("(?i)\\s*(kč|czk|eur|€|usd|\\$)\\s*")
+    private val currency = Regex("(?iu)\\s*(kč|czk|eur|€|usd|\\$)\\s*")
 
     /**
      * „1 234,56“, „-1.234,56“, „1234.5“, „1 234,56 Kč“, „(12,00)“ → Double. Pro dvojznačné „1.234“ rozhodne
@@ -163,7 +163,7 @@ object CzNum {
     // předkompilované (dřív se 4 regexy kompilovaly při KAŽDÉM volání – detect výpisu s 20 000 buňkami trval v CI 1,6 s)
     private val RX_DMON = Regex("^(\\d{1,2})[-\\s.]+([A-Za-z]{3,9})\\.?[-\\s]+(\\d{4})")
     private val RX_MOND = Regex("^([A-Za-z]{3,9})\\.?\\s+(\\d{1,2}),?\\s+(\\d{4})")
-    private val RX_CZ3 = Regex("^(\\d{1,2})\\.?\\s+([a-zá-ž]{3})\\.?\\s+(\\d{4})$", RegexOption.IGNORE_CASE)
+    private val RX_CZ3 = Regex("(?u)^(\\d{1,2})\\.?\\s+([a-zá-ž]{3})\\.?\\s+(\\d{4})$", RegexOption.IGNORE_CASE)
     private val RX_CZMONTH = Regex("^(\\d{1,2})\\.?\\s+([a-zA-Zá-žÁ-Ž]+)\\s+(\\d{4})")
     fun date(raw: String): String? {
         val r0 = raw.trim()

@@ -105,7 +105,7 @@ object Quick {
             if (v.isInfinite() && Regex("[/:÷]\\s*0+(?:[.,]0+)?\\s*(?:$|[+\\-*/)])").containsMatchIn(expr)) return "Nulou dělit nejde – výsledek není definovaný."
             if (v.isNaN() || v.isInfinite()) return null
             if (money || expr != t.replace(Regex("^(kolik je|kolik dela|spocitej|vypocitej|vysledek)\\s+"), "").trim()) return "${expr.replace("*", "×").replace(Regex("\\s{2,}"), " ")} = ${fmt(v)}${if (money) " Kč" else ""}"
-            return "${raw.trim().replace(Regex("(?i)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ', '=').replace(Regex("\\s{2,}"), " ")} = ${fmt(v)}"
+            return "${raw.trim().replace(Regex("(?iu)^(kolik je|kolik dělá|spočítej|vypočítej)\\s+"), "").trimEnd('?', ' ', '=').replace(Regex("\\s{2,}"), " ")} = ${fmt(v)}"
         }
         return null
     }

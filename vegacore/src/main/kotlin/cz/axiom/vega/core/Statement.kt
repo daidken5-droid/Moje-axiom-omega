@@ -495,7 +495,7 @@ object Statement {
             if (m == null) {
                 // pokračování popisu na dalším řádku (bez data a bez částky) – připojit k poslednímu pohybu
                 val t = line.trim()
-                if (ls.isNotEmpty() && t.length in 2..80 && !Regex("\\d{1,2}\\.\\s?\\d{1,2}\\.").containsMatchIn(t) && !Regex("(?i)strana|celkem|zůstatek|zustatek|obrat|součet|soucet|period|období|obdobi").containsMatchIn(t)
+                if (ls.isNotEmpty() && t.length in 2..80 && !Regex("\\d{1,2}\\.\\s?\\d{1,2}\\.").containsMatchIn(t) && !Regex("(?iu)strana|celkem|zůstatek|zustatek|obrat|součet|soucet|period|období|obdobi").containsMatchIn(t)
                     && !Regex("\\d{1,3}(?:[ .]\\d{3})*,\\d{2}").containsMatchIn(t)) ls.last().desc = (ls.last().desc + " " + t).take(300)
                 continue
             }

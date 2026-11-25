@@ -3,7 +3,7 @@ package cz.axiom.vega.calc
 /** Dlouhé zadání: dílčí požadavky (otázky, číslované body, pokyny) a dělení na pasáže po odstavcích. */
 object LongText {
     private val numbered = Regex("(?m)^\\s*(?:\\d{1,2}[.)]|[a-z][.)]|[-•*])\\s+(.{6,400})$")
-    private val imperative = Regex("(?i)^(uveď|uved|vysvětli|vysvetli|popiš|popis|shrň|shrn|porovnej|spočítej|spocitej|navrhni|zhodnoť|zhodnot|najdi|vypiš|vypis|urči|urci|doplň|dopln|odpověz|odpovez|napiš|napis)(?!\\p{L})")
+    private val imperative = Regex("(?iu)^(uveď|uved|vysvětli|vysvetli|popiš|popis|shrň|shrn|porovnej|spočítej|spocitej|navrhni|zhodnoť|zhodnot|najdi|vypiš|vypis|urči|urci|doplň|dopln|odpověz|odpovez|napiš|napis)(?!\\p{L})")
 
     fun subQuestions(text: String, max: Int = 60): List<String> {
         val out = LinkedHashSet<String>()
