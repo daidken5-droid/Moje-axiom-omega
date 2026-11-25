@@ -35,14 +35,46 @@ object Web {
     }
 
     /** HTML → čitelný text: bez skriptů, stylů a navigace; bloky na řádky; entity rozepsané. */
-    fun htmlToText(html: String): String {
-        // komentáře, skryté a neviditelné prvky pryč (skrytý text bývá vložený pokyn pro model); hlavička článku zůstává (nadpis, datum)
-        var s = html.replace(Regex("(?s)<!--.*?-->"), " ")
-            .replace(Regex("(?is)<(\\w+)[^>]*(?:hidden|display:\\s*none|visibility:\\s*hidden|aria-hidden=[\"']true)[^>]*>.*?</\\1>"), " ")
-            .replace(Regex("(?is)<(script|style|noscript|svg|nav|footer|form|iframe|template)[^>]*>.*?</\\1>"), " ")
-        s = s.replace(Regex("(?i)<(br|/p|/div|/li|/h[1-6]|/tr|/article|/section)[^>]*>"), "\n").replace(Regex("<[^>]+>"), " ")
-        s = entities(s)
-        return s.lines().map { it.replace(Regex("[ \\t\\u00a0]+"), " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+    fun htmlToText(html: String): String = entities(htmlStrip(html)).lines().map { it.replace(Regex("[ \\t\\u00a0]+"), " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+
+    private val SKIP = setOf("script", "style", "noscript", "svg", "nav", "footer", "form", "iframe", "template")
+    private val BLOCK_END = setOf("/p", "/div", "/li", "/h1", "/h2", "/h3", "/h4", "/h5", "/h6", "/tr", "/article", "/section")
+    private val VOID = setOf("br", "img", "input", "meta", "link", "hr", "source", "wbr", "area", "base", "col", "embed", "track")
+    private val HIDDEN = Regex("(?i)hidden|display:\\s*none|visibility:\\s*hidden|aria-hidden=[\"']true")
+
+    /**
+     * Značky pryč jedním průchodem. Komentáře, skryté prvky (skrytý text bývá vložený pokyn pro model) a skripty / styly /
+     * navigace i s obsahem; hlavička článku zůstává (nadpis, datum). Dřív řetěz regexů „<(\\w+)[^>]*(hidden…)[^>]*>.*?</\\1>“,
+     * „<!--.*?-->“, „<[^>]+>“ – u neuzavřených značek kvadraticky až hůř (40 kB = 10 s, stránka do 3 MB = rešerše stojí).
+     */
+    internal fun htmlStrip(html: String): String {
+        val sb = StringBuilder(html.length / 2); var i = 0; val n = html.length
+        var gtSeen = -1
+        while (i < n) {
+            val lt = html.indexOf('<', i)
+            if (lt < 0) { sb.append(html, i, n); break }
+            sb.append(html, i, lt)
+            if (html.startsWith("<!--", lt)) { val e = html.indexOf("-->", lt + 4); if (e < 0) break; sb.append(' '); i = e + 3; continue }
+            val c1 = html.getOrNull(lt + 1)
+            if (c1 == null || !(c1.isLetter() || c1 == '/' || c1 == '!' || c1 == '?')) { sb.append('<'); i = lt + 1; continue }  // „a < b“ je text
+            val gt = if (gtSeen > lt) gtSeen else html.indexOf('>', lt + 1).also { gtSeen = it }
+            if (gt < 0) break  // značka bez „>“ až do konce
+            val tag = html.substring(lt + 1, gt)
+            val name = tag.takeWhile { it.isLetterOrDigit() || it == '/' || it == '!' || it == '-' || it == ':' }.lowercase()
+            i = gt + 1
+            val bare = name.removePrefix("/")
+            val opening = !name.startsWith("/") && !name.startsWith("!") && !tag.endsWith("/") && bare !in VOID
+            if (opening && (bare in SKIP || HIDDEN.containsMatchIn(tag.take(2_000)))) {
+                // prvek i s obsahem až po první </jméno> (jako dřív); bez konce = zbytek stránky pryč
+                var close = html.indexOf("</$bare", i, ignoreCase = true)
+                while (close >= 0) { val e = close + 2 + bare.length; if (e >= n || html[e] == '>' || html[e].isWhitespace()) break; close = html.indexOf("</$bare", e, ignoreCase = true) }
+                if (close < 0) break
+                val cgt = html.indexOf('>', close); if (cgt < 0) break
+                sb.append(' '); i = cgt + 1; continue
+            }
+            sb.append(if (name == "br" || name in BLOCK_END) '\n' else ' ')
+        }
+        return sb.toString()
     }
     private val NAMED = mapOf("nbsp" to " ", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "ndash" to "–", "mdash" to "—", "bdquo" to "„", "ldquo" to "“", "rdquo" to "”",
         "lsquo" to "‘", "rsquo" to "’", "sbquo" to "‚", "hellip" to "…", "euro" to "€", "copy" to "©", "reg" to "®", "deg" to "°", "times" to "×", "minus" to "−", "middot" to "·",
