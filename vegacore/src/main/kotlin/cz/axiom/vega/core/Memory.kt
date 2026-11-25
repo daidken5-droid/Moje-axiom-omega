@@ -129,6 +129,17 @@ object Mem {
         val n = q.zip(w).takeWhile { it.first == it.second }.size
         return n >= 3 && n >= minOf(q.length, w.length) - 2
     }
+    /** Otázka na vlastní údaj („kde bydlím?“, „jak se jmenuju?“, „kolik mi je?“) → slot; odpověď z paměti bez modelu i bez sítě. */
+    private val askSlots = listOf(
+        "slot:bydliste" to Regex("^(vis,? |pamatujes si,? )?(kde (ted )?(bydlim|zijeme|bydlime|ziju)|jake je moje bydliste|odkud jsem|jakou mam adresu)$"),
+        "slot:jmeno" to Regex("^(vis,? |pamatujes si,? )?(jak se jmenuj(u|i)|jak mi rikas|jake je moje jmeno|kdo jsem)$"),
+        "slot:prace" to Regex("^(vis,? |pamatujes si,? )?(kde pracuj(u|i)|co delam( za praci)?|jakou mam praci|jake mam povolani|co jsem povolanim)$"),
+        "slot:vek" to Regex("^(vis,? |pamatujes si,? )?(kolik (je )?mi je( let)?|kolik je mi( let)?|kolik mam let|jak jsem stary|jak jsem stara)$"),
+        "slot:partner" to Regex("^(vis,? |pamatujes si,? )?(jak se jmenuje (moje |muj )?(manzelka|zena|manzel|muz|pritelkyne|pritel|partner|partnerka)|kdo je (moje |muj )?(manzelka|zena|manzel|muz|pritelkyne|pritel|partner|partnerka))$"),
+    )
+    fun askSlot(question: String): String? { val t = Text.fold(question).lowercase().trim().trimEnd('?', '.', '!', ' ').replace(Regex("\\s+"), " "); return askSlots.firstOrNull { it.second.matches(t) }?.first }
+    /** „pamatuj si, že se jmenuju Petr“ → „Jmenuju se Petr“ (ne „Se jmenuju Petr“). */
+    fun normalize(t: String): String = Regex("^(?iu)se\\s+(jmenuj[ui])\\s+(.+)$").find(t.trim())?.let { m -> "${m.groupValues[1].replaceFirstChar { it.uppercaseChar() }} se ${m.groupValues[2]}" } ?: t
     private fun slotOf(text: String): String? { val t = Text.fold(text).lowercase().trim().trimEnd('.', '!'); return slots.firstOrNull { it.second.containsMatchIn(t) }?.first }
 
     fun fingerprint(text: String) = Text.fold(text).lowercase().replace(Regex("[^a-z0-9]+"), " ").trim().hashCode().toString(16)
@@ -169,7 +180,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
      * [fromWeb] = text pochází z webu/dokumentu → odmítnuto (instrukce z webu do trvalé paměti nepatří).
      */
     @Synchronized fun remember(text: String, scope: String = "global", kind: Mem.Kind = Mem.Kind.PREFERENCE, origin: Mem.Origin = Mem.Origin.USER_EXPLICIT, fromWeb: Boolean = false): Mem.Outcome {
-        val t = text.trim().trimEnd('.').replaceFirstChar { it.uppercaseChar() }
+        val t = Mem.normalize(text.trim().trimEnd('.')).replaceFirstChar { it.uppercaseChar() }
         if (t.length < 3) return Mem.Outcome.Rejected("Není co si zapamatovat.")
         // paměť = krátká fakta a preference; dlouhý text by se posílal v každém dotazu modelu a nafukoval úložiště
         if (t.length > MAX_TEXT) return Mem.Outcome.Rejected("To je na paměť moc dlouhé (${t.length} znaků, nejvýš $MAX_TEXT). Napiš to stručně jednou větou – delší text ulož jako dokument (📎).")
@@ -261,6 +272,15 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         if (es.isEmpty()) return null
         return "Co víš o uživateli a projektu (z paměti, uživatel to může kdykoli změnit):\n" + es.joinToString("\n") { "- ${it.text} [${it.kind.label}]" }
     }
+
+    /** „Kde bydlím?“ / „Jak se jmenuju?“ – odpověď z paměti (null = není to otázka na vlastní údaj). */
+    @Synchronized fun recall(question: String, scope: String? = null): String? {
+        val slot = Mem.askSlot(question) ?: return null
+        val e = all(scope).firstOrNull { (it.topic.ifEmpty { Mem.topicOf(it.text) }) == slot }
+            ?: return "To zatím nevím – neřekl/a jsi mi to. Stačí napsat třeba „pamatuj si, že ${SLOT_EXAMPLE[slot]}“ a budu to vědět."
+        return "Podle paměti: „${e.text}“. Změníš to větou „pamatuj si, že …“, smažeš „zapomeň …“."
+    }
+    private val SLOT_EXAMPLE = mapOf("slot:bydliste" to "bydlím v …", "slot:jmeno" to "se jmenuju …", "slot:prace" to "pracuju jako …", "slot:vek" to "je mi … let", "slot:partner" to "manželka se jmenuje …")
 
     /** Přehled „Co si pamatuješ a proč?“. */
     @Synchronized fun explain(scope: String? = null): String {

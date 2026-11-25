@@ -907,6 +907,8 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val prevQ = if (lastTable != null && chatId != null) messages(chatId).let { arr -> (arr.length() - 1 downTo 0).map { arr.getJSONObject(it) }.filter { it.optString("role") == "user" }.drop(1).firstOrNull()?.optString("text") } else null
         lastTable?.let { tb -> Statement.spendQuery(tb, text, prevQ) }?.let { a -> reply(chatId, a); note { selftune.routed("útraty z výpisu") }; return }
         if (lastTable != null && lastTable.headers.any { cz.axiom.vega.base.Text.fold(it).lowercase().startsWith("castk") } && exportFollowUp(chatId, lastTable, text)) { note { selftune.routed("export výpisu") }; return }
+        // „kde bydlím?“ / „jak se jmenuju?“ – z paměti, bez modelu i bez sítě (dřív „na tohle potřebuji model v cloudu“)
+        if (msgAtt.isEmpty()) memory.recall(text, ws?.let { "project:${it.root.name}" })?.let { a -> reply(chatId, a); note { selftune.routed("paměť – vlastní údaj") }; return }
         if (decide(chatId, text, ws)) { note { selftune.routed("přímý výpočet/důkazy/export") }; return }
         val intent = Router.route(text, Router.Ctx(msgAtt.isNotEmpty(), lastAttachment()?.name, ws != null, lastResultRun?.let { resultInChat(chatId, it) } == true, procedures, msgAtt.size, learned = tuning.active()))
         note { selftune.routed(SelfTune.area(intent)) }
