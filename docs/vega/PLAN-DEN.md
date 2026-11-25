@@ -295,3 +295,5 @@ návrhy pod polem (zalomení, zmizení), velké písmo, hlavička pod stavovým 
 SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shoda se SHA256SUMS.txt z CI #226).
 
 **NEOVĚŘENO na telefonu:** skutečný NFC WiFi štítek a vizitka, kontrola WiFi hesla v Hardware, DOCX / ODT / XLSX z vlastních souborů, navazující dotazy k výpisu v chatu, ranní přehled s českými zdroji; dál seznam ze dne 24. 11. a `PHONE-CHECKLIST.md`.
+
+## Den 25. 11. 2026 (středa) – oblasti: dopoledne paměť, konverzace, úložiště (poškozené soubory, limity, souběh); odpoledne bezpečnost (most JS↔Kotlin, injekce z příloh / RSS / webu, logy, oprávnění)

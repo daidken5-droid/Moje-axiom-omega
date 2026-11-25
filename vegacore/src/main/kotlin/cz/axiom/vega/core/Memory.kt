@@ -116,6 +116,7 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val listSer = ListSerializer(Mem.Entry.serializer())
 
+    companion object { const val MAX_TEXT = 600; const val MAX_HISTORY = 20 }
     private var cache: MutableList<Mem.Entry>? = null
     private fun load(): MutableList<Mem.Entry> = cache ?: (kv.read("memory/entries")?.let { raw -> runCatching { json.decodeFromString(listSer, raw) }
         // poškozená paměť: odložit (příští „pamatuj si“ by ji jinak tiše přepsala a vše se ztratilo)
@@ -142,19 +143,23 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     @Synchronized fun remember(text: String, scope: String = "global", kind: Mem.Kind = Mem.Kind.PREFERENCE, origin: Mem.Origin = Mem.Origin.USER_EXPLICIT, fromWeb: Boolean = false): Mem.Outcome {
         val t = text.trim().trimEnd('.').replaceFirstChar { it.uppercaseChar() }
         if (t.length < 3) return Mem.Outcome.Rejected("Není co si zapamatovat.")
+        // paměť = krátká fakta a preference; dlouhý text by se posílal v každém dotazu modelu a nafukoval úložiště
+        if (t.length > MAX_TEXT) return Mem.Outcome.Rejected("To je na paměť moc dlouhé (${t.length} znaků, nejvýš $MAX_TEXT). Napiš to stručně jednou větou – delší text ulož jako dokument (📎).")
         if (fromWeb) return Mem.Outcome.Rejected("Pokyny z webu nebo dokumentů si do trvalé paměti neukládám.")
         if (Mem.looksSecret(t)) return Mem.Outcome.Rejected("Vypadá to jako heslo, klíč nebo číslo karty – to si nepamatuji. Klíče patří do trezoru v Nastavení.")
         if (kind == Mem.Kind.TEMP) return Mem.Outcome.Rejected("Dočasné věci si držím jen v tomto chatu.")
         val now = clock()
         val topic = Mem.topicOf(t)
         val list = load()
-        val same = list.firstOrNull { it.scope == scope && it.kind == kind && ((it.topic == topic || Mem.topicOf(it.text) == topic) && topic.isNotEmpty() || Mem.fingerprint(it.text) == Mem.fingerprint(t)) }
+        // téma uložené u záznamu (přepočet jen u starých záznamů bez tématu) – dřív se počítalo znovu pro VŠECHNY záznamy při každém uložení
+        val fp = Mem.fingerprint(t)
+        val same = list.firstOrNull { it.scope == scope && it.kind == kind && ((topic.isNotEmpty() && (it.topic.ifEmpty { Mem.topicOf(it.text) }) == topic) || Mem.fingerprint(it.text) == fp) }
         // znovu povoleno výslovně → zrušit náhrobek
         val ts = tombstones(); if (ts.remove(Mem.fingerprint(t))) kv.write("memory/forgotten", ts.joinToString("\n"))
         if (same != null) {
             if (Mem.fingerprint(same.text) == Mem.fingerprint(t)) return Mem.Outcome.Saved(same)
             val upd = same.copy(text = t, updated = now, correctedAt = now, origin = if (origin == Mem.Origin.USER_EXPLICIT) Mem.Origin.USER_CORRECTION else origin,
-                history = same.history + Mem.Rev(same.text, same.updated, same.origin))
+                history = (same.history + Mem.Rev(same.text, same.updated, same.origin)).takeLast(MAX_HISTORY))  // „vrátit opravu“ stačí na posledních pár verzí
             list[list.indexOf(same)] = upd; persist()
             return Mem.Outcome.Corrected(upd, same.text)
         }
