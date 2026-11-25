@@ -112,6 +112,23 @@ object Mem {
         "slot:vek" to Regex("^je mi \\d{1,3}( let| roku)?$|^mam \\d{1,3} let$|^narodil[a]? jsem se "),
         "slot:partner" to Regex("^(moje |muj )?(manzelka|zena|manzel|muz|pritelkyne|pritel|partner|partnerka) se jmenuje "),
     )
+    /** „zapomeň, kde bydlím / mé jméno / můj věk“ → slot (údaj se v záznamu tak doslova nevyskytuje). Partner dřív než jméno („jméno manželky“). */
+    private val forgetSlots = listOf(
+        "slot:partner" to Regex("(?<![a-z])(manzel\\p{L}*|zen[auy]|zene|muz[ea]?|pritel\\p{L}*|partner\\p{L}*)(?![a-z])"),
+        "slot:bydliste" to Regex("(?<![a-z])(bydl\\p{L}*|adres\\p{L}*|kde zij\\p{L}*)(?![a-z])"),
+        "slot:jmeno" to Regex("(?<![a-z])(jmen\\p{L}*|jak se jmenuj\\p{L}*)(?![a-z])"),
+        "slot:prace" to Regex("(?<![a-z])(prac\\p{L}*|zamestnan\\p{L}*|povolan\\p{L}*)(?![a-z])"),
+        "slot:vek" to Regex("(?<![a-z])(vek\\p{L}*|kolik mi je|kolik je mi|narozen\\p{L}*|narodil\\p{L}*)(?![a-z])"),
+    )
+    internal fun forgetSlot(foldedQuery: String): String? = forgetSlots.firstOrNull { it.second.containsMatchIn(foldedQuery) }?.first
+    /** Slova dotazu „zapomeň …“, která nic neurčují. */
+    internal val FORGET_STOP = STOP + setOf("kde", "jak", "muj", "moje", "mou", "moji", "meho", "mym", "tom", "tohle", "tuhle", "ten", "tu", "co", "mam", "jsi", "jste", "vis", "pamatujes", "uplne")
+    /** Shoda slova dotazu se slovem záznamu přes české koncovky (Brno/Brně, psa/psem): společný začátek ≥ 3 a nejvýš o 2 znaky kratší než kratší slovo. */
+    internal fun stemMatch(q: String, w: String): Boolean {
+        if (w.startsWith(q.take(6))) return true
+        val n = q.zip(w).takeWhile { it.first == it.second }.size
+        return n >= 3 && n >= minOf(q.length, w.length) - 2
+    }
     private fun slotOf(text: String): String? { val t = Text.fold(text).lowercase().trim().trimEnd('.', '!'); return slots.firstOrNull { it.second.containsMatchIn(t) }?.first }
 
     fun fingerprint(text: String) = Text.fold(text).lowercase().replace(Regex("[^a-z0-9]+"), " ").trim().hashCode().toString(16)
@@ -193,10 +210,16 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         val list = load()
         val q = Text.fold(idOrQuery).lowercase().trim()
         val hit = list.filter { it.id == idOrQuery } .ifEmpty {
-            val words = Text.words(q, 3).map { it.take(6) }
             // bez otevřeného projektu jen globální paměť (ne „všechny projekty“); shoda celých slov (podle kmene), ne podřetězce
             val sc = scope ?: "global"
-            list.filter { e -> (e.scope == sc || e.scope == "global") && words.isNotEmpty() && Text.words(Text.fold(e.text).lowercase(), 3).let { ew -> words.all { w -> ew.any { it.startsWith(w) } } } }
+            val inScope = list.filter { it.scope == sc || it.scope == "global" }
+            val words = Text.words(q, 3).filter { it !in Mem.FORGET_STOP }
+            // dotaz jen ze slov údaje („mé jméno“) → jen ten údaj; „jmen…“ by jinak smazalo i „Manželka se jmenuje …“
+            val slot = Mem.forgetSlot(q)
+            if (slot != null && words.isNotEmpty() && words.all { Mem.forgetSlot(it) != null }) inScope.filter { (it.topic.ifEmpty { Mem.topicOf(it.text) }) == slot }.let { if (it.isNotEmpty()) return@ifEmpty it }
+            val byWords = inScope.filter { e -> words.isNotEmpty() && Text.words(Text.fold(e.text).lowercase(), 3).let { ew -> words.all { w -> ew.any { Mem.stemMatch(w, it) } } } }
+            // „zapomeň, kde bydlím / mé jméno / můj věk“ – údaj (slot) místo doslovných slov
+            byWords.ifEmpty { slot?.let { slot -> inScope.filter { (it.topic.ifEmpty { Mem.topicOf(it.text) }) == slot } } ?: emptyList() }
         }
         if (hit.isEmpty()) return emptyList()
         val ts = tombstones()
