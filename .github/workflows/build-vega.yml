@@ -54,6 +54,11 @@ jobs:
           echo "OMEGA_KEYSTORE_PATH=$HOME/.avior-signing/key.p12" >> "$GITHUB_ENV"
       - name: Testy (jádro VEGA + přijímací zkoušky aplikace na JVM)
         run: ./gradlew :vegacore:test :vega:testDebugUnitTest --no-daemon
+      - name: Testy jádra s českým jazykem telefonu (cs-CZ, Europe/Prague)
+        # většina uživatelů má telefon česky – desetinná čárka, časové pásmo; běh v en-US by chyby z formátování nezachytil
+        run: ./gradlew :vegacore:test --rerun --no-daemon
+        env:
+          JAVA_TOOL_OPTIONS: -Duser.language=cs -Duser.country=CZ -Duser.timezone=Europe/Prague
       - name: Výsledky testů
         if: always()
         uses: actions/upload-artifact@v4
