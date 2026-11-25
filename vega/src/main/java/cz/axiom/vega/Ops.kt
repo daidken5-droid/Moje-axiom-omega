@@ -550,7 +550,26 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     /** Levná revize chatu (čas změny souboru + počítadlo zápisů v procesu): UI podle ní pozná, jestli musí zprávy znovu načíst. */
     fun chatRev(chat: String): String = "${kv.modified(chatKey(chat))}:${chatWrites.get()}"
     /** Poškozený soubor (výpadek uprostřed zápisu, plné úložiště) se odloží jako .bad a začne se znovu – aplikace nesmí uvíznout. */
-    private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse { kv.write("$key.bad", raw); kv.delete(key); JSONArray() } } ?: JSONArray()
+    private fun readArray(key: String): JSONArray = kv.read(key)?.let { raw -> runCatching { JSONArray(raw) }.getOrElse {
+        // poškozený soubor (useknutý zápis při vybité baterii / plném disku): originál do zálohy a zachránit CELÉ položky před místem poškození
+        kv.write("$key.bad", raw)
+        val saved = salvageArray(raw)
+        if (saved.length() > 0) kv.write(key, saved.toString()) else kv.delete(key)
+        saved } } ?: JSONArray()
+    /** Prvky JSON pole jeden po druhém až po první chybu – „[{…},{…},{…“ → první dva. */
+    private fun salvageArray(raw: String): JSONArray {
+        val out = JSONArray()
+        runCatching {
+            val tk = org.json.JSONTokener(raw)
+            if (tk.nextClean() != '[') return out
+            while (true) {
+                val c = tk.nextClean(); if (c == ']' || c == 0.toChar()) break; tk.back()
+                val v = tk.nextValue(); if (v is JSONObject || v is JSONArray) out.put(v) else break
+                when (tk.nextClean()) { ',' -> continue; else -> break }
+            }
+        }
+        return out
+    }
     /**
      * „Upravit“ / „Znovu“ jako v ChatGPT (kolo C1): odebere poslední zprávu uživatele a vše po ní, vrátí její text.
      * Zpráva s přílohou se neodebere (příloha by se ztratila) → null.
