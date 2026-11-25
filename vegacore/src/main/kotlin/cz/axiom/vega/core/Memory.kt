@@ -120,7 +120,10 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
     private var cache: MutableList<Mem.Entry>? = null
     private fun load(): MutableList<Mem.Entry> = cache ?: (kv.read("memory/entries")?.let { raw -> runCatching { json.decodeFromString(listSer, raw) }
         // poškozená paměť: odložit (příští „pamatuj si“ by ji jinak tiše přepsala a vše se ztratilo)
-        .getOrElse { kv.write("memory/entries.bad-" + System.currentTimeMillis(), raw); emptyList() } } ?: emptyList()).toMutableList().also { cache = it }
+        .getOrElse { kv.write("memory/entries.bad-" + System.currentTimeMillis(), raw)
+            // useknutý zápis: zachránit celé záznamy před místem poškození (zbytek zůstává v záloze .bad-…)
+            JsonSalvage.arrayElements(raw).mapNotNull { runCatching { json.decodeFromString(Mem.Entry.serializer(), it) }.getOrNull() }
+                .also { if (it.isNotEmpty()) kv.write("memory/entries", json.encodeToString(listSer, it)) } } } ?: emptyList()).toMutableList().also { cache = it }
     private fun persist() { kv.write("memory/entries", json.encodeToString(listSer, load())); rebuildIndex() }
 
     private fun tombstones(): MutableSet<String> = kv.read("memory/forgotten")?.split('\n')?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
