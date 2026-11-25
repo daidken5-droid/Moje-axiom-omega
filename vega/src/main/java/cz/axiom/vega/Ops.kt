@@ -1818,7 +1818,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val a = cz.axiom.vega.core.Evidence.assess(docs)
             val change = before?.let { b -> a.parts.mapNotNull { p -> b.parts.firstOrNull { it.label.substringBefore(" (") == p.label.substringBefore(" (") }?.takeIf { it.status != p.status }?.let { "${p.label}: ${it.status} → ${p.status}" } } }.orEmpty()
             reply(chat, (if (change.isNotEmpty()) "Změna hodnocení po novém dokladu – " + change.joinToString("; ") + ".\n\n" else "") + cz.axiom.vega.core.Evidence.render(a),
-                JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support))) } }))
+                JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support)).put("passages", JSONArray().apply { it.passages.forEach { ps -> put(JSONObject().put("doc", ps.doc).put("text", ps.text)) } })) } }))
             return true
         }
         // „ulož to do Wordu / jako PDF“ po textové odpovědi (dopis, e-mail, plán): uložit TU odpověď jako dokument (scan S37)

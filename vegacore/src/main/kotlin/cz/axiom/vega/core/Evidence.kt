@@ -15,8 +15,12 @@ object Evidence {
                       /** Kmeny slov uvedeného důvodu („zakrýt chybu v projektu“) – motiv podporuje jen doklad se SHODNÝM důvodem. */
                       val reason: Set<String> = emptySet(), val reasonText: String = "",
                       /** Kdo důvod řekl ve vlastní citaci („…kvůli prasklé konstrukci,“ řekl statik Jan Dvořák) – výrok má vlastní původ, ne převzatou agenturu. */
-                      val motiveSpeaker: String? = null)
-    data class Part(val label: String, val status: String, val lines: Int, val support: List<String>)
+                      val motiveSpeaker: String? = null,
+                      /** Kde v textu stojí datum (ISO → pozice) a uvedený důvod – pro citaci pasáže. */
+                      val datePos: Map<String, Int> = emptyMap(), val reasonPos: Int? = null)
+    /** Přesná věta z dokladu, o kterou se část závěru opírá (doslovná citace – jde otevřít a porovnat se zdrojem). */
+    data class Passage(val doc: String, val text: String)
+    data class Part(val label: String, val status: String, val lines: Int, val support: List<String>, val passages: List<Passage> = emptyList())
     data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
 
     private fun f(s: String) = Text.fold(s).lowercase()
@@ -56,7 +60,10 @@ object Evidence {
             if (explicit) origins += "agentura:" + f(m.value).replace("ctk", "čtk")
         }
         // jen platná data (31. 2. se nezapočítá)
-        val dates = Regex("\\b(\\d{1,2})\\.[\\s\u00a0]?(\\d{1,2})\\.[\\s\u00a0]?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
+        val datePos = LinkedHashMap<String, Int>()
+        Regex("\\b(\\d{1,2})\\.[\\s\u00a0]?(\\d{1,2})\\.[\\s\u00a0]?(\\d{4})\\b").findAll(d.text).forEach { m ->
+            runCatching { java.time.LocalDate.of(m.groupValues[3].toInt(), m.groupValues[2].toInt(), m.groupValues[1].toInt()).toString() }.getOrNull()?.let { datePos.putIfAbsent(it, m.range.first) } }
+        val dates = datePos.keys.toSet()
         val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")
         val mm = mRx.find(t)
         val motive = mm != null
@@ -69,7 +76,7 @@ object Evidence {
         val primary = origins.isEmpty() && dates.isNotEmpty() && Regex("zaznam|protokol|vypis|zapis|potvrzen|faktur|smlouv|rozhodnut|fotografi|snimek|registr|uredni|evidenc").containsMatchIn(t)
         val label = citeRx.find(t)?.let { m -> if (t.length == d.text.length) d.text.substring(m.groups[1]!!.range).trim().trimEnd(',', ' ') else m.groupValues[1] }
             ?: urlRx.find(d.text)?.value ?: ""
-        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, motiveSpeaker = speaker, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
+        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, motiveSpeaker = speaker, datePos = datePos, reasonPos = mm?.range?.first, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
     }
     private val AGENCY = Regex("(?<!\\p{L})(ČTK|CTK|Reuters|AP|AFP|DPA|TASR|Bloomberg|PAP|APA|ANSA|EFE|Interfax|TASS|Xinhua)(?!\\p{L})")
     private val TAKEOVER_BEFORE = Regex("(?:podle|dle|informoval\\w*|uvedl\\w*|uvadi|pise|napsal\\w*|oznamil\\w*|zdroj\\w*|prevzat\\w*|zprav\\w*|citoval\\w*|cituje|sdelil\\w*|vydal\\w*)(?:\\s+(?:agentur\\w*|tiskov\\w* agentur\\w*))?\\s*:?\\s*$")
@@ -108,7 +115,7 @@ object Evidence {
         val lines = lines(ps)
         val allDates = ps.flatMap { it.dates }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
         val parts = ArrayList<Part>()
-        fun grade(label: String, sup: List<Parsed>, byQuote: Boolean = false): Part {
+        fun grade(label: String, sup: List<Parsed>, byQuote: Boolean = false, at: (Parsed) -> Int? = { null }): Part {
             // u motivu má vlastní výrok mluvčího (rozhovor) vlastní původ – ne agenturu, od které text převzal datum
             fun key(p: Parsed) = if (byQuote && p.motiveSpeaker != null) "výrok:" + p.motiveSpeaker else lines[p]!!
             val ls = sup.map { key(it) }.distinct()
@@ -124,14 +131,14 @@ object Evidence {
                 sup.all { it.anonymousOrigin || it.origins.isNotEmpty() } -> "jen jedna linie (texty přebírají tutéž výpověď)"
                 else -> "jediný zdroj"
             }
-            return Part(label, status, if (sup.isEmpty()) 0 else known.size.coerceAtLeast(1), names)
+            return Part(label, status, if (sup.isEmpty()) 0 else known.size.coerceAtLeast(1), names, sup.mapNotNull { p -> at(p)?.let { Passage(p.doc.name, sentence(p.doc.text, it)) } })
         }
-        allDates.firstOrNull()?.let { d -> parts += grade("datum události (${d.split('-').let { "${it[2].toInt()}. ${it[1].toInt()}. ${it[0]}" }})", ps.filter { d in it.dates }) }
+        allDates.firstOrNull()?.let { d -> parts += grade("datum události (${d.split('-').let { "${it[2].toInt()}. ${it[1].toInt()}. ${it[0]}" }})", ps.filter { d in it.dates }) { it.datePos[d] } }
         // tvrzený důvod = nejčastější (první text, který ho uvádí); doklad s JINÝM důvodem motiv nepodporuje – je to alternativa
         val claimed = ps.firstOrNull { it.motive }?.reason ?: emptySet()
         fun same(p: Parsed) = p.motive && p.reason.intersect(claimed).size >= minOf(2, claimed.size).coerceAtLeast(1)
         val alt = ps.filter { it.motive && !same(it) }
-        val mp = grade("motiv / důvod", ps.filter { same(it) }, byQuote = true)
+        val mp = grade("motiv / důvod", ps.filter { same(it) }, byQuote = true) { it.reasonPos }
         parts += if (alt.isNotEmpty()) mp.copy(status = mp.status + "; jiný doklad uvádí jiný důvod (${alt.joinToString { "${it.doc.name}: „${it.reasonText.take(60)}“" }})") else mp
         val spread = ps.filter { it.origins.isNotEmpty() }.map { lines[it]!! }
         val oneLine = spread.size >= 2 && spread.distinct().size == 1
@@ -149,6 +156,20 @@ object Evidence {
             else -> "Podklady nestačí k závěru o pravdivosti. " + (missing ?: "")
         }
         return Assessment(headline.trim(), parts, direct, inferred, open, missing)
+    }
+
+    /**
+     * Věta kolem pozice [at], doslovně z dokladu. Konec věty = „. ! ?“ a za ním mezera a velké písmeno (nebo nový řádek / konec);
+     * „3. 11. 2026“ ani „č. j.“ větu neukončí. Nejvýš 200 znaků na každou stranu.
+     */
+    fun sentence(text: String, at: Int): String {
+        fun nextNonSpace(k: Int): Char? { var j = k; while (j < text.length && text[j].isWhitespace()) j++; return text.getOrNull(j) }
+        fun endsAt(k: Int) = text[k] in ".!?" && (k + 1 >= text.length || text[k + 1] == '\n' ||
+            (text[k + 1].isWhitespace() && nextNonSpace(k + 1).let { it == null || it.isUpperCase() || it in "„\"(" }))
+        val i = at.coerceIn(0, maxOf(0, text.length - 1))
+        var a = i; while (a > 0 && i - a < 200 && text[a - 1] != '\n' && !endsAt(a - 1)) a--
+        var b = i; while (b < text.length - 1 && b - i < 200 && text[b] != '\n' && !endsAt(b)) b++
+        return text.substring(a, minOf(text.length, b + 1)).trim()
     }
 
     fun render(a: Assessment): String = buildString {

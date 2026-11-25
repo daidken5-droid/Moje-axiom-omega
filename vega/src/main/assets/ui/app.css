@@ -293,3 +293,9 @@ table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } 
 .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .switch > span { min-width: 0; overflow-wrap: anywhere; }
 .sheet { overflow-wrap: anywhere; }
+
+/* pasáž dokladu u hodnocení síly doložení (klepnutím se rozbalí přesná věta a soubor) */
+.ev-pass{margin-top:4px}
+.ev-pass summary{cursor:pointer;color:var(--accent,#4f8cff);font-size:.85em;min-height:32px;display:flex;align-items:center}
+.ev-pass blockquote{margin:4px 0;padding:6px 10px;border-left:3px solid var(--accent,#4f8cff);background:rgba(127,127,127,.08);border-radius:6px;font-size:.9em;overflow-wrap:anywhere}
+.ev-pass cite{display:block;font-style:normal;opacity:.7;font-size:.85em;margin-top:2px}

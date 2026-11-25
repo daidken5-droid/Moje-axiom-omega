@@ -45,6 +45,13 @@ deep.id = P; deep.url = 'javascript:window.__xss="u"';
     await page.waitForTimeout(40);
     await check('karta ' + t);
   }
+  // den 25. 11., sprint S2: pasáž dokladu = doslovný text cizího dokumentu (a jeho název) v kartě „Síla doložení“, rozbalená
+  await page.evaluate((p) => { window.__msgs = [{ role: 'vega', text: 'Hodnocení', card: { type: 'evidence', parts: [{ label: p, status: p, lines: 1, support: [p],
+    passages: [{ doc: p, text: p }, { doc: 'b.txt', text: p }] }] } }, { role: 'user', text: 'x' }]; S.mc = null; S.busy = false; try { render(); } catch (x) { }
+    document.querySelectorAll('details.ev-pass').forEach(d => d.open = true); }, P).catch(() => { });
+  await page.waitForTimeout(40);
+  if (!(await page.evaluate(() => document.querySelectorAll('details.ev-pass blockquote').length))) hits.push('karta evidence: pasáže se nevykreslily');
+  await check('karta evidence – pasáže');
   // den 24. 11., kolo 20: výpis z cizího souboru – popis platby v odpovědi, karta souhrnu, návrhy pod polem, název přílohy
   await page.evaluate(([p]) => {
     window.__msgs = [{ role: 'user', text: p }, { role: 'vega', text: 'U „' + p + '“ jsi utratil **−5,00 Kč** (1 platba).\n• −5,00 Kč – ' + p + '\n_Hledáno v popisu plateb, bez modelu._',
