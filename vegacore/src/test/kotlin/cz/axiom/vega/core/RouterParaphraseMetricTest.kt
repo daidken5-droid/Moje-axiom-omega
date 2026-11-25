@@ -18,12 +18,18 @@ class RouterParaphraseMetricTest {
         "Co dělá tlačítko zpět?", "Jak smažu chat?", "Jak se exportuje do Excelu?", "Jak udělám zálohu?", "Jak nastavím budík?",
         "Proč se ti zapnul web?", "Co je to rešerše?", "Jak pokračovat v projektu?", "Jak se dělá nástroj na výpis?", "Kde najdu paměť?",
         "Jak se zapomíná heslo?", "Jak vypnout ranní přehled?", "Jak opravit sloupec částka?", "K čemu je nástroj na výpis?",
-        "Co umí čtení NFC?", "Jak se počítá kontrolní součet?")
+        "Co umí čtení NFC?", "Jak se počítá kontrolní součet?",
+        // rozšíření 25. 11. večer
+        "Jak se mažou vzpomínky?", "Co se stane, když napíšu vrať to?", "Kde je tlačítko pro pokračování?", "Proč mi nefunguje zapomínání?",
+        "Jak se přidává pravidlo do paměti?", "Co dělá předžalobní výzva?", "Jak se čte NFC štítek?", "K čemu slouží kontrola CSV?",
+        "Jak se opravuje sloupec ve výpisu?", "Jak se vytváří tlačítko z výsledku?", "Co je to kontrolní součet SHA-256?", "Proč se mi nezapamatovalo jméno?",
+        "A jak se to vrací?", "Kde nastavím, co si pamatuješ?")
 
     private val commands = mapOf(
         "Udělej z toho tlačítko" to "MakeButton", "Zapomeň, kde bydlím" to "Forget", "Pamatuj si, že piju kafe bez cukru" to "Remember",
         "Vrať to" to "Undo", "Pokračuj v projektu" to "Continue", "Udělej z toho nástroj na výpis" to "BuildStatementTool",
-        "Ukaž paměť" to "WhatDoYouRemember", "Částka je ve sloupci C" to "FixColumn")
+        "Ukaž paměť" to "WhatDoYouRemember", "Částka je ve sloupci C" to "FixColumn",
+        "zapamatuj si, že bydlím v Brně" to "Remember", "prosím zapomeň na psa" to "Forget", "vrať zpět" to "Undo", "co si pamatuješ?" to "WhatDoYouRemember")
 
     @Test fun informationalQuestionsNeverTriggerActions() {
         val misfires = informational.mapNotNull { q -> kind(q).takeIf { k -> k.substringBefore(':') in ACTIONS }?.let { "„$q“ → $it" } }
