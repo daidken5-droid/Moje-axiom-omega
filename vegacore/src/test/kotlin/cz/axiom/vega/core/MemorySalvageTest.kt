@@ -28,3 +28,17 @@ class JsonSalvageTest {
         assertEquals(listOf("{\"a\":1}", "{\"b\":2}"), JsonSalvage.arrayElements("[{\"a\":1},{\"b\":2}]"))
     }
 }
+
+/** Den 25. 11., kolo 4: prázdný / rozbitý soubor paměti po výpadku proudu – jedna záloha, ne nová při každém spuštění aplikace. */
+class MemoryBackupOnceTest {
+    @Test fun oneBackupOnly() {
+        for (bad in listOf("", "{nesmysl", "\u0000\u0000\u0000")) {
+            val kv = MemKv(); var t = 1L
+            kv.write("memory/entries", bad)
+            repeat(5) { Memory(kv) { t++ }.all() }   // pět spuštění aplikace
+            assertEquals("„$bad“", 1, kv.keys("memory/").count { it.startsWith("memory/entries.bad-") })
+            // a dá se dál normálně ukládat
+            val m = Memory(kv) { t++ }; m.remember("Kávu piju bez cukru"); assertEquals(1, Memory(kv) { t++ }.all().size)
+        }
+    }
+}

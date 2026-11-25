@@ -30,7 +30,8 @@ class FileKv(private val root: File) : Kv {
     @Synchronized override fun write(key: String, value: String) {
         val t = f(key); t.parentFile?.mkdirs()
         val tmp = File(t.parentFile, ".${t.name}.tmp")
-        try { tmp.writeText(value) } catch (e: java.io.IOException) { tmp.delete(); throw java.io.IOException(if (e.message.orEmpty().contains("ENOSPC") || e.message.orEmpty().contains("No space")) "V telefonu došlo místo – uvolni úložiště a zkus to znovu." else (e.message ?: "zápis selhal"), e) }
+        // fsync před přejmenováním: při výpadku proudu jinak může přežít přejmenování, ale ne data (prázdný / useknutý soubor)
+        try { java.io.FileOutputStream(tmp).use { o -> o.write(value.toByteArray(Charsets.UTF_8)); o.fd.sync() } } catch (e: java.io.IOException) { tmp.delete(); throw java.io.IOException(if (e.message.orEmpty().contains("ENOSPC") || e.message.orEmpty().contains("No space")) "V telefonu došlo místo – uvolni úložiště a zkus to znovu." else (e.message ?: "zápis selhal"), e) }
         if (!tmp.renameTo(t)) { tmp.delete(); throw java.io.IOException("Soubor nejde uložit (přejmenování selhalo).") } // nikdy nepřepisovat cíl napůl
     }
     @Synchronized override fun delete(key: String) { f(key).delete() }

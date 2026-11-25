@@ -123,7 +123,8 @@ class Memory(private val kv: Kv, private val clock: () -> Long = System::current
         .getOrElse { kv.write("memory/entries.bad-" + System.currentTimeMillis(), raw)
             // useknutý zápis: zachránit celé záznamy před místem poškození (zbytek zůstává v záloze .bad-…)
             JsonSalvage.arrayElements(raw).mapNotNull { runCatching { json.decodeFromString(Mem.Entry.serializer(), it) }.getOrNull() }
-                .also { if (it.isNotEmpty()) kv.write("memory/entries", json.encodeToString(listSer, it)) } } } ?: emptyList()).toMutableList().also { cache = it }
+                // vždy přepsat (i prázdným „[]“) – jinak by každé další spuštění aplikace udělalo další zálohu téhož poškozeného souboru
+                .also { kv.write("memory/entries", json.encodeToString(listSer, it)) } } } ?: emptyList()).toMutableList().also { cache = it }
     private fun persist() { kv.write("memory/entries", json.encodeToString(listSer, load())); rebuildIndex() }
 
     private fun tombstones(): MutableSet<String> = kv.read("memory/forgotten")?.split('\n')?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
