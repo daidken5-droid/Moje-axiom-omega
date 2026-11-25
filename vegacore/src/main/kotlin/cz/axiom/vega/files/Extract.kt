@@ -57,12 +57,22 @@ object Extract {
         return Result(kind, text.take(maxChars), when { truncated -> "Dokument je příliš velký – přečtena jen část."; text.length > maxChars -> "Text zkrácen na $maxChars znaků."; else -> null })
     }
 
-    private fun unescape(s: String) = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
-    private fun xmlText(xml: String, para: Regex, run: Regex?): String {
+    private fun unescape(s: String) = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'")
+        // číselné entity („&#8211;“ pomlčka, „&#x2013;“) – Word i LibreOffice je běžně píšou
+        .replace(Regex("&#(x[0-9a-fA-F]+|\\d+);")) { m -> val v = m.groupValues[1]; runCatching { String(Character.toChars(if (v.startsWith("x")) v.drop(1).toInt(16) else v.toInt())) }.getOrDefault(m.value) }
+        .replace("&amp;", "&")
+    private fun xmlText(xml0: String, para: Regex, run: Regex?): String {
+        // tabulátor, zalomení řádku a buňky tabulky – jinak se slova slepí („Jméno:Jan“, „CenaMnožství“)
+        val xml = xml0.replace("\n", " ").replace("\r", " ")
+            .replace(Regex("<w:tab/>"), "<w:t>\t</w:t>").replace(Regex("<w:(?:br|cr)(?:\\s[^>]*)?/>"), "</w:p>")
+            .replace(Regex("</w:p>\\s*</w:tc>"), "</w:tc>").replace("</w:tc>", "<w:t>\t</w:t>").replace("</w:tr>", "</w:p>")
+            .replace(Regex("<text:s(?:\\s[^>]*)?/>"), " ").replace(Regex("<text:line-break/>"), "</text:p>")
+            .replace(Regex("</text:p>\\s*</table:table-cell>"), "</table:table-cell>").replace("</table:table-cell>", "\t").replace("</table:table-row>", "</text:p>")
+            .replace(Regex("</a:p>\\s*</a:txBody>\\s*</a:tc>"), "</a:tc>").replace("</a:tc>", "<a:t>\t</a:t>").replace("</a:tr>", "</a:p>")
         val withBreaks = xml.replace(para, "\n")
         val t = if (run != null) withBreaks.split('\n').joinToString("\n") { line -> run.findAll(line).joinToString("") { unescape(it.groupValues[1]) } }
                 else unescape(withBreaks.replace(Regex("<text:tab/>"), "\t").replace(Regex("<[^>]+>"), ""))
-        return t.lines().map { it.trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+        return t.lines().map { it.trim().trimEnd('\t') }.filter { it.isNotEmpty() }.joinToString("\n")
     }
     private fun xlsx(parts: Map<String, String>): String =
         sheets(parts).entries.joinToString("\n\n") { (name, rows) -> "## $name\n" + rows.joinToString("\n") { it.joinToString(";") } }
