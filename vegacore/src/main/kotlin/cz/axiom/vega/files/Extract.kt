@@ -51,7 +51,7 @@ object Extract {
         }
         val text = when (kind) {
             Kind.XLSX -> xlsx(parts)
-            Kind.DOCX -> parts.values.joinToString("\n") { xmlText(it, para = Regex("</w:p>"), run = Regex("<w:t(?:\\s[^>]*)?>([^<]*)</w:t>")) }
+            Kind.DOCX -> parts.values.joinToString("\n") { xmlText(it, para = Regex("</w:p>"), run = Regex("<w:t(?:\\s[^>]{0,100})?>([^<]*)</w:t>")) }
             Kind.PPTX -> parts.entries.sortedBy { Regex("\\d+").find(it.key)?.value?.toIntOrNull() ?: 0 }.joinToString("\n\n") { xmlText(it.value, Regex("</a:p>"), Regex("<a:t>([^<]*)</a:t>")) }
             else -> parts.values.joinToString("\n") { xmlText(it, Regex("</text:(?:p|h)>"), null) }
         }
@@ -65,14 +65,14 @@ object Extract {
     private fun xmlText(xml0: String, para: Regex, run: Regex?): String {
         // tabulátor, zalomení řádku a buňky tabulky – jinak se slova slepí („Jméno:Jan“, „CenaMnožství“)
         val xml = xml0.replace("\n", " ").replace("\r", " ")
-            .replace(Regex("<w:tab/>"), "<w:t>\t</w:t>").replace(Regex("<w:(?:br|cr)(?:\\s[^>]*)?/>"), "</w:p>")
+            .replace(Regex("<w:tab/>"), "<w:t>\t</w:t>").replace(Regex("<w:(?:br|cr)(?:\\s[^>]{0,100})?/>"), "</w:p>")
             .replace(Regex("</w:p>\\s*</w:tc>"), "</w:tc>").replace("</w:tc>", "<w:t>\t</w:t>").replace("</w:tr>", "</w:p>")
-            .replace(Regex("<text:s(?:\\s[^>]*)?/>"), " ").replace(Regex("<text:line-break/>"), "</text:p>")
+            .replace(Regex("<text:s(?:\\s[^>]{0,100})?/>"), " ").replace(Regex("<text:line-break/>"), "</text:p>")
             .replace(Regex("</text:p>\\s*</table:table-cell>"), "</table:table-cell>").replace("</table:table-cell>", "\t").replace("</table:table-row>", "</text:p>")
             .replace(Regex("</a:p>\\s*</a:txBody>\\s*</a:tc>"), "</a:tc>").replace("</a:tc>", "<a:t>\t</a:t>").replace("</a:tr>", "</a:p>")
         val withBreaks = xml.replace(para, "\n")
         val t = if (run != null) withBreaks.split('\n').joinToString("\n") { line -> run.findAll(line).joinToString("") { unescape(it.groupValues[1]) } }
-                else unescape(withBreaks.replace(Regex("<text:tab/>"), "\t").replace(Regex("<[^>]+>"), ""))
+                else unescape(cz.axiom.vega.base.Tags.strip(withBreaks.replace(Regex("<text:tab/>"), "\t")))
         return t.lines().map { it.trim().trimEnd('\t') }.filter { it.isNotEmpty() }.joinToString("\n")
     }
     private fun xlsx(parts: Map<String, String>): String =
@@ -86,13 +86,14 @@ object Extract {
      * Hodnoty jsou syrové: data jsou pořadová čísla Excelu (převod řeší ten, kdo ví, který sloupec je datum).
      */
     private fun sheets(parts: Map<String, String>): Map<String, List<List<String>>> {
-        val shared = parts["xl/sharedStrings.xml"]?.let { x -> Regex("(?s)<si>(.*?)</si>").findAll(x).map { si -> Regex("<t[^>]*>([^<]*)</t>").findAll(si.groupValues[1]).joinToString("") { unescape(it.groupValues[1]) } }.toList() } ?: emptyList()
-        val cell = Regex("(?s)<c([^>]*?)(?:/>|>(.*?)</c>)"); val vRx = Regex("<v>([^<]*)</v>"); val tRx = Regex("<t[^>]*>([^<]*)</t>"); val rRx = Regex("\\br=\"([A-Z]+\\d+)\"")
+        val tRx = Regex("<t(?:\\s[^>]{0,100})?>([^<]*)</t>")
+        val shared = parts["xl/sharedStrings.xml"]?.let { x -> cz.axiom.vega.base.Tags.blocks(x, "si").map { si -> tRx.findAll(si).joinToString("") { unescape(it.groupValues[1]) } } } ?: emptyList()
+        val vRx = Regex("<v>([^<]*)</v>"); val rRx = Regex("\\br=\"([A-Z]+\\d+)\"")
         return parts.filterKeys { it.startsWith("xl/worksheets/") }.toSortedMap(compareBy({ it.length }, { it })).entries.associate { (name, x) ->
-            name.substringAfterLast('/').removeSuffix(".xml") to Regex("(?s)<row[^>]*>(.*?)</row>").findAll(x).map { row ->
+            name.substringAfterLast('/').removeSuffix(".xml") to cz.axiom.vega.base.Tags.blocks(x, "row").map { row ->
                 val out = ArrayList<String>()
-                cell.findAll(row.groupValues[1]).forEach { c ->
-                    val attrs = c.groupValues[1]; val body = c.groupValues[2]
+                cz.axiom.vega.base.Tags.elements(row, "c", selfClosing = true).forEach { c ->
+                    val attrs = c.attrs; val body = c.body
                     // vložený text (t="inlineStr") může být rozdělený do více <r><t>…</t></r> („Čás“+„tka“) → spojit všechny části
                     val raw = vRx.find(body)?.groupValues?.get(1) ?: tRx.findAll(body).joinToString("") { it.groupValues[1] }
                     val v = when {
