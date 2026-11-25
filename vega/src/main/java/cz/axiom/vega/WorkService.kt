@@ -26,6 +26,11 @@ class WorkService : Service() {
         private const val WAKE_MAX_MS = 15 * 60_000L
         /** Pracuje VEGA? (VegaApp nastaví na Ops.busy; v testu podvrh.) */
         @Volatile var isWorking: () -> Boolean = { false }
+        /** Práce mimo frontu Ops (ranní přehled z budíku): dokud je hold > 0, služba běží – v Doze tak aplikace dostane síť. */
+        private val holds = java.util.concurrent.atomic.AtomicInteger(0)
+        fun hold() { holds.incrementAndGet() }
+        fun release() { holds.updateAndGet { maxOf(0, it - 1) } }
+        private fun busy() = isWorking() || holds.get() > 0
 
         fun start(ctx: Context) {
             runCatching {
@@ -38,7 +43,7 @@ class WorkService : Service() {
     private var wake: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
     private val check = object : Runnable {
-        override fun run() { if (isWorking()) handler.postDelayed(this, 1_000) else { stopForegroundCompat(); stopSelf() } }
+        override fun run() { if (busy()) handler.postDelayed(this, 1_000) else { stopForegroundCompat(); stopSelf() } }
     }
 
     internal fun wakeHeld() = wake?.isHeld == true
@@ -72,7 +77,7 @@ class WorkService : Service() {
         val open = PendingIntent.getActivity(this, 8, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(this)
-        return b.setSmallIcon(applicationInfo.icon).setContentTitle("VEGA dokončuje odpověď…").setContentText("Můžeš zamknout telefon – odpověď počká v chatu.")
+        return b.setSmallIcon(applicationInfo.icon).setContentTitle(if (holds.get() > 0 && !isWorking()) "VEGA stahuje ranní přehled…" else "VEGA dokončuje odpověď…").setContentText("Můžeš zamknout telefon – odpověď počká v chatu.")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).build()
     }
 }

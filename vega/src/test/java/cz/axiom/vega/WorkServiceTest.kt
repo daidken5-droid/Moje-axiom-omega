@@ -40,4 +40,18 @@ class WorkServiceTest {
         ctl.destroy()
         assertTrue("wake lock uvolněn", !s.wakeHeld())
     }
+
+    /** Ranní přehled z budíku: služba běží, dokud přehled drží „hold“ (Ops přitom nemusí být busy) – v Doze tak dostane síť. */
+    @Test fun holdKeepsServiceRunningForNewsDigest() {
+        WorkService.isWorking = { false }
+        WorkService.hold()
+        val ctl = Robolectric.buildService(WorkService::class.java).create().startCommand(0, 1)
+        val s = ctl.get()
+        shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertTrue("během přehledu běží", !shadowOf(s).isStoppedBySelf)
+        WorkService.release()
+        shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(3))
+        assertTrue("po přehledu skončí", shadowOf(s).isStoppedBySelf)
+        ctl.destroy()
+    }
 }

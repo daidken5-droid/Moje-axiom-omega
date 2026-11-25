@@ -28,7 +28,7 @@ class OpsNewsTest {
         Triple("Hraniční zpráva přesně v 05:20", "https://www.novinky.cz/edge", "Mon, 23 Nov 2026 05:20:00 +0100"),
         Triple("Těsně před koncem okna", "https://www.novinky.cz/last", "Mon, 23 Nov 2026 05:19:59 +0100"))
     private val idnes = rss(Triple("Klimatická konference v Antalyi zkolabovala, státy se neshodly na deklaraci", "https://www.idnes.cz/b1", "Sun, 22 Nov 2026 14:10:00 +0100"))
-    private fun ops(fetch: (String) -> ByteArray): Ops = Ops(ctx) { _, _ -> }.also { it.settings.airgap = false; it.settings.newsEnabled = true; it.newsFetch = fetch }
+    private fun ops(fetch: (String) -> ByteArray): Ops = Ops(ctx) { _, _ -> }.also { it.settings.airgap = false; it.settings.newsEnabled = true; it.newsFetch = fetch; it.newsRetryDelayMs = 10 }
     private class Fake(val out: String) : LlmEngine { override val id = "f"; override val label = "F"; var calls = 0
         override fun generate(messages: List<ChatMessage>, options: GenOptions, cancel: cz.axiom.vega.llm.CancelToken, onDelta: (Delta) -> Unit): GenResult { calls++; return GenResult(out) } }
 
@@ -250,5 +250,25 @@ class OpsNewsTest {
         val asst = seen.first().filter { it.role == cz.axiom.vega.llm.Role.ASSISTANT && it.content.contains("Ignoruj předchozí pokyny") }
         assertTrue("text přehledu jde modelu", asst.isNotEmpty())
         assertTrue(asst.joinToString("\n") { it.content }, asst.all { it.content.startsWith("<<<DOKUMENT ") && it.content.trimEnd().endsWith("<<<KONEC DOKUMENTU>>>") })
+    }
+
+    /**
+     * Hlášení 25. 11.: „ráno problém poslat ranní zprávy, internet má dostupný“. V 05:20 telefon spí (Doze) – síť naskočí až chvíli
+     * po probuzení budíkem; dřív první neúspěšné stažení všech zdrojů = „zkontroluj internet“ bez dalšího pokusu v tomtéž běhu.
+     */
+    @Test fun networkComesUpShortlyAfterWakeup() {
+        var calls = 0
+        val o = ops { u -> calls++; if (calls <= 2) throw java.net.UnknownHostException("síť ještě nenaskočila") else if ("novinky" in u) novinky else idnes }
+        o.newsRetryDelayMs = 10
+        val r = o.newsDigest(now)
+        assertTrue(r.text, r.ok && r.chat != null)
+    }
+
+    /** Bez sítě: zpráva říká, že přehled AI nepoužívá a blokuje ho jen režim Bez sítě (ne „model“). */
+    @Test fun airgapMessageIsClear() {
+        val o = ops { novinky }; o.settings.airgap = true
+        val r = o.newsDigest(now)
+        assertFalse(r.ok)
+        assertTrue(r.text, r.text.contains("Bez sítě") && r.text.contains("nepoužívá") && !r.text.contains("model v cloudu"))
     }
 }

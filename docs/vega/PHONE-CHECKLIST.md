@@ -82,3 +82,11 @@ Stejná sada místních dokumentů (např. 20 PDF/TXT, ~5 MB celkem – zapsat p
 | Čas k prvnímu výsledku | Od odeslání otázky nad dokumenty do první zobrazené části odpovědi (stopky) | NEOVĚŘENO |
 | Čas k úplnému rozboru | Do konce odpovědi / karty „Síla doložení“ | NEOVĚŘENO |
 | Max. paměť | `adb shell dumpsys meminfo cz.axiom.vega` během rozboru → `TOTAL PSS` | NEOVĚŘENO |
+
+## Ranní přehled v Doze (hlášení uživatele 25. 11.: „ráno problém poslat ranní zprávy, internet má dostupný“)
+
+| Krok | Postup | Očekávání | Výsledek |
+|---|---|---|---|
+| Noc | Telefon na noc bez nabíječky, VEGA zavřená, ranní přehled zapnutý, režim Bez sítě VYPNUTÝ | V 05:20 krátce oznámení „VEGA stahuje ranní přehled…“, v 05:30 oznámení s tématy; v chatu „Ranní přehled d. m.“ | NEOVĚŘENO |
+| Bez sítě zapnutý | Totéž se zapnutým režimem Bez sítě ve VEGA | Oznámení výslovně: přehled AI nepoužívá, blokuje ho jen režim Bez sítě | NEOVĚŘENO |
+| Diagnostika (adb) | `adb shell dumpsys deviceidle force-idle`, pak `adb shell cmd alarm` nebo počkat na 05:20 | Přehled se stáhne i ve vynuceném Doze | NEOVĚŘENO |

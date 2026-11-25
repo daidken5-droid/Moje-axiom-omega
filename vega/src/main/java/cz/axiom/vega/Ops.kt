@@ -1868,6 +1868,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Stažení zdroje (test ho nahradí). Jen https, veřejná síť, max 2 MB, 10 s čtení. */
     /** Test: text ze souboru (PDF) bez PdfBox – v JVM testech chybí fonty knihovny. V aplikaci null. */
     @Volatile var fileTextHook: ((Value.Bytes) -> String)? = null
+    /** Pauza před opakovaným stažením, když napoprvé nešel žádný zdroj (síť po probuzení z Doze); v testu krátká. */
+    @Volatile var newsRetryDelayMs = 20_000L
     @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
 
     private fun newsKey(day: java.time.LocalDate) = "news/$day.json"
@@ -1912,12 +1914,17 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     private fun newsBuild(now: java.time.ZonedDateTime, manual: Boolean, w: Pair<java.time.Instant, java.time.Instant>, day: java.time.LocalDate): NewsResult {
         val N = cz.axiom.vega.news.News
         fun done(r: NewsResult) = r.also { if (!manual) kv.write(newsKey(day), JSONObject().put("ok", r.ok).put("text", r.text).put("chat", r.chat ?: "").put("at", System.currentTimeMillis()).toString()) }
-        if (settings.airgap) return done(NewsResult(false, "Je zapnutý režim Bez sítě – přehled jsem nestahoval.", null))
+        if (settings.airgap) return done(NewsResult(false, "Ve VEGA je zapnutý režim Bez sítě – přehled jsem nestahoval. Přehled jazykový model ani cloud AI nepoužívá (jen RSS zpravodajských webů), blokuje ho jen vypnutá síť.", null))
         val srcs = N.SOURCES.filter { it.id in settings.newsSources }
         if (srcs.isEmpty()) return done(NewsResult(false, "Nemáš zapnutý žádný zdroj (Nastavení › Ranní přehled zpráv).", null))
-        val pool = Executors.newFixedThreadPool(srcs.size.coerceAtMost(7))
-        val got = try { srcs.map { s -> pool.submit<List<cz.axiom.vega.news.News.Item>?> { runCatching { N.parse(cz.axiom.vega.core.Encoding.decode(newsFetch(s.url)), s.id) }.getOrNull() } }
-            .map { f -> runCatching { f.get(15, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() } } finally { pool.shutdownNow() }
+        fun fetchAll(): List<List<cz.axiom.vega.news.News.Item>?> {
+            val pool = Executors.newFixedThreadPool(srcs.size.coerceAtMost(7))
+            return try { srcs.map { s -> pool.submit<List<cz.axiom.vega.news.News.Item>?> { runCatching { N.parse(cz.axiom.vega.core.Encoding.decode(newsFetch(s.url)), s.id) }.getOrNull() } }
+                .map { f -> runCatching { f.get(15, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull() } } finally { pool.shutdownNow() }
+        }
+        var got = fetchAll()
+        // po probuzení z Doze síť naskočí až za chvíli – žádný zdroj → počkat a zkusit znovu (2×), ne hned „zkontroluj internet“
+        if (!manual) repeat(2) { if (got.all { it == null }) { runCatching { Thread.sleep(newsRetryDelayMs) }; got = fetchAll() } }
         if (got.all { it == null }) return done(NewsResult(false, "Žádný zdroj nešel stáhnout – zkontroluj internet.", null))
         val topics = N.topics(got.filterNotNull().flatten(), w)
         // nezávisle na jazykovém modelu i cloudu: jen RSS → deterministický přehled (titulek, 1. věta perexu, odkazy)

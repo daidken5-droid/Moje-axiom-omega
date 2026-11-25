@@ -89,6 +89,9 @@ class NewsReceiver : BroadcastReceiver() {
         }
         if (!s.newsEnabled && intent.action != NewsAlarms.RETRY) return
         val pending = goAsync()
+        // v 05:20 telefon spí (Doze): budík VEGA probudí, ale síť dostane jen proces se službou v popředí – spustit ji hned tady
+        // (spuštění z přesného budíku Android povoluje), jinak stažení RSS selže „bez internetu“, i když internet je
+        WorkService.hold(); WorkService.start(app)
         Thread {
             try {
                 val ops = (app as VegaApp).opsHeadless()
@@ -105,6 +108,7 @@ class NewsReceiver : BroadcastReceiver() {
             } finally {
                 // plán na zítřek i po výjimce – jinak by přehled přestal chodit, dokud uživatel neotevře aplikaci
                 if (intent.action == NewsAlarms.NOTIFY) runCatching { NewsAlarms.schedule(app, s.newsEnabled) }
+                WorkService.release()
                 pending?.finish()
             }
         }.start()
