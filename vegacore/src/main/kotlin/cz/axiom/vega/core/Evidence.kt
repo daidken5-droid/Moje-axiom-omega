@@ -10,7 +10,8 @@ import cz.axiom.vega.base.Text
  * Číselnou pravděpodobnost nepočítá – místo ní řekne, jaký údaj chybí a jak by závěr změnil.
  */
 object Evidence {
-    data class Doc(val name: String, val text: String)
+    /** Doklad; u uložené webové stránky i její adresa, datum vydání (je-li ve stránce) a datum načtení. */
+    data class Doc(val name: String, val text: String, val url: String? = null, val published: String? = null, val fetched: String? = null)
     data class Parsed(val doc: Doc, val origins: Set<String>, val dates: Set<String>, val motive: Boolean, val primary: Boolean, val anonymousOrigin: Boolean, val label: String = "",
                       /** Kmeny slov uvedeného důvodu („zakrýt chybu v projektu“) – motiv podporuje jen doklad se SHODNÝM důvodem. */
                       val reason: Set<String> = emptySet(), val reasonText: String = "",
@@ -19,7 +20,7 @@ object Evidence {
                       /** Kde v textu stojí datum (ISO → pozice) a uvedený důvod – pro citaci pasáže. */
                       val datePos: Map<String, Int> = emptyMap(), val reasonPos: Int? = null)
     /** Přesná věta z dokladu, o kterou se část závěru opírá (doslovná citace – jde otevřít a porovnat se zdrojem). */
-    data class Passage(val doc: String, val text: String)
+    data class Passage(val doc: String, val text: String, val url: String? = null, val published: String? = null, val fetched: String? = null)
     data class Part(val label: String, val status: String, val lines: Int, val support: List<String>, val passages: List<Passage> = emptyList())
     data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
 
@@ -131,7 +132,7 @@ object Evidence {
                 sup.all { it.anonymousOrigin || it.origins.isNotEmpty() } -> "jen jedna linie (texty přebírají tutéž výpověď)"
                 else -> "jediný zdroj"
             }
-            return Part(label, status, if (sup.isEmpty()) 0 else known.size.coerceAtLeast(1), names, sup.mapNotNull { p -> at(p)?.let { Passage(p.doc.name, sentence(p.doc.text, it)) } })
+            return Part(label, status, if (sup.isEmpty()) 0 else known.size.coerceAtLeast(1), names, sup.mapNotNull { p -> at(p)?.let { Passage(p.doc.name, sentence(p.doc.text, it), p.doc.url, p.doc.published, p.doc.fetched) } })
         }
         allDates.firstOrNull()?.let { d -> parts += grade("datum události (${d.split('-').let { "${it[2].toInt()}. ${it[1].toInt()}. ${it[0]}" }})", ps.filter { d in it.dates }) { it.datePos[d] } }
         // tvrzený důvod = nejčastější (první text, který ho uvádí); doklad s JINÝM důvodem motiv nepodporuje – je to alternativa

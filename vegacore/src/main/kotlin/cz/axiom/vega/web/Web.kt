@@ -76,6 +76,22 @@ object Web {
         }
         return sb.toString()
     }
+    /** Adresa a datum vydání uložené stránky – bez sítě, jen z HTML (datum se nevymýšlí: chybí-li, je null). */
+    data class PageMeta(val url: String?, val published: String?)
+    fun pageMeta(html: String): PageMeta {
+        val head = html.take(200_000)
+        fun attr(tagRx: Regex, attrName: String) = tagRx.findAll(head).mapNotNull { m -> Regex("(?i)\\b$attrName\\s*=\\s*[\"']([^\"']{1,500})[\"']").find(m.value)?.groupValues?.get(1) }.firstOrNull()
+        val url = attr(Regex("(?i)<link\\b[^>]{0,500}rel=[\"']canonical[\"'][^>]{0,500}>"), "href")
+            ?: attr(Regex("(?i)<meta\\b[^>]{0,500}property=[\"']og:url[\"'][^>]{0,500}>"), "content")
+            ?: Regex("<!--\\s*saved from url=\\(\\d+\\)(https?://\\S{1,500}?)\\s*-->").find(head)?.groupValues?.get(1)
+        val raw = attr(Regex("(?i)<meta\\b[^>]{0,500}(?:property|name|itemprop)=[\"'](?:article:published_time|datePublished|date|pubdate|dc\\.date)[\"'][^>]{0,500}>"), "content")
+            ?: attr(Regex("(?i)<time\\b[^>]{0,500}datetime=[^>]{0,500}>"), "datetime")
+            ?: Regex("\"datePublished\"\\s*:\\s*\"([^\"]{8,40})\"").find(head)?.groupValues?.get(1)
+        val published = raw?.let { Regex("^(\\d{4})-(\\d{2})-(\\d{2})").find(it.trim())?.let { m -> runCatching { java.time.LocalDate.of(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt()).toString() }.getOrNull() } }
+        return PageMeta(url?.takeIf { it.startsWith("http") }, published)
+    }
+    fun isHtmlName(name: String) = name.lowercase().let { it.endsWith(".html") || it.endsWith(".htm") }
+
     private val NAMED = mapOf("nbsp" to " ", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "ndash" to "–", "mdash" to "—", "bdquo" to "„", "ldquo" to "“", "rdquo" to "”",
         "lsquo" to "‘", "rsquo" to "’", "sbquo" to "‚", "hellip" to "…", "euro" to "€", "copy" to "©", "reg" to "®", "deg" to "°", "times" to "×", "minus" to "−", "middot" to "·",
         "scaron" to "š", "Scaron" to "Š", "ccaron" to "č", "Ccaron" to "Č", "rcaron" to "ř", "Rcaron" to "Ř", "zcaron" to "ž", "Zcaron" to "Ž", "ecaron" to "ě", "Ecaron" to "Ě",

@@ -420,6 +420,13 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      */
     private val attTextCache = java.util.Collections.synchronizedMap(object : LinkedHashMap<String, String>() { override fun removeEldestEntry(e: MutableMap.MutableEntry<String, String>?) = size > 8 })
     private fun isTextual(b: Value.Bytes) = b.name.substringAfterLast('.', "").lowercase() in Workspace.TEXT_EXT || (!Regex("(?i)\\.(pdf|docx?|xlsx?|pptx?|od[tsp]|jpe?g|png|webp|heic|zip)$").containsMatchIn(b.name) && cz.axiom.vega.core.Encoding.isUtf8(b.bytes.copyOf(minOf(b.bytes.size, 4096))))
+    /** Doklad k hodnocení: uložená webová stránka = čistý text (bez skriptů, navigace) + adresa, datum vydání a dnešní datum načtení. */
+    private fun evidenceDoc(b: Value.Bytes): cz.axiom.vega.core.Evidence.Doc {
+        val raw = runCatching { attText(b) }.getOrDefault("")
+        if (!cz.axiom.vega.web.Web.isHtmlName(b.name) && b.mime?.contains("html") != true) return cz.axiom.vega.core.Evidence.Doc(b.name, raw.take(20_000))
+        val m = cz.axiom.vega.web.Web.pageMeta(raw)
+        return cz.axiom.vega.core.Evidence.Doc(b.name, cz.axiom.vega.web.Web.htmlToText(raw).take(20_000), m.url, m.published, java.time.LocalDate.now().toString())
+    }
     private fun attText(b: Value.Bytes): String {
         if (isTextual(b)) return b.asText()
         val key = sha8(b.bytes) + b.name
@@ -1807,18 +1814,19 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // důkazy: ≥ 2 texty a otázka na pravdivost, nebo další doklad k rozpracovanému hodnocení
         val ev = kv.read(evidenceKey(chat))?.let { runCatching { JSONArray(it) }.getOrNull() }
         val blocks = text.split(Regex("\\n-{3,}\\n")).drop(1).filter { it.isNotBlank() }
-        val newDocs = msgAtt.filter { !it.name.endsWith(".csv", true) && !it.name.endsWith(".tsv", true) }.map { cz.axiom.vega.core.Evidence.Doc(it.name, runCatching { attText(it) }.getOrDefault("").take(20_000)) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
+        val newDocs = msgAtt.filter { !it.name.endsWith(".csv", true) && !it.name.endsWith(".tsv", true) }.map { evidenceDoc(it) } + blocks.mapIndexed { i, b -> cz.axiom.vega.core.Evidence.Doc("text ${(ev?.length() ?: 0) + msgAtt.size + i + 1}", b.trim()) }
         val start = newDocs.size >= 2 && cz.axiom.vega.core.Evidence.isQuestion(text)
         val add = ev != null && newDocs.isNotEmpty() && (cz.axiom.vega.core.Evidence.isAddition(text) || cz.axiom.vega.core.Evidence.isQuestion(text))
         if (start || add) {
             val prev = if (start) null else ev
-            val docs = (prev?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { j -> cz.axiom.vega.core.Evidence.Doc(j.getString("name"), j.getString("text")) } } } ?: emptyList()) + newDocs
-            kv.write(evidenceKey(chat), JSONArray().apply { docs.forEach { put(JSONObject().put("name", it.name).put("text", it.text)) } }.toString())
+            val docs = (prev?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { j -> cz.axiom.vega.core.Evidence.Doc(j.getString("name"), j.getString("text"),
+                j.optString("url").ifEmpty { null }, j.optString("published").ifEmpty { null }, j.optString("fetched").ifEmpty { null }) } } } ?: emptyList()) + newDocs
+            kv.write(evidenceKey(chat), JSONArray().apply { docs.forEach { put(JSONObject().put("name", it.name).put("text", it.text).putOpt("url", it.url).putOpt("published", it.published).putOpt("fetched", it.fetched)) } }.toString())
             val before = prev?.let { cz.axiom.vega.core.Evidence.assess(docs.dropLast(newDocs.size)) }
             val a = cz.axiom.vega.core.Evidence.assess(docs)
             val change = before?.let { b -> a.parts.mapNotNull { p -> b.parts.firstOrNull { it.label.substringBefore(" (") == p.label.substringBefore(" (") }?.takeIf { it.status != p.status }?.let { "${p.label}: ${it.status} → ${p.status}" } } }.orEmpty()
             reply(chat, (if (change.isNotEmpty()) "Změna hodnocení po novém dokladu – " + change.joinToString("; ") + ".\n\n" else "") + cz.axiom.vega.core.Evidence.render(a),
-                JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support)).put("passages", JSONArray().apply { it.passages.forEach { ps -> put(JSONObject().put("doc", ps.doc).put("text", ps.text)) } })) } }))
+                JSONObject().put("type", "evidence").put("parts", JSONArray().apply { a.parts.forEach { put(JSONObject().put("label", it.label).put("status", it.status).put("lines", it.lines).put("support", JSONArray(it.support)).put("passages", JSONArray().apply { it.passages.forEach { ps -> put(JSONObject().put("doc", ps.doc).put("text", ps.text).putOpt("url", ps.url).putOpt("published", ps.published).putOpt("fetched", ps.fetched)) } })) } }))
             return true
         }
         // „ulož to do Wordu / jako PDF“ po textové odpovědi (dopis, e-mail, plán): uložit TU odpověď jako dokument (scan S37)

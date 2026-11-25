@@ -37,4 +37,33 @@ class OpsBridgeEvidenceTest {
         assertEquals(0, motive.getJSONArray("passages").length())
         assertTrue(r.text, r.text.contains("Motiv / důvod: nedoloženo – zůstává otevřené"))
     }
+
+    /** Stejná otázka nad předem uloženými webovými stránkami (bez živého webu): stejný verdikt, pasáž bez HTML, u webu datum vydání a zvlášť načtení. */
+    @Test fun sameQuestionOverSavedWebPages() {
+        fun page(title: String, body: String, url: String, published: String?) = """<!DOCTYPE html><!-- saved from url=(0040)$url --><html><head><title>$title</title>
+            <link rel="canonical" href="$url">${published?.let { "<meta property=\"article:published_time\" content=\"$it\">" } ?: ""}
+            <script>var x = "3. 1. 2020 kvůli reklamě";</script><style>.a{}</style></head><body><nav>Menu Domů Zprávy</nav><article><h1>$title</h1><p>$body</p></article>
+            <footer>© 2026</footer></body></html>"""
+        val pages = listOf(
+            "rozhodnuti.html" to page("Rozhodnutí", docs[0].second, "https://doprava.example.cz/rozhodnuti-45", "2026-11-02T09:00:00+01:00"),
+            "zpravy.html" to page("Most zavřen", docs[1].second, "https://zpravy.example.cz/most", "2026-11-03T07:12:00+01:00"),
+            "blog.html" to page("Co s mostem", docs[2].second, "https://blog.example.cz/most", null),
+        )
+        fun ask(d: List<Pair<String, String>>, mime: String): OpsHarness.Reply {
+            val h = OpsHarness(airgap = true); val c = h.o.newChat()
+            return h.say(c, "Je doložené, kdy zavřeli most a proč?", d.map { (n, t) -> h.o.attach(n, mime, t.toByteArray()).getString("id") })
+        }
+        fun statuses(r: OpsHarness.Reply) = r.card!!.getJSONArray("parts").let { a -> (0 until a.length()).map { a.getJSONObject(it).let { p -> p.getString("label") + "=" + p.getString("status") } } }
+        val local = ask(docs, "text/plain"); val web = ask(pages, "text/html")
+        assertEquals(statuses(local), statuses(web))
+        val date = web.card!!.getJSONArray("parts").getJSONObject(0)
+        val p = date.getJSONArray("passages").let { ps -> (0 until ps.length()).map { ps.getJSONObject(it) } }.first { it.getString("doc") == "rozhodnuti.html" }
+        assertEquals("Most přes Labe se uzavírá 3. 11. 2026 od 6:00 pro veškerou dopravu.", p.getString("text"))
+        assertEquals("https://doprava.example.cz/rozhodnuti-45", p.getString("url"))
+        assertEquals("2026-11-02", p.getString("published"))
+        assertEquals(java.time.LocalDate.now().toString(), p.getString("fetched"))
+        // stránka bez data vydání: datum vydání se nevymýšlí
+        val blogDoc = web.card!!.getJSONArray("parts").let { a -> (0 until a.length()).flatMap { i -> a.getJSONObject(i).getJSONArray("passages").let { ps -> (0 until ps.length()).map { ps.getJSONObject(it) } } } }.firstOrNull { it.getString("doc") == "blog.html" }
+        if (blogDoc != null) assertTrue(blogDoc.toString(), !blogDoc.has("published"))
+    }
 }

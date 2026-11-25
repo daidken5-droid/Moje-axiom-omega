@@ -47,7 +47,7 @@ deep.id = P; deep.url = 'javascript:window.__xss="u"';
   }
   // den 25. 11., sprint S2: pasáž dokladu = doslovný text cizího dokumentu (a jeho název) v kartě „Síla doložení“, rozbalená
   await page.evaluate((p) => { window.__msgs = [{ role: 'vega', text: 'Hodnocení', card: { type: 'evidence', parts: [{ label: p, status: p, lines: 1, support: [p],
-    passages: [{ doc: p, text: p }, { doc: 'b.txt', text: p }] }] } }, { role: 'user', text: 'x' }]; S.mc = null; S.busy = false; try { render(); } catch (x) { }
+    passages: [{ doc: p, text: p, url: p, published: p, fetched: p }, { doc: 'b.txt', text: p, url: 'javascript:window.__xss=1' }] }] } }, { role: 'user', text: 'x' }]; S.mc = null; S.busy = false; try { render(); } catch (x) { }
     document.querySelectorAll('details.ev-pass').forEach(d => d.open = true); }, P).catch(() => { });
   await page.waitForTimeout(40);
   if (!(await page.evaluate(() => document.querySelectorAll('details.ev-pass blockquote').length))) hits.push('karta evidence: pasáže se nevykreslily');
