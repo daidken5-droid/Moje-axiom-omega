@@ -12,7 +12,9 @@ import cz.axiom.vega.core.Grounding
 object VegaAdapters {
     /** Původ: pokud text přebírá jinou zprávu („podle zprávy ČTK…“, odkaz v textu), je původem ta; jinak vlastní adresa. */
     fun originOf(title: String, text: String, url: String): String =
-        runCatching { Evidence.parse(Evidence.Doc(title, text)).origins.firstOrNull() }.getOrNull()
+        // stejné pořadí přednosti pro web i místní dokumenty (ne „první nalezený“ – ten závisel na tom, co stojí v textu dřív):
+        // výslovně převzatá agentura > textový odkaz na zprávu > adresa uvedená v textu
+        runCatching { Evidence.parse(Evidence.Doc(title, text)).origins.minWithOrNull(compareBy({ o -> listOf("agentura:", "txt:", "url:").indexOfFirst { o.startsWith(it) }.let { if (it < 0) 9 else it } }, { it })) }.getOrNull()
             ?: ("url:" + Evidence.normUrl(url.ifBlank { title }))
 
     /** Atomická tvrzení s citacemi [n] → porty jádra; ID zdroje = pořadí zdroje (1, 2, …) – nevytváří je model. */

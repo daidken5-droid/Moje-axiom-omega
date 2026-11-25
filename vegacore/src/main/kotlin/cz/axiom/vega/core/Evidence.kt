@@ -13,7 +13,9 @@ object Evidence {
     data class Doc(val name: String, val text: String)
     data class Parsed(val doc: Doc, val origins: Set<String>, val dates: Set<String>, val motive: Boolean, val primary: Boolean, val anonymousOrigin: Boolean, val label: String = "",
                       /** Kmeny slov uvedeného důvodu („zakrýt chybu v projektu“) – motiv podporuje jen doklad se SHODNÝM důvodem. */
-                      val reason: Set<String> = emptySet(), val reasonText: String = "")
+                      val reason: Set<String> = emptySet(), val reasonText: String = "",
+                      /** Kdo důvod řekl ve vlastní citaci („…kvůli prasklé konstrukci,“ řekl statik Jan Dvořák) – výrok má vlastní původ, ne převzatou agenturu. */
+                      val motiveSpeaker: String? = null)
     data class Part(val label: String, val status: String, val lines: Int, val support: List<String>)
     data class Assessment(val headline: String, val parts: List<Part>, val direct: List<String>, val inferred: List<String>, val open: List<String>, val missing: String?)
 
@@ -46,7 +48,13 @@ object Evidence {
             if (toks.isNotEmpty()) origins += "txt:" + toks.joinToString(" ")
         }
         // převzetí od agentury („podle ČTK“, „(ČTK)“, „informovala agentura Reuters“) = jedna linie, ne nezávislé zdroje
-        Regex("(?<!\\p{L})(ČTK|CTK|Reuters|AP|AFP|DPA|TASR|Bloomberg|PAP|APA|ANSA|EFE|Interfax|TASS|Xinhua)(?!\\p{L})").findAll(d.text).forEach { origins += "agentura:" + f(it.value).replace("ctk", "čtk") }
+        // jen VÝSLOVNÉ převzetí („podle ČTK“, „informovala agentura ČTK“, „(ČTK)“, „ČTK uvedla“) – pouhá zmínka („novináři z ČTK“) není původ
+        AGENCY.findAll(d.text).forEach { m ->
+            val before = d.text.substring(maxOf(0, m.range.first - 40), m.range.first).let { f(it) }
+            val after = d.text.substring(m.range.last + 1, minOf(d.text.length, m.range.last + 30)).let { f(it) }
+            val explicit = TAKEOVER_BEFORE.containsMatchIn(before) || TAKEOVER_AFTER.containsMatchIn(after) || (before.endsWith("(") && after.trimStart().startsWith(")"))
+            if (explicit) origins += "agentura:" + f(m.value).replace("ctk", "čtk")
+        }
         // jen platná data (31. 2. se nezapočítá)
         val dates = Regex("\\b(\\d{1,2})\\.[\\s\u00a0]?(\\d{1,2})\\.[\\s\u00a0]?(\\d{4})\\b").findAll(d.text).mapNotNull { runCatching { java.time.LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()).toString() }.getOrNull() }.toSet()
         val mRx = Regex("(?:motiv\\w*|kvuli|protoze|aby|z duvodu|pricin\\w*|chtel[ai]?|zamer\\w*)\\s+([^.;\\n]{3,120})")
@@ -54,13 +62,21 @@ object Evidence {
         val motive = mm != null
         val reason = mm?.groupValues?.get(1)?.replace(Regex("[^a-z ]"), " ")?.split(Regex("\\s+"))?.filter { it.length > 3 && it !in STOP && it !in setOf("prej", "tim", "tomu", "firma", "spravce") }?.map { it.take(5) }?.toSet() ?: emptySet()
         val reasonText = mm?.let { if (t.length == d.text.length) d.text.substring(it.groups[1]!!.range).trim() else it.groupValues[1] } ?: ""
+        val speaker = mm?.let { m -> QUOTE.findAll(d.text).firstOrNull { q -> m.range.first in q.range }?.let { q ->
+            NAME.findAll(q.groupValues[2]).lastOrNull()?.value } }
         val anon = Regex("anonymn|nepodepsan|neznam\\w* autor").containsMatchIn(t)
         // prvotní doklad: vlastní datovaný záznam bez převzetí od jiného zdroje (úřední záznam, protokol, výpis, fotka s datem)
         val primary = origins.isEmpty() && dates.isNotEmpty() && Regex("zaznam|protokol|vypis|zapis|potvrzen|faktur|smlouv|rozhodnut|fotografi|snimek|registr|uredni|evidenc").containsMatchIn(t)
         val label = citeRx.find(t)?.let { m -> if (t.length == d.text.length) d.text.substring(m.groups[1]!!.range).trim().trimEnd(',', ' ') else m.groupValues[1] }
             ?: urlRx.find(d.text)?.value ?: ""
-        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
+        return Parsed(d, origins, dates, motive, primary, anon && origins.isNotEmpty(), reason = reason, reasonText = reasonText, motiveSpeaker = speaker, label = label.replace(Regex("\\s+\\d+$"), "").replace(Regex("\\s+(došlo|unikla|uvedl\\w*)$"), ""))
     }
+    private val AGENCY = Regex("(?<!\\p{L})(ČTK|CTK|Reuters|AP|AFP|DPA|TASR|Bloomberg|PAP|APA|ANSA|EFE|Interfax|TASS|Xinhua)(?!\\p{L})")
+    private val TAKEOVER_BEFORE = Regex("(?:podle|dle|informoval\\w*|uvedl\\w*|uvadi|pise|napsal\\w*|oznamil\\w*|zdroj\\w*|prevzat\\w*|zprav\\w*|citoval\\w*|cituje|sdelil\\w*|vydal\\w*)(?:\\s+(?:agentur\\w*|tiskov\\w* agentur\\w*))?\\s*:?\\s*$")
+    private val TAKEOVER_AFTER = Regex("^\\s*(?:uvedl\\w*|informoval\\w*|pise|napsal\\w*|oznamil\\w*|uvadi|sdelil\\w*|zjistil\\w*)")
+    /** Přímá řeč a kdo ji řekl: „…,“ řekl / uvedl … [Jméno Příjmení]. */
+    private val QUOTE = Regex("[„\"]([^“\"]{3,400})[“\"],?\\s*((?:řekl|uvedl|sdělil|vysvětlil|dodal|potvrdil|připustil)\\w*[^.;\\n]{0,80})")
+    private val NAME = Regex("\\p{Lu}\\p{Ll}+(?:\\s+\\p{Lu}\\p{Ll}+)+")
     private val BREAK = setOf("se", "si", "ze", "je", "jsou", "byl", "byla", "bylo", "byli", "doslo", "unikla", "zavreli", "uzavreli", "a", "kdy", "kde", "ktery", "ktera", "ktere", "prej", "uz", "jiz")
     private val STOP = setOf("ktery", "ktera", "ktere", "jako", "tento", "tato", "podle", "uvedl", "uvedla", "pondeli", "utery", "stredu", "streda", "ctvrtek", "patek", "sobotu", "sobota", "nedeli", "nedele",
         "ledna", "unora", "brezna", "dubna", "kvetna", "cervna", "cervence", "srpna", "zari", "rijna", "listopadu", "prosince", "doslo", "unikla", "zavreli", "uzavren")
@@ -78,11 +94,13 @@ object Evidence {
         for (i in ps.indices) for (j in i + 1 until ps.size) {
             val a = ps[i]; val b = ps[j]
             val sameOrigin = a.origins.any { oa -> b.origins.any { ob ->
-                if (oa.startsWith("url:") || ob.startsWith("url:")) oa == ob else (toks(oa) intersect toks(ob)).size >= 2 } }
+                if (!oa.startsWith("txt:") || !ob.startsWith("txt:")) oa == ob else (toks(oa) intersect toks(ob)).size >= 2 } }
             if (sameOrigin || norm(a.doc.text) == norm(b.doc.text)) union(i, j)
         }
-        return ps.indices.associate { i -> ps[i] to (if (ps[i].origins.isEmpty() && ps.indices.none { j -> j != i && find(j) == find(i) }) "vlastní:" + ps[i].doc.name
-            else (if (ps[find(i)].origins.isEmpty()) "vlastní:" else "převzato:") + ps[find(i)].doc.name) }
+        // bez uvedeného původu: prvotní doklad = vlastní linie; jinak „neurčeno“ (dva weby bez původu nejsou automaticky nezávislé)
+        fun own(p: Parsed) = if (p.primary) "vlastní:" else "neurčeno:"
+        return ps.indices.associate { i -> ps[i] to (if (ps[i].origins.isEmpty() && ps.indices.none { j -> j != i && find(j) == find(i) }) own(ps[i]) + ps[i].doc.name
+            else (if (ps[find(i)].origins.isEmpty()) own(ps[find(i)]) else "převzato:") + ps[find(i)].doc.name) }
     }
 
     fun assess(docs: List<Doc>): Assessment {
@@ -90,24 +108,30 @@ object Evidence {
         val lines = lines(ps)
         val allDates = ps.flatMap { it.dates }.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.map { it.key }
         val parts = ArrayList<Part>()
-        fun grade(label: String, sup: List<Parsed>): Part {
-            val ls = sup.map { lines[it]!! }.distinct()
-            val indep = ls.count { it.startsWith("vlastní:") && sup.first { p -> lines[p] == it }.primary } + ls.count { it.startsWith("převzato:") }.coerceAtMost(1).let { if (ls.size > 1) ls.count { l -> l.startsWith("převzato:") } else it }
+        fun grade(label: String, sup: List<Parsed>, byQuote: Boolean = false): Part {
+            // u motivu má vlastní výrok mluvčího (rozhovor) vlastní původ – ne agenturu, od které text převzal datum
+            fun key(p: Parsed) = if (byQuote && p.motiveSpeaker != null) "výrok:" + p.motiveSpeaker else lines[p]!!
+            val ls = sup.map { key(it) }.distinct()
+            val known = ls.filter { !it.startsWith("neurčeno:") }
+            val names = sup.map { p -> if (byQuote && p.motiveSpeaker != null) "${p.doc.name} (výrok: ${p.motiveSpeaker})" else p.doc.name }
+            val undetermined = ls.size - known.size
             val status = when {
                 sup.isEmpty() -> "nedoloženo"
                 ls.size >= 2 && sup.any { it.primary } -> "potvrzeno nezávislým datovaným dokladem"
-                ls.size >= 2 -> "dvě nezávislé linie"
+                known.size >= 2 -> "dvě nezávislé linie"
+                ls.size >= 2 && undetermined > 0 -> "${sup.size} zdroje, nezávislost neurčena ($undetermined bez uvedeného původu)"
+                ls.size == 1 && ls[0].startsWith("výrok:") -> "jediný zdroj (${ls[0].removePrefix("výrok:")} ve vlastním rozhovoru)"
                 sup.all { it.anonymousOrigin || it.origins.isNotEmpty() } -> "jen jedna linie (texty přebírají tutéž výpověď)"
                 else -> "jediný zdroj"
             }
-            return Part(label, status, ls.size.coerceAtLeast(if (sup.isEmpty()) 0 else 1).let { if (indep > it) indep else it }, sup.map { it.doc.name })
+            return Part(label, status, if (sup.isEmpty()) 0 else known.size.coerceAtLeast(1), names)
         }
         allDates.firstOrNull()?.let { d -> parts += grade("datum události (${d.split('-').let { "${it[2].toInt()}. ${it[1].toInt()}. ${it[0]}" }})", ps.filter { d in it.dates }) }
         // tvrzený důvod = nejčastější (první text, který ho uvádí); doklad s JINÝM důvodem motiv nepodporuje – je to alternativa
         val claimed = ps.firstOrNull { it.motive }?.reason ?: emptySet()
         fun same(p: Parsed) = p.motive && p.reason.intersect(claimed).size >= minOf(2, claimed.size).coerceAtLeast(1)
         val alt = ps.filter { it.motive && !same(it) }
-        val mp = grade("motiv / důvod", ps.filter { same(it) })
+        val mp = grade("motiv / důvod", ps.filter { same(it) }, byQuote = true)
         parts += if (alt.isNotEmpty()) mp.copy(status = mp.status + "; jiný doklad uvádí jiný důvod (${alt.joinToString { "${it.doc.name}: „${it.reasonText.take(60)}“" }})") else mp
         val spread = ps.filter { it.origins.isNotEmpty() }.map { lines[it]!! }
         val oneLine = spread.size >= 2 && spread.distinct().size == 1

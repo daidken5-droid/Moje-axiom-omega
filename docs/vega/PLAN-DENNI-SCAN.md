@@ -24,6 +24,22 @@ malých krocích → plná sada (Kotlin + UI) zelená → samostatný commit „
 nemění, jen pokud refaktoring odhalí chybu – ta se opraví a popíše. Velký rozklad (např. rozdělení `Ops.kt`) jen
 postupně po modulech, každý krok zvlášť otestovaný a pushnutý.
 
+## Doporučení pro vývoj (od 25. 11. 2026, na žádost uživatele – přednost v denních i večerních kolech)
+
+Zdroj: `docs/vega/DOPORUCENI-VYVOJ-2026-11-25.md`. Cíl: uživatel vloží několik českých článků / dokumentů, položí spornou
+otázku a u každé části odpovědi otevře přesnou pasáž; tři články z jedné agenturní zprávy = VEGA to ukáže; doložená
+událost × nejasný motiv = čtenář pozná rozdíl. Každé kolo dne i noci nejdřív posune další bod tohoto seznamu
+(stejný postup: test, který bez změny selže → změna → plná sada → commit), teprve potom rotace oblastí níže.
+
+| # | Krok | Hotovo, když |
+|---|---|---|
+| S1 | **Nezávislost zdrojů** (`Evidence.parse/lines/assess`, `astraea/VegaAdapters.originOf`): výslovné převzetí × společný odkaz × pouhá zmínka × neznámý původ; stejná agentura u dvou přepisů = jedna linie; neznámý původ = „nezávislost neurčena“; výsledek nezávislý na pořadí vstupů (web i místní) | 5 přejímacích případů z doporučení v testech `Evidence.assess` + web adaptér + jeden průchod od dotazu po zobrazené odůvodnění |
+| S2 | **Rešerše od otázky po důkaz** (`Ops.research` / `governed`): u závěru původ, citovaná pasáž, rozsah podpory; přímo × odvozeno × sporné; klepnutí otevře úryvek (název, u webu datum vydání a datum načtení); výchozí přehled = odpověď + hlavní rozpor | přejímací úloha „most“: 3 místní texty v Bez sítě (datum doloženo, příčina otevřená) + stejné nad uloženými webovými podklady |
+| S3 | **Autonomie na Pixelu 9a** – scénáře pro telefon (naučené pravidlo + vrácení přes restart, verze rozšíření, selhání testu, rešerše v pozadí) | scénáře v `PHONE-CHECKLIST.md` (telefon = NEOVĚŘENO do ověření uživatelem); stabilní převést do emulátorového CI |
+| T1 | Rozdělit `Ops.kt` podle ověřeného chování (nejdřív získání podkladů a sestavení výsledku rešerše) | po pokrytí rešerše testy (S2), zachovat Bez sítě / bez modelu / zrušení |
+| T2 | Router podle naměřených chyb: sada českých parafrází, „Jak se zapíná rozšíření?“ × „Zapni rozšíření“, počet akcí spuštěných informační otázkou | měřicí test s počtem chyb |
+| T3 | Výkon na cílovém telefonu: čas k prvnímu výsledku, k úplnému rozboru, max. paměť, první × opakovaný běh | měřicí scénář připravený pro telefon |
+
 ## Rotace oblastí (podle dne v týdnu)
 
 | Den | Dopoledne (06–13) | Odpoledne (13–20) |
