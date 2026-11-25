@@ -2172,7 +2172,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val q = text.replace(Regex("(?iu)^(je možné,? že|je pravda,? že|myslím,? že|co když|mám teorii,? že)\\s*"), "").take(160)
             src = runCatching { Web.gather(q, 5).snippets }.getOrDefault(emptyList()).take(6)
         }
-        val card = if (src.isNotEmpty()) JSONObject().put("type", "sources").put("items", JSONArray().apply { src.forEachIndexed { i, s -> put(JSONObject().put("n", i + 1).put("title", s.title).put("url", s.source).put("text", s.text.take(2500)).put("fetched", java.time.LocalDate.now().toString())) } }) else null
+        val card = if (src.isNotEmpty()) JSONObject().put("type", "sources").put("items", JSONArray().apply { src.forEachIndexed { i, s -> put(JSONObject().put("n", i + 1).put("title", s.title).put("url", s.source).put("text", s.text.take(2500)).put("fetched", java.time.LocalDate.now().toString()).put("date", s.date)) } }) else null
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             reply(chat, "Na posouzení hypotézy potřebuji model." + (if (src.isNotEmpty()) " Našel jsem ${src.size} zdrojů – projdi je, ať vidíš argumenty z první ruky." else "") + (if (!web) " (Veřejný web je vypnutý.)" else ""), card); return
         }
@@ -2214,7 +2214,12 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val p = passages.getOrNull(n - 1)
             val v = if (p == null) Grounding.Verdict(Grounding.Label.NEVYHODNOCENO, reason = "citace [$n] neodkazuje na žádný zdroj") else g.check(c.text, p)
             out.put(JSONObject().put("claim", c.text).put("kind", c.kind).put("n", n).put("label", v.label.name).put("cz", v.label.cz)
-                .put("p", v.probs?.let { JSONArray(it.map { x -> Math.round(x * 1000) / 1000.0 }) } ?: JSONObject.NULL).put("reason", v.reason).put("ws", v.windowStart).put("we", v.windowEnd))
+                .put("p", v.probs?.let { JSONArray(it.map { x -> Math.round(x * 1000) / 1000.0 }) } ?: JSONObject.NULL).put("reason", v.reason)
+                .let { o ->
+                    // bez okna od ověřovače (nestažený balíček / nevyhodnoceno): zvýraznit nejbližší větu podle shody slov – výslovně jako odhad
+                    val guess = if (v.windowEnd <= v.windowStart && p != null) Grounding.nearestSentence(c.text, p) else null
+                    if (guess != null) o.put("ws", guess.first).put("we", guess.last + 1).put("guess", true) else o.put("ws", v.windowStart).put("we", v.windowEnd)
+                })
         }
         return out
     }

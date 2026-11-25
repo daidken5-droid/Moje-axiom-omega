@@ -53,6 +53,13 @@ deep.id = P; deep.url = 'javascript:window.__xss="u"';
   if (!(await page.evaluate(() => document.querySelectorAll('details.ev-pass blockquote').length))) hits.push('karta evidence: pasáže se nevykreslily');
   if (!(await page.evaluate(() => document.querySelectorAll('details.ev-audit p').length))) hits.push('karta evidence: podrobný audit se nevykreslil');
   await check('karta evidence – pasáže');
+  // den 25. 11., kolo 28: okno „opora ve zdroji“ po klepnutí na tvrzení – odhad zvýraznění, datum vydání a načtení z cizí stránky
+  await page.evaluate((p) => { try { closeSheet(true); } catch (x) { } try { act('chkOpen', { c: JSON.stringify({ x: { n: 1, label: 'NEVYHODNOCENO', claim: p, reason: p, kind: p, p: null, ws: 2, we: 40, guess: true },
+    item: { n: 1, title: p, url: p, text: p + ' ' + p, fetched: p, date: p } }) }); } catch (x) { window.__xss = 'chyba ' + x; } }, P).catch(() => { });
+  await page.waitForTimeout(40);
+  if (!(await page.evaluate(() => /odhad podle shody slov/.test(document.body.innerText) && /vydáno/.test(document.body.innerText)))) hits.push('okno opory ve zdroji: chybí odhad / datum vydání');
+  await check('okno opory ve zdroji');
+  await page.evaluate(() => { try { closeSheet(true); } catch (x) { } });
   // den 24. 11., kolo 20: výpis z cizího souboru – popis platby v odpovědi, karta souhrnu, návrhy pod polem, název přílohy
   await page.evaluate(([p]) => {
     window.__msgs = [{ role: 'user', text: p }, { role: 'vega', text: 'U „' + p + '“ jsi utratil **−5,00 Kč** (1 platba).\n• −5,00 Kč – ' + p + '\n_Hledáno v popisu plateb, bez modelu._',

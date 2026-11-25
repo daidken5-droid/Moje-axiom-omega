@@ -32,6 +32,32 @@ object Grounding {
         return if (d > k + 1 && d < t.length && t[d] == ']') d + 1 - j else 0
     }
     /** Věty: konec jen na . ! ? následované velkým písmenem / koncem; citace [n] hned za tečkou patří k předchozí větě. */
+    /**
+     * Bez ověřovače: věta pasáže s největší shodou slov / čísel s tvrzením (odhad pro zvýraznění, NE verdikt). Shoda aspoň 2 výrazů,
+     * jinak null. Slova bez diakritiky, kmen 5 písmen; čísla přesně.
+     */
+    fun nearestSentence(claim: String, passage: String): IntRange? {
+        fun toks(s: String) = Regex("[\\p{L}\\d]+").findAll(cz.axiom.vega.base.Text.fold(s).lowercase()).map { it.value }
+            .filter { it.length >= 4 || it.all(Char::isDigit) }.map { if (it.all(Char::isDigit)) it else it.take(5) }.toSet()
+        val want = toks(claim.replace(Regex("\\[\\d{1,2}]"), "")); if (want.isEmpty()) return null
+        var best: IntRange? = null; var bestScore = 1
+        // věty s pozicí: konec = „. ! ?“ + mezera + velké písmeno / nový řádek / konec (data „3. 11. 2026“ větu nedělí)
+        var start = 0; var i = 0
+        while (i <= passage.length) {
+            val end = i == passage.length || passage[i] == '\n' || (passage[i] in ".!?" && (i + 1 >= passage.length || passage[i + 1] == '\n' ||
+                (passage[i + 1] == ' ' && passage.getOrNull(i + 2)?.let { it.isUpperCase() || it == '„' } == true)))
+            if (end) {
+                val e = if (i < passage.length && passage[i] in ".!?") i + 1 else i
+                val sent = passage.substring(start, e)
+                val score = toks(sent).count { it in want }
+                if (score > bestScore) { bestScore = score; val lead = sent.length - sent.trimStart().length; best = (start + lead) until e }
+                start = e; while (start < passage.length && passage[start].isWhitespace()) start++
+                i = maxOf(i + 1, start)
+            } else i++
+        }
+        return best
+    }
+
     fun sentences(text: String): List<String> {
         val t = text.replace(Regex("\\*\\*|__|`"), "")
         val out = ArrayList<String>(); var start = 0; var i = 0
