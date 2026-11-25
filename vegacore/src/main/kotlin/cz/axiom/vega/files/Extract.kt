@@ -12,6 +12,7 @@ object Extract {
     data class Result(val kind: Kind, val text: String, val note: String? = null)
 
     private const val ENTRY_CAP = 40_000_000; private const val TOTAL_CAP = 120_000_000
+    private const val XLSX_ENTRY_CAP = 20_000_000; private const val XLSX_TOTAL_CAP = 60_000_000
 
     fun kindOf(name: String, mime: String?, head: ByteArray): Kind {
         val ext = name.substringAfterLast('.', "").lowercase()
@@ -117,10 +118,17 @@ object Extract {
 
     /** První list sešitu jako řádky (pro výpis z banky v Excelu); null = není XLSX / nejde přečíst. */
     fun xlsxRows(bytes: ByteArray): List<List<String>>? = runCatching {
-        val parts = sortedMapOf<String, String>()
+        val parts = sortedMapOf<String, String>(); var total = 0L
         ZipInputStream(ByteArrayInputStream(bytes)).use { z ->
             while (true) { val e = z.nextEntry ?: break
-                if (!e.isDirectory && (e.name == "xl/sharedStrings.xml" || (e.name.startsWith("xl/worksheets/sheet") && e.name.endsWith(".xml")))) parts[e.name] = z.readBytes().take(20_000_000).toByteArray().toString(Charsets.UTF_8) }
+                if (e.isDirectory || !(e.name == "xl/sharedStrings.xml" || (e.name.startsWith("xl/worksheets/sheet") && e.name.endsWith(".xml")))) continue
+                // čtení PO KOUSCÍCH s limitem – podvržený soubor (zip bomba: 300 kB → stovky MB) nesmí načíst celou položku do paměti
+                val out = java.io.ByteArrayOutputStream(); val buf = ByteArray(32 * 1024)
+                while (true) { val n = z.read(buf); if (n < 0) break
+                    if (out.size() + n > XLSX_ENTRY_CAP || total + n > XLSX_TOTAL_CAP) throw IllegalStateException("příliš velký list")
+                    out.write(buf, 0, n); total += n }
+                parts[e.name] = out.toString(Charsets.UTF_8.name())
+            }
         }
         sheets(parts).values.firstOrNull()
     }.getOrNull()
