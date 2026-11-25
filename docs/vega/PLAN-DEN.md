@@ -333,4 +333,5 @@ SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shod
 
 **NEOVĚŘENO na telefonu:** odpověď se zamčenou obrazovkou a oznámení; ranní přehled ze spícího telefonu (zítra 05:20 / 05:30); pasáže a podrobný audit v kartě „Síla doložení“; uložené webové stránky v hodnocení; scénáře autonomie (S3) a výkonu (T3).
 
-**APK (release, arm64-v8a, podepsáno CN=AVIOR CI):** sestavuje CI z tohoto commitu (obsahuje všechny opravy dne včetně ranního přehledu v Doze) – název a SHA-256 se doplní po doběhnutí CI. Poslední ověřené APK dne: `VEGA-ce6543a.apk`, 39 932 814 B, SHA-256 `acf9469d367e4bb930b33aa3fd57a0dacd2e126448bbcb79072f72655ee05dd9`.
+**APK (release, arm64-v8a, podepsáno CN=AVIOR CI):** `VEGA-33565c9.apk` (CI #258, obsahuje všechny opravy dne včetně ranního přehledu v Doze), 39 933 130 B,
+SHA-256 `03173b2af018893db4cc9d917263c579ba1d10db737b014babf680246c5cacdc` (shoda se SHA256SUMS.txt z CI).
