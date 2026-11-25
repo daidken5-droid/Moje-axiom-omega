@@ -297,3 +297,40 @@ SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shod
 **NEOVĚŘENO na telefonu:** skutečný NFC WiFi štítek a vizitka, kontrola WiFi hesla v Hardware, DOCX / ODT / XLSX z vlastních souborů, navazující dotazy k výpisu v chatu, ranní přehled s českými zdroji; dál seznam ze dne 24. 11. a `PHONE-CHECKLIST.md`.
 
 ## Den 25. 11. 2026 (středa) – oblasti: dopoledne paměť, konverzace, úložiště (poškozené soubory, limity, souběh); odpoledne bezpečnost (most JS↔Kotlin, injekce z příloh / RSS / webu, logy, oprávnění)
+
+### Uzávěrka dne 25. 11. 2026 (20:02)
+
+**Kola dne:** 1–31 (+ refaktoring 1–4), 32 commitů na `claude/reverse-engineer-ai-app-o5jhyd`. Každá oprava s testem, který bez ní selže; plná sada (Kotlin + UI composer / audit / robust / xss) zelená před každým commitem. CI „Build VEGA APK“ zelené po každém kole (2× výpadek Maven Central 429 → opakování → zelené).
+
+**Paměť, konverzace, úložiště (dopoledne)**
+- Kola 1–12: limity paměti, záchrana useknutých souborů chatu a paměti, zálohy `.bad` po 30 dnech uklizeny, fsync před přejmenováním, heslo / PIN z dřívější zprávy se v historii pro model neopakuje („[skryto]“).
+- Kolo 13: „zapomeň, kde bydlím / mé jméno / můj věk / na Brno“ opravdu zapomene (dřív „nic takového si nepamatuji“).
+- Kolo 14: „kde bydlím? / jak se jmenuju? / kolik mi je?“ odpoví z paměti i bez sítě; „se jmenuju Petr“ → „Jmenuju se Petr“.
+- Kolo 15: smazání chatu smaže i zpracovaný výpis (všechny pohyby) – dřív zůstával, dokud nebylo přes 30 výsledků.
+
+**Bezpečnost (odpoledne)**
+- Kola 16–17: text cizího NFC štítku, názvy okolních WiFi a data výsledku nástroje jdou modelu obalené jako cizí data, ne jako řeč VEGA.
+- Kola 18–22: kvadratické až kubické regexy nad cizím obsahem – rozbitý / podvržený RSS (150 kB = 47 s), DOCX / XLSX / ODT (35 s), webová stránka (157 s), výsledky DuckDuckGo, řádek PDF výpisu (přes 10 min) – jediný soubor mohl zastavit jediné pracovní vlákno VEGA. Vše jedním průchodem (`base/Tags`, `Web.htmlStrip`, `Statement.pdfRow`, rozdílový test proti starému regexu na 60 000 řádcích). Cestou: „a < b.“ na webu ztrácelo text; prázdný řádek XLSX se slepoval s dalším.
+
+**Tvrdý refaktoring (na žádost uživatele, v plánu každý den)**
+- R1: české tvary podle počtu a typy souborů z jednoho místa (cestou „V okolí je 2 sítí“ → „jsou 2 sítě“).
+- R2: testy – `OpsHarness` (čekání, které při vypršení času selže; 3 dnešní chyby dočasně vráceny → testy je chytily).
+- R3–R4: lineární práce se značkami v jednom místě pro RSS, Office, web a DuckDuckGo.
+
+**Doporučení pro vývoj (`docs/vega/DOPORUCENI-VYVOJ-2026-11-25.md`)**
+- S1 hotovo: dva přepisy jedné zprávy ČTK = jedna linie (v obou pořadích), zmínka ≠ převzetí, neznámý původ = „nezávislost neurčena“, důvod z vlastního rozhovoru připsán mluvčímu, web i místní dokumenty stejné pořadí přednosti.
+- S2 hotovo v kódu: přesné pasáže u hodnocení síly doložení, úloha „most“ nad místními texty i uloženými webovými stránkami (dřív verdikt ze skriptu stránky), u webu datum vydání × načtení, výchozí přehled = odpověď + hlavní rozpor + podrobný audit v kartě, živá rešerše zvýrazní pasáž i bez ověřovače (odhad).
+- T2: měřicí sada parafrází routeru – 4 informační otázky spouštěly akci (nástroj na výpis, čtečku NFC, kontrolní součet) → 0 z 35; 12 z 12 příkazů.
+- S3, T3: scénáře autonomie a výkonu pro Pixel v `PHONE-CHECKLIST.md`.
+
+**Hlášení uživatele**
+- Kolo 26: VEGA se zastavila při zamčení / zhasnutí obrazovky (Android aplikaci na pozadí zmrazí) → služba v popředí + wake lock jen po dobu práce.
+- Kolo 31: ranní přehled ráno nedorazil, i když internet byl – v 05:20 Doze blokuje síť aplikaci na pozadí (s modelem to nesouviselo) → služba v popředí spuštěná z budíku, 2 opakování po probuzení, srozumitelná hláška u Bez sítě.
+
+**Testy:** 374 ráno → 416 večer (Kotlin, 0 selhání), UI 4/4. Upravené starší testy (s důvodem v commitu): OpsBridgeEvidenceTest (otevřené v auditu), RouterTuningTest (stejné zamítnutí, dřívější důvod).
+
+**AVIOR:** beze změny (`app/`, `core/`, `build-apk.yml`, kořenová konfigurace).
+
+**NEOVĚŘENO na telefonu:** odpověď se zamčenou obrazovkou a oznámení; ranní přehled ze spícího telefonu (zítra 05:20 / 05:30); pasáže a podrobný audit v kartě „Síla doložení“; uložené webové stránky v hodnocení; scénáře autonomie (S3) a výkonu (T3).
+
+**APK (release, arm64-v8a, podepsáno CN=AVIOR CI):** sestavuje CI z tohoto commitu (obsahuje všechny opravy dne včetně ranního přehledu v Doze) – název a SHA-256 se doplní po doběhnutí CI. Poslední ověřené APK dne: `VEGA-ce6543a.apk`, 39 932 814 B, SHA-256 `acf9469d367e4bb930b33aa3fd57a0dacd2e126448bbcb79072f72655ee05dd9`.
