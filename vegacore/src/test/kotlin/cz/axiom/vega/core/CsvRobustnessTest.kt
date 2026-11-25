@@ -44,3 +44,14 @@ class UnicodeCaseTest { @Test fun czechUppercase() {
     val subs = cz.axiom.vega.calc.LongText.subQuestions("Smlouva o nájmu.\nVYSVĚTLI výpovědní lhůtu.\nPOPIŠ povinnosti nájemce.")
     org.junit.Assert.assertTrue("$subs", subs.size >= 2)
 } }
+
+/** Den 25. 11., kolo 8: česká předžalobní výzva má desetinnou čárku i na telefonu s angličtinou (dřív „12.75 %“ podle jazyka systému). */
+class DemandLocaleTest { @Test fun czechDecimalsIndependentOfSystemLocale() {
+    val old = java.util.Locale.getDefault()
+    try {
+        java.util.Locale.setDefault(java.util.Locale.US)
+        val r = Demand.compute(Demand.sample().let { it.copy(repoOverride = 4.75) })
+        val all = (r.lines.map { it.label } + r.legal + listOf(r.text)).joinToString("\n")
+        org.junit.Assert.assertTrue(all, Regex("\\d,\\d{2} %").containsMatchIn(all) && !Regex("\\d\\.\\d{2} %").containsMatchIn(all))
+    } finally { java.util.Locale.setDefault(old) }
+} }

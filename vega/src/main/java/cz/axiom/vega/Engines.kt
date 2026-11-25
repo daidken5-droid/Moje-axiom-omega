@@ -162,8 +162,8 @@ class Engines(private val settings: Settings, private val vault: Vault) {
         val r = OpenAiEngine(settings.ownUrl, vault.read("own"), m, "own").generate(
             listOf(cz.axiom.vega.llm.ChatMessage(cz.axiom.vega.llm.Role.SYSTEM, "Odpovídej česky, jednou krátkou větou."), cz.axiom.vega.llm.ChatMessage(cz.axiom.vega.llm.Role.USER, "Jaké je hlavní město Česka?")),
             cz.axiom.vega.llm.GenOptions(maxTokens = 40, temperature = 0.2f), cz.axiom.vega.llm.CancelToken()) { }
-        val tps = r.outputTokens?.takeIf { it > 0 && r.millis > 0 }?.let { " · ${"%.1f".format(it * 1000.0 / r.millis)} tokenů/s" } ?: ""
-        KeyCheck(r.text.isNotBlank(), "Odpověď za ${"%.1f".format(r.millis / 1000.0)} s$tps: „${r.text.trim().take(120)}“", m, 0)
+        val tps = r.outputTokens?.takeIf { it > 0 && r.millis > 0 }?.let { " · ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.1f", it * 1000.0 / r.millis)} tokenů/s" } ?: ""
+        KeyCheck(r.text.isNotBlank(), "Odpověď za ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.1f", r.millis / 1000.0)} s$tps: „${r.text.trim().take(120)}“", m, 0)
     } catch (e: Exception) { KeyCheck(false, cz.axiom.vega.llm.Pairing.hint(e), null, 0) }
 
     /**

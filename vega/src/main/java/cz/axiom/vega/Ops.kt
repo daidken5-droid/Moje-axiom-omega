@@ -1073,7 +1073,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val cand = (overCap + engines.pendingPaid()).distinct().firstOrNull() ?: return null
         val est = engines.estimateKc(cand, chars, maxTokens) * calls.coerceAtLeast(1)
         val maxKc = Engines.MAX_RUN_USD * settings.usdKc
-        if (est > maxKc) throw ToolError("Odhad ${"%.2f".format(est)} Kč je nad maximem jednoho úkolu (${"%.0f".format(maxKc)} Kč) – rozděl úkol na menší, nic se neutratilo.")
+        if (est > maxKc) throw ToolError("Odhad ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", est)} Kč je nad maximem jednoho úkolu (${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.0f", maxKc)} Kč) – rozděl úkol na menší, nic se neutratilo.")
         val capKc = minOf(est * 1.2 + 0.25, maxKc) // rezerva na odchylku odhadu; NAD tuto částku úkol nepůjde (strop celého úkolu)
         val r = ask("approve", JSONObject().put("provider", cand).put("name", engines.name(cand)).put("estimateKc", est).put("capKc", capKc).put("calls", calls).put("chars", chars)
             .put("reason", why).put("overCap", cand in overCap).put("noFree", why.startsWith("Bezplatného"))
@@ -1129,7 +1129,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             if (d > 0.000001) {
                 val k = settings.usdKc.toDouble()
                 val cap = if (settings.hasOwnBudget(id)) settings.budgetKc(id) else settings.budgetKc
-                emit("toast", JSONObject().put("text", "Zaplaceno: ${engines.name(id)} ${"%.2f".format(d * k)} Kč za tento krok · tento měsíc ${"%.2f".format(now * k)} Kč" +
+                emit("toast", JSONObject().put("text", "Zaplaceno: ${engines.name(id)} ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", d * k)} Kč za tento krok · tento měsíc ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", now * k)} Kč" +
                     (if (cap > 0) " z ${cap} Kč" else " (schváleno jen pro tento úkol)")))
             }
         }
@@ -1140,7 +1140,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
         val sh = settings.shadowUsd()
         if (sh >= 1.0 && settings.shadowWarned != settings.monthKey()) {
             settings.shadowWarned = settings.monthKey()
-            reply(chat, "⚠ Kontrola klíče Gemini (zdarma): tento měsíc jsi přes něj poslal dotazy za ~${"%.0f".format(sh * settings.usdKc)} Kč v cenách placeného tarifu. " +
+            reply(chat, "⚠ Kontrola klíče Gemini (zdarma): tento měsíc jsi přes něj poslal dotazy za ~${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.0f", sh * settings.usdKc)} Kč v cenách placeného tarifu. " +
                 "Pokud je klíč z projektu S FAKTURACÍ (kredit Pro), Google to účtuje – přesuň ho do slotu „Gemini – kredit Pro“, kde hlídám strop. Klíč z projektu bez fakturace je v pořádku.")
         }
     }

@@ -66,7 +66,7 @@ object Demand {
         for (p in i.payments.sortedBy { it.date }) {
             if (p.date.isAfter(i.invoice.due)) {
                 val days = ChronoUnit.DAYS.between(from, p.date) + 1
-                if (days > 0) { val int = principal * rate / 100 * days / 365; accrued += int; lines += Line("Úrok z prodlení ${d(from)}–${d(p.date)} ($days dní, ${"%.2f".format(rate)} % p. a. z ${kc(principal)})", r2(int), "výpočet: jistina × sazba × dny / 365") }
+                if (days > 0) { val int = principal * rate / 100 * days / 365; accrued += int; lines += Line("Úrok z prodlení ${d(from)}–${d(p.date)} ($days dní, ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", rate)} % p. a. z ${kc(principal)})", r2(int), "výpočet: jistina × sazba × dny / 365") }
                 from = p.date.plusDays(1)
             }
             val toInterest = minOf(accrued, p.amount)
@@ -84,7 +84,7 @@ object Demand {
         val legal = buildList {
             add("§ 1968 zákona č. 89/2012 Sb., občanský zákoník – dlužník, který neplní řádně a včas, je v prodlení.")
             add("§ 1970 občanského zákoníku – po dlužníkovi v prodlení lze požadovat úrok z prodlení; výši stanoví vláda nařízením.")
-            add("§ 2 nařízení vlády č. 351/2013 Sb. – roční úrok z prodlení = repo sazba ČNB k poslednímu dni pololetí předcházejícího pololetí, v němž prodlení nastalo, + 8 p. b. (${d(rd)}: ${repo?.let { "%.2f".format(it) } ?: "?"} % → ${"%.2f".format(rate)} %).")
+            add("§ 2 nařízení vlády č. 351/2013 Sb. – roční úrok z prodlení = repo sazba ČNB k poslednímu dni pololetí předcházejícího pololetí, v němž prodlení nastalo, + 8 p. b. (${d(rd)}: ${repo?.let { String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", it) } ?: "?"} % → ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", rate)} %).")
             add("§ 1932 občanského zákoníku – plnění se započte nejprve na náklady, poté na úroky z prodlení a nakonec na jistinu, neurčí-li dlužník jinak.")
             if (i.b2b) add("§ 3 nařízení vlády č. 351/2013 Sb. – minimální výše nákladů spojených s uplatněním pohledávky 1 200 Kč (vztah mezi podnikateli).")
             add("§ 142a zákona č. 99/1963 Sb., občanský soudní řád – výzva k plnění zaslaná nejméně 7 dní před podáním žaloby je podmínkou náhrady nákladů řízení.")
@@ -112,11 +112,11 @@ object Demand {
         appendLine("Ke dni ${d(i.asOf)} evidujeme tyto dlužné částky:")
         appendLine()
         appendLine("- nezaplacená jistina: ${kc(principal)}")
-        appendLine("- úrok z prodlení ve výši ${"%.2f".format(rate)} % ročně do ${d(i.asOf)}: ${kc(interest)}")
+        appendLine("- úrok z prodlení ve výši ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", rate)} % ročně do ${d(i.asOf)}: ${kc(interest)}")
         if (costs > 0) appendLine("- náklady spojené s uplatněním pohledávky: ${kc(costs)}")
         appendLine("- **celkem: ${kc(principal + interest + costs)}**")
         appendLine()
-        appendLine("Úrok z prodlení ve výši ${"%.2f".format(rate)} % ročně z částky ${kc(principal)} běží i nadále až do zaplacení (§ 1970 občanského zákoníku, nařízení vlády č. 351/2013 Sb.; repo sazba ČNB k ${d(rd)} zvýšená o 8 procentních bodů).")
+        appendLine("Úrok z prodlení ve výši ${String.format(java.util.Locale.forLanguageTag("cs-CZ"), "%.2f", rate)} % ročně z částky ${kc(principal)} běží i nadále až do zaplacení (§ 1970 občanského zákoníku, nařízení vlády č. 351/2013 Sb.; repo sazba ČNB k ${d(rd)} zvýšená o 8 procentních bodů).")
         appendLine()
         appendLine("Vyzýváme Vás k úhradě celkové částky do ${i.deadlineDays} dnů od doručení této výzvy" + if (i.bankAccount.isNotBlank()) " na účet č. ${i.bankAccount}, variabilní symbol ${i.invoice.number.filter(Char::isDigit)}." else ".")
         appendLine()
