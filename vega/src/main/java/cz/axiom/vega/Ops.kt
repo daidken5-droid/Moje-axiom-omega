@@ -179,7 +179,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 (prev?.takeIf { carried.isNotEmpty() }?.let { "\nNavazuje na: ${it.commit.take(7)} (${it.task.take(80)})" } ?: "") + "\n\n${plan.explanation.take(3000)}")
             val u = selfUpdates.create(task, branch, changed, commit, origin).copy(diff = diff.take(60_000)).also { selfUpdates.save(it) }
             reply(chat, "Připravila jsem úpravu sebe sama: ${plan.explanation.lines().firstOrNull { it.isNotBlank() }?.take(200) ?: task}\n" +
-                "Změněno ${changed.size} ${if (changed.size == 1) "soubor" else if (changed.size < 5) "soubory" else "souborů"} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
+                "Změněno ${changed.size} ${cz.axiom.vega.base.Text.pluralWord(changed.size, "soubor", "soubory", "souborů")} (${changed.joinToString(", ") { it.substringAfterLast('/') }}), větev $branch." +
                 (if (refused.isNotEmpty()) "\nChráněné soubory jsem vynechal: ${refused.joinToString("; ")}." else "") +
                 (if (skippedCarry.isNotEmpty()) "\nZ nainstalované úpravy jsem NEPŘENESLA ${skippedCarry.joinToString(", ") { it.substringAfterLast('/') }} – na pracovní větvi se mezitím změnily (instalací by se tahle část předchozí úpravy vrátila)." else "") +
                 "\nCI teď testuje a sestavuje bez podpisových klíčů; až bude APK hotové, ukážu ti změny a teprve potom nabídnu instalaci (Nastavení → Pro pokročilé → Vylepšení → Úpravy aplikace).",
@@ -1559,7 +1559,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         note(ws, "decision", "Přijaty změny ${keep.joinToString { "#$it" }}, vráceny ${undone.joinToString { "#$it" }} → ${v.label} (kód ${v.exitCode})")
         val kept = valid.size - undone.size
         reply(chat, (if (failed.isNotEmpty()) "Tvůj výběr nešel provést přesně (nevráceno: ${failed.joinToString("; ")}) – ověřil jsem tuto kombinaci: " else "") +
-            "Ponechal jsem $kept ${if (kept == 1) "změnu" else if (kept in 2..4) "změny" else "změn"}, vrátil ${undone.size}. " +
+            "Ponechal jsem $kept ${cz.axiom.vega.base.Text.pluralWord(kept, "změnu", "změny", "změn")}, vrátil ${undone.size}. " +
             when (v.kind) { "run" -> if (v.exitCode == 0) "Tato kombinace testy PROŠLA (revize ${v.revision})." else "Tato kombinace testy NEPROŠLA (kód ${v.exitCode}, revize ${v.revision})."; "none" -> "Testy nedoběhly – neověřeno."; else -> "Jen statická kontrola." },
             projectDiffCard(ws).put("verification", verificationJson(v)))
     }
@@ -1933,7 +1933,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             // celá paměť: nesmazat hned (překlep, dítě u telefonu) – tlačítko s počtem; dřív „Nic takového si nepamatuji“ a paměť zůstala
             val n = memory.all(ws?.let { "project:${it.root.name}" }).size
             if (n == 0) reply(chat, "Paměť je prázdná – nic si nepamatuji.")
-            else reply(chat, "Smazat celou paměť? Je v ní $n ${if (n == 1) "záznam" else if (n in 2..4) "záznamy" else "záznamů"}. Jednotlivé věci smažeš i v Menu → Paměť.", JSONObject().put("type", "memClear").put("n", n))
+            else reply(chat, "Smazat celou paměť? Je v ní $n ${cz.axiom.vega.base.Text.pluralWord(n, "záznam", "záznamy", "záznamů")}. Jednotlivé věci smažeš i v Menu → Paměť.", JSONObject().put("type", "memClear").put("n", n))
             return
         }
         val f = memory.forget(query, ws?.let { "project:${it.root.name}" })
@@ -1947,7 +1947,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 if (texts.any { t.contains(it) }) { m.put("text", "[zapomenuto]"); changed = true } }
             if (changed) { kv.write(chatKey(chat), arr.toString()); chatWrites.incrementAndGet() }
         }
-        reply(chat, "Zapomenuto: ${f.size} ${if (f.size == 1) "záznam" else if (f.size < 5) "záznamy" else "záznamů"} – i z indexu a z historie tohoto chatu; ze shrnutí se nevrátí" +
+        reply(chat, "Zapomenuto: ${f.size} ${cz.axiom.vega.base.Text.pluralWord(f.size, "záznam", "záznamy", "záznamů")} – i z indexu a z historie tohoto chatu; ze shrnutí se nevrátí" +
             (if (f.size > 1) ". Co si pamatuji dál, najdeš v Paměti." else "."))
     }
 
@@ -2121,7 +2121,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                     per.forEachIndexed { i, o -> append("• ${o.getString("name")}: ${CzNum(saldos[i])} Kč\n") }
                     // překrývající se exporty: stejný pohyb ve dvou souborech by se sečetl dvakrát → říct to (nemazat potichu)
                     if (per.size > 1) Statement.crossDuplicates(per.map { o -> o.getJSONArray("rows").let { rs -> (0 until rs.length()).map { i -> rs.getJSONArray(i).let { r -> (0 until r.length()).map { r.getString(it) } } } } }).let { (n, s) ->
-                        if (n > 0) append("⚠ **$n ${if (n == 1) "pohyb je" else if (n in 2..4) "pohyby jsou" else "pohybů je"} ve víc souborech zároveň** (stejné datum, částka i popis – exporty se nejspíš překrývají), dohromady ${CzNum(s)} Kč. V celkovém saldu jsou započtené víckrát; bez nich by bylo ${CzNum(total - s)} Kč.\n") }
+                        if (n > 0) append("⚠ **$n ${cz.axiom.vega.base.Text.pluralWord(n, "pohyb je", "pohyby jsou", "pohybů je")} ve víc souborech zároveň** (stejné datum, částka i popis – exporty se nejspíš překrývají), dohromady ${CzNum(s)} Kč. V celkovém saldu jsou započtené víckrát; bez nich by bylo ${CzNum(total - s)} Kč.\n") }
                     if (prev != null && prevTotal != null) {
                         append("\nZměna oproti revizi ${prev.n} (${rev.change}): ")
                         (0 until files.length()).map { files.getJSONObject(it) }.filter { it.getBoolean("changed") }.forEach { f -> append("${f.getString("prevName")} → ${f.getString("name")}: ${CzNum(f.optDouble("prevSaldo"))} → ${CzNum(f.getDouble("saldo"))} Kč; ") }
@@ -2391,7 +2391,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (nets.isEmpty()) { reply(chat, "Nenašel jsem žádné WiFi sítě. Zapni WiFi a polohu (sken WiFi ji na Androidu vyžaduje) a zkus to znovu."); return@submit }
         val rep = cz.axiom.vega.core.WifiScan.analyze(nets, mySsid, myBssid)
         val text = buildString {
-            append("**WiFi v okolí: ${rep.nets.size} ${if (rep.nets.size == 1) "síť" else if (rep.nets.size < 5) "sítě" else "sítí"}**\n\n")
+            append("**WiFi v okolí: ${rep.nets.size} ${cz.axiom.vega.base.Text.pluralWord(rep.nets.size, "síť", "sítě", "sítí")}**\n\n")
             rep.advice.forEach { append("- $it\n") }
             append("\n| Síť | Pásmo | Kanál | Signál | Zabezpečení |\n|---|---|---|---|---|\n")
             rep.nets.take(20).forEach { n ->

@@ -16,6 +16,14 @@ skutečné chyby test, který bez opravy selže → oprava → plná sada (`:veg
 `composer`, `audit`, `robust`, `xss`) → commit + push na `claude/reverse-engineer-ai-app-o5jhyd`. Bez nálezu se
 zapíše „bez nálezu“ a co bylo prověřeno.
 
+**Tvrdý refaktoring (na žádost uživatele od 25. 11., platí každý den):** aspoň jednou za dopoledne a jednou za
+odpoledne kolo refaktoringu v dané oblasti – duplicity (stejná logika na víc místech → jedno místo), dlouhé funkce,
+roztroušené konstanty, ruční kopie v `Ops.kt` / `MainActivity.kt` / `app.js`. Postup: před změnou ochranný test
+(chování, které se nesmí změnit, + každá chyba nalezená cestou s testem, který bez opravy selže) → refaktoring po
+malých krocích → plná sada (Kotlin + UI) zelená → samostatný commit „refaktoring: …“. Chování pro uživatele se
+nemění, jen pokud refaktoring odhalí chybu – ta se opraví a popíše. Velký rozklad (např. rozdělení `Ops.kt`) jen
+postupně po modulech, každý krok zvlášť otestovaný a pushnutý.
+
 ## Rotace oblastí (podle dne v týdnu)
 
 | Den | Dopoledne (06–13) | Odpoledne (13–20) |

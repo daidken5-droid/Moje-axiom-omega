@@ -5,7 +5,9 @@ import java.text.Normalizer
 /** Práce s českým textem: bez diakritiky pro porovnávání, slova pro vyhledávání. */
 object Text {
     /** České skloňování po čísle: 1 řádek · 2–4 řádky · 0, 5+ řádků („4 pohybů“ v hlášení laik vidí jako chybu). */
-    fun plural(n: Number, one: String, few: String, many: String): String = "$n " + when (n.toLong()) { 1L -> one; in 2L..4L -> few; else -> many }
+    fun plural(n: Number, one: String, few: String, many: String): String = "$n " + pluralWord(n, one, few, many)
+    /** Jen tvar slova (bez čísla): 1 → [one], 2–4 → [few], jinak (0, 5+, záporné) → [many]. Jediné místo pro české tvary podle počtu. */
+    fun pluralWord(n: Number, one: String, few: String, many: String): String = when (n.toLong()) { 1L -> one; in 2L..4L -> few; else -> many }
     private val marks = Regex("\\p{Mn}+")
     /** „Příliš žluťoučký“ → „Prilis zlutoucky“ (stejná délka u češtiny, bezpečné pro posuny v textu). Čisté ASCII beze změny a bez normalizace (rychle). */
     fun fold(s: String): String = if (s.all { it.code < 128 }) s else marks.replace(Normalizer.normalize(s, Normalizer.Form.NFD), "").let { if (it.length == s.length) it else foldByChar(s) }

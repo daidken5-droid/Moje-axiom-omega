@@ -236,7 +236,7 @@ object Statement {
                 add("Součty níže jsou jen v $main.")
             }
             add("Příjmy ${CzNum.format(inc)} · výdaje ${CzNum.format(exp)} · saldo ${CzNum.format(inc + exp)}${if (perCur.size > 1) " $main" else ""} · ${cz.axiom.vega.base.Text.plural(out.size, "pohyb", "pohyby", "pohybů")}")
-            if (voided > 0) add("Vynecháno $voided ${if (voided == 1) "zrušená / odmítnutá platba" else if (voided in 2..4) "zrušené / odmítnuté platby" else "zrušených / odmítnutých plateb"} (stav REVERTED, DECLINED…) – nestaly se.")
+            if (voided > 0) add("Vynecháno $voided ${cz.axiom.vega.base.Text.pluralWord(voided, "zrušená / odmítnutá platba", "zrušené / odmítnuté platby", "zrušených / odmítnutých plateb")} (stav REVERTED, DECLINED…) – nestaly se.")
             if (fees > 0) add("Poplatky ze sloupce „Poplatek / Fee“ (${CzNum.format(-fees)}) jsou započtené ve výdajích.")
             if (failed.isNotEmpty()) add("Nezpracováno ${cz.axiom.vega.base.Text.plural(failed.size, "řádek", "řádky", "řádků")}: " + failed.take(5).joinToString("; ") { "ř. ${it.first} ${it.second}" })
         }

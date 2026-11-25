@@ -73,7 +73,7 @@ object Quick {
             val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
             val n = m.groupValues[3].toIntOrNull() ?: 1; val months = m.groupValues[4].startsWith("mesic")
             val yrs = if (months) n / 12.0 else n.toDouble(); val v = b * p / 100 * yrs
-            val per = if (m.groupValues[4].isBlank() || m.groupValues[3].isBlank() && !months) "za rok" else if (m.groupValues[3].isBlank()) "za měsíc" else "za $n ${if (months) (if (n == 1) "měsíc" else if (n in 2..4) "měsíce" else "měsíců") else (if (n == 1) "rok" else if (n in 2..4) "roky" else "let")}"
+            val per = if (m.groupValues[4].isBlank() || m.groupValues[3].isBlank() && !months) "za rok" else if (m.groupValues[3].isBlank()) "za měsíc" else "za $n ${if (months) (cz.axiom.vega.base.Text.pluralWord(n, "měsíc", "měsíce", "měsíců")) else (cz.axiom.vega.base.Text.pluralWord(n, "rok", "roky", "let"))}"
             return "Úrok ${fmt(p)} % ročně z ${money(b)} $per je ${money(v)} (jednoduchý úrok, bez daně z úroku a poplatků)." }
         Regex("^(?:kolik je |spocitej |vypocitej )?(\\d+(?:[.,]\\d+)?)\\s*%\\s*(?:z|ze)\\s*(\\d[\\d ]*(?:[.,]\\d+)?)(\\s*(?:kc|korun\\w*))?$").find(t)?.let { m ->
             val p = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
@@ -386,7 +386,7 @@ object Quick {
         val y = java.time.Period.between(d, today).years
         // výročí v roce [yr]: narozený 29. 2. ho v nepřestupném roce slaví 28. 2., v přestupném 29. 2.
         fun on(yr: Int) = if (d.monthValue == 2 && d.dayOfMonth == 29 && !java.time.Year.isLeap(yr.toLong())) LocalDate.of(yr, 2, 28) else d.withYear(yr)
-        fun yrs(n: Int) = "$n ${if (n == 1) "rok" else if (n in 2..4) "roky" else "let"}"
+        fun yrs(n: Int) = "$n ${cz.axiom.vega.base.Text.pluralWord(n, "rok", "roky", "let")}"
         val years = yrs(y)
         // výročí dnes (i 28. 2. u narozených 29. 2.): celé roky = rozdíl letopočtů (Period by u 29. 2. ukázal o rok méně)
         if (on(today.year) == today) return "Od ${d.dayOfMonth}. ${d.monthValue}. ${d.year} uplynulo právě ${yrs(today.year - d.year)} – výročí je dnes."
@@ -524,7 +524,7 @@ object Quick {
         if (p < 1000 || years !in 1..40 || rate !in 0.0..30.0) return null
         val n = years * 12; val r = rate / 100 / 12
         val pay = if (r == 0.0) p / n else p * r / (1 - Math.pow(1 + r, -n.toDouble()))
-        return "Splátka ${money(p)} na $years ${if (years == 1) "rok" else if (years in 2..4) "roky" else "let"} při úroku ${fmt(rate)} % ročně: ${money(pay)} měsíčně; celkem zaplatíš ${money(pay * n)} (z toho úroky ${money(pay * n - p)}). " +
+        return "Splátka ${money(p)} na $years ${cz.axiom.vega.base.Text.pluralWord(years, "rok", "roky", "let")} při úroku ${fmt(rate)} % ročně: ${money(pay)} měsíčně; celkem zaplatíš ${money(pay * n)} (z toho úroky ${money(pay * n - p)}). " +
             "Orientačně – bez poplatků a pojištění; přesnou nabídku dá banka."
     }
 
@@ -539,7 +539,7 @@ object Quick {
         val n = years * 12; val i = rate / 100 / 12
         val fv = if (i == 0.0) d * n else d * (Math.pow(1 + i, n.toDouble()) - 1) / i
         val paid = d * n
-        return "Když budeš ${years} ${if (years == 1) "rok" else if (years in 2..4) "roky" else "let"} měsíčně ukládat ${money(d)}${if (rate > 0) " s úrokem ${fmt(rate)} % ročně" else ""}, budeš mít ${money(fv)} – vložíš ${money(paid)}, úroky ${money(fv - paid)}. " +
+        return "Když budeš ${years} ${cz.axiom.vega.base.Text.pluralWord(years, "rok", "roky", "let")} měsíčně ukládat ${money(d)}${if (rate > 0) " s úrokem ${fmt(rate)} % ročně" else ""}, budeš mít ${money(fv)} – vložíš ${money(paid)}, úroky ${money(fv - paid)}. " +
             "Orientačně: bez daně z úroku (15 %), poplatků a inflace."
     }
 
@@ -555,7 +555,7 @@ object Quick {
         Regex("^kolik (?:je |uz )?let (?:je |uplynulo |ubehlo |uz je )?od (?:roku )?(\\d{4})$").find(t)?.let { m ->
             val y = m.groupValues[1].toInt(); if (y > today.year || y < 1) return null
             val n = today.year - y
-            return "Od roku $y ${if (n in 2..4) "uplynuly" else "uplynulo"} $n ${if (n == 1) "rok" else if (n in 2..4) "roky" else "let"} (${today.year} − $y)."
+            return "Od roku $y ${if (n in 2..4) "uplynuly" else "uplynulo"} $n ${cz.axiom.vega.base.Text.pluralWord(n, "rok", "roky", "let")} (${today.year} − $y)."
         }
         val m = Regex("kolik (?:je )?(?:dni|dnu) (?:je |uplyne |ubehne )?(?:od|mezi) (.+?) (?:do|a) (.+)$").find(t)
             ?: Regex("^(?:jaky je )?rozdil (?:mezi )?(?:daty )?(\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|dneskem|dnesk[ae]m?) a (\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?\\d{4}|dneskem|dnesk[ae]m?)$").find(t) ?: return null

@@ -480,7 +480,7 @@ class MainActivity : ComponentActivity() {
 
     fun share(name: String) {
         val f = ops.out.file(name) ?: return
-        val mime = when (f.extension.lowercase()) { "pdf" -> "application/pdf"; "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; "csv" -> "text/csv"; "zip" -> "application/zip"; else -> "*/*" }
+        val mime = cz.axiom.vega.base.Mime.of(f.name)
         startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, ops.out.uri(f)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), name))
     }
 
@@ -516,7 +516,7 @@ class MainActivity : ComponentActivity() {
 
     fun open(name: String) {
         val f = ops.out.file(name) ?: return
-        val mime = when (f.extension.lowercase()) { "pdf" -> "application/pdf"; "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; "csv" -> "text/csv"; else -> "*/*" }
+        val mime = cz.axiom.vega.base.Mime.of(f.name)
         runCatching { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(ops.out.uri(f), mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
             .onFailure { send("error", JSONObject().put("text", "Žádná aplikace neumí otevřít ${f.extension} – použij Sdílet.")) }
     }

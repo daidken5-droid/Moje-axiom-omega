@@ -70,7 +70,7 @@ object WifiScan {
             }
         }
         if (myNets.isEmpty() && mine != null) advice += "Síť „$mine“ jsem v okolí nenašel – zkontroluj, že je zapnutá a jsi v dosahu."
-        seen.count { it.weak != null }.let { if (it > 0) advice += "V okolí je $it ${if (it == 1) "síť se slabým" else "sítí se slabým"} zabezpečením. U cizích s tím nic nedělej – řeš jen svoji." }
+        seen.count { it.weak != null }.let { if (it > 0) advice += "V okolí ${cz.axiom.vega.base.Text.pluralWord(it, "je", "jsou", "je")} $it ${cz.axiom.vega.base.Text.pluralWord(it, "síť", "sítě", "sítí")} se slabým zabezpečením. U cizích s tím nic nedělej – řeš jen svoji." }
         if (advice.isEmpty()) advice += "Nic kritického – zabezpečení i kanál vypadají v pořádku."
         advice += "Pozn.: VEGA jen pasivně čte, co sítě samy vysílají. Nepřipojuje se a do žádné nezasahuje."
         return Report(seen, ch24, ch5, advice)
