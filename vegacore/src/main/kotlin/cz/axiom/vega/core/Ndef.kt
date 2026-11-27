@@ -11,7 +11,7 @@ data class NdefRecord(val tnf: Int, val type: String, val id: String, val payloa
     fun asValue(): Value = when (typeLabel) {
         // jen http(s) je adresa; „javascript:“, „intent:“, „file:“… ze štítku je jen TEXT (cizí štítek nesmí spustit kód)
         // skryté znaky (U+202E obrací směr textu…) by na displeji ukázaly jinou adresu, než kam vede → jen text s varováním
-        "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display) && !NdefParser.hasHidden(display) && !display.contains("⟦U+")) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
+        "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display) && !cz.axiom.vega.base.Hidden.has(display) && !display.contains("⟦U+")) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
         "Text", "MIME text", "Kontakt" -> Value.Text(display, "NFC")
         "WiFi" -> Value.Text(display, "NFC (WiFi štítek – bez hesla)")  // surová data nesou heslo – dál jen popis
         else -> Value.Bytes("ndef-$type.bin", payload)
@@ -43,11 +43,8 @@ object NdefParser {
 
     private val TNF = listOf("Prázdný", "Well-known", "MIME", "Absolutní URI", "Externí", "Neznámý", "Nezměněno", "Rezervováno")
 
-    /** Neviditelné a směrové znaky, řídicí znaky, měkký spojovník: v adrese z cizího štítku slouží jen k podvržení. */
-    private val HIDDEN = Regex("[\\u0000-\\u001F\\u007F-\\u009F\\u00AD\\u061C\\u115F\\u1160\\u180E\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F\\u3164\\uFEFF\\uFFF9-\\uFFFB]")
-    fun hasHidden(s: String) = HIDDEN.containsMatchIn(s)
     /** Skryté znaky viditelně („⟦U+202E⟧“) + varování – laik uvidí, že adresa není, jak vypadá. */
-    private fun revealUri(u: String) = if (!hasHidden(u)) u else HIDDEN.replace(u) { "⟦U+%04X⟧".format(it.value[0].code) } + " (adresa obsahuje skryté znaky – neotvírej ji)"
+    private fun revealUri(u: String) = if (!cz.axiom.vega.base.Hidden.has(u)) u else cz.axiom.vega.base.Hidden.reveal(u) + " (adresa obsahuje skryté znaky – neotvírej ji)"
 
     fun parse(bytes: ByteArray): List<NdefRecord> = parse0(bytes, 0)
 
