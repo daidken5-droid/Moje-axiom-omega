@@ -54,6 +54,9 @@ object WifiTools {
         unleet(low.trimEnd { it.isDigit() || it in "!?.#*@\$_-" }.trimStart { it.isDigit() }).let { core -> if (core in BASE_WORDS || COMMON.contains(core))
             return r("slabé", "Je to běžné slovo ze slovníků hesel („$core“) s čísly nebo znakem navíc – útočník takové varianty zkouší mezi prvními.", 0) }
         if (Regex("^(.{2,6})\\1+$").matches(low)) return r("slabé", "Heslo je jeden krátký úsek několikrát za sebou – opakování skoro nepřidá sílu.", 1)
+        // 27. 11.: „Password1Password1“, „Heslo-heslo-heslo-heslo“, „aaaaaaaaaaaaaaaaB1“ vycházely „silné“ jen díky délce
+        repeatedUnit(low)?.let { u -> return r("slabé", "Heslo se skládá z opakovaného úseku „$u“ – délka je jen zdánlivá, útočník opakování zkouší. Použij různá slova.", 1) }
+        if (longestRun(low) * 2 >= low.length) return r("slabé", "Většinu hesla tvoří jeden opakovaný znak – délka je jen zdánlivá.", 1)
         if (isSequential(low)) return r("slabé", "Je to souvislá řada znaků (např. „abcdefgh“ nebo „12345678“) – snadno uhodnutelné.", 0)
         if (isKeyboardWalk(low)) return r("slabé", "Je to tah po klávesnici (např. „qwertz“, „1qaz2wsx“) – takové řady jsou ve slovnících hesel mezi prvními.", 0)
         // jméno / slovo + rok („Monika1990“, „Praha2024!“) – jeden z prvních vzorů, které útočník zkouší
@@ -89,6 +92,20 @@ object WifiTools {
         // sloupcové tahy („1qaz2wsx3edc“) se skládají z krátkých úseků; počítat jen úseky ≥ 3, jinak by běžné slovo vypadalo jako tah
         return covered.count { it } >= s.length * 0.7
     }
+
+    /** Nejkratší úsek, jehož opakováním (po odstranění oddělovačů, s tolerancí 3 znaků navíc na konci) vznikne heslo; jinak null. */
+    private fun repeatedUnit(low: String): String? {
+        val t = low.filter { it.isLetterOrDigit() }
+        if (t.length < 8) return null
+        for (p in 2..t.length / 2) {
+            var i = p
+            while (i < t.length && t[i] == t[i - p]) i++
+            if (i >= t.length - 3 && i >= 2 * p) return t.take(p)
+        }
+        return null
+    }
+
+    private fun longestRun(s: String): Int { var best = 0; var cur = 0; for (i in s.indices) { cur = if (i > 0 && s[i] == s[i - 1]) cur + 1 else 1; best = maxOf(best, cur) }; return best }
 
     private fun isSequential(s: String): Boolean {
         if (s.length < 6) return false
