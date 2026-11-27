@@ -353,7 +353,8 @@ class MainActivity : ComponentActivity() {
             runCatching { @Suppress("DEPRECATION") wm.startScan() }
             val results = wm.scanResults ?: emptyList()
             val arr = JSONArray()
-            for (r in results) arr.put(JSONObject().put("ssid", r.SSID ?: "").put("bssid", r.BSSID ?: "").put("rssi", r.level).put("freq", r.frequency).put("caps", r.capabilities ?: ""))
+            // ScanResult.SSID je od API 33 zastaralé (wifiSsid), minSdk je nižší → záměrně staré pole
+            @Suppress("DEPRECATION") for (r in results) arr.put(JSONObject().put("ssid", r.SSID ?: "").put("bssid", r.BSSID ?: "").put("rssi", r.level).put("freq", r.frequency).put("caps", r.capabilities ?: ""))
             val info = runCatching { @Suppress("DEPRECATION") wm.connectionInfo }.getOrNull()
             ops.onWifi(arr.toString(), info?.ssid, info?.bssid, null, chat)
         } catch (e: Exception) { ops.onWifi("[]", null, null, "WiFi sken se nepovedl (${e.message ?: "neznámá chyba"}).", chat) }

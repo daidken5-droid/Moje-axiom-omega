@@ -71,6 +71,7 @@ sealed class Value {
     }
 
     companion object {
+        @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class) // prettyPrintIndent: jen formát náhledu, ne uložená data
         val pretty = Json { prettyPrint = true; prettyPrintIndent = "  " }
 
         /** Serializace pro uložení mezivýsledků (obnova po pádu, otevření kroku). Bajty base64. */

@@ -4,7 +4,6 @@ import java.io.InputStream
 import java.net.InetAddress
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 
 /** Chyba volání služby. [retryable] = má smysl zkusit znovu / jiného poskytovatele; [billed] = požadavek mohl být účtován. */
 open class NetException(msg: String, val retryable: Boolean = false, val billed: Boolean = false, cause: Throwable? = null) : Exception(msg, cause)
@@ -76,7 +75,9 @@ object Http {
         if (airgap) throw NetException("Air-gap: síť je vypnutá.")
         requireAllowed(url, publicOnly)
         if (publicOnly) URI(url).host?.let { requirePublicResolved(it) }
-        return (URL(url).openConnection() as HttpURLConnection).apply {
+        // spojení ze STEJNÉHO rozboru adresy, jaký prošel kontrolou requireAllowed (URI) – dva různé parsery
+        // (URI × zastaralý URL(String)) by u podivných adres mohly vidět jiný server, než jaký kontrola povolila
+        return (URI(url).toURL().openConnection() as HttpURLConnection).apply {
             if (publicOnly && this is javax.net.ssl.HttpsURLConnection && direct(url)) sslSocketFactory = PeerCheck(sslSocketFactory)
             requestMethod = method; connectTimeout = connectMs; readTimeout = readMs
             instanceFollowRedirects = false
