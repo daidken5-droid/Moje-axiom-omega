@@ -100,7 +100,9 @@ object Router {
     private fun has(t: String, vararg rx: String) = rx.any { rxCache.getOrPut(it) { Regex(it) }.containsMatchIn(t) }
 
     /** Otázka „jak / kde / co je / co umí / k čemu / proč …“ = chce vysvětlení, ne provedení (doporučení T2: „Jak se zapíná …?“ × „Zapni …“). */
-    private val HOW_TO = Regex("^(?:a\\s+)?(?:jak(?:ym zpusobem)?|kde|co (?:je|jsou|znamena|umi|dela|delaji)|k cemu|proc|cim)(?!\\p{L})")
+    private val HOW_TO = Regex("^(?:a\\s+)?(?:jak(?:ym zpusobem)?|kde|co (?:je|jsou|znamena|umi|dela|delaji)|k cemu|proc|cim|" +
+        // 27. 11.: „Je bezpečné otevřít adresu z NFC štítku?“ spouštělo čtečku; „Dá se / Šlo by / Jde …?“ = ptá se, nežádá
+        "je (?:bezpecne|mozne|normalni|treba|nutne|potreba|v poradku)|da se|slo by|jde (?:to|nejak)|lze|umis|pamatujes|zvladnes|podporujes)(?!\\p{L})")
     private fun isAction(i: Intent) = i is Intent.Remember || i is Intent.Forget || i is Intent.Undo || i is Intent.MakeButton || i is Intent.BuildStatementTool ||
         i is Intent.FixColumn || i is Intent.Continue || i is Intent.Tool || i is Intent.RunProcedure || i is Intent.Nfc || i is Intent.Demand ||
         (i is Intent.Code && i.kind != CodeKind.EXPLAIN)
@@ -133,6 +135,12 @@ object Router {
             return Intent.Remember(text, scope)
         }
         // --- paměť (výslovné pokyny mají přednost)
+        // zdvořilý příkaz ve tvaru otázky: „Můžeš si zapamatovat, že bydlím v Brně?“ (dřív jen rozhovor – nic se neuložilo);
+        // jen s „že …“ – „Můžeš si zapamatovat jména?“ je otázka na schopnost, ne pokyn
+        Regex("^(?:prosim\\s+)?(?:muzes|muzete|mohl(?:a)?\\s+by\\s+sis|mohli\\s+byste\\s+si)\\s+(?:si\\s+)?(?:prosim\\s+)?zapamatovat\\s*,?\\s*ze\\s+(.+)$").find(t)?.let {
+            val body = text.substring(text.length - it.groupValues[1].length).trimEnd('?', ' ')
+            return Intent.Remember(body, null)
+        }
         Regex("^(?:prosim\\s+)?(?:zapamatuj|pamatuj)\\s+si\\s*(?:,|:)?\\s*(?:ze\\s+)?(.+)$").find(t)?.let {
             val body = text.substring(text.length - it.groupValues[1].length)
             val scope = when { has(t, "\\b(tady|v tomhle projektu|v tomto projektu|u tohoto projektu|v projektu)\\b") -> "project"; has(t, "\\b(vzdy|vsude|obecne|ve vsech)\\b") -> "global"; else -> null }

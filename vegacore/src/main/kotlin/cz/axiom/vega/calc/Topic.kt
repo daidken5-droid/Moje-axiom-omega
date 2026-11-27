@@ -22,6 +22,8 @@ object Topic {
         "kolko|preco|kto|kedy|ako|aky|aka|ake|dakujem|dik\\w*|dekuj\\w*|thx|krat|deleno|plus|minus|odmocnin\\w*|procent\\w*|ze|aby|protoze|kdyz|kdyby|jestli|zda|myslim|myslis|" +
         // povely aplikaci („spusť testy“, „exportuj do excelu“) – bez výsledku z nich nesmí vzniknout rešerše na webu
         "ulozit|exportuj|exportovat|export|spust|spustit|testy|stahni|stahnout|vytiskni|tiskni|sdilej|posli|prejmenuj|prejmenovat|presun|zkopiruj)\\b")
+    private val QUESTION_START = Regex("^(?:da|daji|neda|slo|neslo|jde|nejde|umis|umite|neumis|pamatujes|nepamatujes|jakym|muzes|muzete|mohl|mohla|mohu|smim|" +
+        "zvladnes|zvladas|podporujes|podporuje|dokazes|dokaze|zvladne|chapes|rozumis)(?!\\p{L})")
     private val bad = Regex("[0-9+*/=<>@#{}\\[\\]|\\\\]")
 
     fun bare(prompt: String): String? {
@@ -32,6 +34,8 @@ object Topic {
         val words = t.split(Regex("\\s+")).filter { it.isNotBlank() }
         if (words.size !in 1..6 || (words.size == 1 && words[0].length < 3)) return null
         if (notTopic.containsMatchIn(Text.fold(t).lowercase())) return null
+        // 27. 11.: „Umíš si pamatovat jména?“, „Dá se vrátit samoúprava?“ – otázka na VEGA, ne název tématu (dřív rešerše na webu)
+        if (QUESTION_START.containsMatchIn(Text.fold(t).lowercase())) return null
         return t
     }
 }
