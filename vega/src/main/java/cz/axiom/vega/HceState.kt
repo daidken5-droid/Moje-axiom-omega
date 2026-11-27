@@ -32,6 +32,4 @@ object HceState {
         cache = runCatching { file(ctx).takeIf { it.isFile }?.readBytes()?.takeIf { it.isNotEmpty() } }.getOrNull(); loaded = true
         return cache
     }
-
-    fun isActive(ctx: Context) = payload(ctx) != null
 }

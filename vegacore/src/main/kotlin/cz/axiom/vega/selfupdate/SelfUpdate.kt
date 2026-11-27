@@ -67,9 +67,6 @@ object Policy {
         }
     }
 
-    /** Přidané řádky (+) unifikovaného diffu, které sahají na citlivá API. */
-    fun sensitiveAdditions(diff: String): List<String> = diff.lines().filter { it.startsWith("+") && !it.startsWith("+++") && SENSITIVE.containsMatchIn(it) }.map { it.take(160) }
-
     /** null = cesta je povolená; jinak důvod. */
     fun check(path: String): String? = when {
         path.contains("..") || path.startsWith("/") || path.contains('\\') || path.any { it.code < 32 || it.code > 126 } -> "neplatná cesta"

