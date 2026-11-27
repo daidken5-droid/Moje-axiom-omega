@@ -947,7 +947,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
                 reply(chatId, "Přilož vlastní zapisovatelný štítek k zadní straně telefonu – zapíšu ${if (intent.kind == "url") "adresu" else "text"}: „${cz.axiom.vega.base.Hidden.oneLine(intent.content, 200)}“ (${intent.content.length} znaků). Před zápisem zkontroluji kapacitu, po zápisu ho přečtu zpět.", JSONObject().put("type", "nfcWait"))
             }
             Router.Intent.Nfc -> { emit("nfc.start", JSONObject()); reply(chatId, "Přilož NFC štítek k zadní straně telefonu…", JSONObject().put("type", "nfcWait")) }
-            Router.Intent.Demand -> reply(chatId, "Předžalobní výzva: vyplň fakturu a úhrady (šedé texty ve formuláři jsou jen ukázka). Spočítám jistinu, úrok z prodlení k rozhodnému datu a vyrobím DOCX + PDF.", JSONObject().put("type", "demandForm").put("sample", demandJson(Demand.sample())))
+            Router.Intent.Demand -> reply(chatId, "Předžalobní výzva: vyplň fakturu a úhrady (šedé texty ve formuláři jsou jen ukázka). Spočítám jistinu, úrok z prodlení k rozhodnému datu a vyrobím DOCX + PDF.", JSONObject().put("type", "demandForm").put("sample", DemandForm.toJson(Demand.sample())))
             is Router.Intent.Research -> research(chatId, intent.topic, intent.variants)
             is Router.Intent.FollowUp -> followUp(chatId, text)
             Router.Intent.Undo -> { val w = ws ?: throw ToolError("Není otevřený žádný projekt."); val c = w.undo(); reply(chatId, "Vráceno: změna v ${c.path}.", projectDiffCard(w, c.path)) }
@@ -1863,6 +1863,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     /** Pauza před opakovaným stažením, když napoprvé nešel žádný zdroj (síť po probuzení z Doze); v testu krátká. */
     @Volatile var newsRetryDelayMs = 20_000L
     /** Hledání na webu pro rešerši (testy dosadí uložené podklady – stejný vstup bez změn živého webu). */
+    /** Sestavení PDF (testy dosadí náhradu – Robolectric nemá nativní PdfDocument). */
+    @Volatile var pdfBuilder: (String) -> ByteArray = { Pdf.build(context, it) }
     @Volatile var webGather: (String, Int) -> List<Snippet> = { q, n -> Web.gather(q, n).snippets }
     @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
 
@@ -2406,23 +2408,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     // ------------------------------------------------------------------ předžalobní výzva
 
-    private fun demandJson(i: Demand.Input) = JSONObject().put("creditor", i.creditor.name).put("creditorAddr", i.creditor.address).put("creditorId", i.creditor.id)
-        .put("debtor", i.debtor.name).put("debtorAddr", i.debtor.address).put("debtorId", i.debtor.id).put("invoice", i.invoice.number).put("issued", i.invoice.issued.toString())
-        .put("due", i.invoice.due.toString()).put("amount", i.invoice.amount).put("subject", i.invoice.subject).put("payDate", i.payments.firstOrNull()?.date?.toString() ?: "")
-        .put("payAmount", i.payments.firstOrNull()?.amount ?: 0.0).put("payDoc", i.payments.firstOrNull()?.doc?.name ?: "").put("asOf", i.asOf.toString()).put("account", i.bankAccount).put("b2b", i.b2b)
-
-    fun demandSample() = demandJson(Demand.sample())
+    fun demandSample() = DemandForm.toJson(Demand.sample())
 
     fun demand(chat: String?, o: JSONObject) = submit {
-        fun d(k: String) = runCatching { java.time.LocalDate.parse(o.getString(k)) }.getOrElse { throw ToolError("Datum „$k“ chybí nebo nemá tvar RRRR-MM-DD.") }
-        val inv = Demand.Invoice(o.getString("invoice"), d("issued"), d("due"), o.getDouble("amount"), o.getString("subject"), Demand.Doc("Faktura ${o.getString("invoice")}", d("issued")))
-        val pays = if (o.optString("payDate").isNotBlank() && o.optDouble("payAmount", 0.0) > 0) listOf(Demand.Payment(d("payDate"), o.getDouble("payAmount"), Demand.Doc(o.optString("payDoc").ifBlank { "Doklad o úhradě" }, d("payDate")))) else emptyList()
-        val input = Demand.Input(Demand.Party(o.getString("creditor"), o.getString("creditorAddr"), o.optString("creditorId")), Demand.Party(o.getString("debtor"), o.getString("debtorAddr"), o.optString("debtorId")),
-            inv, pays, d("asOf"), o.optBoolean("b2b", true), repoOverride = o.optDouble("repo", Double.NaN).takeIf { !it.isNaN() }, bankAccount = o.optString("account"))
+        val input = DemandForm.input(o)
+        val inv = input.invoice
         val r = Demand.compute(input)
         val docx = Docx.build(r.text, "Předžalobní výzva ${inv.number}")
         val docxOk = Docx.text(docx).contains(cz.axiom.vega.core.CzNum.format(r.principalLeft))
-        val pdf = Pdf.build(context, r.text)
+        val pdf = pdfBuilder(r.text)
         // zpětná kontrola PDF: přečíst text a ověřit jistinu, úrok, celkem a čísla dokladů
         val pdfText = runCatching { files.pdfText(pdf) }.getOrDefault("").replace(' ', ' ').replace(Regex("\\s+"), " ")
         fun inPdf(v: Double) = pdfText.contains(cz.axiom.vega.core.CzNum.format(v).replace(' ', ' '))
