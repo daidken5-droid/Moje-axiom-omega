@@ -34,4 +34,21 @@ class OpsDemandGuardTest {
         val r = h.replyAfter(n, ms = 30_000)
         assertTrue(r.toString(), (r.error ?: r.text).contains("Datum „due“ chybí nebo nemá tvar RRRR-MM-DD."))
     }
+
+    /** Noc 27./28. 11.: prázdné / chybějící pole a nesmyslná částka = srozumitelná věta s názvem pole, ne „Něco se pokazilo uvnitř VEGA“. */
+    @Test fun missingOrBadFieldsAreNamed() {
+        val cases = listOf(
+            { o: org.json.JSONObject -> o.remove("debtor"); o } to "dlužník",
+            { o: org.json.JSONObject -> o.put("creditor", "  "); o } to "věřitel",
+            { o: org.json.JSONObject -> o.put("amount", "abc"); o } to "částka",
+            { o: org.json.JSONObject -> o.put("amount", -5); o } to "částka",
+            { o: org.json.JSONObject -> o.remove("invoice"); o } to "číslo faktury")
+        for ((mod, word) in cases) {
+            val h = OpsHarness(); val c = h.o.newChat(); h.o.pdfBuilder = { "%PDF-1.4".toByteArray() }
+            val n = h.mark(); h.o.demand(c, mod(h.o.demandSample()))
+            val r = h.replyAfter(n, ms = 30_000)
+            val msg = r.error ?: r.text
+            assertTrue("$word → $msg", msg.contains(word, ignoreCase = true) && !msg.contains("Něco se pokazilo"))
+        }
+    }
 }
