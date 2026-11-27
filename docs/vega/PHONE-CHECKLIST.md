@@ -15,6 +15,9 @@ Zařízení: ____________________ · Android: ______ · APK (commit / SHA-256): 
 | 15 | Druhý telefon: přečíst virtuální kartu (Nastavení › Pro pokročilé › Hardware). | Zobrazí přesně aktivní kartu; po deaktivaci už ne. | |
 | 15b | Velká karta (hodně vyplněných polí, přes 256 B) + druhý telefon se starší i novou VEGA (27. 11.: čtení po částech). | Přečte se celá, všechna pole; stará čtečka i stará karta fungují dál. NEOVĚŘENO | |
 | 16 | Zápis na NFC štítek s malou kapacitou. | Hláška „nevejde se“, štítek nepoškozený. | |
+| 16b | (27. 11.) Vygenerovat WiFi heslo v Hardware › WiFi QR. | 6 slov + symbol + číslo, kontrola hesla „silné“, QR se načte druhým telefonem. NEOVĚŘENO | |
+| 16c | (27. 11.) Štítek s adresou obsahující skrytý znak (zapsat z PC, např. `https://evil.cz/` + U+202E + `zc.knab`). | Adresa se ukáže se ⟦U+202E⟧ a varováním, nenabídne se k otevření. Běžná adresa se otevřít dá. NEOVĚŘENO | |
+| 16d | (27. 11.) BLE sken u zařízení s „|“ nebo dlouhým názvem; WiFi sken u sítě s „|“ v názvu. | Tabulka drží 3 / 5 sloupců, název zkrácený, nic se nerozpadne. NEOVĚŘENO | |
 | 17 | NFC inspektor na náhodném štítku („+“ › Pokročilé). | Typ karty, UID, NDEF; u chráněných „nezasahuji“. | |
 | 19 | Bluetooth: hledat zařízení (Pro pokročilé › Hardware). | Seznam se signálem (RSSI), nebo výzva „zapni Bluetooth“. | |
 | 20 | Root: „Ověřit root“ na nerootnutém telefonu. | „Root zamítnut / nedostupný“, aplikace běží dál. | |
