@@ -70,6 +70,15 @@ událost × nejasný motiv = čtenář pozná rozdíl. Každé kolo dne i noci n
 | 00–02 | Hardware sekce (NFC, NDEF, WiFi, BLE) a soubory (DOCX, PDF, fotky dokumentů) – hraniční vstupy, texty pro laika |
 | 02–03:47 | Bezpečnost (most JS↔Kotlin, injekce z příloh / RSS / webu, export) + regrese noci; **03:47 uzávěrka noci** do `PLAN-DEN.md` |
 
+## Noční kola (27. 11. 20:17 → 28. 11. 03:47, na dotaz uživatele „Co večerní testy“)
+
+| Čas | Oblast |
+|---|---|
+| 20–22 | Doporučení T1/T2 (refaktoring Ops.kt se strážnými testy, router – parafráze) |
+| 22–00 | Předžalobní výzva, výpisy z banky, CSV, PDF – neobvyklé zápisy částek a dat |
+| 00–02 | UI toky a přístupnost (360 px, velké písmo, chybové stavy formulářů) |
+| 02–03:47 | Bezpečnost (most JS↔Kotlin, cizí text) + regrese noci; **03:47 uzávěrka noci** do `PLAN-DEN.md` |
+
 ## Pravidla
 - Každá oprava s testem; plná sada zelená před commitem (commit jen řetězeně `&&` po testech).
 - CI: po pushi ověřit poslední běh „Build VEGA APK“; červený = první úkol dalšího kola.

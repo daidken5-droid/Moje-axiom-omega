@@ -106,6 +106,8 @@ object CzNum {
         var neg = false
         // „1 234,56 DR“ / „… CR“ (debet / kredit za částkou, anglické exporty): DR = výdaj
         RX_DRCR.find(s)?.let { m -> s = m.groupValues[1].trim(); if (m.groupValues[2].lowercase() == "dr") neg = true }
+        // „-(1 234,50)“: minus i závorky znamenají totéž (výdaj) – některé exporty znaménko zdvojují; neprohazovat na kladné
+        if (s.startsWith("-(") && s.endsWith(")")) s = s.drop(1)
         if (s.startsWith("(") && s.endsWith(")")) { neg = true; s = s.substring(1, s.length - 1) }
         // „1.000,-“ / „100,–“ = celé koruny (česká cenovka), NE záporné číslo
         var dc = decimalComma
