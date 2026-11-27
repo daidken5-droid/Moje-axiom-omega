@@ -272,14 +272,12 @@ class MainActivity : ComponentActivity() {
         val iso = IsoDep.get(tag) ?: return ops.onCardRead(null, "Tohle není karta VEGA (chybí ISO-DEP). Druhý telefon musí mít aktivní virtuální kartu.", nfcChat)
         try {
             iso.connect(); iso.timeout = 3000
-            val sel = iso.transceive(cz.axiom.vega.core.CardApdu.selectApdu())
-            if (cz.axiom.vega.core.CardApdu.splitSw(sel).second != cz.axiom.vega.core.CardApdu.SW_OK_INT)
-                return ops.onCardRead(null, "Druhý telefon nemá aktivní kartu VEGA (nebo ji právě deaktivoval).", nfcChat)
-            val read = iso.transceive(cz.axiom.vega.core.CardApdu.readApdu())
-            val (data, sw) = cz.axiom.vega.core.CardApdu.splitSw(read)
-            if (sw != cz.axiom.vega.core.CardApdu.SW_OK_INT) ops.onCardRead(null, "Karta přestala být aktivní během čtení.", nfcChat)
-            else ops.onCardRead(data, null, nfcChat)
-        } catch (e: Exception) { ops.onCardRead(null, "Spojení se přerušilo (${e.message ?: "telefon oddálen"}) – přilož telefony k sobě a zkus znovu.", nfcChat) }
+            // po částech do 240 B (krátké APDU unese max. 256 B, karta má až 480 B) – se starou kartou čte vše najednou
+            val data = cz.axiom.vega.core.CardApdu.readAll { iso.transceive(it) }
+                ?: return ops.onCardRead(null, "Druhý telefon nemá aktivní kartu VEGA (nebo ji právě deaktivoval).", nfcChat)
+            ops.onCardRead(data, null, nfcChat)
+        } catch (e: IllegalStateException) { ops.onCardRead(null, e.message, nfcChat) }
+        catch (e: Exception) { ops.onCardRead(null, "Spojení se přerušilo (${e.message ?: "telefon oddálen"}) – přilož telefony k sobě a zkus znovu.", nfcChat) }
         finally { runCatching { iso.close() } }
     }
 

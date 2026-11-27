@@ -13,6 +13,7 @@ Zařízení: ____________________ · Android: ______ · APK (commit / SHA-256): 
 | 9 | Výpadek sítě uprostřed odpovědi (zapnout režim letadlo během psaní). | Rozepsaný text uložený, nabídka „Pokračovat“. | |
 | 10 | Přiložím PDF / fotku účtenky / DOCX + „shrň“. | Text se skutečně přečte (u fotky OCR), žádné binární smetí. | |
 | 15 | Druhý telefon: přečíst virtuální kartu (Nastavení › Pro pokročilé › Hardware). | Zobrazí přesně aktivní kartu; po deaktivaci už ne. | |
+| 15b | Velká karta (hodně vyplněných polí, přes 256 B) + druhý telefon se starší i novou VEGA (27. 11.: čtení po částech). | Přečte se celá, všechna pole; stará čtečka i stará karta fungují dál. NEOVĚŘENO | |
 | 16 | Zápis na NFC štítek s malou kapacitou. | Hláška „nevejde se“, štítek nepoškozený. | |
 | 17 | NFC inspektor na náhodném štítku („+“ › Pokročilé). | Typ karty, UID, NDEF; u chráněných „nezasahuji“. | |
 | 19 | Bluetooth: hledat zařízení (Pro pokročilé › Hardware). | Seznam se signálem (RSSI), nebo výzva „zapni Bluetooth“. | |
