@@ -90,7 +90,7 @@ object NewsAlarms {
     }
 
     fun channel(ctx: Context) {
-        if (Build.VERSION.SDK_INT >= 26) ctx.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+        ctx.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
             NotificationChannel(CHANNEL, "Ranní přehled zpráv", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "Souhrn zpráv za posledních 24 hodin v 05:30" })
     }
 
@@ -99,7 +99,7 @@ object NewsAlarms {
         if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) return
         val open = PendingIntent.getActivity(ctx, 7, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).apply { if (chat != null) putExtra("openChat", chat) },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val b = (if (Build.VERSION.SDK_INT >= 26) android.app.Notification.Builder(ctx, CHANNEL) else @Suppress("DEPRECATION") android.app.Notification.Builder(ctx))
+        val b = android.app.Notification.Builder(ctx, CHANNEL)
             .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(if (ok) "Ranní přehled zpráv" else "Ranní přehled se nepodařil")
             .setContentText(text).setStyle(android.app.Notification.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true)
         if (!ok) b.addAction(android.app.Notification.Action.Builder(null, "Zkusit znovu",

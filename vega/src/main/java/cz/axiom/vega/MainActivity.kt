@@ -507,7 +507,7 @@ class MainActivity : ComponentActivity() {
         if (certs(arch).isEmpty() || certs(arch) != certs(mine)) return "APK je podepsané jiným klíčem než VEGA – neinstaluji."
         @Suppress("DEPRECATION") val newer = if (android.os.Build.VERSION.SDK_INT >= 28) arch.longVersionCode > mine.longVersionCode else arch.versionCode > mine.versionCode
         if (!newer) return "APK není novější než nainstalovaná verze."
-        if (android.os.Build.VERSION.SDK_INT >= 26 && !pm.canRequestPackageInstalls()) {
+        if (!pm.canRequestPackageInstalls()) {
             runCatching { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
             return "Povol VEGA instalovat aplikace (otevřel jsem nastavení) a klepni na Nainstalovat znovu."
         }

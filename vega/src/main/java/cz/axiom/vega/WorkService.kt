@@ -35,7 +35,7 @@ class WorkService : Service() {
         fun start(ctx: Context) {
             runCatching {
                 val i = Intent(ctx, WorkService::class.java)
-                if (Build.VERSION.SDK_INT >= 26) ctx.startForegroundService(i) else ctx.startService(i)
+                ctx.startForegroundService(i) // minSdk 26
             } // spuštění z pozadí může Android odmítnout – práce pak běží jako dřív, jen bez ochrany
         }
     }
@@ -68,15 +68,15 @@ class WorkService : Service() {
         super.onDestroy()
     }
 
-    private fun stopForegroundCompat() { if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE) else @Suppress("DEPRECATION") stopForeground(true) }
+    private fun stopForegroundCompat() = stopForeground(STOP_FOREGROUND_REMOVE)
 
     private fun notification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26) nm?.createNotificationChannel(NotificationChannel(CHANNEL, "Rozpracovaná odpověď", NotificationManager.IMPORTANCE_LOW).apply {
+        nm?.createNotificationChannel(NotificationChannel(CHANNEL, "Rozpracovaná odpověď", NotificationManager.IMPORTANCE_LOW).apply {
             description = "Zobrazí se jen během práce, aby se odpověď nezastavila při zhasnuté obrazovce"; setShowBadge(false) })
         val open = PendingIntent.getActivity(this, 8, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(this)
+        val b = Notification.Builder(this, CHANNEL)
         return b.setSmallIcon(applicationInfo.icon).setContentTitle(if (holds.get() > 0 && !isWorking()) "VEGA stahuje ranní přehled…" else "VEGA dokončuje odpověď…").setContentText("Můžeš zamknout telefon – odpověď počká v chatu.")
             .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).build()
     }
