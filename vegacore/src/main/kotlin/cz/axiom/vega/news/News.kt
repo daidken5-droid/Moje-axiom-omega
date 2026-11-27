@@ -80,6 +80,8 @@ object News {
         repeat(2) { t = decode(cz.axiom.vega.base.Tags.strip(t, " ")) }
         // text z cizího kanálu nesmí v přehledu vytvořit odkaz ani formátování (markdown): [ ] ` * | < > pryč, # a _ na začátku slov taky
         return t.replace('\u00a0', ' ').replace("\u00ad", "").replace(Regex("[\\[\\]`*|<>]"), " ").replace(Regex("(^|\\s)[#_]+"), "$1").replace(Regex("\\s+"), " ").trim()
+            // skryté a směrové znaky (U+202E obrátí text) – titulek z cizího kanálu musí vypadat tak, jak zní (27. 11.)
+            .let { cz.axiom.vega.base.Hidden.oneLine(it, Int.MAX_VALUE) }
     }
     private val NAMED = mapOf("nbsp" to " ", "quot" to "\"", "apos" to "'", "lt" to "<", "gt" to ">", "ndash" to "–", "mdash" to "—", "hellip" to "…",
         "bdquo" to "„", "ldquo" to "“", "rdquo" to "”", "sbquo" to "‚", "lsquo" to "‘", "rsquo" to "’", "laquo" to "«", "raquo" to "»", "euro" to "€",
