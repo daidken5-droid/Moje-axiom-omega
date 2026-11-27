@@ -801,22 +801,12 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * („vždy používej čárku“), jinak středník (český Excel). Pravidlo jednoho projektu do jiného nepronikne.
      */
     fun csvDelimiter(projectId: String? = settings.activeProject): Char {
-        fun of(t: String): Char? { val x = cz.axiom.vega.base.Text.fold(t).lowercase()
-            if (!Regex("oddelova|csv|export|stredni|carku|carka|tabulator").containsMatchIn(x) || Regex("nepouziv|\\bne\\s+(strednik|carku)|desetinn").containsMatchIn(x)) return null
-            return when { Regex("strednik").containsMatchIn(x) -> ';'; Regex("tabulator").containsMatchIn(x) -> '\t'; Regex("\\bcark[uay]\\b|\\bcarkou\\b").containsMatchIn(x) -> ','; else -> null } }
         val all = memory.all(projectId?.let { "project:$it" })
-        return all.filter { projectId != null && it.scope == "project:$projectId" }.firstNotNullOfOrNull { of(it.text) }
-            ?: all.filter { it.scope == "global" }.firstNotNullOfOrNull { of(it.text) } ?: ';'
+        return cz.axiom.vega.core.ExcelCsv.delimiter(all.filter { projectId != null && it.scope == "project:$projectId" }.map { it.text }, all.filter { it.scope == "global" }.map { it.text })
     }
 
-    /** Tabulka → CSV pro Excel (UTF-8 s BOM). Se středníkem = český Excel: desetinná ČÁRKA (jinak z „1.05“ udělá datum a „1234.50“ nejde sečíst). */
-    fun tableCsv(v: Value.Table): ByteArray { val d = csvDelimiter()
-        val t = if (d == ';') v.copy(rows = v.rows.map { r -> r.map { c -> when {
-            Regex("^-?\\d+\\.\\d+$").matches(c) -> c.replace('.', ',')
-            // zobrazené částky „−1 250,50“ (minus U+2212, nezlomitelné mezery) → „-1250,50“, aby je Excel sečetl
-            Regex("^[−-]?\\d{1,3}(?:[ \u00a0\u202f]\\d{3})*,\\d+$").matches(c) -> c.replace('−', '-').replace(Regex("[ \u00a0\u202f]"), "")
-            else -> c } } }) else v
-        return byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) + cz.axiom.vega.core.Csv.write(t, d, excel = true).toByteArray() }
+    /** Tabulka → CSV pro Excel (UTF-8 s BOM; čísla pro český Excel – ExcelCsv). */
+    fun tableCsv(v: Value.Table): ByteArray = cz.axiom.vega.core.ExcelCsv.bytes(v, csvDelimiter())
 
     /** „ulož mi to do Excelu / pošli kategorie jako CSV“ po zpracovaném výpisu v tomto chatu → soubor bez modelu. */
     private fun exportFollowUp(chat: String?, tb: Value.Table, text: String): Boolean {
