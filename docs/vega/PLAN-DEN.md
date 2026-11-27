@@ -335,3 +335,32 @@ SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shod
 
 **APK (release, arm64-v8a, podepsáno CN=AVIOR CI):** `VEGA-33565c9.apk` (CI #258, obsahuje všechny opravy dne včetně ranního přehledu v Doze), 39 933 130 B,
 SHA-256 `03173b2af018893db4cc9d917263c579ba1d10db737b014babf680246c5cacdc` (shoda se SHA256SUMS.txt z CI).
+
+## Výpadek 25. 11. ~21:00 → 27. 11. 09:18 UTC
+Pracovní prostředí se opakovaně restartovalo (≈ 50×); všechna naplánovaná kola 26. 11. (den i uzávěrka) propadla. Repozitář zůstal čistý,
+poslední commit před výpadkem `d7b1940` (CI #260 zelené). Noční kola 25./26. 11. N1 (EvidenceCards) a N2 (NewsJob) proběhla ještě před výpadkem.
+
+## Den 27. 11. 2026 (pátek) – oblasti: dopoledne Hardware (NFC, WiFi, BLE, HCE); odpoledne regrese týdne, lint, varování, mrtvý kód; refaktoring ráno i odpoledne
+
+### Uzávěrka dne 27. 11. 2026 (20:02)
+Testy na konci dne: Kotlin 453/0 (ráno 421), UI composer/audit/robust/xss 4/4. CI: poslední běh #276 zelený; #263 a #267 spadly
+na 429 z Maven Central (ne kód) – příčina odstraněna (cache Gradle se zapisuje i na vývojové větvi), od té doby bez pádu.
+
+| Oblast | Změna | Test (bez opravy padá) |
+|---|---|---|
+| T1 refaktoring 6 | strážné testy rešerše + sběr podkladů vyjmut do `Research.collect` | OpsResearchGuardTest, ResearchCollectTest |
+| WiFi | vygenerované heslo 6 slov ze 360 (≈ 60 bitů) místo 4 ze 30 (≈ 29 bitů – offline prolomitelné za minuty) | PassphraseStrengthTest |
+| WiFi | kontrola hesla pozná opakovaný úsek / řadu znaků („Password1Password1“ nebylo „silné“) | PasswordRepeatTest |
+| NFC | adresa se skrytým znakem (U+202E) se nenabídne k otevření, znaky se ukážou; Smart Poster bez rekurze | NdefHardeningTest |
+| NFC | text záznamu nemůže v souhrnu podvrhnout řádek „UID“ / „Norma“ | NdefHardeningTest.summary… |
+| HCE | karta z cizího telefonu = cizí data, pole na jeden řádek; čtení po částech do 240 B (velká karta i na krátkém APDU, zpětně kompatibilní) | OpsModelTest.foreignVirtualCard…, CardChunkTest |
+| BLE + WiFi | cizí názvy nerozbijí tabulku, BLE v historii jako cizí data | OpsModelTest.foreignBleAndWifi… |
+| RSS / rešerše | titulky bez skrytých znaků; možné významy tématu bez markdownu a zalomení | NewsHiddenTest, ResearchCollectTest.candidates… |
+| T2 router | „Je bezpečné…?“ nespustí NFC, „Umíš / Dá se…?“ nejde na web, „Můžeš si zapamatovat, že…?“ se uloží (sada 47 / 16 / 9) | RouterParaphraseMetricTest |
+| Varování / lint | překladač 3 → 0 (HTTP stejný parser pro kontrolu i spojení); lint 21 → 14 varování, 0 chyb (zbytek posouzen) | HttpSameParserTest |
+| Mrtvý kód | odstraněna slabší kopie kontroly samoúprav `sensitiveAdditions`, `HceState.isActive` | SelfUpdateTest (přepnut) |
+| Refaktoring 7 | jedna sada skrytých znaků `base/Hidden` (NFC, karta, BLE, WiFi, RSS, rešerše) | HiddenTest |
+
+Poslední APK dne: `VEGA-0f569cf.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 933 158 B,
+SHA-256 `68bce5798a7bab5783461ac31762e4a57709dec15e5623d9d20df285f342586e` (CI #276).
+Telefon: NEOVĚŘENO – nové scénáře v PHONE-CHECKLIST 15b, 16b–16d.
