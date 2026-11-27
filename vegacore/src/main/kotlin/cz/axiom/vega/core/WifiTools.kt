@@ -97,13 +97,42 @@ object WifiTools {
         return up >= s.length - 2 || down >= s.length - 2
     }
 
-    private const val WORDS = "jablko,mesic,reka,hora,kniha,kolo,strom,kveten,kamen,vlak,more,pole,hvezda,lampa,klic,most,zahrada,oblak,prsten,duha,kotva,majak,sova,liska,bobr,delfin,orel,tygr,panda,jezek"
+    /**
+     * Slova pro přístupovou frázi (česká, bez diakritiky, 3–9 písmen, každé jednou). Dřív 30 slov × 4 = asi 29 bitů:
+     * zachycený WPA2 handshake se tím prolomí offline na grafické kartě za minuty – a kontrola hesla to přitom hodnotila „silné“.
+     */
+    internal val WORDS: List<String> = ("jablko,mesic,reka,hora,kniha,kolo,strom,kveten,kamen,vlak,more,pole,hvezda,lampa,klic,most,zahrada,oblak," +
+        "prsten,duha,kotva,majak,sova,liska,bobr,delfin,orel,tygr,panda,jezek,auto,balon,banan,baterka,bota,brana," +
+        "brambor,buben,cesta,citron,cukr,dalnice,datel,deka,deska,dort,drak,drevo,dub,dvere,fazole,fena,fialka,flasa," +
+        "gauc,guma,hadr,hlava,hlina,hokej,holub,houba,hrad,hrnec,hruska,hudba,chleba,chata,chobot,ibis,indian,jahoda," +
+        "jaro,jedle,jelen,jezero,jiskra,kabat,kakao,kanoe,kapr,karta,kaktus,kanec,kelimek,keks,klavir,klobouk,koberec," +
+        "kocka,kohout,komin,konev,kopec,koruna,kos,kostel,koza,krab,kravata,kreslo,krokodyl,kruh,kun,kure,kytara,lahev," +
+        "lano,lavice,led,lednice,lekar,les,lev,lilie,limonada,lod,lopata,los,louka,luk,lyze,mapa,marmelada,med,meloun," +
+        "metla,mlyn,mlha,modrin,morce,motyl,mrak,mrkev,mys,nadrazi,nuzky,obraz,okno,opice,ostrov,ovce,papir,park,pavouk," +
+        "pec,pero,pes,pisek,planeta,pohar,pokoj,polstar,postel,potok,prase,prkno,ptak,pustina,rak,raketa,rohlik,ruze," +
+        "rybnik,sad,salam,sane,senik,sir,skala,skrin,slon,slunce,snih,sokol,stan,stul,sud,svicka,syr,tabule,talir," +
+        "telefon,tesar,ticho,tram,trava,tuzka,ucho,ulice,upir,vana,vazka,vcela,vesta,vidlicka,vino,vitr,voda,volant," +
+        "vrana,vrba,zajic,zamek,zebra,zed,zelva,zima,zlato,zub,antena,balkon,barva,bazen,bedna,beruska,blesk,brouk," +
+        "bryle,bunda,cibule,cihla,cip,delo,dira,dlan,doupe,draha,dyne,elf,eso,fotka,fronta,garaz,gril,halda,harfa,hasic," +
+        "hnizdo,hodiny,hrabe,hrom,hvozd,iglu,jachta,jaguar,jitro,kachna,kajak,kalich,kamion,kapsa,kaple,kasna,kladivo," +
+        "klec,klenba,klubko,kompas,koralek,korab,kost,kufr,kuzel,labut,lampion,lebka,lekno,lesk,letadlo,lilek,lipa,lis," +
+        "lustr,magnet,malina,mamut,maska,mast,medvid,melodie,mince,mlok,model,motor,mozaika,muflon,musle,naplast,noc," +
+        "noha,obal,obelisk,okurka,opera,orloj,osel,palma,papousek,pavlac,perla,piano,pila,pirat,plamen,plast,plot,plyn," +
+        "poklad,poleno,pomeranc,pouzdro,pramen,prapor,puma,pytel,radar,ret,rytir,robot,rozinka,ruka,ryba,salat,sardinka," +
+        "sekera,semafor,sifon,sklep,slanina,sklo,smrk,sonda,spunt,strecha,struna,sumec,sykorka,tank,taska,tecka,terc," +
+        "toulec,trubka,tulipan,udice,uhel,valec,vecer,vejce,vesmir,vez,vlna,vodnik,vozik,vydra,zavod,zebrik,zrcadlo," +
+        "zvon").split(',')
 
-    /** Náhodná přístupová fráze: 4 česká slova bez diakritiky + číslo + symbol (dobře se opisuje, přitom silná). */
+    /** Počet slov ve frázi: 6 × log2(360) + symbol + číslo ≈ 60 bitů (WPA2 offline = tisíce let i na grafických kartách). */
+    const val PASSPHRASE_WORDS = 6
+    private const val SYMBOLS = "!?#%*+-="
+
+    /** Náhodnost fráze v bitech (pro test a případné zobrazení): slova + symbol + dvojciferné číslo 10–99. */
+    fun passphraseBits(): Double = PASSPHRASE_WORDS * Math.log(WORDS.size.toDouble()) / Math.log(2.0) + Math.log(SYMBOLS.length * 90.0) / Math.log(2.0)
+
+    /** Náhodná přístupová fráze: 6 českých slov bez diakritiky + symbol + číslo (dobře se opisuje, přitom silná). */
     fun passphrase(rnd: java.util.Random = java.security.SecureRandom()): String {
-        val w = WORDS.split(',')
-        val picked = (1..4).map { w[rnd.nextInt(w.size)] }.mapIndexed { i, s -> if (i == 0) s.replaceFirstChar { it.uppercase() } else s }
-        val sym = "!?#%*+-=".let { it[rnd.nextInt(it.length)] }
-        return picked.joinToString("-") + sym + (10 + rnd.nextInt(90))
+        val picked = (1..PASSPHRASE_WORDS).map { WORDS[rnd.nextInt(WORDS.size)] }.mapIndexed { i, s -> if (i == 0) s.replaceFirstChar { it.uppercase() } else s }
+        return picked.joinToString("-") + SYMBOLS[rnd.nextInt(SYMBOLS.length)] + (10 + rnd.nextInt(90))
     }
 }
