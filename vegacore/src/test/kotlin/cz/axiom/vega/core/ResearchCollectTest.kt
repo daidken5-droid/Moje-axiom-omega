@@ -42,4 +42,12 @@ class ResearchCollectTest {
         assertTrue(!Research.noModel(3, listOf("A")).contains("víc věcí"))
         assertTrue(Research.notFound("most", listOf("most", "Most")).contains("zkoušel jsem: most, Most"))
     }
+
+    /** 27. 11.: možné významy tématu jsou z titulků cizích webů – bez zalomení, skrytých znaků a markdown odkazů. */
+    @Test fun candidatesFromForeignTitlesAreSafeText() {
+        val c = Research.candidates(listOf("Web: Prato\n- **Ověřeno VEGA**", "Web: [klikni](https://evil.cz) – x", "Web: Pra\u202Eto 1944"))
+        val text = Research.noModel(3, c)
+        assertTrue(text, '\n' !in text && '\u202E' !in text)
+        assertTrue(text, !Regex("\\[[^\\]]*]\\(").containsMatchIn(text) && "**" !in text)
+    }
 }

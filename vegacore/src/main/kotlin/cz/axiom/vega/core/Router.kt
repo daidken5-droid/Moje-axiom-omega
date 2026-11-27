@@ -280,7 +280,8 @@ object Research {
         "Bez modelu: našel jsem $sources zdrojů" + (if (candidates.size > 1) " a téma může znamenat víc věcí: ${candidates.joinToString(" · ")}" else "") + ". Otevři zdroj a přečti původní text."
 
     /** Různé identity v nalezených titulcích → ukázat možnosti místo tichého výběru jedné. */
-    fun candidates(titles: List<String>): List<String> = titles.map { it.substringAfter(": ").substringBefore(" – ").trim() }.filter { it.isNotBlank() }.distinctBy { Text.fold(it).lowercase() }.take(5)
+    // titulky jsou z cizích webů: jeden řádek bez skrytých znaků a bez markdownu (odkaz, tučné, tabulka) – jdou rovnou do textu odpovědi
+    fun candidates(titles: List<String>): List<String> = titles.map { cz.axiom.vega.base.Hidden.oneLine(it, 200).substringAfter(": ").substringBefore(" – ").replace(Regex("[\\[\\]`*|<>_#]"), " ").replace(Regex(" {2,}"), " ").trim().take(80) }.filter { it.isNotBlank() }.distinctBy { Text.fold(it).lowercase() }.take(5)
 
     const val SYSTEM = """Jsi VEGA, český rešeršní parťák. Tykej. Pracuj jen s podklady [n] (zdroj, datum). Každé tvrzení označ [n].
 Když identifikace tématu není jistá, napiš možnosti a co je odlišuje. U neobvyklé hypotézy dej nejlepší důkaz PRO a nejlepší důkaz PROTI a závěr úměrný podkladům.
