@@ -2347,14 +2347,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     fun onCardRead(payload: ByteArray?, error: String?, chat: String?) = submit {
         if (error != null) { reply(chat, error); return@submit }
         val card = payload?.let { cz.axiom.vega.core.CardApdu.decode(it) } ?: run { reply(chat, "Karta se nepřečetla (prázdná nebo neznámý formát)."); return@submit }
-        // karta je z CIZÍHO telefonu: zalomení řádku by podvrhlo další řádek („- Veřejný identifikátor: …“), skryté
-        // směrové znaky by text vizuálně přeházely → jeden řádek bez řídicích znaků; do historie jako cizí data, ne řeč VEGA
-        fun one(s: String) = cz.axiom.vega.base.Hidden.oneLine(s)
-        reply(chat, buildString {
-            append("**Virtuální karta VEGA přečtena**\n- Název: ${one(card.name)}\n- Veřejný identifikátor: ${one(card.publicId)}\n")
-            card.fields.forEach { (k, v) -> append("- ${one(k)}: ${one(v)}\n") }
-            append("\n_(data pocházejí z aktivního profilu druhého telefonu, ne z UID)_")
-        }, untrusted = "card")
+        // karta je z CIZÍHO telefonu: pole na jeden řádek (HwReplies.card), do historie jako cizí data, ne řeč VEGA
+        reply(chat, HwReplies.card(card), untrusted = "card")
     }
 
     // ------------------------------------------------------------------ Hardware: WiFi diagnostika připojení
@@ -2362,29 +2356,15 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (error != null) { reply(chat, error); return@submit }
         val o = JSONObject(json)
         val t = java.text.SimpleDateFormat("d. M. yyyy HH:mm:ss", java.util.Locale.forLanguageTag("cs")).format(java.util.Date())
-        fun v(k: String, unit: String = "") = o.opt(k)?.takeIf { it != JSONObject.NULL && it.toString().isNotBlank() }?.let { "$it$unit" } ?: "—"
-        reply(chat, buildString {
-            append("**Aktuální WiFi připojení** · změřeno $t\n")
-            append("- Síť (SSID): ${v("ssid")}\n- Zabezpečení: ${v("security")}\n- Signál: ${v("rssi", " dBm")} (${v("quality")})\n")
-            append("- Frekvence: ${v("freq", " MHz")} (${v("band")})\n- Linková rychlost: ${v("link", " Mb/s")}\n- IP: ${v("ip")}\n")
-            if (o.optBoolean("stale")) append("\n⚠ Údaje jsou z posledního skenu, ne živé.")
-            append("\n_(měřeno lokálně; funguje i bez internetu)_")
-        }, JSONObject().put("type", "wifiMeasure").put("data", o.put("at", t)))
+        reply(chat, HwReplies.wifiLink(o, t), JSONObject().put("type", "wifiMeasure").put("data", o.put("at", t)))
     }
 
     /** BLE sken vlastních periferií: název, adresa, RSSI. Jen hledání – připojení a GATT je samostatný krok. */
     fun onBle(json: String, error: String?, chat: String?) = submit {
         if (error != null) { reply(chat, error); return@submit }
         val arr = JSONArray(json)
-        if (arr.length() == 0) { reply(chat, "Žádné BLE zařízení v dosahu. Zapni hledání na periferii (párovací režim) a zkus to znovu."); return@submit }
-        reply(chat, buildString {
-            append("**Bluetooth zařízení v okolí: ${arr.length()}**\n\n| Název | Adresa | Signál |\n|---|---|---|\n")
-            (0 until arr.length()).map { arr.getJSONObject(it) }.take(25).forEach { o ->
-                val r = o.optInt("rssi"); val q = when { r >= -60 -> "blízko"; r >= -75 -> "střed"; else -> "daleko" }
-                append("| ${cz.axiom.vega.base.Hidden.cell(o.optString("name"))} | `${cz.axiom.vega.base.Hidden.cell(o.optString("addr"), 24)}` | $q ($r dBm) |\n")
-            }
-            append("\n_(jen hledání a síla signálu; připojení a čtení GATT služeb je další krok)_")
-        }, untrusted = "ble")
+        if (arr.length() == 0) { reply(chat, HwReplies.BLE_NONE); return@submit }
+        reply(chat, HwReplies.ble(arr), untrusted = "ble")
     }
 
     /** Uložení měření do podkladů pro výzkum (původ, čas, jednotka, podmínky). Citlivá pole (SSID) se do exportu nedávají. */
@@ -2417,18 +2397,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         val nets = (0 until arr.length()).map { arr.getJSONObject(it) }.map {
             cz.axiom.vega.core.WifiScan.Net(it.optString("ssid"), it.optString("bssid"), it.optInt("rssi"), it.optInt("freq"), it.optString("caps"))
         }
-        if (nets.isEmpty()) { reply(chat, "Nenašel jsem žádné WiFi sítě. Zapni WiFi a polohu (sken WiFi ji na Androidu vyžaduje) a zkus to znovu."); return@submit }
-        val rep = cz.axiom.vega.core.WifiScan.analyze(nets, mySsid, myBssid)
-        val text = buildString {
-            append("**WiFi v okolí: ${rep.nets.size} ${cz.axiom.vega.base.Text.pluralWord(rep.nets.size, "síť", "sítě", "sítí")}**\n\n")
-            rep.advice.forEach { append("- $it\n") }
-            append("\n| Síť | Pásmo | Kanál | Signál | Zabezpečení |\n|---|---|---|---|---|\n")
-            rep.nets.take(20).forEach { n ->
-                val sig = when { n.rssi >= -55 -> "výborný"; n.rssi >= -67 -> "dobrý"; n.rssi >= -75 -> "slabší"; else -> "slabý" }
-                append("| ${cz.axiom.vega.base.Hidden.cell(n.ssid).let { s -> if (n.mine) "**$s** 📍" else s }} | ${n.band} | ${n.channel} | $sig (${n.rssi} dBm) | ${n.security}${if (n.weak != null) " ⚠" else ""} |\n")
-            }
-        }
-        reply(chat, text, untrusted = "wifi")
+        if (nets.isEmpty()) { reply(chat, HwReplies.WIFI_NONE); return@submit }
+        reply(chat, HwReplies.wifi(cz.axiom.vega.core.WifiScan.analyze(nets, mySsid, myBssid)), untrusted = "wifi")
     }
 
     fun onNfc(bytes: ByteArray?, error: String?, chat: String?) = submit {
