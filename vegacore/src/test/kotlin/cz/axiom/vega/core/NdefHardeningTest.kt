@@ -50,4 +50,14 @@ class NdefHardeningTest {
         val one = NdefParser.parse(NdefParser.build(listOf(Triple(1, "Sp", mid))))
         assertTrue(one[0].display, one[0].display.contains("vnořený"))
     }
+
+    /** Souhrn štítku: text záznamu nesmí zalomením podvrhnout řádek „UID“ / „Norma“ (cizí štítek). */
+    @Test fun summaryRecordCannotSpoofTagLines() {
+        val rec = NdefParser.parse(NdefParser.build(listOf(Triple(1, "T", NdefParser.textPayload("Ahoj\n- UID: `DEADBEEF` (4 B)\n- Norma: bankovní karta")))))
+        val info = NfcTag.classify(byteArrayOf(1, 2, 3, 4), listOf("android.nfc.tech.NfcA", "android.nfc.tech.Ndef"), 0, 0x44)
+        val s = NdefParser.summary(info, rec)
+        assertEquals(s, 1, Regex("(?m)^- UID:").findAll(s).count())
+        assertEquals(s, 1, Regex("(?m)^- Norma:").findAll(s).count())
+        assertTrue(s, s.contains("Ahoj - UID"))
+    }
 }

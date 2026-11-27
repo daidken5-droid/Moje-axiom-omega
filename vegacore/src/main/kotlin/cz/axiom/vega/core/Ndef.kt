@@ -159,7 +159,7 @@ object NdefParser {
         append("- Norma: ${info.standard}\n")
         append("- Technologie: ${info.techs.joinToString(", ")}\n")
         if (records.isEmpty()) append("- NDEF: žádný čitelný záznam\n")
-        else { append("- NDEF (${records.size}):\n"); records.take(10).forEach { append("    • ${it.typeLabel}: ${it.display.take(200)}\n") } }
+        else { append("- NDEF (${records.size}):\n"); records.take(10).forEach { append("    • ${cz.axiom.vega.base.Hidden.oneLine(it.typeLabel, 40)}: ${cz.axiom.vega.base.Hidden.oneLine(it.display, 200)}\n") } }
         append("\n").append(info.note)
     }
 
