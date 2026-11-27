@@ -18,4 +18,7 @@ object Hidden {
 
     /** Jeden řádek bez skrytých znaků (nejde podvrhnout další řádek ani přeházet text), nejvýš [max] znaků. */
     fun oneLine(s: String, max: Int = 300) = RUN.replace(s, " ").replace(SPACES, " ").trim().take(max)
+
+    /** Buňka tabulky v markdownu z cizího názvu (Bluetooth zařízení, WiFi síť): jeden řádek, „|“ nerozdělí sloupce. */
+    fun cell(s: String, max: Int = 64) = oneLine(s, max).replace("|", "¦").replace("`", "'")
 }
