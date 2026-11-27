@@ -10,7 +10,8 @@ data class NdefRecord(val tnf: Int, val type: String, val id: String, val payloa
     /** Hodnota pro předání dalšímu nástroji: URL → Url, text → Text, jinak bajty. */
     fun asValue(): Value = when (typeLabel) {
         // jen http(s) je adresa; „javascript:“, „intent:“, „file:“… ze štítku je jen TEXT (cizí štítek nesmí spustit kód)
-        "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display)) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
+        // skryté znaky (U+202E obrací směr textu…) by na displeji ukázaly jinou adresu, než kam vede → jen text s varováním
+        "URL" -> if (Regex("^https?://[^\\s]+$", RegexOption.IGNORE_CASE).matches(display) && !NdefParser.hasHidden(display) && !display.contains("⟦U+")) Value.Url(display) else Value.Text(display, "NFC (adresa jiného typu)")
         "Text", "MIME text", "Kontakt" -> Value.Text(display, "NFC")
         "WiFi" -> Value.Text(display, "NFC (WiFi štítek – bez hesla)")  // surová data nesou heslo – dál jen popis
         else -> Value.Bytes("ndef-$type.bin", payload)
@@ -42,7 +43,15 @@ object NdefParser {
 
     private val TNF = listOf("Prázdný", "Well-known", "MIME", "Absolutní URI", "Externí", "Neznámý", "Nezměněno", "Rezervováno")
 
-    fun parse(bytes: ByteArray): List<NdefRecord> {
+    /** Neviditelné a směrové znaky, řídicí znaky, měkký spojovník: v adrese z cizího štítku slouží jen k podvržení. */
+    private val HIDDEN = Regex("[\\u0000-\\u001F\\u007F-\\u009F\\u00AD\\u061C\\u115F\\u1160\\u180E\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F\\u3164\\uFEFF\\uFFF9-\\uFFFB]")
+    fun hasHidden(s: String) = HIDDEN.containsMatchIn(s)
+    /** Skryté znaky viditelně („⟦U+202E⟧“) + varování – laik uvidí, že adresa není, jak vypadá. */
+    private fun revealUri(u: String) = if (!hasHidden(u)) u else HIDDEN.replace(u) { "⟦U+%04X⟧".format(it.value[0].code) } + " (adresa obsahuje skryté znaky – neotvírej ji)"
+
+    fun parse(bytes: ByteArray): List<NdefRecord> = parse0(bytes, 0)
+
+    private fun parse0(bytes: ByteArray, depth: Int): List<NdefRecord> {
         if (bytes.isEmpty()) throw NdefException("Prázdná NDEF zpráva")
         val out = ArrayList<NdefRecord>()
         var i = 0
@@ -62,13 +71,13 @@ object NdefParser {
             need(typeLen); val type = String(bytes, i, typeLen, Charsets.US_ASCII); i += typeLen
             need(idLen); val id = String(bytes, i, idLen, Charsets.US_ASCII); i += idLen
             need(payloadLen); val payload = bytes.copyOfRange(i, i + payloadLen); i += payloadLen
-            out += record(tnf, type, id, payload)
+            out += record(tnf, type, id, payload, depth)
             if (me) break
         }
         return out
     }
 
-    private fun record(tnf: Int, type: String, id: String, p: ByteArray): NdefRecord = when {
+    private fun record(tnf: Int, type: String, id: String, p: ByteArray, depth: Int): NdefRecord = when {
         tnf == 1 && type == "T" -> {
             if (p.isEmpty()) throw NdefException("Prázdný textový záznam")
             val status = p[0].toInt() and 0xFF
@@ -82,15 +91,17 @@ object NdefParser {
         tnf == 1 && type == "U" -> {
             if (p.isEmpty()) throw NdefException("Prázdný URI záznam")
             val code = p[0].toInt() and 0xFF
-            val uri = URI_PREFIX.getOrElse(code) { "" } + String(p, 1, p.size - 1, Charsets.UTF_8)
+            val uri = revealUri(URI_PREFIX.getOrElse(code) { "" } + String(p, 1, p.size - 1, Charsets.UTF_8))
             NdefRecord(tnf, type, id, p, uri, "URL")
         }
+        // Smart Poster uvnitř Smart Posteru norma nepovoluje – nerozbalovat (dřív rekurze až do přetečení zásobníku)
+        tnf == 1 && type == "Sp" && depth > 0 -> NdefRecord(tnf, type, id, p, "(vnořený Smart Poster, ${p.size} B – nerozbaluji)", "Smart Poster")
         tnf == 1 && type == "Sp" -> {
             // Smart Poster: vnořená zpráva (URI + titulek)
-            val inner = runCatching { parse(p) }.getOrDefault(emptyList())
+            val inner = runCatching { parse0(p, depth + 1) }.getOrDefault(emptyList())
             val uri = inner.firstOrNull { it.typeLabel == "URL" }?.display ?: ""
             val title = inner.firstOrNull { it.typeLabel == "Text" }?.display
-            NdefRecord(tnf, type, id, p, if (title != null) "$uri ($title)" else uri, if (uri.isNotEmpty() && title == null) "URL" else "Smart Poster")
+            NdefRecord(tnf, type, id, p, if (title != null) "$uri ($title)" else uri.ifEmpty { inner.firstOrNull()?.display ?: "(prázdný Smart Poster)" }, if (uri.isNotEmpty() && title == null) "URL" else "Smart Poster")
         }
         // WiFi štítek „klepni a připoj se“ (Wi-Fi Simple Config): název sítě a zabezpečení; HESLO se nezobrazí ani neuloží
         tnf == 2 && type.equals("application/vnd.wfa.wsc", true) -> wsc(p)?.let { (ssid, auth) ->
