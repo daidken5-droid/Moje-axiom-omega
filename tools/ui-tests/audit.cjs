@@ -55,9 +55,26 @@ const CHAT_STMT = [
   { role: 'user', text: 'jaká byla největší platba?' },
   { role: 'vega', text: 'Největší platby:\n• −12 500,00 Kč – Platba kartou VELMIDLOUHYNAZEVOBCHODNIKABEZMEZERKTERYSENEVEJDE*PRAHA (5. 11.)\n• −3 400,00 Kč – ALZA.CZ (18. 11.)\n_Z tabulky výpisu, bez modelu._' },
 ];
+// noc 27./28. 11.: karty, které přibyly od 25. 11. (rozbor důkazů s pasážemi a auditem, výzva, čekání na štítek, měření WiFi, tabulky BLE/WiFi)
+const CHAT_EV = [
+  { role: 'user', text: 'Je doložené, kdy zavřeli most a proč?', files: ['rozhodnuti-odboru-dopravy-c-j-45-2026-o-uzavreni-mostu.txt'] },
+  { role: 'vega', text: 'Datum je doložené dvěma liniemi. **Hlavní rozpor:** motiv zůstává otevřený.', card: { type: 'evidence',
+    parts: [{ label: 'datum uzavření', status: 'potvrzeno – 2 nezávislé linie', lines: 2, support: ['rozhodnuti.txt', 'zpravy.txt'],
+      passages: [{ doc: 'rozhodnuti-odboru-dopravy-c-j-45-2026-o-uzavreni-mostu.txt', text: 'Most přes Labe se uzavírá 3. 11. 2026 od 6:00 pro veškerou dopravu včetně pěších a cyklistů z důvodu havarijního stavu nosné konstrukce.' },
+        { doc: 'zpravy.html', text: 'Most v Ústí uzavřeli 3. 11. 2026, informovala ČTK.', url: LONG_URL, published: '2026-11-03', fetched: '2026-11-27' }] },
+      { label: 'motiv / důvod', status: 'nedoloženo – zůstává otevřené', lines: 0, support: [], passages: [] }],
+    audit: { direct: ['Datum 3. 11. 2026 uvádí rozhodnutí i zpráva.'], inferred: ['Zpráva přebírá ČTK – nezávislost neurčena.'], open: ['Motiv / důvod: nedoloženo – zůstává otevřené.'], missing: 'posudek statika', criteria: 'Kritéria: původ a nezávislost zdroje, ověřitelnost, datace.' } } },
+  { role: 'vega', text: 'Výzva FV-2026-001: celkem 30 638,94 Kč.', card: { type: 'demand', verified: true, rate: 12, rateSource: 'ČNB', total: 30638.94,
+    lines: [{ label: 'Jistina po částečné úhradě dokladem s velmi dlouhým názvem', amount: 28813.72, origin: 'faktura FV-2026-001' }, { label: 'Úrok z prodlení', amount: 625.22, origin: 'repo + 8 p. b.' }],
+    legal: ['§ 1970 občanského zákoníku'], warnings: [], files: ['Predzalobni-vyzva-FV-2026-001.docx', 'Predzalobni-vyzva-FV-2026-001.pdf'], checks: [{ what: 'jistina', ok: true }, { what: 'úrok', ok: false }], docxOk: true } },
+  { role: 'vega', text: 'Přilož vlastní zapisovatelný štítek k zadní straně telefonu – zapíšu adresu: „' + LONG_URL + '“.', card: { type: 'nfcWait' } },
+  { role: 'vega', text: '**Aktuální WiFi připojení** · změřeno 27. 11. 2026 23:30:00\n- Síť (SSID): Domácí síť s hodně dlouhým názvem 5 GHz ¦ patro', card: { type: 'wifiMeasure', data: { ssid: 'Domácí síť', rssi: -58, freq: 5180, band: '5 GHz', link: 433, at: '27. 11. 2026 23:30:00' } } },
+  { role: 'vega', text: '**Bluetooth zařízení v okolí: 2**\n\n| Název | Adresa | Signál |\n|---|---|---|\n| Sluchátka s velmi dlouhým názvem od výrobce ¦ model 2026 | `AA:BB:CC:DD:EE:01` | blízko (-50 dBm) |\n| (bez názvu) | `AA:BB:CC:DD:EE:02` | daleko (-90 dBm) |' },
+];
 const SCREENS = [
   ['výpis-návrhy', ['__chat', CHAT_STMT]],
   ['konverzace-karty', ['__chat']],
+  ['karty-důkazy-hardware', ['__chat', CHAT_EV], () => document.querySelectorAll('details').forEach(d => d.open = true)],
   ['úvod', null],
   ['menu', ['library']],
   ['přidat', ['plus']],
@@ -126,6 +143,16 @@ const SCREENS = [
         if (b.right > W + 1 && !scroller(el)) out.push(`přetéká (${Math.round(b.right)} > ${W}px): <${el.tagName.toLowerCase()} class="${el.className}"> „${(el.textContent || '').trim().slice(0, 40)}“`);
       }
       if (document.documentElement.scrollWidth > W + 1) out.push(`stránka je širší než displej: ${document.documentElement.scrollWidth}px`);
+      // noc 27./28. 11.: text OŘÍZNUTÝ uvnitř karty (rodič s overflow:hidden) – stránka nepřeteče, ale laik zbytek věty neuvidí
+      // (pasáž v rozboru důkazů se kvůli white-space:nowrap nezalomila). Záměrné zkrácení „…“ (text-overflow:ellipsis), tabulky a kód se nepočítají.
+      const clipper = el => { for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowX; if (o === 'hidden' || o === 'clip') return p; if (o === 'auto' || o === 'scroll') return null; } return null; };
+      const ellipsis = el => { for (let p = el; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).textOverflow === 'ellipsis') return true; return false; };
+      for (const el of document.querySelectorAll('#stream *, #layer .sheet *')) {
+        if (!vis(el) || el.closest('.tbl,pre,code,.diff,svg') || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 3)) continue;
+        const c = clipper(el); if (!c || ellipsis(el)) continue;
+        const b = el.getBoundingClientRect(), cb = c.getBoundingClientRect();
+        if (b.right > cb.right + 2) out.push(`text oříznutý (${Math.round(b.right)} > ${Math.round(cb.right)}px): <${el.tagName.toLowerCase()} class="${el.className}"> „${(el.textContent || '').trim().slice(0, 40)}“`);
+      }
       // návrhy pod polem: každý celý na displeji (laik posouvání do strany neobjeví – třetí návrh by zůstal schovaný)
       for (const el of document.querySelectorAll('#chips .chip')) { if (!vis(el)) continue; const b = el.getBoundingClientRect();
         if (b.right > W + 1 || b.left < -1) out.push(`návrh mimo displej (${Math.round(b.left)}–${Math.round(b.right)} px): „${el.textContent.trim().slice(0, 30)}“`); }
@@ -136,6 +163,14 @@ const SCREENS = [
             .slice(0, 3).map(c => `<${c.tagName.toLowerCase()} class="${c.className}"> „${(c.textContent || '').trim().slice(0, 30)}“`);
           out.push(`${el.id || 'panel'} jde posouvat do strany (${el.scrollWidth} > ${el.clientWidth}px): ${wide.join(', ')}`);
         }
+      }
+      // noc 27./28. 11.: znak / text tlačítka nesmí vylézt z tlačítka (při velkém písmu „+“ vypadl pod pole zprávy)
+      for (const el of document.querySelectorAll('button')) {
+        if (!vis(el)) continue;
+        const b = el.getBoundingClientRect();
+        for (const n of el.childNodes) { if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+          const rg = document.createRange(); rg.selectNodeContents(n); const t = rg.getBoundingClientRect();
+          if (t.height && (t.bottom > b.bottom + 3 || t.top < b.top - 3)) out.push(`znak vylézá z tlačítka (${Math.round(t.top)}–${Math.round(t.bottom)} mimo ${Math.round(b.top)}–${Math.round(b.bottom)}px): <button data-act="${el.dataset.act}"> „${n.textContent.trim().slice(0, 20)}“`); }
       }
       for (const el of document.querySelectorAll('button')) {
         if (!vis(el)) continue;

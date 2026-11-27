@@ -266,7 +266,8 @@ ol.steps code, .sheet code { font-family: ui-monospace, "Roboto Mono", monospace
 .dmore { background: none; border: 0; color: var(--ink2); min-width: 44px; font-size: 18px; cursor: pointer; border-radius: 10px; }
 /* Hardware sekce */
 .hwfield { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-bottom: 6px; align-items: center; }
-.chk { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--ink2); white-space: nowrap; }
+/* jen zaškrtávátka v panelech (Hardware, WiFi QR) – dřív platilo všude a nowrap ořízl pasáže a tvrzení v kartách chatu */
+.sheet .chk { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--ink2); white-space: nowrap; }
 table.hwtab { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
 table.hwtab th, table.hwtab td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
 table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } /* na 360 px se dřív celý panel posouval do strany */
@@ -299,3 +300,12 @@ table.hwtab { table-layout: fixed; } table.hwtab th:first-child { width: 58%; } 
 .ev-pass summary{cursor:pointer;color:var(--accent,#4f8cff);font-size:.85em;min-height:32px;display:flex;align-items:center}
 .ev-pass blockquote{margin:4px 0;padding:6px 10px;border-left:3px solid var(--accent,#4f8cff);background:rgba(127,127,127,.08);border-radius:6px;font-size:.9em;overflow-wrap:anywhere}
 .ev-pass cite{display:block;font-style:normal;opacity:.7;font-size:.85em;margin-top:2px}
+/* noc 27./28. 11.: řádky karet (rozbor důkazů, kontrola citací) a nadpis karty se štítkem při velkém písmu – text se zúží a zalomí, štítek zůstane celý */
+.res .chk > span:not(.pill) { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+.res .chk > .pill { flex: none; }
+.res-h { flex-wrap: wrap; }
+/* noc 27./28. 11.: velké systémové písmo – kulatá tlačítka („+“, „✕“) a avatar rostou se znakem místo aby znak vylezl ven
+   (při 200 % „+“ vypadl pod pole zprávy); v běžném písmu zůstávají 44 / 34 px */
+.round { width: max(44px, calc(1.2em + 6px)); height: max(44px, calc(1.2em + 6px)); line-height: 1; }
+.iconbtn { width: max(40px, calc(1.2em + 6px)); height: max(40px, calc(1.2em + 6px)); line-height: 1; }
+.avatar { width: max(34px, calc(1.2em + 6px)); height: max(34px, calc(1.2em + 6px)); line-height: 1; }
