@@ -27,6 +27,8 @@ object Router {
         data class Code(val task: String, val kind: CodeKind) : Intent()
         data class NewProject(val spec: String) : Intent()
         object Nfc : Intent()
+        /** „Zapiš na štítek …“ – zápis na VLASTNÍ zapisovatelný štítek (kind = url / text). */
+        data class NfcWrite(val kind: String, val content: String) : Intent()
         object Demand : Intent()
         data class Research(val topic: String, val variants: List<String>) : Intent()
         /** „tohle je divné“ u právě zobrazeného výsledku → navázat na konkrétní řádek / změnu. */
@@ -104,7 +106,7 @@ object Router {
         // 27. 11.: „Je bezpečné otevřít adresu z NFC štítku?“ spouštělo čtečku; „Dá se / Šlo by / Jde …?“ = ptá se, nežádá
         "je (?:bezpecne|mozne|normalni|treba|nutne|potreba|v poradku)|da se|slo by|jde (?:to|nejak)|lze|umis|pamatujes|zvladnes|podporujes)(?!\\p{L})")
     private fun isAction(i: Intent) = i is Intent.Remember || i is Intent.Forget || i is Intent.Undo || i is Intent.MakeButton || i is Intent.BuildStatementTool ||
-        i is Intent.FixColumn || i is Intent.Continue || i is Intent.Tool || i is Intent.RunProcedure || i is Intent.Nfc || i is Intent.Demand ||
+        i is Intent.FixColumn || i is Intent.Continue || i is Intent.Tool || i is Intent.RunProcedure || i is Intent.Nfc || i is Intent.NfcWrite || i is Intent.Demand ||
         (i is Intent.Code && i.kind != CodeKind.EXPLAIN)
 
     /**
@@ -167,6 +169,11 @@ object Router {
         // „projdi mi výpis z banky“, „tady je výpis, co s tím“ u výpisu – zpracovat (shrnutí jiného dokumentu zůstává modelu)
         if (c.hasAttachment && statementFile && has(t, "vypis") && has(t, "projdi|prohledni|zkontroluj|co s tim|podivej|rozeber|analyz|prehled")) return Intent.BuildStatementTool
         // --- NFC
+        // zápis větou (noc 27./28. 11.): „Zapiš na štítek ahoj“, „napiš na NFC tag: https://…“ – obsah z PŮVODNÍHO textu (diakritika, velikost)
+        Regex("^(?:prosim\\s+)?(?:zapis|napis|nahraj|uloz)\\s+(?:na|do)\\s+(?:muj\\s+|ten\\s+)?(?:nfc\\s+)?(?:stitek|tag|cip)\\s*[:,]?\\s+(\\S.*)$").find(t)?.let { m ->
+            val content = text.substring(text.length - m.groupValues[1].length).trim().trim('„', '“', '"')
+            if (content.isNotBlank() && content.length <= 500) return Intent.NfcWrite(if (Regex("^https?://\\S+$", RegexOption.IGNORE_CASE).matches(content)) "url" else "text", content)
+        }
         if (has(t, "\\bnfc\\b|\\bndef\\b|\\b(precti|nacti|naskenuj|oskenuj)\\w* (nfc |ten |muj |tento )?(stitek|tag)\\b")) return Intent.Nfc
         // --- předžalobní výzva
         // formulář jen na výslovnou žádost o výzvu; „dluží mi kamarád, co dělat?“ je otázka pro rozhovor

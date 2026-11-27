@@ -1018,6 +1018,8 @@ window.vega = {
           (d.ok && $('#freeKey') ? '<button class="btn primary wide" data-act="freeDone" style="margin-top:10px">Hotovo – můžeme si povídat</button>' : (!d.ok ? ` <button class="btn ghost" data-act="checkKey" data-k="${esc(d.provider)}">Ověřit znovu</button>` : ''));
         else toast(d.message, 6000); S.home = null; break; }
       case 'nfc.start': B.nfc(chatId()); break;
+      // „Zapiš na štítek …“ v chatu = stejný zápis jako formulář Hardware (kapacita, zpětné čtení dělá nativní vrstva)
+      case 'nfc.write': if (d.content && (d.kind === 'url' || d.kind === 'text')) { S.nfc = true; render(); call('nfcWrite', chatId() || 'temp', d.kind, String(d.content)); } break;
       case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
       case 'nfc.writeDone': { S.nfc = false; render();
         if (d.error) toast(d.error, 8000);

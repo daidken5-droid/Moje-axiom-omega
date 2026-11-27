@@ -951,6 +951,11 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
             is Router.Intent.RunProcedure -> execProcedure(chatId, intent.procedure, lastAttachment() ?: Value.Text(text))
             is Router.Intent.Code -> code(chatId, intent, ws)
             is Router.Intent.NewProject -> newProject(chatId, intent.spec)
+            is Router.Intent.NfcWrite -> {
+                // stejný zápis jako formulář Hardware: kapacita před zápisem, zpětné čtení po zápisu (MainActivity.writeTag)
+                emit("nfc.write", JSONObject().put("kind", intent.kind).put("content", intent.content))
+                reply(chatId, "Přilož vlastní zapisovatelný štítek k zadní straně telefonu – zapíšu ${if (intent.kind == "url") "adresu" else "text"}: „${cz.axiom.vega.base.Hidden.oneLine(intent.content, 200)}“ (${intent.content.length} znaků). Před zápisem zkontroluji kapacitu, po zápisu ho přečtu zpět.", JSONObject().put("type", "nfcWait"))
+            }
             Router.Intent.Nfc -> { emit("nfc.start", JSONObject()); reply(chatId, "Přilož NFC štítek k zadní straně telefonu…", JSONObject().put("type", "nfcWait")) }
             Router.Intent.Demand -> reply(chatId, "Předžalobní výzva: vyplň fakturu a úhrady (šedé texty ve formuláři jsou jen ukázka). Spočítám jistinu, úrok z prodlení k rozhodnému datu a vyrobím DOCX + PDF.", JSONObject().put("type", "demandForm").put("sample", demandJson(Demand.sample())))
             is Router.Intent.Research -> research(chatId, intent.topic, intent.variants)

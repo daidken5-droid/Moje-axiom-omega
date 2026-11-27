@@ -11,7 +11,7 @@ class RouterParaphraseMetricTest {
     private val ctx = Router.Ctx(false, null, false, true, null)
     private fun kind(q: String) = Router.route(q, ctx).let { it::class.simpleName + (if (it is Router.Intent.Tool) ":" + it.id else "") }
     /** Záměry, které něco dělají (mění stav, spouští nástroj, mažou) – na informační otázku nesmí. */
-    private val ACTIONS = setOf("Remember", "Forget", "Undo", "MakeButton", "BuildStatementTool", "FixColumn", "Continue", "Tool", "RunProcedure", "Code", "Demand", "Nfc")
+    private val ACTIONS = setOf("Remember", "Forget", "Undo", "MakeButton", "BuildStatementTool", "FixColumn", "Continue", "Tool", "RunProcedure", "Code", "Demand", "Nfc", "NfcWrite")
 
     private val informational = listOf(
         "Jak se zapíná rozšíření?", "Jak se dělá tlačítko?", "Jak funguje zapomínání?", "Co znamená zapamatuj si?", "Jak se vrací změna?",
@@ -26,7 +26,7 @@ class RouterParaphraseMetricTest {
         "A jak se to vrací?", "Kde nastavím, co si pamatuješ?",
         // rozšíření 27. 11. (hardware, dnešní změny, tvary „Dá se / Je bezpečné…?“)
         "Je bezpečné otevřít adresu z NFC štítku?", "Jak se čte virtuální karta?", "Jak se generuje heslo na WiFi?", "Jak zapíšu text na NFC štítek?",
-        "Proč se mi nepřečetla karta?", "Co přesně dělá pokračuj?", "Jak udělat z výsledku tlačítko?", "Dá se vrátit samoúprava aplikace?",
+        "Proč se mi nepřečetla karta?", "Co přesně dělá pokračuj?", "Jak se zapisuje na NFC štítek?", "Dá se zapsat na štítek adresa?", "Jak udělat z výsledku tlačítko?", "Dá se vrátit samoúprava aplikace?",
         "Dá se nějak zapnout rozšíření?", "Šlo by nějak udělat tlačítko?", "Jde zapomenout jen jednu věc?", "Je možné přečíst NFC kartu z banky?")
 
     private val commands = mapOf(
@@ -35,7 +35,9 @@ class RouterParaphraseMetricTest {
         "Ukaž paměť" to "WhatDoYouRemember", "Částka je ve sloupci C" to "FixColumn",
         "zapamatuj si, že bydlím v Brně" to "Remember", "prosím zapomeň na psa" to "Forget", "vrať zpět" to "Undo", "co si pamatuješ?" to "WhatDoYouRemember",
         // 27. 11.: zdvořilý příkaz ve tvaru otázky zůstává příkazem
-        "Můžeš si zapamatovat, že bydlím v Brně?" to "Remember", "Zapomeň všechno o mé práci" to "Forget", "Vrať poslední změnu" to "Undo", "Přečti NFC štítek" to "Nfc")
+        "Můžeš si zapamatovat, že bydlím v Brně?" to "Remember", "Zapomeň všechno o mé práci" to "Forget", "Vrať poslední změnu" to "Undo", "Přečti NFC štítek" to "Nfc",
+        // noc 27./28. 11.: zápis na štítek větou (dřív jen formulář v sekci Hardware – věta skončila jako rozhovor)
+        "Zapiš na štítek ahoj" to "NfcWrite", "zapiš na NFC štítek: https://example.cz" to "NfcWrite", "Napiš na tag Klíče od garáže" to "NfcWrite")
 
     @Test fun informationalQuestionsNeverTriggerActions() {
         val misfires = informational.mapNotNull { q -> kind(q).takeIf { k -> k.substringBefore(':') in ACTIONS }?.let { "„$q“ → $it" } }
