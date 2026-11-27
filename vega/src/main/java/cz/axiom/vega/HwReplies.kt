@@ -15,7 +15,8 @@ object HwReplies {
 
     /** Aktuální WiFi připojení; [at] = čas měření (už naformátovaný). */
     fun wifiLink(o: JSONObject, at: String): String {
-        fun v(k: String, unit: String = "") = o.opt(k)?.takeIf { it != JSONObject.NULL && it.toString().isNotBlank() }?.let { "$it$unit" } ?: "—"
+        // SSID i ostatní pole jsou text zvenku (název sítě si nastaví kdokoli) – jeden řádek, bez skrytých znaků
+        fun v(k: String, unit: String = "") = o.opt(k)?.takeIf { it != JSONObject.NULL && it.toString().isNotBlank() }?.let { Hidden.oneLine(it.toString(), 64) + unit } ?: "—"
         return buildString {
             append("**Aktuální WiFi připojení** · změřeno $at\n")
             append("- Síť (SSID): ${v("ssid")}\n- Zabezpečení: ${v("security")}\n- Signál: ${v("rssi", " dBm")} (${v("quality")})\n")
