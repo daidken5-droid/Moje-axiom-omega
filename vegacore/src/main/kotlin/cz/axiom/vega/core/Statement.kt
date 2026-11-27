@@ -184,8 +184,12 @@ object Statement {
         }
     }
 
+    private val SEP_DIRECTIVE = Regex("(?i)^\\s*sep=.\\s*$")
+
     fun process(text0: String, spec0: ParserSpec): Result {
-        val text = eol(text0)
+        // „sep=;“ na prvním řádku = pokyn Excelu, ne data ani hlavička (dřív skutečná hlavička skončila jako „nepřečtený řádek“)
+        val sepLine = SEP_DIRECTIVE.containsMatchIn(eol(text0).removePrefix("\uFEFF").substringBefore('\n'))
+        val text = if (sepLine) eol(text0).removePrefix("\uFEFF").substringAfter('\n') else eol(text0)
         val lines = text.removePrefix("\uFEFF").lines()
         val spec = remap(spec0, headersOf(text, spec0))
         val d = spec.delimiter.first()
@@ -194,9 +198,9 @@ object Statement {
         val first = lines.firstOrNull { it.isNotBlank() }?.let { Csv.parse(it, d).firstOrNull() } ?: emptyList()
         val firstIsData = first.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(first[spec.dateCol]) != null && CzNum.parse(first[spec.amountCol], spec.decimalComma) != null
         val p0 = Csv.read(lines.joinToString("\n"), d, header = !firstIsData)
-        var offset = 0
+        var offset = if (sepLine) 1 else 0
         val headerIdx = lines.indexOfFirst { l -> val c = Csv.parse(l, d).firstOrNull() ?: emptyList(); c.size > maxOf(spec.dateCol, spec.amountCol) && CzNum.date(c[spec.dateCol]) == null && CzNum.parse(c[spec.amountCol], spec.decimalComma) == null }
-        val p = if (headerIdx > 0) { offset = headerIdx; Csv.read(lines.drop(headerIdx).joinToString("\n"), d) } else p0
+        val p = if (headerIdx > 0) { offset += headerIdx; Csv.read(lines.drop(headerIdx).joinToString("\n"), d) } else p0
         val out = ArrayList<List<String>>()
         val failed = ArrayList<Pair<Int, String>>()
         var inc = 0.0; var exp = 0.0; var voided = 0; var fees = 0.0
