@@ -26,6 +26,11 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          # výchozí: cache se zapisuje jen na hlavní větvi → VEGA (vývoj na vlastní větvi) stahovala při každém běhu
+          # stovky souborů z Maven Central a 27. 11. dvakrát narazila na limit 429. Zápis povolen i tady;
+          # cache obsahuje jen knihovny Gradle (podpisový klíč je ve zvláštní cache níže, gradle.properties se neukládá).
+          cache-read-only: false
       - name: Release keystore (volitelné, z GitHub Secrets)
         env:
           KEYSTORE_B64: ${{ secrets.OMEGA_KEYSTORE_B64 }}
