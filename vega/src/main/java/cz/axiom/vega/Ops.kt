@@ -1280,10 +1280,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "airgap")); return }
         if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "web")); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
-        val snips = LinkedHashMap<String, Snippet>()
-        for (v in variants.take(4)) { cancel.check(); runCatching { Web.gather(v, 4).snippets }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }; if (snips.size >= 6) break }
-        val src = snips.values.take(8).toList()
-        if (src.isEmpty()) { reply(chat, "K „$topic“ jsem nenašel nic veřejného (zkoušel jsem: ${variants.joinToString(", ")}). Zkus jiný pravopis nebo souvislost (rok, země, obor)."); return }
+        val src = Research.collect(variants, { cancel.check() }) { v -> webGather(v, 4) }
+        if (src.isEmpty()) { reply(chat, Research.notFound(topic, variants)); return }
         val cands = Research.candidates(src.map { it.title })
         val card = JSONObject().put("type", "sources").put("items", EvidenceCards.sourceItems(src)).put("candidates", JSONArray(cands))
         val ctx = Research.sourcesBlock(src, 2500)
@@ -1291,7 +1289,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // ASTRAEA: rešerše = VERIFIED → strážce sítě, ověření citací, max. 1 revize, bezpečné vykreslení, audit
         val g = governed(chat, topic, src, messages, strictRender = true)
         if (g == null) {
-            reply(chat, "Bez modelu: našel jsem ${src.size} zdrojů" + (if (cands.size > 1) " a téma může znamenat víc věcí: ${cands.joinToString(" · ")}" else "") + ". Otevři zdroj a přečti původní text.", card)
+            reply(chat, Research.noModel(src.size, cands), card)
             return
         }
         reply(chat, g.first, g.second.let { (k, v) -> card.put("checks", k).put("audit", v) })
@@ -1867,6 +1865,8 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
     @Volatile var fileTextHook: ((Value.Bytes) -> String)? = null
     /** Pauza před opakovaným stažením, když napoprvé nešel žádný zdroj (síť po probuzení z Doze); v testu krátká. */
     @Volatile var newsRetryDelayMs = 20_000L
+    /** Hledání na webu pro rešerši (testy dosadí uložené podklady – stejný vstup bez změn živého webu). */
+    @Volatile var webGather: (String, Int) -> List<Snippet> = { q, n -> Web.gather(q, n).snippets }
     @Volatile var newsFetch: (String) -> ByteArray = { url -> cz.axiom.vega.net.Http.get(url, maxBytes = 2_000_000, readMs = 10_000).body }
 
     private fun newsKey(day: java.time.LocalDate) = "news/$day.json"

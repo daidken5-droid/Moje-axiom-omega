@@ -249,6 +249,28 @@ object Research {
         return out.toList().take(6)
     }
 
+    /**
+     * Sběr podkladů z variant dotazu (vyjmuto z Ops.research, doporučení T1 krok 2): nejvýš 4 dotazy, sloučení podle adresy
+     * (bez adresy podle titulku, první výskyt vyhrává), po 6 různých zdrojích se dál nehledá, výsledek nejvýš 8.
+     * Selhání jedné varianty (síť) neukončí ostatní; [checkpoint] před každým dotazem (zrušení běhu projde ven).
+     */
+    fun collect(variants: List<String>, checkpoint: () -> Unit = {}, fetch: (String) -> List<cz.axiom.vega.web.Snippet>): List<cz.axiom.vega.web.Snippet> {
+        val snips = LinkedHashMap<String, cz.axiom.vega.web.Snippet>()
+        for (v in variants.take(4)) {
+            checkpoint()
+            runCatching { fetch(v) }.getOrDefault(emptyList()).forEach { s -> snips.putIfAbsent(s.source.ifBlank { s.title }, s) }
+            if (snips.size >= 6) break
+        }
+        return snips.values.take(8).toList()
+    }
+
+    fun notFound(topic: String, variants: List<String>) =
+        "K „$topic“ jsem nenašel nic veřejného (zkoušel jsem: ${variants.joinToString(", ")}). Zkus jiný pravopis nebo souvislost (rok, země, obor)."
+
+    /** Odpověď bez modelu: kolik zdrojů a případné víc významů – laik pak otevře zdroj sám. */
+    fun noModel(sources: Int, candidates: List<String>) =
+        "Bez modelu: našel jsem $sources zdrojů" + (if (candidates.size > 1) " a téma může znamenat víc věcí: ${candidates.joinToString(" · ")}" else "") + ". Otevři zdroj a přečti původní text."
+
     /** Různé identity v nalezených titulcích → ukázat možnosti místo tichého výběru jedné. */
     fun candidates(titles: List<String>): List<String> = titles.map { it.substringAfter(": ").substringBefore(" – ").trim() }.filter { it.isNotBlank() }.distinctBy { Text.fold(it).lowercase() }.take(5)
 
