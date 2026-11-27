@@ -164,6 +164,23 @@ const SCREENS = [
           out.push(`${el.id || 'panel'} jde posouvat do strany (${el.scrollWidth} > ${el.clientWidth}px): ${wide.join(', ')}`);
         }
       }
+      // noc 27./28. 11.: kontrast textu (WCAG AA 4,5:1, velký text ≥ 24 px nebo tučný ≥ 18,7 px 3:1) – barva písma i s průhledností proti skutečnému pozadí
+      const rgba = c => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const v = m[1].split(',').map(x => parseFloat(x)); return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1]; };
+      const lum = ([r, g, b]) => { const f = x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+      const mix = (fg, bg) => [0, 1, 2].map(i => fg[i] * fg[3] + bg[i] * (1 - fg[3]));
+      const bgOf = el => { const layers = []; for (let p = el; p; p = p.parentElement) { const c = rgba(getComputedStyle(p).backgroundColor); if (c && c[3] > 0) { layers.push(c); if (c[3] >= 1) break; } }
+        let base = [11, 13, 18]; for (let i = layers.length - 1; i >= 0; i--) base = mix(layers[i], base); return base; };
+      const opac = el => { let o = 1; for (let p = el; p; p = p.parentElement) o *= parseFloat(getComputedStyle(p).opacity); return o; };
+      const seen = new Set();
+      for (const el of document.querySelectorAll('#stream *, #layer .sheet *, #layer .drawer *, header *, #bar *, .bar *')) {
+        if (!vis(el) || el.closest('svg,[disabled],[aria-disabled=true]') || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 1)) continue;
+        const cs = getComputedStyle(el); const fg = rgba(cs.color); if (!fg) continue;
+        const bg = bgOf(el); const f = mix([fg[0], fg[1], fg[2], fg[3] * opac(el)], bg);
+        const L1 = lum(f), L2 = lum(bg); const ratio = (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05);
+        const size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight) >= 700; const need = size >= 24 || (bold && size >= 18.66) ? 3 : 4.5;
+        const key = cs.color + '|' + bg.map(Math.round).join(',') + '|' + need;
+        if (ratio < need - 0.05 && !seen.has(key)) { seen.add(key); out.push(`slabý kontrast ${ratio.toFixed(2)}:1 (< ${need}): <${el.tagName.toLowerCase()} class="${el.className}"> „${(el.textContent || '').trim().slice(0, 30)}“`); }
+      }
       // noc 27./28. 11.: znak / text tlačítka nesmí vylézt z tlačítka (při velkém písmu „+“ vypadl pod pole zprávy)
       for (const el of document.querySelectorAll('button')) {
         if (!vis(el)) continue;
