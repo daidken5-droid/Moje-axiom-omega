@@ -38,6 +38,7 @@ object Quick {
         if (Regex("^(kolik je hodin|kolik je cas|jaky je cas)$").matches(t)) return "Je %02d:%02d.".format(now.hour, now.minute)
         if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."
+        nameDay(t, now.toLocalDate())?.let { return it }
         days(t, now.toLocalDate())?.let { return it }
         untilDay(t, now.toLocalDate())?.let { return it }
         loan(t)?.let { return it }
@@ -338,6 +339,25 @@ object Quick {
     }
 
     /** Procenta: „o kolik % je 120 víc než 100“, „změna z 100 na 120 v %“, „kolik procent je 30 ze 120“. */
+    /** Jmeniny z ověřené tabulky (NameDays): „kdo má dnes/zítra/včera svátek“, „kdy má (slaví) svátek Petr“. */
+    private fun nameDay(t: String, today: LocalDate): String? {
+        val note = " _(${NameDays.SOURCE})_"
+        Regex("^(?:a )?kdo (?:ma|slavi) (dnes|dneska|zitra|vcera|pozitri) (?:svatek|jmeniny)$|^(?:a )?kdo (?:ma|slavi) (?:svatek|jmeniny) (dnes|dneska|zitra|vcera|pozitri)$|^(?:jake jmeno|kdo) (?:ma )?(?:dnes|dneska) (?:svatek|jmeniny)$").find(t)?.let { m ->
+            val w = m.groupValues[1].ifEmpty { m.groupValues[2] }.ifEmpty { "dnes" }
+            val (label, d) = when (w) { "zitra" -> "Zítra" to today.plusDays(1); "vcera" -> "Včera" to today.minusDays(1); "pozitri" -> "Pozítří" to today.plusDays(2); else -> "Dnes" to today }
+            val v = NameDays.on(d.monthValue, d.dayOfMonth) ?: return null
+            val has = if (w == "vcera") "měl/a" else "má"
+            return if (v.contains("svátek)") || v == "Tři králové") "$label (${d.dayOfMonth}. ${d.monthValue}.) je $v – jmeniny v kalendáři nejsou.$note"
+                   else "$label (${d.dayOfMonth}. ${d.monthValue}.) $has svátek $v.$note" }
+        Regex("^(?:a )?kdy (?:ma|slavi|miva) (?:svatek|jmeniny) ([a-z]+)$|^(?:a )?kdy (?:ma|slavi) ([a-z]+) (?:svatek|jmeniny)$").find(t)?.let { m ->
+            val q = m.groupValues[1].ifEmpty { m.groupValues[2] }
+            val days = NameDays.daysOf(q)
+            if (days.isEmpty()) return "Jméno „${q.replaceFirstChar { it.uppercase() }}“ jsem v kalendáři jmen nenašel (zkus základní tvar, třeba „Petr“, ne „Péťa“).$note"
+            val name = NameDays.spelled(q) ?: q
+            return "$name má svátek ${days.joinToString(" a ") { "${it.second}. ${it.first}." }}.$note" }
+        return null
+    }
+
     private fun percent(t: String): String? {
         if (!Regex("%|procent").containsMatchIn(t)) return null
         Regex("^(?:zmena |o kolik (?:%|procent)[a-z ]{0,20} )?z $N na $N(?: (?:je|to|v|o kolik|kolik)[a-z %]*)?$").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
