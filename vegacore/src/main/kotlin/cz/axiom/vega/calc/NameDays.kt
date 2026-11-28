@@ -130,7 +130,7 @@ object NameDays {
 04-28|Vlastislav
 04-29|Robert
 04-30|Blahoslav
-05-01|Svátek práce (státní svátek)
+05-01|Svátek práce (ostatní svátek, den volna)
 05-02|Zikmund
 05-03|Alexej, Alexie, Timea
 05-04|Květoslav a Florián
@@ -368,7 +368,7 @@ object NameDays {
 12-22|Šimon
 12-23|Vlasta
 12-24|Adam a Eva
-12-25|1. svátek vánoční (státní svátek)
+12-25|1. svátek vánoční (ostatní svátek, den volna)
 12-26|Štěpán a Štefan
 12-27|Žaneta
 12-28|Bohumila
