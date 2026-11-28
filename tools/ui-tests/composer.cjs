@@ -119,3 +119,15 @@ assert.match(field('#layer').innerHTML,/data-dm="creditor"[^>]*value="Jan Novák
 assert.match(field('#layer').innerHTML,/data-dm="amount"[^>]*value="1200"/,'částka z rozpracovaného formuláře');
 assert.ok(run("DEMAND_REQ.includes('invoice') && DEMAND_REQ.includes('creditor') && DEMAND_REQ.includes('debtor') && !DEMAND_REQ.includes('creditorAddr')"),'povinná pole formuláře = povinná pole výpočtu');
 run("window.vega.on('message',{chat:'temp',msg:{role:'vega',text:'x',card:{type:'demand'}}})");assert.equal(run('S.dmDraft'),null,'po úspěchu se rozpracovaný formulář zahodí');
+// noc 28. 11.: zápis na štítek – po chybě (malá kapacita, jen pro čtení, oddálený telefon) se formulář vrátí s textem; po úspěchu se zahodí
+run("S.ndefDraft=null; ndefWriteSheet()");assert.doesNotMatch(field('#layer').innerHTML,/id="ndefContent"[^>]*value=/,'bez rozpracovaného zápisu prázdné pole');
+// panel je po odeslání zavřený (skutečný prohlížeč vrátí null) – mock jinak vrací objekt pro každý selektor
+run("var __q=document.querySelector; document.querySelector=s=>s==='#layer .sheet'?null:__q(s)");
+run("S.ndefDraft={kind:'url',content:'https://example.cz/klice'}; S.nfc=true; window.vega.on('nfc.writeDone',{error:'Štítek je jen pro čtení.'})");
+assert.match(field('#layer').innerHTML,/id="ndefContent"[^>]*value="https:\/\/example\.cz\/klice"/,'obsah zpět po chybě');
+assert.match(field('#layer').innerHTML,/<option value="url" selected>/,'typ zpět po chybě');
+run("window.vega.on('nfc.writeDone',{size:30,verified:true})");assert.equal(run('S.ndefDraft'),null,'po úspěšném zápisu pryč');
+// výzva (N11): chyba výpočtu → formulář zpět předvyplněný
+field('#layer').innerHTML='';run("S.dmDraft={creditor:'Jana Malá',invoice:'FV-9'}; window.vega.on('error',{text:'Vyplň pole „dlužník“'})");
+assert.match(field('#layer').innerHTML,/data-dm="creditor"[^>]*value="Jana Malá"/,'výzva zpět po chybě');
+run("document.querySelector=__q");

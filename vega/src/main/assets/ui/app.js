@@ -406,10 +406,12 @@ function wifiToolsSheet() {
 }
 
 function ndefWriteSheet() {
+  // po neúspěšném zápisu se formulář vrátí s tím, co bylo napsané (S.ndefDraft) – dřív se text ztratil
+  const dr = S.ndefDraft || {};
   sheet(`<h2>Zapsat na NFC štítek</h2>
     <p class="lede">Zapíše text nebo odkaz na TVŮJ vlastní zapisovatelný štítek. Před zápisem ověřím kapacitu, po zápisu přečtu zpět.</p>
-    <label class="lbl">Typ</label><select class="field" id="ndefKind"><option value="text">Text</option><option value="url">Odkaz (URL)</option></select>
-    <label class="lbl">Obsah</label><input class="field" id="ndefContent" placeholder="text nebo https://…" autocomplete="off">
+    <label class="lbl">Typ</label><select class="field" id="ndefKind"><option value="text">Text</option><option value="url"${dr.kind === 'url' ? ' selected' : ''}>Odkaz (URL)</option></select>
+    <label class="lbl">Obsah</label><input class="field" id="ndefContent" ${dr.content ? `value="${esc(String(dr.content))}" ` : ''}placeholder="text nebo https://…" autocomplete="off">
     <button class="btn primary wide" data-act="ndefWriteGo" style="margin-top:10px">Přiložit štítek a zapsat</button>`, true);
 }
 function wifiPwCheckNow() {
@@ -1030,8 +1032,10 @@ window.vega = {
       case 'nfc.write': if (d.content && (d.kind === 'url' || d.kind === 'text')) { S.nfc = true; render(); call('nfcWrite', chatId() || 'temp', d.kind, String(d.content)); } break;
       case 'nfc.listening': { S.nfc = true; render(); const ph = $('#phase'); if (ph) ph.textContent = 'Přilož štítek…'; break; }
       case 'nfc.writeDone': { S.nfc = false; render();
-        if (d.error) toast(d.error, 8000);
-        else toast(`Zapsáno (${d.size} B)${d.verified ? ' a ověřeno zpětným čtením ✓' : ' – zpětné čtení se nepovedlo, zkontroluj štítek'}.`, 8000); break; }
+        // chyba: zpět formulář s napsaným textem (S.ndefDraft); úspěch: rozpracovaný zápis pryč
+        if (d.error) { toast(d.error, 8000); if (S.ndefDraft && !$('#layer .sheet')) ndefWriteSheet(); }
+        else { S.ndefDraft = null; toast(`Zapsáno (${d.size} B)${d.verified ? ' a ověřeno zpětným čtením ✓' : ' – zpětné čtení se nepovedlo, zkontroluj štítek'}.`, 8000); }
+        break; }
       case 'root': { const st = $('#rootStatus'); const cls = d.ok ? 'ok' : 'bad';
         if (st) st.innerHTML = `<span class="pill ${cls}">${d.ok ? 'Root ověřen' : 'nepovedlo se'}</span> ${esc(d.message || '')}`;
         else toast(d.message || '', 7000); if (d.ok && $('#layer .sheet')) hardwareSheet(); break; }
@@ -1146,7 +1150,7 @@ function act(a, d) {
     case 'ndefWriteGo': {
       const kind = ($('#ndefKind') || {}).value || 'text'; const content = (($('#ndefContent') || {}).value || '').trim();
       if (!content) { toast('Napiš, co se má na štítek zapsat.'); break; }
-      closeSheet(true); S.nfc = true; render(); call('nfcWrite', chatId() || 'temp', kind, content); toast('Přilož vlastní zapisovatelný štítek k telefonu…', 7000); break;
+      S.ndefDraft = { kind, content }; closeSheet(true); S.nfc = true; render(); call('nfcWrite', chatId() || 'temp', kind, content); toast('Přilož vlastní zapisovatelný štítek k telefonu…', 7000); break;
     }
     case 'wifiLink': if (busyGuard()) return; closeSheet(true); S.busy = true; S.busyChat = chatId(); B.wifiLink(chatId() || 'temp'); render(); break;
     case 'wifiTools': wifiToolsSheet(); break;
