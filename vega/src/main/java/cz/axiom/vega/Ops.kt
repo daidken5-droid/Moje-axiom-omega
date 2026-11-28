@@ -1229,9 +1229,17 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         // bez modelu (air-gap / žádný klíč): deterministické jádro AVIORu (čas, výpočty, převody), jinak srozumitelně proč ne
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             // „Shrň mi tohle: …“ bez modelu: výtah klíčových vět doslovně (dřív jen „potřebuji model v cloudu“)
-            if (att == null) cz.axiom.vega.core.TextDigest.request(text)?.let { body -> cz.axiom.vega.core.TextDigest.summarize(body)?.let { pick ->
-                reply(chat, "**Výtah bez modelu** – vybrané věty z tvého textu (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
-                    "\n\n_Shrnutí vlastními slovy umí model – " + (if (settings.airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"); return } }
+            // i „Shrň mi tohle“ + text na dalším řádku, „shrň to“ po vloženém článku a samotný vložený článek (jak píše uživatel ChatGPT)
+            if (att == null) {
+                val TD = cz.axiom.vega.core.TextDigest
+                val prevUser = if (TD.followUp(text) && chat != null) messages(chat).let { a -> (a.length() - 1 downTo 0).map { a.getJSONObject(it) }.filter { it.optString("role") == "user" }.drop(1).firstOrNull() }
+                    ?.let { m -> m.optString("full").ifBlank { m.optString("text") } } else null
+                val pasted = TD.isPastedText(text)
+                val body = TD.request(text) ?: prevUser?.takeIf { it.length >= 150 } ?: text.takeIf { pasted }
+                body?.let { TD.summarize(it) }?.let { pick ->
+                    reply(chat, (if (pasted) "Vložil/a jsi text. " else "") + "**Výtah bez modelu** – vybrané věty z tvého textu (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
+                        "\n\n_Shrnutí vlastními slovy, odpověď na otázku k textu nebo překlad umí model – " + (if (settings.airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"); return }
+            }
             val calc = offline(text); val off = calc ?: cz.axiom.vega.calc.SmallTalk.answer(text, settings.airgap)
             // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
             val setup = if (calc != null) null else if (settings.airgap) JSONObject().put("type", "netOff").put("what", "airgap") else if (!settings.ownOnly) JSONObject().put("type", "setup") else null

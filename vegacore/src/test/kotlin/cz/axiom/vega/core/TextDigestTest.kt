@@ -27,4 +27,10 @@ class TextDigestTest {
         assertNull(TextDigest.request("Shrň mi tohle: krátké"), "krátký text nemá smysl zkracovat")
         assertNull(TextDigest.request("Co je inflace?"))
     }
+
+    @Test fun longOrderIsNotPastedText() {
+        assertTrue(TextDigest.isPastedText(text + " Další věta o rozpočtu je tady pro délku textu a ještě jedna věta o schodku."))
+        assertTrue(!TextDigest.isPastedText("Napiš e-mail šéfovi, že zítra nepřijdu. Jsem nemocný a mám horečku. Práci dodělám v pondělí ráno. Prezentaci pošlu kolegovi Petrovi. Omluv mě prosím zdvořile a stručně, ať to nezní jako výmluva."))
+        assertTrue(TextDigest.followUp("shrň to") && TextDigest.followUp("Zkrať mi to.") && !TextDigest.followUp("shrň výpis z banky za říjen"))
+    }
 }
