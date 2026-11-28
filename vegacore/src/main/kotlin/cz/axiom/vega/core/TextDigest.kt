@@ -32,8 +32,15 @@ object TextDigest {
     /** Vložený delší text bez pokynu (žádná otázka, ≥ 300 znaků, ≥ 4 věty) – bez modelu nabídnout výtah. */
     // dlouhý POKYN („Napiš e-mail šéfovi, že…“ + popis) není vložený článek – výtah z vlastního zadání by byl nesmysl
     private val ORDER = Regex("^(?:prosim\\s+)?(?:napis|vytvor|preloz|oprav|pomoz|udelej|vysvetli|navrhni|potrebuju|potrebuji|chci|chtel|chtela|muzes|mohl|mohla|poradte|porad|zjisti|najdi|spocitej|vymysli|sestav|priprav|zkontroluj)(?!\\p{L})")
-    fun isPastedText(raw: String) = raw.length >= 300 && !raw.trim().endsWith("?") && request(raw) == null && sentences(raw).size >= 4 &&
-        !ORDER.containsMatchIn(Text.fold(raw.trim()).lowercase())
+    // R6 (28. 11.): dlouhý popis problému s otázkou na konci („…Mám ji opravit? Díky.“, „Poraďte, co mám dělat.“) je dotaz, ne článek
+    private val ASK = Regex("(?<!\\p{L})(?:poradte|porad|poradis|pomozte|pomuzes|co mam (?:delat|udelat)|co bys|co byste|jak mam|mam (?:to|ji|ho|je)? ?\\p{L}+, nebo)(?!\\p{L})")
+    fun isPastedText(raw: String): Boolean {
+        if (raw.length < 300 || raw.trim().endsWith("?") || request(raw) != null) return false
+        val ss = sentences(raw); if (ss.size < 4) return false
+        val tail = ss.takeLast(3)
+        if (tail.any { it.endsWith("?") } || ASK.containsMatchIn(Text.fold(tail.joinToString(" ")).lowercase())) return false
+        return !ORDER.containsMatchIn(Text.fold(raw.trim()).lowercase())
+    }
 
     fun sentences(text: String): List<String> = text.replace(Regex("\\s+"), " ").trim().split(SPLIT).map { it.trim() }.filter { it.length >= 3 }
 
