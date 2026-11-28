@@ -364,3 +364,32 @@ na 429 z Maven Central (ne kód) – příčina odstraněna (cache Gradle se zap
 Poslední APK dne: `VEGA-0f569cf.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 933 158 B,
 SHA-256 `68bce5798a7bab5783461ac31762e4a57709dec15e5623d9d20df285f342586e` (CI #276).
 Telefon: NEOVĚŘENO – nové scénáře v PHONE-CHECKLIST 15b, 16b–16d.
+
+## Noc 27./28. 11. 2026 – noční kola 20:17 → 03:47 (na dotaz uživatele „Co večerní testy“)
+
+### Uzávěrka noci (03:47)
+Testy na konci noci: Kotlin 469/0 (večer 453), UI composer/audit/robust/xss 4/4 (audit nově 32 obrazovek × písmo 100 / 130 / 200 %).
+CI: poslední běh #290 zelený; žádný pád za noc.
+
+| Kolo | Oblast | Skutečný nález → změna | Test (bez změny padá) |
+|---|---|---|---|
+| N1 | T1 refaktoring 8 | texty odpovědí Hardware → `HwReplies.kt` (strážný snímek 8 odpovědí na původním kódu) | OpsHwSnapshotTest |
+| N2 | Hardware | SSID / IP v odpovědi o připojení mohly zalomením podvrhnout řádek → jeden řádek | HwRepliesTest |
+| N3 | T2 + Hardware | „Zapiš na štítek …“ v chatu nic nedělalo → zápis na vlastní štítek (kapacita, zpětné čtení) | RouterParaphraseMetricTest, OpsNfcWriteTest |
+| N4 | T1 refaktoring 9 | export pro Excel → `core/ExcelCsv` | OpsCsvGuardTest (strážný), ExcelCsvTest |
+| N5 | T1 refaktoring 10 | formulář výzvy → `DemandForm`; poprvé test celé cesty výzvy (seam `pdfBuilder` – Robolectric nemá PdfDocument) | OpsDemandGuardTest |
+| N6 | Výzva | chybějící pole / částka „abc“ = „Něco se pokazilo uvnitř VEGA“ → věta s názvem pole | OpsDemandGuardTest.missingOrBadFieldsAreNamed |
+| N7 | Výpisy | „-(1 234,50)“ se nepřečetlo (řádek mizel ze součtů) → výdaj | CzNumDoubleSignTest |
+| N8 | Výpisy, CSV | řádek „sep=;“ z Excelu udělal z hlavičky „nepřečtený řádek“ | CsvSepDirectiveTest |
+| N9 | UI, přístupnost | pasáže a tvrzení v kartách oříznuté (globální `.chk` nowrap); při 200 % písmu „+“, „✕“, avatar mimo tlačítka; audit nově hlídá oříznutý text a znak mimo tlačítko | audit.cjs |
+| N10 | Přístupnost | audit hlídá kontrast WCAG AA – 0 nálezů (ověřeno, že kontrola chybu najde) | audit.cjs |
+| N11 | UI, výzva | formulář se zavřel před výpočtem (chyba = ztráta vyplněného) → po chybě zpět předvyplněný; **regrese z N6** (adresy a „za co“ povinné) opravena | OpsDemandGuardTest.emptyAddresses…, composer.cjs |
+| N12 | UI, štítek | stejný vzor u zápisu na štítek → po chybě zpět s textem | composer.cjs |
+| N13 | Bezpečnost / odolnost | řídicí znak ve jménu (z PDF / e-mailu) udělal z DOCX poškozený soubor → znaky zakázané v XML pryč | DocxXmlValidTest |
+| N14 | Bezpečnost + kontrola noci | WebView bez nálezu; vlastní chyba z N3: „Zapiš do štítku …“ šlo jako rešerše na web → i 2. pád | RouterParaphraseMetricTest |
+| N15 | Výpisy | „sep=;“ už nevyvolá varování o přeskočených řádcích | CsvSepDirectiveTest.noSkipped… |
+
+Doporučení: T1 – kroky 3–5 (HwReplies, ExcelCsv, DemandForm; Ops.kt 2507 → 2466 řádků); T2 – sada rozšířena (zápis na štítek, 2. pád); S3/T3 – čeká na telefon.
+Poslední APK noci: `VEGA-ab6d591.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 934 146 B,
+SHA-256 `9c5b349d783ecf588f49802adc977c6cb86cbdf6bf8899e8eca7b5427a6830ca` (CI #290).
+Telefon: NEOVĚŘENO – nové scénáře PHONE-CHECKLIST 16e (zápis větou); velké písmo a formuláře po chybě je dobré vyzkoušet při běžném používání.
