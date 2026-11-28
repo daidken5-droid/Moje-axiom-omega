@@ -26,6 +26,31 @@ object SmallTalk {
             m("co umis", "co umis delat", "co dokazes", "co vsechno umis", "pomoc", "help", "napoveda", "jak to funguje", "jak te pouzivat", "nevim co delat", "nevim co napsat", "s cim mi pomuzes") ->
                 "$mode. I tak umím: $CAN. Rozhovor, psaní textů a překlady potřebují model – ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
             m("kdo jsi", "co jsi", "kdo jsi ty", "jak se jmenujes") -> "Jsem VEGA – asistent v telefonu. Počítám přesně bez modelu, pracuju s tvými soubory a s modelem v cloudu i píšu a odpovídám na otázky."
+            // sobota 28. 11.: otázky uživatele zvyklého na ChatGPT na VEGA samotnou (dřív „potřebuji model v cloudu“, dvě i rešerše na web)
+            m("(jsi|si|seš|ses) (lepsi|horsi|chytrejsi|hloupejsi) nez (chatgpt|gpt|claude|gemini|copilot)\\w*", "(cim|v cem) se lisis od (chatgpt|gpt|claude|gemini|copilot)\\w*",
+                "(jsi|si) (jako |to )?(chatgpt|gpt|claude|gemini)\\w*", "jaky je rozdil mezi tebou a (chatgpt|gpt|claude|gemini)\\w*") ->
+                "Nejsem náhrada ChatGPT – jsem asistent přímo v telefonu. Přesné výpočty, výpisy z banky, tvoje soubory, paměť a ranní přehled zpráv dělám sám, i bez internetu. Volné psaní, překlady a rozhovor dělá jazykový model, který si vybereš (v cloudu nebo vlastní server). $mode."
+            m("kdo te (vytvoril|udelal|naprogramoval|stvoril|vyrobil)", "kdo je tvuj (autor|tvurce|vyrobce)", "odkud jsi") ->
+                "Jsem VEGA, aplikace v tvém telefonu. Výpočty a práci se soubory dělám vlastním kódem bez modelu; texty a odpovědi na volné otázky píše jazykový model, který si vybereš v Nastavení."
+            m("jsi (umela inteligence|ai|robot|clovek|chatbot|zivy|ziva|skutecny clovek)", "jsi realny clovek") ->
+                "Nejsem člověk. Část věcí dělám přesnými výpočty přímo v telefonu (bez modelu), na volný text používám jazykový model."
+            m("(fungujes|funguje to|jde to|umis pracovat|pracujes|umis neco) bez (internetu|site|signalu|pripojeni)", "potrebujes internet", "potrebujes (pripojeni|sit)") ->
+                "Ano, bez internetu umím: $CAN. Volné psaní, překlady a rozhovor potřebují model – v cloudu přes internet, nebo vlastní server v domácí síti."
+            m("(posilas|odesilas|sdilis|prodavas|nahravas) (moje |me )?(data|udaje|zpravy|soubory|fotky)( nekam| nekomu| na internet)?", "kam (posilas|odchazi|jdou) (moje )?(data|zpravy)",
+                "vidi nekdo moje (zpravy|data|soubory)", "kdo vidi moje (zpravy|data|soubory)") ->
+                "V režimu Bez sítě neodchází nic. S modelem v cloudu mu odejde jen tvoje otázka a přílohy, které k ní přidáš; placený model použiju až po tvém schválení ceny. Hesla a čísla karet z dřívějších zpráv do další otázky neposílám (nahradím je „[skryto]“). Chaty, paměť a soubory zůstávají v telefonu."
+            m("kolik (to )?(stoji|stojis|stojite)", "(je to|jsi) zdarma", "platim (za )?(to|tebe)", "musim (za to |za tebe )?platit", "je to placene") ->
+                "Výpočty, výpisy, soubory, paměť, ranní přehled i Hardware jsou zdarma a běží v telefonu. Model v cloudu může být zdarma (např. bezplatná verze Gemini); placený použiju jen po tvém schválení ceny."
+            m("jaky (model|mozek|jazykovy model|ai) (pouzivas|mas|jsi|bezi)", "na jakem modelu (bezis|jedes)", "jaky model") ->
+                if (airgap) "Teď žádný – je zapnutý režim Bez sítě, odpovídám jen místními nástroji v telefonu. Model vybereš po vypnutí Bez sítě (nahoře „VEGA ▾“)." else "Teď nemám připojený žádný model – zapneš ho zdarma v Nastavení."
+            m("pamatujes si (nase |me |moje )?(minule|predchozi|starsi|stare)? ?(konverzace|rozhovory|chaty|zpravy)", "pamatujes si me", "co si o mne pamatujes", "pamatujes si veci") ->
+                "Pamatuju si, co mi výslovně řekneš („pamatuj si, že …“) – přehled a mazání v menu ☰ › Paměť. Chaty zůstávají v telefonu, dokud je nesmažeš."
+            m("umis (cesky|anglicky|slovensky|nemecky)", "mluvis (cesky|anglicky|slovensky)", "rozumis (cesky|slovensky)") ->
+                "Ano – čeština je můj hlavní jazyk, rozumím i slovensky. Odpovědi v jiných jazycích a překlady píše model."
+            m("proc (mi )?(neodpovidas|neumis odpovedet|neodpovis) (na )?(vsechno|vse|tohle|to)", "proc mi neodpovidas", "proc to neumis") ->
+                "$mode – bez modelu odpovídám jen na to, co umím spočítat nebo najít přesně (abych nic nevymýšlel). Na volné otázky potřebuji model: ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
+            m("jak te (mam )?pouzivat", "jak s tebou (mam )?(pracovat|mluvit|komunikovat)", "jak zacit", "co ti mam napsat") ->
+                "Napiš, co potřebuješ, jako bys psal/a člověku – třeba „kolik je 15 % z 2400“, „kolik dní do Vánoc“, nebo přilož výpis z banky či PDF a napiš „shrň“. $mode."
             m("jak se mas", "jak se mas dnes", "jak se dnes mas", "jak je", "jak se vede", "jak to jde", "jak se mate") -> "Díky, běžím. S čím pomůžu?"
             m("co je noveho", "co je noveho ve svete", "zpravy", "novinky", "dnesni zpravy", "zpravy ze sveta", "co se deje", "co se deje ve svete",
                 "novinky dnes", "dnesni novinky", "zpravy dnes", "ranni prehled", "ranni prehled zprav", "prehled zprav", "co pisou noviny", "co pisou media",
