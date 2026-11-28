@@ -1230,8 +1230,13 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
         if (settings.airgap || (engines.pick() == null && engines.pendingPaid().isEmpty())) {
             // „Shrň mi tohle: …“ bez modelu: výtah klíčových vět doslovně (dřív jen „potřebuji model v cloudu“)
             // i „Shrň mi tohle“ + text na dalším řádku, „shrň to“ po vloženém článku a samotný vložený článek (jak píše uživatel ChatGPT)
-            if (att == null) {
+            run {
                 val TD = cz.axiom.vega.core.TextDigest
+                // příloha + „shrň“ / „o čem to je?“: text souboru přečte telefon sám (TXT, DOCX, PDF i OCR) – výtah z něj
+                if (att != null) { if (TD.followUp(text)) runCatching { attText(att) }.getOrNull()?.let { TD.summarize(it) }?.let { pick ->
+                    reply(chat, "**Výtah bez modelu** z „${cz.axiom.vega.base.Hidden.oneLine(att.name, 80)}“ – vybrané věty (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
+                        "\n\n_Shrnutí vlastními slovy nebo odpověď na otázku k souboru umí model – " + (if (settings.airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"); return }
+                    return@run }
                 val prevUser = if (TD.followUp(text) && chat != null) messages(chat).let { a -> (a.length() - 1 downTo 0).map { a.getJSONObject(it) }.filter { it.optString("role") == "user" }.drop(1).firstOrNull() }
                     ?.let { m -> m.optString("full").ifBlank { m.optString("text") } } else null
                 val pasted = TD.isPastedText(text)

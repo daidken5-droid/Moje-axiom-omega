@@ -32,4 +32,15 @@ class OpsOfflineDigestTest {
         val r4 = h.say(h.o.newChat(), "zkrať to")
         assertTrue("bez předchozího textu poctivě: ${r4.text}", !r4.text.contains("Výtah bez modelu"))
     }
+
+    /** Uživatel ChatGPT přiloží soubor a napíše jen „shrň“ / „o čem to je?“ – bez modelu výtah z přílohy (TXT i DOCX). */
+    @Test fun attachmentSummaryOffline() {
+        val h = OpsHarness(airgap = true)
+        val c1 = h.o.newChat(); val id1 = h.o.attach("clanek.txt", "text/plain", art.toByteArray()).getString("id")
+        val r1 = h.say(c1, "shrň", listOf(id1))
+        assertTrue(r1.text, r1.text.contains("Výtah bez modelu") && r1.text.contains("clanek.txt"))
+        val c2 = h.o.newChat(); val id2 = h.o.attach("clanek.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", cz.axiom.vega.core.Docx.build(art, "Článek")).getString("id")
+        val r2 = h.say(c2, "o čem to je?", listOf(id2))
+        assertTrue(r2.text, r2.text.contains("Výtah bez modelu") && r2.text.contains("Schodek rozpočtu má být 230 miliard korun."))
+    }
 }

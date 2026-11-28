@@ -25,7 +25,7 @@ object TextDigest {
     }
 
     /** „shrň“, „shrň to“, „zkrať to“, „udělej výtah“ BEZ textu – vztahuje se k předchozí zprávě (vloženému textu). */
-    private val FOLLOW = Regex("^(?:prosim\\s+)?(?:shrn\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)|vytah)(?:\\s+(?:mi\\s+)?(?:to|tohle|ten text|ten clanek|text|clanek|predchozi|to nahore))?(?:\\s+prosim)?$")
+    private val FOLLOW = Regex("^(?:prosim\\s+)?(?:shrn\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)|vytah|o cem (?:to |ten text |ten soubor |ten dokument )?je|co (?:v tom|tam) (?:stoji|pise))(?:\\s+(?:mi\\s+)?(?:to|tohle|ten text|ten clanek|text|clanek|predchozi|to nahore))?(?:\\s+prosim)?$")
     fun followUp(raw: String) = FOLLOW.matches(Text.fold(raw).lowercase().trim().trimEnd('.', '!', '?', ' '))
 
     /** Vložený delší text bez pokynu (žádná otázka, ≥ 300 znaků, ≥ 4 věty) – bez modelu nabídnout výtah. */
