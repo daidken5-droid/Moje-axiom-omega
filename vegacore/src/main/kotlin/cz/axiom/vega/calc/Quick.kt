@@ -301,10 +301,11 @@ object Quick {
     /** DPH: „1000 bez DPH“, „1 210 s DPH“, „DPH z 1000“, sazba 21 % (nebo 12 % / 0 %, když je v dotazu). */
     private fun vat(t: String): String? {
         if (!t.contains("dph")) return null
-        val rate = Regex("(?<![\\d,.])(\\d{1,2})\\s*%").find(t)?.groupValues?.get(1)?.toDouble()?.takeIf { it <= 30 } ?: 21.0
+        val pct = Regex("(?<![\\d,.])(\\d{1,3}(?:[.,]\\d{1,2})?)\\s*%").find(t)?.groupValues?.get(1)
+        val rate = pct?.let { num(it)?.takeIf { r -> r <= 30 } ?: return null } ?: 21.0 // „99 % DPH“ nepřepisovat tiše na 21 %
         val cz = if (rate in listOf(21.0, 12.0, 0.0)) "" else " (V Česku platí sazby 21 % a 12 %.)"
         // „21 % DPH z 1000“ → „dph z 1000“ (sazba už je přečtená)
-        val tx = t.replace(Regex("(?<![\\d,.])\\d{1,2}\\s*%\\s*dph"), "dph").replace(Regex("(?<![\\d,.])\\d{1,2}\\s*%"), " ").replace(Regex("\\s+"), " ")
+        val tx = t.replace(Regex("(?<![\\d,.])\\d{1,3}(?:[.,]\\d{1,2})?\\s*%\\s*dph"), "dph").replace(Regex("(?<![\\d,.])\\d{1,3}(?:[.,]\\d{1,2})?\\s*%"), " ").replace(Regex("\\s+"), " ")
         // „přičti DPH k 5000“, „odečti DPH od 1210“
         Regex("^(?:pricti|pripocitej|pridej) dph (?:k|ke|na) $N(?: kc)?$").find(tx.trim())?.let { m -> val b = num(m.groupValues[1]) ?: return null
             return "${money(b)} + DPH ${fmt(rate)} % = ${money(b * (1 + rate / 100))} (DPH ${money(b * rate / 100)}).$cz" }
@@ -361,6 +362,7 @@ object Quick {
                    else "$label (${d.dayOfMonth}. ${d.monthValue}.) $has svátek $v.$note" }
         Regex("^(?:a )?kdy (?:ma|slavi|miva) (?:svatek|jmeniny) ([a-z]+)$|^(?:a )?kdy (?:ma|slavi) ([a-z]+) (?:svatek|jmeniny)$").find(t)?.let { m ->
             val q = m.groupValues[1].ifEmpty { m.groupValues[2] }
+            if (q.length !in 2..30) return null // nezrcadlit dlouhý vstup zpět
             val days = NameDays.daysOf(q)
             if (days.isEmpty()) return "Jméno „${q.replaceFirstChar { it.uppercase() }}“ jsem v kalendáři jmen nenašel (zkus základní tvar, třeba „Petr“, ne „Péťa“).$note"
             val name = NameDays.spelled(q) ?: q
@@ -380,6 +382,7 @@ object Quick {
         Regex("^(?:jake (?:jsou )?|kdy (?:jsou |je |budou |bude )?)?(?:statni )?svat(?:ky|ek) (?:v|ve) ([a-z]+)(?: (\\d{4}))?$").find(t)?.let { m ->
             val mi = MONTHS_IN.indexOf(m.groupValues[1]).takeIf { it >= 0 } ?: return null
             val y = m.groupValues[2].toIntOrNull() ?: today.year
+            if (y !in 2001..2200) return null // zákon 245/2000 Sb. platí od 2001; dřív/daleko dopředu nehádat
             val l = CzCalendar.holidays(y).filter { it.first.monthValue == mi + 1 }
             return if (l.isEmpty()) "V ${m.groupValues[1]} $y není žádný státní ani jiný svátek (den volna)." else "Svátky (dny volna) v $y: " + l.joinToString("; ") { hd(it.first, it.second) } + "." }
         if (Regex("^(?:kdy (?:je|bude) )?(?:dalsi|nejblizsi|pristi) (?:statni )?svatek$|^kdy je (?:dalsi|nejblizsi|pristi) volno$").matches(t)) {
@@ -387,6 +390,7 @@ object Quick {
             return "Nejbližší svátek (den volna): ${hd(n.first, n.second)} ${n.first.year}, za ${daysCz(ChronoUnit.DAYS.between(today, n.first))}." }
         Regex("^(?:je|bude|byl) (\\d{1,2})\\. ?(\\d{1,2})\\.?(?: ?(\\d{4}))? (?:statni )?svatek$").find(t)?.let { m ->
             val y = m.groupValues[3].toIntOrNull() ?: today.year
+            if (y !in 2001..2200) return null
             val d = runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.getOrNull() ?: return null
             val h = CzCalendar.holidays(y).firstOrNull { it.first == d }
             return if (h != null) "Ano, ${d.dayOfMonth}. ${d.monthValue}. $y je ${h.second} (den volna)." else "Ne, ${d.dayOfMonth}. ${d.monthValue}. $y není státní svátek ani den volna." }
@@ -397,8 +401,8 @@ object Quick {
     private fun clock(t: String): String? {
         val m = Regex("^(?:kolik (?:je|bude) |vypocitej )?(\\d{1,2}):(\\d{2}) (plus|minus|\\+|-) (?:(\\d+) ?(?:h|hod\\w*))?(?: ?a)? ?(?:(\\d+) ?(?:min\\w*|m))?$").find(t) ?: return null
         val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt(); if (h > 23 || mi > 59) return null
+        if (m.groupValues[4].isEmpty() && m.groupValues[5].isEmpty() || m.groupValues[4].length > 4 || m.groupValues[5].length > 6) return null // > 9999 h → nehádat (přetečení)
         val dh = m.groupValues[4].toIntOrNull() ?: 0; val dm = m.groupValues[5].toIntOrNull() ?: 0
-        if (m.groupValues[4].isEmpty() && m.groupValues[5].isEmpty()) return null
         val sign = if (m.groupValues[3] == "minus" || m.groupValues[3] == "-") -1 else 1
         val tot = h * 60 + mi + sign * (dh * 60 + dm); val day = Math.floorDiv(tot, 1440); val r = Math.floorMod(tot, 1440)
         val dur = listOfNotNull(dh.takeIf { it > 0 }?.let { "$it h" }, dm.takeIf { it > 0 }?.let { "$it min" }).joinToString(" ").ifEmpty { "0 min" }
@@ -411,6 +415,7 @@ object Quick {
         if (!Regex("jak dlouho|za jak dlouho|kolik (?:mi )?(?:to )?(?:bude )?trva").containsMatchIn(t)) return null
         val m = Regex("$N ?km (?:rychlosti|prumerem|prumernou rychlosti|v|pri|za) ?$N ?(?:km/h|km za hodinu|kmh)").find(t) ?: return null
         val km = num(m.groupValues[1]) ?: return null; val v = num(m.groupValues[2])?.takeIf { it > 0 && it < 2000 } ?: return null
+        if (km <= 0 || km / v > 10_000) return null // přes 10 000 h = zjevný překlep, nehádat (a žádné přetečení Int)
         val min = Math.round(km / v * 60).toInt(); val dur = listOfNotNull((min / 60).takeIf { it > 0 }?.let { "$it h" }, (min % 60).takeIf { it > 0 || min == 0 }?.let { "$it min" }).joinToString(" ")
         return "${fmt(km)} km rychlostí ${fmt(v)} km/h trvá $dur (bez zastávek)."
     }
