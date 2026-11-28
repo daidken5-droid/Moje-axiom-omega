@@ -393,3 +393,5 @@ Doporučení: T1 – kroky 3–5 (HwReplies, ExcelCsv, DemandForm; Ops.kt 2507 �
 Poslední APK noci: `VEGA-ab6d591.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 934 146 B,
 SHA-256 `9c5b349d783ecf588f49802adc977c6cb86cbdf6bf8899e8eca7b5427a6830ca` (CI #290).
 Telefon: NEOVĚŘENO – nové scénáře PHONE-CHECKLIST 16e (zápis větou); velké písmo a formuláře po chybě je dobré vyzkoušet při běžném používání.
+
+## Den 28. 11. 2026 (sobota) – oblasti: dopoledne komerční uživatel (zvyklý na ChatGPT/Claude) – co chybí / mate; odpoledne red team konzilium (vývojář, prompter, hacker, investor)
