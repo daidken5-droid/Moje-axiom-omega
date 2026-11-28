@@ -40,4 +40,12 @@ class TextDigestTest {
         assertTrue(TextDigest.render(listOf("A."), "clanek.txt", false, false).contains("z „clanek.txt“") )
         assertTrue(TextDigest.render(listOf("A."), null, true, false).startsWith("Vložil/a jsi text. "))
     }
+
+    /** Uživatel ChatGPT: „TL;DR“, „Summarize this:“, slovensky „Zhrň mi to:“. */
+    @Test fun englishAndSlovakCommands() {
+        for (c in listOf("TL;DR: $text", "tldr: $text", "Summarize this: $text", "Summary: $text", "Zhrň mi to: $text", "zhrnutie: $text"))
+            assertNotNull(TextDigest.request(c), c.take(20))
+        for (f in listOf("tldr", "TL;DR", "summarize", "summarize it", "zhrň to", "zhrň mi to"))
+            assertTrue(TextDigest.followUp(f), f)
+    }
 }

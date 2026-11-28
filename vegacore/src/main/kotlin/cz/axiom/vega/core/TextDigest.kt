@@ -12,7 +12,8 @@ object TextDigest {
     private val STOP = setOf("jsem", "jsme", "jste", "jsou", "bylo", "byla", "byl", "bude", "budou", "jako", "které", "který", "která", "kteri", "ktery", "ktera", "ktere",
         "tento", "tato", "toto", "tyto", "jeho", "její", "jeji", "jejich", "nebo", "také", "take", "ale", "aby", "když", "kdyz", "proto", "protože", "protoze", "podle",
         "před", "pred", "mezi", "jsou", "není", "neni", "ještě", "jeste", "však", "vsak", "řekl", "rekl", "uvedl", "dnes", "který", "také", "this", "that", "with", "from")
-    private val CMD = Regex("^(?:prosim\\s+)?(?:shrn\\w*|shrnuti|vytah\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)\\w*|o cem je)(?!\\p{L})")
+    // i slovensky („zhrň“, „zhrnutie“) a anglicky („TL;DR“, „summarize“) – jak píše uživatel zvyklý na ChatGPT
+    private val CMD = Regex("^(?:prosim\\s+|please\\s+)?(?:tl;?dr|summari[sz]e\\w*|summary|zhrn\\w*|shrn\\w*|shrnuti|vytah\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)\\w*|o cem je)(?!\\p{L})")
 
     /** Text ke zkrácení ze zadání „Shrň mi tohle: …“ (dvojtečka / pomlčka do 60 znaků), nebo null. Krátký text (< 150 znaků, < 3 věty) nemá smysl. */
     fun request(raw: String): String? {
@@ -25,7 +26,7 @@ object TextDigest {
     }
 
     /** „shrň“, „shrň to“, „zkrať to“, „udělej výtah“ BEZ textu – vztahuje se k předchozí zprávě (vloženému textu). */
-    private val FOLLOW = Regex("^(?:prosim\\s+)?(?:shrn\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)|vytah|o cem (?:to |ten text |ten soubor |ten dokument )?je|co (?:v tom|tam) (?:stoji|pise))(?:\\s+(?:mi\\s+)?(?:to|tohle|ten text|ten clanek|text|clanek|predchozi|to nahore))?(?:\\s+prosim)?$")
+    private val FOLLOW = Regex("^(?:prosim\\s+|please\\s+)?(?:tl;?dr|summari[sz]e(?:\\s+(?:it|this))?|zhrn\\w*|shrn\\w*|zkrat\\w*|udelej\\s+(?:mi\\s+)?(?:vytah|shrnuti)|vytah|o cem (?:to |ten text |ten soubor |ten dokument )?je|co (?:v tom|tam) (?:stoji|pise))(?:\\s+(?:mi\\s+)?(?:to|tohle|ten text|ten clanek|text|clanek|predchozi|to nahore))?(?:\\s+prosim)?$")
     fun followUp(raw: String) = FOLLOW.matches(Text.fold(raw).lowercase().trim().trimEnd('.', '!', '?', ' '))
 
     /** Vložený delší text bez pokynu (žádná otázka, ≥ 300 znaků, ≥ 4 věty) – bez modelu nabídnout výtah. */
