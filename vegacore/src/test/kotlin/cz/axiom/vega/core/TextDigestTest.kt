@@ -33,4 +33,11 @@ class TextDigestTest {
         assertTrue(!TextDigest.isPastedText("Napiš e-mail šéfovi, že zítra nepřijdu. Jsem nemocný a mám horečku. Práci dodělám v pondělí ráno. Prezentaci pošlu kolegovi Petrovi. Omluv mě prosím zdvořile a stručně, ať to nezní jako výmluva."))
         assertTrue(TextDigest.followUp("shrň to") && TextDigest.followUp("Zkrať mi to.") && !TextDigest.followUp("shrň výpis z banky za říjen"))
     }
+
+    @Test fun renderKeepsWording() {
+        assertEquals("**Výtah bez modelu** – vybrané věty z tvého textu (doslovně, nic nepřevyprávím ani nedomýšlím):\n• A.\n• B.\n\n_Shrnutí vlastními slovy, odpověď na otázku k textu nebo překlad umí model – vypni Bez sítě (nahoře „VEGA ▾“)._",
+            TextDigest.render(listOf("A.", "B."), null, pasted = false, airgap = true))
+        assertTrue(TextDigest.render(listOf("A."), "clanek.txt", false, false).contains("z „clanek.txt“") )
+        assertTrue(TextDigest.render(listOf("A."), null, true, false).startsWith("Vložil/a jsi text. "))
+    }
 }

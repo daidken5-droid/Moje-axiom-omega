@@ -48,4 +48,14 @@ object TextDigest {
         val picked = ss.indices.filter { score[it] > 0 }.sortedByDescending { score[it] }.take(n).sorted()
         return picked.map { ss[it] }.takeIf { it.isNotEmpty() }
     }
+
+    /**
+     * Odpověď s výtahem (refaktoring 12, 28. 11. – dřív dvě skoro stejné kopie v Ops): [file] = název přílohy (null = text ze zprávy),
+     * [pasted] = uživatel vložil text bez pokynu, [airgap] = rada, jak získat shrnutí vlastními slovy.
+     */
+    fun render(pick: List<String>, file: String?, pasted: Boolean, airgap: Boolean): String =
+        (if (pasted) "Vložil/a jsi text. " else "") + "**Výtah bez modelu**" + (file?.let { " z „${cz.axiom.vega.base.Hidden.oneLine(it, 80)}“ – vybrané věty" } ?: " – vybrané věty z tvého textu") +
+            " (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
+            "\n\n_Shrnutí vlastními slovy, odpověď na otázku k " + (if (file != null) "souboru" else "textu nebo překlad") + " umí model – " +
+            (if (airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"
 }

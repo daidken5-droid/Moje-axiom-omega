@@ -1234,16 +1234,14 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
                 val TD = cz.axiom.vega.core.TextDigest
                 // příloha + „shrň“ / „o čem to je?“: text souboru přečte telefon sám (TXT, DOCX, PDF i OCR) – výtah z něj
                 if (att != null) { if (TD.followUp(text)) runCatching { attText(att) }.getOrNull()?.let { TD.summarize(it) }?.let { pick ->
-                    reply(chat, "**Výtah bez modelu** z „${cz.axiom.vega.base.Hidden.oneLine(att.name, 80)}“ – vybrané věty (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
-                        "\n\n_Shrnutí vlastními slovy nebo odpověď na otázku k souboru umí model – " + (if (settings.airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"); return }
+                    reply(chat, TD.render(pick, att.name, pasted = false, airgap = settings.airgap)); return }
                     return@run }
                 val prevUser = if (TD.followUp(text) && chat != null) messages(chat).let { a -> (a.length() - 1 downTo 0).map { a.getJSONObject(it) }.filter { it.optString("role") == "user" }.drop(1).firstOrNull() }
                     ?.let { m -> m.optString("full").ifBlank { m.optString("text") } } else null
                 val pasted = TD.isPastedText(text)
                 val body = TD.request(text) ?: prevUser?.takeIf { it.length >= 150 } ?: text.takeIf { pasted }
                 body?.let { TD.summarize(it) }?.let { pick ->
-                    reply(chat, (if (pasted) "Vložil/a jsi text. " else "") + "**Výtah bez modelu** – vybrané věty z tvého textu (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
-                        "\n\n_Shrnutí vlastními slovy, odpověď na otázku k textu nebo překlad umí model – " + (if (settings.airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"); return }
+                    reply(chat, TD.render(pick, null, pasted, settings.airgap)); return }
             }
             val calc = offline(text); val off = calc ?: cz.axiom.vega.calc.SmallTalk.answer(text, settings.airgap)
             // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
