@@ -142,7 +142,9 @@ object Demand {
  * LibreOffice i Google Dokumenty; dá se dál upravovat.
  */
 object Docx {
-    private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    // znaky zakázané v XML 1.0 (řídicí, U+FFFE/FFFF, osamocené náhradní) pryč – jinak Word označí výzvu za poškozený soubor (noc 28. 11.)
+    private val XML_BAD = Regex("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\uFFFE\\uFFFF]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]")
+    private fun esc(s: String) = s.replace(XML_BAD, "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     private fun runs(text: String): String {
         val parts = text.split("**")
