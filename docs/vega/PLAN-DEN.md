@@ -395,3 +395,5 @@ SHA-256 `9c5b349d783ecf588f49802adc977c6cb86cbdf6bf8899e8eca7b5427a6830ca` (CI #
 Telefon: NEOVĚŘENO – nové scénáře PHONE-CHECKLIST 16e (zápis větou); velké písmo a formuláře po chybě je dobré vyzkoušet při běžném používání.
 
 ## Den 28. 11. 2026 (sobota) – oblasti: dopoledne komerční uživatel (zvyklý na ChatGPT/Claude) – co chybí / mate; odpoledne red team konzilium (vývojář, prompter, hacker, investor)
+
+- Návrh (D10, neopraveno): „Kdo má dnes svátek?“ bez modelu – chce přesnou tabulku českého kalendáře jmen (366 položek) z ověřeného zdroje, ne zpaměti. Do té doby poctivě „potřebuji model“.
