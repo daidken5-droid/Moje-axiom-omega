@@ -7,7 +7,34 @@ import kotlin.random.Random
 object QuickMore {
     fun answer(raw: String, rnd: Random = Random.Default): String? {
         val t = Text.fold(raw).lowercase().trim().trimEnd('?', '.', '!', ' ').replace(Regex("\\s+"), " ")
-        return bmi(t) ?: roman(raw.trim().trimEnd('?', '.', '!', ' '), t) ?: chance(t, rnd)
+        return clock(t) ?: travel(t) ?: bmi(t) ?: roman(raw.trim().trimEnd('?', '.', '!', ' '), t) ?: chance(t, rnd)
+    }
+
+    private const val N = "(\\d[\\d ]*(?:[.,]\\d+)?)"
+    private fun num(s: String) = Quick.num(s)
+    private fun fmt(v: Double) = Quick.fmtPublic(v)
+
+    /** Hodiny ± doba: „17:30 mínus 2 hodiny 45 minut“, „8:15 plus 90 minut“, „23:30 + 2 h“. */
+    private fun clock(t: String): String? {
+        val m = Regex("^(?:kolik (?:je|bude) |vypocitej )?(\\d{1,2}):(\\d{2}) (plus|minus|\\+|-) (?:(\\d+) ?(?:h|hod\\w*))?(?: ?a)? ?(?:(\\d+) ?(?:min\\w*|m))?$").find(t) ?: return null
+        val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt(); if (h > 23 || mi > 59) return null
+        if (m.groupValues[4].isEmpty() && m.groupValues[5].isEmpty() || m.groupValues[4].length > 4 || m.groupValues[5].length > 6) return null // > 9999 h → nehádat (přetečení)
+        val dh = m.groupValues[4].toIntOrNull() ?: 0; val dm = m.groupValues[5].toIntOrNull() ?: 0
+        val sign = if (m.groupValues[3] == "minus" || m.groupValues[3] == "-") -1 else 1
+        val tot = h * 60 + mi + sign * (dh * 60 + dm); val day = Math.floorDiv(tot, 1440); val r = Math.floorMod(tot, 1440)
+        val dur = listOfNotNull(dh.takeIf { it > 0 }?.let { "$it h" }, dm.takeIf { it > 0 }?.let { "$it min" }).joinToString(" ").ifEmpty { "0 min" }
+        val shift = when { day == 1 -> " (další den)"; day > 1 -> " (za $day dny)"; day == -1 -> " (předchozí den)"; day < -1 -> " (o ${-day} dny dřív)"; else -> "" }
+        return "%d:%02d ${if (sign > 0) "+" else "−"} $dur = %d:%02d$shift.".format(h, mi, r / 60, r % 60)
+    }
+
+    /** Doba cesty: „jak dlouho pojedu 120 km rychlostí 90 km/h“. */
+    private fun travel(t: String): String? {
+        if (!Regex("jak dlouho|za jak dlouho|kolik (?:mi )?(?:to )?(?:bude )?trva").containsMatchIn(t)) return null
+        val m = Regex("$N ?km (?:rychlosti|prumerem|prumernou rychlosti|v|pri|za) ?$N ?(?:km/h|km za hodinu|kmh)").find(t) ?: return null
+        val km = num(m.groupValues[1]) ?: return null; val v = num(m.groupValues[2])?.takeIf { it > 0 && it < 2000 } ?: return null
+        if (km <= 0 || km / v > 10_000) return null // přes 10 000 h = zjevný překlep, nehádat (a žádné přetečení Int)
+        val min = Math.round(km / v * 60).toInt(); val dur = listOfNotNull((min / 60).takeIf { it > 0 }?.let { "$it h" }, (min % 60).takeIf { it > 0 || min == 0 }?.let { "$it min" }).joinToString(" ")
+        return "${fmt(km)} km rychlostí ${fmt(v)} km/h trvá $dur (bez zastávek)."
     }
 
     private fun f1(v: Double) = String.format(java.util.Locale.ROOT, "%.1f", v).replace('.', ',')
