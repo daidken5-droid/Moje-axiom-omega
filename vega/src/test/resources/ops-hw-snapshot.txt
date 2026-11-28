@@ -1,0 +1,57 @@
+=== wifiLink
+**Aktuální WiFi připojení** · změřeno <čas>
+- Síť (SSID): Doma
+- Zabezpečení: WPA2
+- Signál: -58 dBm (dobrý)
+- Frekvence: 5180 MHz (5 GHz)
+- Linková rychlost: 433 Mb/s
+- IP: 192.168.1.20
+
+⚠ Údaje jsou z posledního skenu, ne živé.
+_(měřeno lokálně; funguje i bez internetu)_
+--- untrusted= card={"type":"wifiMeasure","data":{"ssid":"Doma","security":"WPA2","rssi":-58,"quality":"dobrý","freq":5180,"band":"5 GHz","link":433,"ip":"192.168.1.20","stale":true}}
+=== wifiLinkErr
+WiFi je vypnutá.
+--- untrusted= card=-
+=== bleEmpty
+Žádné BLE zařízení v dosahu. Zapni hledání na periferii (párovací režim) a zkus to znovu.
+--- untrusted= card=-
+=== ble
+**Bluetooth zařízení v okolí: 3**
+
+| Název | Adresa | Signál |
+|---|---|---|
+| Sluchátka | `AA:BB:CC:DD:EE:01` | blízko (-50 dBm) |
+| (bez názvu) | `AA:BB:CC:DD:EE:02` | střed (-70 dBm) |
+| Hodinky | `AA:BB:CC:DD:EE:03` | daleko (-90 dBm) |
+
+_(jen hledání a síla signálu; připojení a čtení GATT služeb je další krok)_
+--- untrusted=ble card=-
+=== wifiEmpty
+Nenašel jsem žádné WiFi sítě. Zapni WiFi a polohu (sken WiFi ji na Androidu vyžaduje) a zkus to znovu.
+--- untrusted= card=-
+=== wifi
+**WiFi v okolí: 3 sítě**
+
+- Tvoje síť je jen na 2,4 GHz. Pokud router umí 5 GHz, bude tam rychlejší a méně rušená (kratší dosah).
+- V okolí jsou 2 sítě se slabým zabezpečením. U cizích s tím nic nedělej – řeš jen svoji.
+- Pozn.: VEGA jen pasivně čte, co sítě samy vysílají. Nepřipojuje se a do žádné nezasahuje.
+
+| Síť | Pásmo | Kanál | Signál | Zabezpečení |
+|---|---|---|---|---|
+| **Doma** 📍 | 2,4 GHz | 1 | výborný (-50 dBm) | WPA2 |
+| Soused | 2,4 GHz | 6 | slabší (-70 dBm) | WEP ⚠ |
+| Kavarna | 5 GHz | 36 | slabý (-80 dBm) | Otevřená ⚠ |
+
+--- untrusted=wifi card=-
+=== card
+**Virtuální karta VEGA přečtena**
+- Název: Vrtačka
+- Veřejný identifikátor: INV-1
+- stav: půjčeno
+
+_(data pocházejí z aktivního profilu druhého telefonu, ne z UID)_
+--- untrusted=card card=-
+=== cardErr
+Spojení se přerušilo.
+--- untrusted= card=-

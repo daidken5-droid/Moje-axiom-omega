@@ -1,0 +1,8 @@
+    EVAL konverzace-vypocet | model sám | správně=false | dokončeno=true | zásahy=0 | 1.5 s | 
+    EVAL konverzace-vypocet | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 0.1 s | deterministické jádro
+    EVAL konverzace-vysvetleni | model sám | správně=true | dokončeno=true | zásahy=0 | 15.8 s | 289 znaků
+    EVAL konverzace-vysvetleni | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 14.9 s | 239 znaků
+    EVAL dlouhe-zadani | model sám | správně=false | dokončeno=false | zásahy=0 | 0.0 s | 34067 znaků vstupu
+    EVAL dlouhe-zadani | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 160.9 s | Pokryto 3/3
+    EVAL reserse | model sám | správně=false | dokončeno=true | zásahy=0 | 6.0 s | model nemá web – zdroje nejde ověřit
+    EVAL reserse | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 539.4 s | staženo zdrojů: 2

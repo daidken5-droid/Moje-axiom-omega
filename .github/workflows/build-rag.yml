@@ -1,0 +1,190 @@
+name: Build RAG index (sémantické vektory offline knihovny)
+
+# Předpočítá vektory významu pro celou offline knihovnu (např. česká Wikipedie, ~534 tis. článků)
+# stejným modelem, jaký má telefon (OMEGA Sense · Qwen3-Embedding 0.6B), a přidá je k vydání knihovny.
+# Telefon pak hledá podle významu bez hodin indexování – stáhne jen ~140 MB index.
+#
+# Spuštění: změna rag-requests/build.txt (řádek: id knihovny, např. wiki-cs) nebo ručně v Actions.
+on:
+  push:
+    branches: ["**"]
+    paths: ["rag-requests/**", ".github/workflows/build-rag.yml", "tools/rag/**"]
+  workflow_dispatch:
+    inputs:
+      lib:
+        description: "wiki-cs | wiki-sk | wiki-simple | wikisource-cs"
+        default: "wiki-cs"
+      limit:
+        description: "jen pro test: max. počet článků (0 = vše)"
+        default: "0"
+
+permissions:
+  contents: write
+
+env:
+  LLAMA_TAG: b12032
+  MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf
+  MODEL_SHA: 06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
+  DIM: "256"
+  SHARDS: "64"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      lib: ${{ steps.pick.outputs.lib }}
+      tag: ${{ steps.pick.outputs.tag }}
+      shards: ${{ steps.pick.outputs.shards }}
+      limit: ${{ steps.pick.outputs.limit }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Výběr knihovny
+        id: pick
+        run: |
+          LIB="${{ github.event.inputs.lib }}"
+          LIMIT="${{ github.event.inputs.limit }}"
+          if [ -z "$LIB" ] && [ -f rag-requests/build.txt ]; then
+            LIB=$(sed -n 1p rag-requests/build.txt | tr -d '[:space:]')
+            LIMIT=$(sed -n 2p rag-requests/build.txt | tr -d '[:space:]')
+          fi
+          case "$LIB" in
+            wiki-cs) DS=wikimedia/wikipedia; CFG=20231101.cs ;;
+            wiki-sk) DS=wikimedia/wikipedia; CFG=20231101.sk ;;
+            wiki-simple) DS=wikimedia/wikipedia; CFG=20231101.simple ;;
+            wikisource-cs) DS=wikimedia/wikisource; CFG=20231201.cs ;;
+            *) echo "Neznámá knihovna $LIB"; exit 1 ;;
+          esac
+          echo "lib=$LIB" >> "$GITHUB_OUTPUT"
+          echo "tag=library-$LIB-${CFG%%.*}" >> "$GITHUB_OUTPUT"
+          echo "LIB=$LIB" >> "$GITHUB_ENV"
+          echo "TAG=library-$LIB-${CFG%%.*}" >> "$GITHUB_ENV"
+          echo "LIMIT=${LIMIT:-0}" >> "$GITHUB_ENV"
+          echo "limit=${LIMIT:-0}" >> "$GITHUB_OUTPUT"
+          # testovací běh (limit) stačí na pár úloh
+          if [ "${LIMIT:-0}" != "0" ]; then echo "SHARDS=2" >> "$GITHUB_ENV"; SHARDS=2; fi
+          python3 -c "import json; print('shards=' + json.dumps(list(range(int('$SHARDS')))))" >> "$GITHUB_OUTPUT"
+      - name: Stažení předpřipravené knihovny
+        run: |
+          BASE="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          curl -sfL --retry 5 -o manifest.json "$BASE/manifest.json"
+          for p in $(python3 -c "import json; print(' '.join(x['name'] for x in json.load(open('manifest.json'))['parts']))"); do
+            curl -sfL --retry 5 -o "$p" "$BASE/$p"
+          done
+          python3 - <<'PY'
+          import json, hashlib
+          m = json.load(open("manifest.json"))
+          for p in m["parts"]:
+              h = hashlib.sha256()
+              with open(p["name"], "rb") as f:
+                  for c in iter(lambda: f.read(1 << 20), b""): h.update(c)
+              assert h.hexdigest() == p["sha256"], p["name"]
+          print("části OK")
+          PY
+          cat $(python3 -c "import json; print(' '.join(x['name'] for x in json.load(open('manifest.json'))['parts']))") | gunzip > lib.db
+          rm -f *.gz.part*
+          ls -la lib.db
+      - name: Úvody článků → části
+        run: |
+          python3 tools/rag/prepare.py --db lib.db --out-dir shards --shards "$SHARDS" --limit "$LIMIT" --chars 200
+          rm lib.db
+          du -sh shards
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rag-input
+          path: shards/
+          retention-days: 3
+
+  embed:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.prepare.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      # v cache jen model; nástroj se překládá přímo pro procesor runneru (AVX-512 apod. = výrazně rychlejší)
+      - name: Cache modelu
+        uses: actions/cache@v4
+        with:
+          path: ~/rag-model
+          key: rag-model-${{ env.MODEL_SHA }}
+      - name: Sestavení avior_embed (llama.cpp ${{ env.LLAMA_TAG }})
+        run: |
+          mkdir -p ~/rag-cache ~/rag-model
+          lscpu | grep -E "Model name|^CPU\(s\)|Flags" | cut -c1-200
+          curl -sfL --retry 5 -o llama.tar.gz "https://github.com/ggml-org/llama.cpp/archive/refs/tags/$LLAMA_TAG.tar.gz"
+          tar xzf llama.tar.gz
+          cmake -S tools/rag -B build -DLLAMA_SRC="$PWD/llama.cpp-$LLAMA_TAG" -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON
+          cmake --build build --target avior_embed -j"$(nproc)"
+          cp build/avior_embed ~/rag-cache/
+          if [ ! -f ~/rag-model/model.gguf ]; then
+            curl -sfL --retry 5 -o ~/rag-model/model.gguf "$MODEL_URL"
+          fi
+          ln -sf ~/rag-model/model.gguf ~/rag-cache/model.gguf
+          echo "$MODEL_SHA  $HOME/rag-model/model.gguf" | sha256sum -c -
+      - uses: actions/download-artifact@v4
+        with:
+          name: rag-input
+          path: shards
+      - name: Vektory části ${{ matrix.shard }}
+        run: |
+          S=$(printf "%02d" ${{ matrix.shard }})
+          ~/rag-cache/avior_embed ~/rag-cache/model.gguf "vec-$S.bin" "$DIM" "$(nproc)" 128 < "shards/shard-$S.tsv"
+          ls -la "vec-$S.bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rag-vec-${{ matrix.shard }}
+          path: vec-*.bin
+          retention-days: 3
+
+  merge:
+    needs: [prepare, embed]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rag-vec-*
+          merge-multiple: true
+          path: vec
+      - name: Sloučení, komprese, manifest
+        env:
+          LIB: ${{ needs.prepare.outputs.lib }}
+        run: |
+          pip install numpy==2.1.3
+          python3 tools/rag/merge.py --dim "$DIM" --out "$LIB.rag" "vec/*.bin"
+          RAG_SHA=$(sha256sum "$LIB.rag" | cut -d' ' -f1)
+          RAG_SIZE=$(stat -c %s "$LIB.rag")
+          COUNT=$(python3 -c "import struct; print(struct.unpack('<ii', open('$LIB.rag','rb').read(16)[8:16])[1])")
+          gzip -6 -c "$LIB.rag" > "$LIB.rag.gz"
+          GZ_SHA=$(sha256sum "$LIB.rag.gz" | cut -d' ' -f1)
+          GZ_SIZE=$(stat -c %s "$LIB.rag.gz")
+          cat > rag-manifest.json <<JSON
+          {"lib": "$LIB", "format": "avior-rag-int8", "model": "omega-sense-qwen3-embedding-0.6b", "modelSha256": "$MODEL_SHA",
+           "dim": $DIM, "count": $COUNT, "size": $RAG_SIZE, "sha256": "$RAG_SHA",
+           "file": "$LIB.rag.gz", "fileSize": $GZ_SIZE, "fileSha256": "$GZ_SHA",
+           "text": "název — úvod článku (200 znaků)", "license": "Wikimedia CC BY-SA 4.0"}
+          JSON
+          cat rag-manifest.json
+          ls -la "$LIB.rag.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rag-final
+          path: |
+            rag-manifest.json
+            ${{ needs.prepare.outputs.lib }}.rag.gz
+          retention-days: 7
+      # testovací běh (limit > 0) jen ověří pipeline – do vydání (a do telefonů) jde až plný index
+      - name: Přidání k vydání knihovny
+        if: needs.prepare.outputs.limit == '0'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: |
+            rag-manifest.json
+            ${{ needs.prepare.outputs.lib }}.rag.gz
+          make_latest: false

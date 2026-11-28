@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- noční obloha, světlý titan, signální modrá (VEGA = nejjasnější hvězda letní oblohy) -->
+    <color name="ink">#0B0D12</color>
+    <color name="signal">#5B8CFF</color>
+</resources>

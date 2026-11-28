@@ -1,0 +1,15 @@
+{
+  "_poznamka": "Kritéria stanovena PŘED spuštěním měření (commit před prvním během). Závěrečné příklady se při vývoji nepoužily; ladicí příklady jsou uvedeny zvlášť a do výsledků se nepočítají.",
+  "dev": ["Kolik je 17 * 23", "vypis-cerven.csv / vypis-cervenec.csv / vypis-srpen-prehazeny.csv", "projekt Pokladna (parseCzk s desetinnou čárkou)", "operation Prato", "dlouhé zadání Lorem ipsum (OpsSpecTest)"],
+  "final": [
+    {"id": "konverzace-vypocet", "kategorie": "český rozhovor", "vstup": "Kolik je 48 × 37?", "kriterium": "odpověď obsahuje 1776 (s mezerou i bez)"},
+    {"id": "konverzace-vysvetleni", "kategorie": "český rozhovor", "vstup": "Vysvětli mi jednou nebo dvěma větami, co je inflace.", "kriterium": "česky (aspoň 1 znak z ěščřžýáíéůú), žádné CJK znaky, 30–700 znaků, obsahuje 'cen'"},
+    {"id": "dlouhe-zadani", "kategorie": "dlouhé vícedílné zadání", "vstup": "dokument ~30 000 znaků + 3 otázky (rozpočet, termín, odpovědná osoba)", "kriterium": "obsahuje '4,2', 'září 2027' nebo '30. 9. 2027', a 'Dvořáková'"},
+    {"id": "reserse", "kategorie": "rešerše", "vstup": "Operace Anthropoid", "kriterium": "aspoň 1 skutečně stažený zdroj s URL a odkazy [n] v odpovědi; bez webu = nesplněno"},
+    {"id": "oprava-programu", "kategorie": "oprava programu", "vstup": "projekt Sleva (3 soubory), 'Sleva se počítá špatně, oprav to.'", "kriterium": "testy projektu po úpravě projdou (exit 0) v Node se stejnou sadou test/expect"},
+    {"id": "data-vypis", "kategorie": "práce s daty", "vstup": "vypis-rijen.csv + 'Spočítej mi z výpisu příjmy, výdaje a saldo.'", "kriterium": "obsahuje příjmy 49 712,47, výdaje 24 085,20 (se znaménkem i bez) a saldo 25 627,27"},
+    {"id": "dokument-vyzva", "kategorie": "dokument", "vstup": "předžalobní výzva: faktura 2026/118 na 48 400 Kč, splatnost 15. 3. 2026, úhrada 10 000 Kč 1. 5. 2026, k 19. 11. 2026", "kriterium": "dlužná jistina 38 400 Kč uvedena správně a výpočet úroku z prodlení se sazbou; VEGA navíc DOCX+PDF"},
+    {"id": "navrat-k-projektu", "kategorie": "návrat k projektu", "vstup": "po restartu: 'pokračuj tam, kde jsme skončili'", "kriterium": "jmenuje projekt Sleva, cíl úlohy a revizi posledního ověření"}
+  ],
+  "metriky": ["správnost (kritérium splněno)", "dokončení (bez chyby/přerušení)", "zásahy uživatele (zprávy navíc nad první)", "čas (s, nástěnné hodiny)", "cena (Kč; vlastní server = 0)", "komerční požadavky (počítadlo)"]
+}

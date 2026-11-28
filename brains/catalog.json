@@ -1,0 +1,133 @@
+{
+  "version": 2,
+  "updated": "2026-11-01",
+  "note": "Katalog mozků AXIOM Ω – všechny běží přímo v telefonu (llama.cpp). Velikosti a SHA-256 jsou z LFS metadat Hugging Face; aplikace soubor po stažení ověří. Doporučí se nejsilnější mozek, který se vejde do RAM.",
+  "brains": [
+    {
+      "id": "omega-core-gemma4-e4b-q4km",
+      "name": "OMEGA Core · Gemma 4 E4B",
+      "family": "Gemma 4 (Google, 2026)",
+      "kind": "chat",
+      "description": "Doporučený mozek. Nejnovější model Google pro telefony (duben 2026), 128k kontext, výborná čeština a uvažování. Pro 8+ GB RAM.",
+      "urls": [
+        "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
+        "https://hf-mirror.com/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 4977171584,
+      "sha256": "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87",
+      "minRamGb": 8,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "omega-lite-gemma4-e2b-q4km",
+      "name": "OMEGA Lite · Gemma 4 E2B",
+      "family": "Gemma 4 (Google, 2026)",
+      "kind": "chat",
+      "description": "Rychlá verze Gemma 4 pro telefony se 6 GB RAM. Stejná generace, menší a svižnější.",
+      "urls": [
+        "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
+        "https://hf-mirror.com/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 3106738272,
+      "sha256": "740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8",
+      "minRamGb": 6,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "omega-ultra-gemma4-26b-a4b-iq2m",
+      "name": "OMEGA Ultra · Gemma 4 26B-A4B",
+      "family": "Gemma 4 MoE (Google, 2026)",
+      "kind": "chat",
+      "description": "Velký mozek Gemma 4: 26 mld. parametrů, aktivní 4 mld. na token. Výrazně chytřejší než E4B, pro telefony s 12+ GB RAM.",
+      "urls": [
+        "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ2_M.gguf",
+        "https://hf-mirror.com/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-IQ2_M.gguf"
+      ],
+      "sizeBytes": 10014755296,
+      "sha256": "3fe245f4436ab44c103291222e81c514e53ca382871b555df24fea11e36b3c3a",
+      "minRamGb": 12,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "omega-max-qwen36-35b-a3b-iq2m",
+      "name": "OMEGA Max · Qwen3.6 35B-A3B",
+      "family": "Qwen3.6 MoE (2026)",
+      "kind": "chat",
+      "description": "Nejsilnější mozek, který se vejde do telefonu: 35 mld. parametrů, aktivní jen 3 mld. na token (rychlý). Pro telefony s 16+ GB RAM, ideální i pro AXIOM Node.",
+      "urls": [
+        "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-IQ2_M.gguf",
+        "https://hf-mirror.com/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-IQ2_M.gguf"
+      ],
+      "sizeBytes": 11522702304,
+      "sha256": "2be7ef1ed7e1af8b10d3829102cf9a6c2bd5ddb64d675b4ece23a60799403d43",
+      "minRamGb": 16,
+      "contextTokens": 8192,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "omega-mini-qwen35-2b-q4km",
+      "name": "OMEGA Mini · Qwen3.5 2B",
+      "family": "Qwen3.5 (2026)",
+      "kind": "chat",
+      "description": "Pro starší telefony se 4 GB RAM. 1,28 GB.",
+      "urls": [
+        "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
+        "https://hf-mirror.com/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf"
+      ],
+      "sizeBytes": 1280835840,
+      "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "minRamGb": 4,
+      "contextTokens": 4096,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": true
+    },
+    {
+      "id": "axiom-classic-qwen3-1.7b-q8",
+      "name": "AXIOM Classic · Qwen3 1.7B",
+      "family": "Qwen3",
+      "kind": "chat",
+      "description": "Původní mozek z AXIOM 2.1 Hybrid (stejný soubor i SHA-256) – pro kontinuitu.",
+      "urls": [
+        "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf",
+        "https://hf-mirror.com/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf"
+      ],
+      "sizeBytes": 1834426016,
+      "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+      "minRamGb": 4,
+      "contextTokens": 4096,
+      "license": "Apache-2.0",
+      "thinking": true,
+      "recommended": false
+    },
+    {
+      "id": "omega-sense-qwen3-embedding-0.6b",
+      "name": "OMEGA Sense · sémantická paměť",
+      "family": "Qwen3-Embedding 0.6B",
+      "kind": "embedding",
+      "description": "Rozšíření: hledání v offline databázi a paměti podle významu, ne jen podle slov (vícejazyčné, i čeština). 0,64 GB.",
+      "urls": [
+        "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+        "https://hf-mirror.com/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf"
+      ],
+      "sizeBytes": 639150592,
+      "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+      "minRamGb": 3,
+      "contextTokens": 2048,
+      "license": "Apache-2.0",
+      "thinking": false,
+      "recommended": true
+    }
+  ]
+}

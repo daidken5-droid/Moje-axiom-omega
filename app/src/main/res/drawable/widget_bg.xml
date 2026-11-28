@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AVIOR widget: černé sklo s titanovou hranou -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <gradient android:angle="315" android:startColor="#C9CED6" android:centerColor="#3A3F47" android:endColor="#9EA4AC" />
+        </shape>
+    </item>
+    <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="27dp" />
+            <gradient android:angle="270" android:startColor="#14161B" android:endColor="#050607" />
+        </shape>
+    </item>
+</layer-list>

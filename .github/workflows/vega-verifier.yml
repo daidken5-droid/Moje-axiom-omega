@@ -1,0 +1,62 @@
+name: VEGA – balíček ověřovače citací
+
+# Sestaví referenční balíček ověřovače (tools/verifier) z veřejných vah Hugging Face (připnutá revize)
+# a vystaví ho jako GitHub Release „overovac-referencni-1“ – VEGA si ho stáhne tlačítkem v Nastavení.
+# Export je deterministický: otisk model.onnx MUSÍ sedět s otiskem, který zná aplikace, jinak se nic nevydá.
+# Tag záměrně nezačíná „v“ (to by spustilo build-apk.yml).
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**", "!vega/auto-**"]
+    paths: [".github/workflows/vega-verifier.yml", "tools/verifier/export_onnx.py", "tools/verifier/quantize_weights.py"]
+
+permissions:
+  contents: read
+
+concurrency: { group: vega-verifier, cancel-in-progress: false }
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write   # jen kvůli vytvoření release s balíčkem
+    env:
+      TAG: overovac-referencni-1
+      MODEL_SHA: 9ea907de1e8f0c8947e8a73f78353e0a799692d7af02d1d8da3427a49f377514
+      VOCAB_SHA: 62fce312d72594ad30235447483680a6d1bbce5d7e219bbe29a241539e449f92
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - name: Už vydáno?
+        id: have
+        run: |
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "skip=1" >> "$GITHUB_OUTPUT"; echo "Release $TAG existuje – nic nedělám."; fi
+      - uses: actions/setup-python@v5
+        if: steps.have.outputs.skip != '1'
+        with: { python-version: "3.12" }
+      - name: Závislosti (CPU)
+        if: steps.have.outputs.skip != '1'
+        working-directory: tools/verifier
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+          grep -v '^torch==' requirements.txt > /tmp/req.txt && pip install -r /tmp/req.txt
+      - name: Export + kontrola otisku
+        if: steps.have.outputs.skip != '1'
+        working-directory: tools/verifier
+        run: |
+          python export_onnx.py --name referencni --threshold 0.91 --out bundles/referencni
+          cd bundles/referencni
+          echo "$MODEL_SHA  model.onnx" | sha256sum -c -
+          echo "$VOCAB_SHA  vocab.tsv" | sha256sum -c -
+          touch -d '2026-01-01T00:00:00Z' manifest.json model.onnx vocab.tsv
+          zip -X -0 ../referencni.zip manifest.json model.onnx vocab.tsv
+          sha256sum ../referencni.zip | tee ../referencni.zip.sha256
+      - name: Vydat
+        if: steps.have.outputs.skip != '1'
+        working-directory: tools/verifier/bundles
+        run: |
+          gh release create "$TAG" referencni.zip referencni.zip.sha256 -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Ověřovač citací pro VEGA (referenční)" --prerelease \
+            --notes "Balíček pro VEGA → Nastavení → Ověřovač citací → Stáhnout. Model MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli @0a71e92 (MIT), embeddingy int8. Otisk model.onnx: $MODEL_SHA."

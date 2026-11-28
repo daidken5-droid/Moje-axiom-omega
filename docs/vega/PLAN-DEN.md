@@ -1,0 +1,399 @@
+# Celodenní plán (21. 11. 2026) – VEGA jako živá aplikace na Google Play
+
+Přístup: aplikace je „v produkci“, uživatelé ji mají nainstalovanou. Každou změnu dělám zpětně kompatibilně
+(zachovat podpis/certifikát, formát uložených dat, jména metod mostu), s migrací a bez ztráty dat. Vše commituju
+po částech, s testy. Rozlišuji ověřeno (test/Chromium) × NEOVĚŘENO (telefon).
+
+## Fáze A – audit po obrazovkách (jako revize na Play)
+Projít jednotlivě: úvod, chat, přílohy, výsledky/karty, projekty, nástroje, Hardware, Nastavení, menu, paměť.
+U každé: co vidí laik, co se může pokazit, přístupnost, soukromí. Nálezy → opravit.
+
+## Fáze B – přílohy proudem do souboru + stabilní ID + index podle ID (odložené, největší)
+- Příloha se ukládá do dočasného souboru s limitem, v paměti se nedrží celý ByteArray.
+- Každá příloha a dokument má stabilní ID; index klíčuje podle ID (dva „faktura.pdf“ se nepřepíšou).
+- Odebrání dokumentu z vyhledávání. Migrace starého indexu (zná jen jméno).
+
+## Fáze C – rozpracovaný vstup (draft) podle konverzace
+Draft a seznam příloh patří konkrétnímu chatu; přepnutí chatu nepřepíše adresáta ani text.
+
+## Fáze D – reorganizace nastavení/menu podle úkolů (laik)
+Běžná cesta „Zeptat se / Pracovat se souborem / Najít v dokumentech“; odborné do Pokročilých.
+
+## Fáze E – offline diktování: ověření dostupnosti lokálního rozpoznávání
+V režimu Bez sítě nabídnout jen ověřené místní rozpoznávání; jinak vysvětlit a nechat psaní.
+
+## Fáze F – připravenost na Play + CI/podpis (konzervativně, jen VEGA)
+Oprávnění a jejich zdůvodnění, Data safety přehled, cílení SDK, podpis odděleně od buildu s kódem (bez změny certifikátu).
+
+## Fáze G – finální regrese, APK, poznámky k vydání
+Celý běh testů, sestavení, shrnutí změn po souborech.
+
+Výsledky každé fáze zapisuji sem + commit.
+
+## Výsledky
+
+### Fáze B – hotovo
+- Lokální index klíčuje podle stabilního ID (`uid`), ne podle jména → dva „faktura.pdf“ se nepřepíšou.
+- Odebrání dokumentu z vyhledávání (`indexRemove`), správa dokumentů v Nastavení.
+- Migrace starého indexu (schéma v2, `uid = jméno`). Opraven pád FTS4 na rezervovaném názvu sloupce (`docid` → `uid`).
+- Ověřeno: `:vegacore:test`, `:vega:testDebugUnitTest`, offline UI testy.
+
+### Fáze C – hotovo
+- Rozpracovaný vstup (text + přílohy) je vázaný na konkrétní konverzaci (`S.drafts` podle `spaceKey`).
+- Při odchodu z chatu se draft uloží, při návratu obnoví; po odeslání se draft zahodí.
+- Přepnutí chatu už nepřenese text ani přílohy k jinému adresátovi (dřív byly `#input` a `S.files` globální).
+- Ověřeno: offline UI test „draft podle konverzace“ (9 scénářů zeleně), kontrola syntaxe app.js.
+
+### Fáze D – hotovo
+- Domovská obrazovka má řádku běžných úkolů laika: **Zeptat se / Pracovat se souborem / Najít v dokumentech** (zvýrazněné oproti ukázkám).
+- „Přidat +“ přeskupeno: nahoře běžné (Soubor, Najít v dokumentech, Nástroje), odborné (NFC, WiFi, Hardware, Projekt ze složky) do rozbalovacího **Pokročilé**.
+- Nové akce `ask` (zaměří pole), `findDocs` (předvyplní „Najdi v mých dokumentech:“ a zaměří).
+- Nastavení už dřív mají „Pro pokročilé“ s odbornými volbami (vlastní server, placené modely, kurzy).
+- Ověřeno: Chromium render domovské obrazovky, offline UI testy zeleně.
+
+### Fáze E – hotovo
+- V režimu **Bez sítě** se diktování spustí jen s ověřeným místním rozpoznáváním (Android 13+ `isOnDeviceRecognitionAvailable`,
+  `EXTRA_PREFER_OFFLINE`); jinak hláška „napiš text“ a rozpoznávač se vůbec nespustí (zvuk nikam neodejde).
+- Most `voice(data)` dostává stav air-gapu z UI. Na telefonu NEOVĚŘENO.
+
+### Vloženo: ASTRAEA CORE 3.0 (zadání uživatele)
+- Řídicí jádro podle důkazů v `vegacore/.../astraea/` zapojené do skutečné rešerše a rozboru hypotéz (`Ops.governed`).
+- 14 referenčních testů + 12 vlastních (jádro, adaptéry) + výpočtové případy zadání; dokumentace `docs/astraea/`.
+
+### Fáze F – hotovo (podrobně `docs/vega/PLAY.md`)
+- **targetSdk/compileSdk 36** – Google Play od 31. 8. 2026 jinak blokuje aktualizace (nejzávažnější nález).
+- Build **`play`**: bez `REQUEST_INSTALL_PACKAGES`, samoúprava nestahuje ani neinstaluje APK (aktualizace jen přes Play).
+- Vysvětlení před žádostí o polohu (WiFi); AAB pro Play v CI jako samostatný artefakt; CI doinstaluje platformu 36.
+- Podpis a applicationId beze změny.
+
+### Fáze G – hotovo
+- Čistá regrese: 163 testů (0 selhání, 2 přeskočené bez ONNX balíčku), 9 UI scénářů, `git diff --check` čistý.
+- Sestavení release, play a AAB lokálně i v CI (běh #72 pro `52505a6`, zeleně); záznam v README.md.
+- Na telefonu NEOVĚŘENO: diktování v Bez sítě, Android 16 (edge-to-edge, predictive back), WiFi vysvětlení, výkon.
+- Otevřené: novější AGP pro compileSdk 36 (sdílí kořenový build s AVIORem), ruční přepínač „Rychle/Ověřit/Hloubkový“,
+  panel „Hypothesis Compare“, test „plánováno ≠ proběhlo“ se skutečným ověřovačem.
+
+## Odpoledne: celodenní testy a opravy (na žádost – bez nových funkcí)
+| Kolo | Metoda | Skutečné chyby nalezené a opravené |
+|---|---|---|
+| T1 | Android lint | Poloha pro WiFi na Androidu 12+ by se nezeptala (FINE bez COARSE); BLE na Androidu 8–11 bez oprávnění a polohy |
+| T2 | UI audit 30 obrazovek/dialogů v Chromiu, 360 px (`tools/ui-tests/audit.cjs`) | Pole bez názvu pro čtečku; malé dotykové cíle; lišta „V…“; rámeček nadpisu; tabulka Hardware posouvala panel do strany; pád dialogu Kontrola úplnosti |
+| T3 | ~150 laických dotazů proti routeru, kalkulačce a ekonomice | Kurz ČNB se online nikdy nepoužil; výpočty, „díkec“, slovenština a povely aplikace šly na webovou rešerši; sleva, zlomek, mocnina, úrok, dny mezi daty, týdny, Celsius/palce/libry, DPH oba směry; bod zvratu z laických vět; slovní operace, záporná čísla, dělení nulou |
+| T4 | Fuzz (pevný seed, limit 1,5 s/volání) + 15 tvarů bankovních výpisů | Výpis s částkou bez znaménka a sloupcem Debet/Kredit počítal vše jako příjem; JsonTool padal na StackOverflowError |
+| T5 | Revize kódu (XSS, výjimky, souběh) | Deaktivace virtuální karty nepřežila restart při selhání mazání; NFC „štítek se vzdálil“ hlášeno jako prázdný štítek; vyhozená příloha zůstávala v draftech |
+| T6 | Přijímací testy celé cesty zprávy (Ops) | Potvrzení oprav v reálném toku (`OpsDayTest`) |
+
+Testy: 163 → 187 (0 selhání; 4 přeskočené = 2 bez ONNX balíčku + 2 průzkumné `probe`). Na telefonu NEOVĚŘENO.
+
+### Oprava zadání (večer)
+Aplikace se na Play **nevydává** – šlo jen o přístup „jako by ji měl laik z obchodu“. Vráceno: build „play“ (samoúprava zase
+instaluje APK), `targetSdk/compileSdk 35`, CI bez kroku AAB a SDK 36. Ponechány skutečné opravy (poloha Android 12+, BLE 8–11,
+vysvětlení polohy, offline diktování).
+
+## 22. 11. – zjednodušení UI, tvrdé scany, komerční kola (průběžně, do 22:00)
+**Ráno (U1, U2, S1–S39)** – zjednodušené ovládání (méně tlačítek, jednotné „Bez sítě“, tlačítka přímo v odpovědi) a cílené
+hledání chyb. Vybrané skutečné nálezy: neescapovaná pole v 8 kartách (nový test `xss.cjs`); „Kč“ vs „CZK“ = dvě měny;
+markdown z modelu (odrážky „*“, tabulky); chybělo Kopírovat/Sdílet; hypotéka „3 000 000“ bez odpovědi; „třetina z 900“
+a „vymaž paměť“ do webové rešerše; „zapomeň všechno“ nic nesmazalo; prázdný `tabulka.csv` (příčina: `\b` v JVM je ASCII,
+na telefonu ICU – testy a telefon se lišily); heslo z první zprávy v názvu konverzace; protichůdné údaje v paměti.
+
+**Odpoledne – komerční uživatelé a red team konzilium**
+| Kolo | Pohled | Nález → oprava |
+|---|---|---|
+| C1 | uživatel ChatGPT/Claude | chybělo Upravit poslední zprávu, ↻ Znovu, Kopírovat kód, hledání v konverzacích; menu ukazovalo jen 30 konverzací → hledání v názvech i obsahu |
+| C2 | AI prompteři | přílohy a pasáže z vlastních dokumentů šly modelu bez ohraničení → `Untrusted.wrap` + pravidlo „data, ne pokyny“ |
+| C3 | hackeři | manifest, WebView, FileProvider, cesty souborů bez nálezu; nové metody mostu ověřují id |
+| C4 | investoři | úvod bez klíče ukazuje nejsilnější věc bez nastavení (přesná hypotéka) |
+| C5 | vývojáři | mrtvý kód a nespojené akce UI: žádné; release APK (R8) lokálně sestaveno |
+
+Testy: 228 → 248 Kotlin (0 selhání) + UI `composer` 26 scénářů, `audit` 30 obrazovek, `robust`, `xss` – vše zelené.
+Na telefonu NEOVĚŘENO (kopírování do schránky, sdílení, Upravit/Znovu na skutečném zařízení).
+
+### Feature freeze (22. 11., 16:30)
+Na žádost: žádné nové funkce. Samoúpravy výchozí VYPNUTO (jen přepínač v Nastavení › Pro pokročilé, automatické zlepšování
+bez něj neběží); Hardware (HCE, NFC, BLE, root), WiFi audit a projekty s kódem přesunuty do Nastavení › Pro pokročilé;
+úvod nejvýš 6 akcí. Rozpracované „Přečíst nahlas“ zahozeno. Kontrola na telefonu: `docs/vega/PHONE-CHECKLIST.md`.
+Odpolední kola navíc: C6–C16 (sdílení konverzace, 1 000 zpráv, vlastní pokyny, testy s falešným modelem: Bez sítě nikdy
+nevolá model, ■ zachová rozepsané, srozumitelné chyby modelu, „projdi celý dokument“ už neuřízne konec na 60 000 znacích).
+
+### Ranní přehled zpráv (na výslovnou žádost, 22. 11. večer)
+- Zdroje jen RSS, adresy ověřené živě 22. 11. 2026 (HTTP 200, platné položky s pubDate): Novinky.cz, iDNES.cz
+  (`https://servis.idnes.cz/rss.aspx?c=zpravodaj` – zadané `http://…/rss.asp` vrací odsud 403 a přesměrovává sem; http mimo
+  LAN VEGA nepovolí), ČT24, iROZHLAS, Seznam Zprávy, Aktuálně.cz, Deník N. Výchozí zapnuté Novinky + iDNES, ostatní v Nastavení.
+- Okno včera 05:20 (včetně) → dnes 05:20 (bez), Europe/Prague, správně i 23/25h noci při přechodu času.
+- AlarmManager.setExactAndAllowWhileIdle: pokusy 05:20 / 05:24 / 05:28, notifikace 05:30; obnova po BOOT_COMPLETED,
+  změně času/zóny a aktualizaci; při neúspěchu notifikace „Zkusit znovu“. Bez povolení přesných budíků náhradní nepřesný alarm.
+- Deduplikace titulků napříč weby (společné kmeny), max 10 témat podle počtu zdrojů. Souhrn jen bezplatným modelem
+  (≤ 30 s): 1–2 věty na téma, věta bez platného [S#] nebo s 12+ slovy z perexu se vyřadí; bez modelu titulky + odkazy.
+  Z RSS se bere jen titulek, odkaz, čas a perex ≤ 280 znaků.
+- Testy: `NewsTest` (okno 05:19:59 / 05:20:00, DST, RSS/Atom, vadné RSS, deduplikace, max 10, kontrola vět),
+  `OpsNewsTest` (offline, nedostupné/vadné zdroje, s modelem a bez, hranice okna, časy alarmů). Živá zkouška
+  `NewsProbe`: 7 zdrojů, 200 položek, témata správně sloučená. Doručení v 05:30 na telefonu: NEOVĚŘENO (checklist, 3 dny).
+- **Úprava (22. 11. 17:00, na žádost):** přehled je nezávislý na jazykovém modelu i cloud AI – model se nevolá vůbec (ani
+  bezplatný). Každé téma: titulek, první věta perexu z RSS (≤ 160 znaků) a odkazy na všechny zdroje. Test
+  `OpsNewsTest.newsNeverCallsModel` (připojený falešný model se nezavolá ani jednou).
+- **Úprava (22. 11. 17:10, na žádost – obsáhlejší přehled):** u každého tématu až 4 věty z perexů všech webů, které o něm
+  psaly (střídavě po zdrojích, opakující se věty jen jednou, ~700 znaků), každá věta s odkazem na svůj článek, pod tím
+  „Číst:“ s odkazy na všechny články. Pořád bez jazykového modelu; perex z RSS ≤ 600 znaků, nikdy celý článek.
+  Odkazy bez sledovacích parametrů utm_. Test `NewsTest.extractiveSummaryFromSeveralSources`.
+
+### Večerní tvrdé kontroly H1–H15 (22. 11., 17:00–19:50; kontroly po 30 min)
+| Kolo | Nález → oprava |
+|---|---|
+| H1 | v 05:30 po neúspěšných pokusech ještě jeden pokus před notifikací; test plánování alarmů |
+| H2 | „co je nového“ bez modelu odkáže na ranní přehled; příklad kurzu „1 eur po 25,2“ |
+| H3 | lint: 0 chyb (TrustAll je v knihovně BouncyCastle, http jen pro LAN záměrně) |
+| H4 | titulek/perex z RSS mohl vytvořit cizí odkaz nebo formátování → markdown z textu kanálu pryč |
+| H5–H7 | Nastavení › Ranní přehled vizuálně OK; nový kód bez varování; RSS ve windows-1250 a s BOM OK |
+| H8 | parser zpráv ve fuzz testu (1 500 kol) – 0 výjimek |
+| H9 | slučování do témat 4× rychlejší (350 položek 181 → 47 ms) |
+| H10 | „Vyzkoušet teď“ = posledních 24 h do teď a nemění ranní plán (dřív zprávy do 05:20 a označil hotovo) |
+| H11 | po povolení přesných budíků se plán přeplánuje (SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) |
+| H12 | stejné id dvou konverzací ve stejné ms (zprávy se míchaly); seznam ořezán na 50 → 500; přehledů max 14 |
+| H13 | aktivní konverzace jde v menu nahoru |
+| H14 | hledání v 300 konverzacích / 12 000 zprávách 122 ms |
+| H15 | regresní brána: UI 33 scénářů, 30 obrazovek, robust, xss, lint 0 chyb |
+
+CI: běhy #135 (feature freeze), #140, #145–#149 zelené; APK v artefaktech. Testy 281/0.
+
+### Závěr dne 22. 11. (22:00)
+- H16: živá kontrola přehledu po úpravách – v pořádku. H17: stejná událost ve dvou tématech (Libye) → kmeny 4 písmena,
+  pravidlo 3 společné + ½ titulku; na živých datech všech 10 témat správně.
+- Poslední APK: CI běh #150 (`88dd0b5`) zelený – `VEGA-88dd0b5.apk`
+  SHA-256 `0327f5fcf7252361a2f82281ed74189101ac1e6e3f0dddcf976cf9e3faf62d79`, podpis CN=AVIOR CI (beze změny).
+- Testy 282/0 (Kotlin), UI 33 scénářů / 30 obrazovek / robust / xss zelené, lint 0 chyb.
+- Na telefonu NEOVĚŘENO: doručení přehledu v 05:30 (3 dny), přesné budíky a obnova po restartu, oznámení a „Zkusit znovu“,
+  Kopírovat/Sdílet, Upravit/Znovu, hledání v konverzacích, 14 scénářů a měření v `PHONE-CHECKLIST.md`.
+
+## Den 23. 11. 2026 (pondělí) – oblasti: dopoledne laické dotazy (kalkulačka, data, převody, měny, router), odpoledne ranní přehled zpráv
+
+### Souhrn dne 23. 11. (uzávěrka 20:02)
+
+24 kol, 23 commitů, testy **305 / 0** (ráno 288). Poslední CI „Build VEGA APK“ #172 (`f52471f`) zelené. Kola 23 a 24 skončila bez nálezu, žádný commit.
+
+**Dopoledne – laické dotazy (kola 1–9)**
+- Kola 1–5: nové formulace kalkulačky, dat a převodů (DailyScanMon1–5Test). Kolo 6: 40 náhodných úvěrů, spoření, slev a DPH proti nezávislému výpočtu – vše na haléř (FinanceCrossCheckTest).
+- Kolo 7: kalendář proti Pythonu 0/42 chyb. Oprava gramatiky: „před 1 dny“ → „před 1 dnem“.
+- Kolo 8: 51 nových formulací, 7 mezer v existujících výpočtech: „350 + DPH“ / „plus 21 % DPH“, „1999 po slevě 25 %“, „druhá/třetí mocnina N“, „kolik týdnů má rok“, „kolik hodin je 10 000 minut“, hektar, GB/MB velkými písmeny.
+- Kolo 9: falešné zásahy kalkulačky 0/24 (věty s čísly zůstávají modelu). Opraveny 4 varianty psaní: „1 500 g v kg“, „hypoteka 3000000 30 let 5%“, „za týden / před týdnem“ bez čísla, dvojité mezery.
+
+**Odpoledne – ranní přehled zpráv (kola 10–22)**
+- 10: perex se lámal po datu („10.“ | „července…“) → úlomek s malým písmenem se připojí k předchozí větě.
+- 11: **souběh pokusu a notifikace v Doze** stavěl dva přehledy (2 chaty, dvojí stahování) → zámek a hotový přehled dne se vrátí.
+- 12: **výjimka při notifikaci 05:30 rušila plán na zítřek** → přeplánování ve `finally`.
+- 13: 4 tvary pubDate se tiše zahodily (dvojitá mezera, „Monday,“, „November“, ISO s mezerou) → normalizace.
+- 14: perex se zakódovaným HTML („p … /p“), pojmenované entity (&bdquo; &ndash; &hellip;) a dvojí kódování Atomu → dva průchody a mapa entit. `javascript:` / `data:` odkazy zahozeny (bez nálezu).
+- 15: **chybné sloučení různých událostí** se shodou jen v obecných slovech (policie/zadržela/muže, vláda/schválila/zvýšení, ceny/ledna/procent) → nutný aspoň jeden konkrétní společný kmen.
+- 16: **stejná událost rozdělená do dvou témat** (shlukování nespojovalo skupiny) → živě „Agresivní jízda“ 3 + 2 → 5 zdrojů, „Nvidia vrátila Huanga“ 2 + 1 → 3.
+- 17: dvojí klepnutí na „Vyzkoušet teď“ zakládalo dva chaty → druhé klepnutí „Přehled se už stahuje“.
+- 18: záznamy `news/<den>.json` se hromadily navždy → posledních 14 dní.
+- 19: notifikace „1 témat / 3 témat“ → „1 téma / 3 témata“. 20: titulky v notifikaci se zkracují na celé slovo s „…“.
+- 21: alarmy přes přechod času (28. 3. / 31. 10. 2027) – bez nálezu, regresní test.
+- 22: „ranní přehled“, „přehled zpráv“, „zapni ranní přehled“, „co píšou noviny“… vedly do rešerše / na model → nápověda k Ranní přehledu i bez modelu.
+- 23: UI nastavení přehledu (escapování, whitelist zdrojů) – bez nálezu. 24: varování kompilátoru – 3 stará, žádné z dnešního kódu.
+
+**Neopraveno (návrh, nová funkce → jen na žádost):** synonyma ve slučování („paliva“ × „pohonné hmoty“, „atomovka“ × „jaderná zbraň“); kalkulačka: spotřeba/cena cesty, medián, zaokrouhli, „půl kila“, kJ↔kcal; položky RSS jen s `<guid>` bez `<link>`.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-f52471f.apk`, 39 865 482 B,
+SHA-256 `7211232e5e731a1e1094c4059744d5c93c12ea740d17f984de0ef84938a22dd1` (shoda se SHA256SUMS.txt z CI #172).
+
+**NEOVĚŘENO na telefonu:** všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md`; ranní přehled – skutečné doručení v 05:30 tři dny po sobě, chování v Doze (souběh pokusu a notifikace), obnova po restartu, „Zkusit znovu“ bez internetu.
+
+## Noc 23./24. 11. 2026 – noční kola 20:17 → 03:47 (feature freeze zrušen uživatelem)
+
+16 kol (N1–N16), 15 commitů, testy **305 → 321 / 0**. Poslední CI „Build VEGA APK“ #185 (`fff0224`) zelené.
+CI #181 bylo nejdřív červené kvůli výpadku Maven Central (429 Too Many Requests, ne kód) – po opakování zelené.
+
+**Priorita od uživatele (snímek z telefonu):** hlavička vjížděla pod stavový řádek – ☰ a „VEGA ▾“ nešly klepnout.
+Příčina: odsazení od lišt se dávalo jako padding přímo na WebView, který ho ignoruje → WebView v obalovém kontejneru,
+odsazení (stavový řádek, výřez, lišta gest, klávesnice) nese kontejner. Test InsetsTest na skutečné aktivitě. APK `121dd5c` poslané do chatu.
+
+**Nové funkce / vylepšení**
+- N1: slučování zpráv podle synonym (paliva × pohonné hmoty × benzin/nafta, atomovka × jaderná zbraň, rozvědka, premiér, USA); „D1 = dálnice“ vyřazeno (slučovalo různé nehody).
+- N2: kalkulačka bez modelu – spotřeba a cena cesty, medián/součet/min/max, zaokrouhlení, „půl kila / čtvrt litru“, kJ ↔ kcal.
+- N3: RSS jen s `<guid isPermaLink>`; „kolik stojí 1 euro“.
+- N9: porovnání výpisů upozorní na pohyby ve víc souborech zároveň (překrývající se exporty) – nic se nemaže potichu.
+- N10: velké systémové písmo – textZoom podle fontScale; rozvržení zalamuje při 130 % i 200 % (audit UI s FONT_SCALE).
+- N13: čekání na NFC štítek z chatu jde zrušit.
+
+**Skutečné nálezy a opravy**
+- N4: Revolut – zrušené/odmítnuté platby (REVERTED/DECLINED) se sčítaly do výdajů, sloupec Fee se ignoroval. 9 tvarů bank (Revolut, Fio, Air Bank, KB, ČSOB, mBank, George, Moneta, Raiffeisen) jako regresní test.
+- N5: částky s příponou CR/DR. N6: data „02-Nov-2026“, „Nov 2, 2026“, „2 Nov 2026“, „2 lis 2026“ (kompaktní „20261102“ záměrně ne – variabilní symbol).
+- N7: CSV v UTF-16 (Excel „Text v kódování Unicode“) se četlo jako nečitelný text; CSV s konci řádků jen CR (Excel na Macu) ztratilo popisy.
+- N11: „Odpověď se nedokončila… klepni na Pokračovat“ – tlačítko zmizelo, jakmile uživatel napsal další zprávu (snímek z telefonu).
+- N14 (bezpečnost): text ranního přehledu z RSS šel při dotazu v chatu modelu jako řeč asistenta – teď zabalený jako nedůvěryhodný dokument.
+
+**Bez nálezu:** N8 (kódování příloh – stejná cesta jako N7), N12 (TalkBack – audit nově hlídá nadpis panelu), N15 (most JS↔Kotlin, živá sonda zpráv 176 článků / 10 témat bez chybného spojení), N16 (kompilátor 3 stará varování, lint 0 chyb; TrustAll jen v knihovně BouncyCastle, http:// jen do lokální sítě, přesměrování kontrolované po krocích).
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-fff0224.apk`, 39 865 850 B,
+SHA-256 `d353415b8253446a527244f70d01c320576781a2d022d41db813a56d5ed5cda4` (shoda se SHA256SUMS.txt z CI #185).
+
+**NEOVĚŘENO na telefonu:** hlavička pod stavovým řádkem (oprava z noci), velké písmo (PHONE-CHECKLIST #24), „Pokračovat“ u starší zprávy,
+zrušení čtení NFC, TalkBack; dál všech 14 scénářů a 4 měření v `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
+
+## Den 24. 11. 2026 (úterý) – oblasti: dopoledne výpisy z banky, CSV, PDF, přílohy, export; odpoledne UI (audit 360 px, robust, xss, toky)
+
+### Souhrn dne 24. 11. (uzávěrka 20:02)
+
+28 kol, 28 commitů, testy **321 → 346 / 0** (Kotlin) + UI composer 38 scénářů, audit 31 obrazovek (100 / 130 / 200 % písma), robust, xss.
+Poslední CI „Build VEGA APK“ #213 (`1911d4b`) zelené. Červené bylo jen CI #190 (EdgeFuzzTest – rozpoznání výpisu 1,6 s > 1,5 s) → kolo 6 zrychlilo 5–10×;
+CI #192 padlo na výpadku Maven Central (429), další běh zelený.
+
+**Dopoledne – výpisy z banky (nové funkce, vše bez modelu)**
+- Výpis v **PDF** (k1–k2: datum bez roku, popis na dvou řádcích, kontrola proti zůstatku) a v **Excelu XLSX** (k7) → tabulka.
+- **Kategorie výdajů** (k4, přesnost k12 – „Card transaction“ ≠ Action, „mobil“ ≠ OBI, nová kategorie Úřady a daně), **pravidelné platby** (k9, čitelně k24).
+- Dotazy laika: „kolik jsem utratil za jídlo“, „za co utrácím nejvíc“ (k5, slovosled k22), měsíc / minulý měsíc / celkem (k10), příjmy a úspora (k13),
+  obchodník „v Lidlu / za Netflix“ a největší platby (k14, Netflix ≠ celé předplatné k24); 20 000 pohybů pod 120 ms (k15).
+- **Export do Excelu** (k3, k11): desetinná čárka, „ulož pohyby / kategorie / pravidelné platby do Excelu“, částky jako čísla; ochrana proti vloženým vzorcům z cizího výpisu (k20).
+
+**Odpoledne – UI**
+- Návrhy pod výpisem „Za co utrácím nejvíc? / Pravidelné platby / Uložit pohyby do Excelu“, u PDF/Excelu „Zpracovat výpis“ místo „Shrnout“ (k17);
+  zmizí po položení otázky (k19) i při odbočce k jinému tématu (k26); všechny vidět na 360 px (k25).
+- Skloňování „4 pohyby / 1 platba“ (k16), řádek Kopírovat/Sdílet se zalomí při velkém písmu, „Znovu“ ne u výpočtu bez modelu (k18).
+- Návrh nepřepíše rozepsaný text, dvojí klepnutí nepošle dvakrát (k21). První odpověď začíná výsledkem, ne „Formát / oddělovač“ (k23).
+
+**Pojistky (výpis nesmí přebírat cizí otázky):** „kolik stojí 3 kg jablek“ (k11), „kolik bych platil za hypotéku 3 mil.“, „kdybych…“, vlastní čísla (k27),
+„minimální mzda“, „příjmy státního rozpočtu“, „bilance obchodu ČR“ (k28) → kalkulačka / model.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-1911d4b.apk`, 39 899 538 B,
+SHA-256 `7a89f3089b619fd18faba3e01441de4d1b98d11c07a1a3d5e1473b679538309c` (shoda se SHA256SUMS.txt z CI #213).
+
+**NEOVĚŘENO na telefonu:** skutečný PDF a XLSX výpis z vlastní banky (George, ČSOB, Fio, KB, Air Bank), otevření uloženého CSV v Excelu / Tabulkách Google,
+návrhy pod polem (zalomení, zmizení), velké písmo, hlavička pod stavovým řádkem (oprava z noci); dál `PHONE-CHECKLIST.md` a ranní přehled 3 dny po sobě.
+
+## Noc 24./25. 11. 2026 – noční kola 21:20 → 03:47 (na žádost „klasická večerní kola jako včera“)
+
+13 kol (NN1–NN13), 13 commitů, testy **346 → 362 / 0** (Kotlin) + UI composer / audit / robust / xss zelené. Poslední CI „Build VEGA APK“ #226 (`35446ec`) zelené, všech 13 nočních buildů zelených.
+
+**Kalkulačka a kalendář bez modelu**
+- NN1: „15 % sleva z 899“, „12 % z 35 000 Kč hrubého“, „rozpočítej 1840 na 4 lidi“, „3 hodiny 45 minut v minutách“, „100 °F ve stupních“, „5 % úrok z 200 000“, „za kolik dní je 1. ledna“; „100 dní = 14,29 týdnů“ (dřív „100 dni = 14,2857 tydnu“).
+- NN3 + NN13: přestupný rok, dny v měsíci (i „kolik má únor dní“), Velikonoce / Velký pátek / pondělí, věk jen z roku narození. Sonda 24 faktických otázek: kalkulačka si žádnou nepřivlastnila.
+
+**Ranní přehled zpráv (bez modelu)**
+- NN2: zprávy s českým datem („Út, 24 lis 2026“), bez časového pásma („24.11.2026 05:20“) nebo s dvouciferným rokem RFC 822 (dřív rok 0026) už tiše nevypadávají z okna 05:20→05:20.
+
+**Kdo odpovídá (router a kontext)**
+- NN4: „kolik řádků / sloupců má ten soubor“ u CSV → Inspektor CSV (přesně), „co je v tom souboru“ dál shrnutí.
+- NN5: „a v říjnu?“, „a za benzín?“, „a kolik za jídlo?“ po výpisu – doplnění podle předchozí otázky (dřív webové hledání doslova „a v říjnu“).
+- NN6: „no nic“, „nevadí“, „výborně“, „v pohodě“… už nespouští hledání na webu.
+
+**Hardware a soubory**
+- NN7: WiFi heslo podle WPA – > 63 znaků „nepoužitelné“, diakritika „riskantní“, „Password123!“ / „P@ssw0rd“ slabé; vlastní generátor obsahoval slovo „maják“ → jen ASCII.
+- NN8: NFC WiFi štítek ukáže síť a zabezpečení (heslo se nezobrazí, neuloží ani nepředá dál); vizitka jako „Kontakt: jméno · firma · telefon · e-mail“.
+- NN9: text z Wordu / PowerPointu / ODT bez slepených slov (tabulátory, zalomení, buňky tabulek, číselné entity).
+- NN10: XLSX – vložený text po částech („Čás“+„tka“ → výpis nešel rozpoznat), čísla jako v Excelu (-312.4), PRAVDA/NEPRAVDA.
+
+**Bezpečnost**
+- NN11: podvržený XLSX (zip bomba 400 kB → 400 MB) zabral ~269 MB paměti → čtení po kouscích s limitem 20 / 60 MB.
+- NN12: cizí text z příloh a webu nepodstrčí falešný konec bloku (`</ZDROJ>`, titulek stránky, `<<<KONEC  DOKUMENTU>>>`, ＜＜＜…＞＞＞).
+
+**Regresní sonda (NN13):** 89 laických dotazů na stavu před nocí (`415b0ce`) a teď – 14 změn, všechny záměrné, 0 regresí.
+
+**Upravené starší testy (s důvodem v commitu):** WifiPasswordTest – „kočka-strom-okno-mrak“ s diakritikou už není „silné“ (WPA = jen ASCII), silná je verze bez háčků.
+
+**APK (release, podepsáno CN=AVIOR CI):** `VEGA-35446ec.apk`, 39 915 926 B,
+SHA-256 `9849928dfd720311590c8a24048ec7bc2381d4900fab09da982162b248b73a2c` (shoda se SHA256SUMS.txt z CI #226).
+
+**NEOVĚŘENO na telefonu:** skutečný NFC WiFi štítek a vizitka, kontrola WiFi hesla v Hardware, DOCX / ODT / XLSX z vlastních souborů, navazující dotazy k výpisu v chatu, ranní přehled s českými zdroji; dál seznam ze dne 24. 11. a `PHONE-CHECKLIST.md`.
+
+## Den 25. 11. 2026 (středa) – oblasti: dopoledne paměť, konverzace, úložiště (poškozené soubory, limity, souběh); odpoledne bezpečnost (most JS↔Kotlin, injekce z příloh / RSS / webu, logy, oprávnění)
+
+### Uzávěrka dne 25. 11. 2026 (20:02)
+
+**Kola dne:** 1–31 (+ refaktoring 1–4), 32 commitů na `claude/reverse-engineer-ai-app-o5jhyd`. Každá oprava s testem, který bez ní selže; plná sada (Kotlin + UI composer / audit / robust / xss) zelená před každým commitem. CI „Build VEGA APK“ zelené po každém kole (2× výpadek Maven Central 429 → opakování → zelené).
+
+**Paměť, konverzace, úložiště (dopoledne)**
+- Kola 1–12: limity paměti, záchrana useknutých souborů chatu a paměti, zálohy `.bad` po 30 dnech uklizeny, fsync před přejmenováním, heslo / PIN z dřívější zprávy se v historii pro model neopakuje („[skryto]“).
+- Kolo 13: „zapomeň, kde bydlím / mé jméno / můj věk / na Brno“ opravdu zapomene (dřív „nic takového si nepamatuji“).
+- Kolo 14: „kde bydlím? / jak se jmenuju? / kolik mi je?“ odpoví z paměti i bez sítě; „se jmenuju Petr“ → „Jmenuju se Petr“.
+- Kolo 15: smazání chatu smaže i zpracovaný výpis (všechny pohyby) – dřív zůstával, dokud nebylo přes 30 výsledků.
+
+**Bezpečnost (odpoledne)**
+- Kola 16–17: text cizího NFC štítku, názvy okolních WiFi a data výsledku nástroje jdou modelu obalené jako cizí data, ne jako řeč VEGA.
+- Kola 18–22: kvadratické až kubické regexy nad cizím obsahem – rozbitý / podvržený RSS (150 kB = 47 s), DOCX / XLSX / ODT (35 s), webová stránka (157 s), výsledky DuckDuckGo, řádek PDF výpisu (přes 10 min) – jediný soubor mohl zastavit jediné pracovní vlákno VEGA. Vše jedním průchodem (`base/Tags`, `Web.htmlStrip`, `Statement.pdfRow`, rozdílový test proti starému regexu na 60 000 řádcích). Cestou: „a < b.“ na webu ztrácelo text; prázdný řádek XLSX se slepoval s dalším.
+
+**Tvrdý refaktoring (na žádost uživatele, v plánu každý den)**
+- R1: české tvary podle počtu a typy souborů z jednoho místa (cestou „V okolí je 2 sítí“ → „jsou 2 sítě“).
+- R2: testy – `OpsHarness` (čekání, které při vypršení času selže; 3 dnešní chyby dočasně vráceny → testy je chytily).
+- R3–R4: lineární práce se značkami v jednom místě pro RSS, Office, web a DuckDuckGo.
+
+**Doporučení pro vývoj (`docs/vega/DOPORUCENI-VYVOJ-2026-11-25.md`)**
+- S1 hotovo: dva přepisy jedné zprávy ČTK = jedna linie (v obou pořadích), zmínka ≠ převzetí, neznámý původ = „nezávislost neurčena“, důvod z vlastního rozhovoru připsán mluvčímu, web i místní dokumenty stejné pořadí přednosti.
+- S2 hotovo v kódu: přesné pasáže u hodnocení síly doložení, úloha „most“ nad místními texty i uloženými webovými stránkami (dřív verdikt ze skriptu stránky), u webu datum vydání × načtení, výchozí přehled = odpověď + hlavní rozpor + podrobný audit v kartě, živá rešerše zvýrazní pasáž i bez ověřovače (odhad).
+- T2: měřicí sada parafrází routeru – 4 informační otázky spouštěly akci (nástroj na výpis, čtečku NFC, kontrolní součet) → 0 z 35; 12 z 12 příkazů.
+- S3, T3: scénáře autonomie a výkonu pro Pixel v `PHONE-CHECKLIST.md`.
+
+**Hlášení uživatele**
+- Kolo 26: VEGA se zastavila při zamčení / zhasnutí obrazovky (Android aplikaci na pozadí zmrazí) → služba v popředí + wake lock jen po dobu práce.
+- Kolo 31: ranní přehled ráno nedorazil, i když internet byl – v 05:20 Doze blokuje síť aplikaci na pozadí (s modelem to nesouviselo) → služba v popředí spuštěná z budíku, 2 opakování po probuzení, srozumitelná hláška u Bez sítě.
+
+**Testy:** 374 ráno → 416 večer (Kotlin, 0 selhání), UI 4/4. Upravené starší testy (s důvodem v commitu): OpsBridgeEvidenceTest (otevřené v auditu), RouterTuningTest (stejné zamítnutí, dřívější důvod).
+
+**AVIOR:** beze změny (`app/`, `core/`, `build-apk.yml`, kořenová konfigurace).
+
+**NEOVĚŘENO na telefonu:** odpověď se zamčenou obrazovkou a oznámení; ranní přehled ze spícího telefonu (zítra 05:20 / 05:30); pasáže a podrobný audit v kartě „Síla doložení“; uložené webové stránky v hodnocení; scénáře autonomie (S3) a výkonu (T3).
+
+**APK (release, arm64-v8a, podepsáno CN=AVIOR CI):** `VEGA-33565c9.apk` (CI #258, obsahuje všechny opravy dne včetně ranního přehledu v Doze), 39 933 130 B,
+SHA-256 `03173b2af018893db4cc9d917263c579ba1d10db737b014babf680246c5cacdc` (shoda se SHA256SUMS.txt z CI).
+
+## Výpadek 25. 11. ~21:00 → 27. 11. 09:18 UTC
+Pracovní prostředí se opakovaně restartovalo (≈ 50×); všechna naplánovaná kola 26. 11. (den i uzávěrka) propadla. Repozitář zůstal čistý,
+poslední commit před výpadkem `d7b1940` (CI #260 zelené). Noční kola 25./26. 11. N1 (EvidenceCards) a N2 (NewsJob) proběhla ještě před výpadkem.
+
+## Den 27. 11. 2026 (pátek) – oblasti: dopoledne Hardware (NFC, WiFi, BLE, HCE); odpoledne regrese týdne, lint, varování, mrtvý kód; refaktoring ráno i odpoledne
+
+### Uzávěrka dne 27. 11. 2026 (20:02)
+Testy na konci dne: Kotlin 453/0 (ráno 421), UI composer/audit/robust/xss 4/4. CI: poslední běh #276 zelený; #263 a #267 spadly
+na 429 z Maven Central (ne kód) – příčina odstraněna (cache Gradle se zapisuje i na vývojové větvi), od té doby bez pádu.
+
+| Oblast | Změna | Test (bez opravy padá) |
+|---|---|---|
+| T1 refaktoring 6 | strážné testy rešerše + sběr podkladů vyjmut do `Research.collect` | OpsResearchGuardTest, ResearchCollectTest |
+| WiFi | vygenerované heslo 6 slov ze 360 (≈ 60 bitů) místo 4 ze 30 (≈ 29 bitů – offline prolomitelné za minuty) | PassphraseStrengthTest |
+| WiFi | kontrola hesla pozná opakovaný úsek / řadu znaků („Password1Password1“ nebylo „silné“) | PasswordRepeatTest |
+| NFC | adresa se skrytým znakem (U+202E) se nenabídne k otevření, znaky se ukážou; Smart Poster bez rekurze | NdefHardeningTest |
+| NFC | text záznamu nemůže v souhrnu podvrhnout řádek „UID“ / „Norma“ | NdefHardeningTest.summary… |
+| HCE | karta z cizího telefonu = cizí data, pole na jeden řádek; čtení po částech do 240 B (velká karta i na krátkém APDU, zpětně kompatibilní) | OpsModelTest.foreignVirtualCard…, CardChunkTest |
+| BLE + WiFi | cizí názvy nerozbijí tabulku, BLE v historii jako cizí data | OpsModelTest.foreignBleAndWifi… |
+| RSS / rešerše | titulky bez skrytých znaků; možné významy tématu bez markdownu a zalomení | NewsHiddenTest, ResearchCollectTest.candidates… |
+| T2 router | „Je bezpečné…?“ nespustí NFC, „Umíš / Dá se…?“ nejde na web, „Můžeš si zapamatovat, že…?“ se uloží (sada 47 / 16 / 9) | RouterParaphraseMetricTest |
+| Varování / lint | překladač 3 → 0 (HTTP stejný parser pro kontrolu i spojení); lint 21 → 14 varování, 0 chyb (zbytek posouzen) | HttpSameParserTest |
+| Mrtvý kód | odstraněna slabší kopie kontroly samoúprav `sensitiveAdditions`, `HceState.isActive` | SelfUpdateTest (přepnut) |
+| Refaktoring 7 | jedna sada skrytých znaků `base/Hidden` (NFC, karta, BLE, WiFi, RSS, rešerše) | HiddenTest |
+
+Poslední APK dne: `VEGA-0f569cf.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 933 158 B,
+SHA-256 `68bce5798a7bab5783461ac31762e4a57709dec15e5623d9d20df285f342586e` (CI #276).
+Telefon: NEOVĚŘENO – nové scénáře v PHONE-CHECKLIST 15b, 16b–16d.
+
+## Noc 27./28. 11. 2026 – noční kola 20:17 → 03:47 (na dotaz uživatele „Co večerní testy“)
+
+### Uzávěrka noci (03:47)
+Testy na konci noci: Kotlin 469/0 (večer 453), UI composer/audit/robust/xss 4/4 (audit nově 32 obrazovek × písmo 100 / 130 / 200 %).
+CI: poslední běh #290 zelený; žádný pád za noc.
+
+| Kolo | Oblast | Skutečný nález → změna | Test (bez změny padá) |
+|---|---|---|---|
+| N1 | T1 refaktoring 8 | texty odpovědí Hardware → `HwReplies.kt` (strážný snímek 8 odpovědí na původním kódu) | OpsHwSnapshotTest |
+| N2 | Hardware | SSID / IP v odpovědi o připojení mohly zalomením podvrhnout řádek → jeden řádek | HwRepliesTest |
+| N3 | T2 + Hardware | „Zapiš na štítek …“ v chatu nic nedělalo → zápis na vlastní štítek (kapacita, zpětné čtení) | RouterParaphraseMetricTest, OpsNfcWriteTest |
+| N4 | T1 refaktoring 9 | export pro Excel → `core/ExcelCsv` | OpsCsvGuardTest (strážný), ExcelCsvTest |
+| N5 | T1 refaktoring 10 | formulář výzvy → `DemandForm`; poprvé test celé cesty výzvy (seam `pdfBuilder` – Robolectric nemá PdfDocument) | OpsDemandGuardTest |
+| N6 | Výzva | chybějící pole / částka „abc“ = „Něco se pokazilo uvnitř VEGA“ → věta s názvem pole | OpsDemandGuardTest.missingOrBadFieldsAreNamed |
+| N7 | Výpisy | „-(1 234,50)“ se nepřečetlo (řádek mizel ze součtů) → výdaj | CzNumDoubleSignTest |
+| N8 | Výpisy, CSV | řádek „sep=;“ z Excelu udělal z hlavičky „nepřečtený řádek“ | CsvSepDirectiveTest |
+| N9 | UI, přístupnost | pasáže a tvrzení v kartách oříznuté (globální `.chk` nowrap); při 200 % písmu „+“, „✕“, avatar mimo tlačítka; audit nově hlídá oříznutý text a znak mimo tlačítko | audit.cjs |
+| N10 | Přístupnost | audit hlídá kontrast WCAG AA – 0 nálezů (ověřeno, že kontrola chybu najde) | audit.cjs |
+| N11 | UI, výzva | formulář se zavřel před výpočtem (chyba = ztráta vyplněného) → po chybě zpět předvyplněný; **regrese z N6** (adresy a „za co“ povinné) opravena | OpsDemandGuardTest.emptyAddresses…, composer.cjs |
+| N12 | UI, štítek | stejný vzor u zápisu na štítek → po chybě zpět s textem | composer.cjs |
+| N13 | Bezpečnost / odolnost | řídicí znak ve jménu (z PDF / e-mailu) udělal z DOCX poškozený soubor → znaky zakázané v XML pryč | DocxXmlValidTest |
+| N14 | Bezpečnost + kontrola noci | WebView bez nálezu; vlastní chyba z N3: „Zapiš do štítku …“ šlo jako rešerše na web → i 2. pád | RouterParaphraseMetricTest |
+| N15 | Výpisy | „sep=;“ už nevyvolá varování o přeskočených řádcích | CsvSepDirectiveTest.noSkipped… |
+
+Doporučení: T1 – kroky 3–5 (HwReplies, ExcelCsv, DemandForm; Ops.kt 2507 → 2466 řádků); T2 – sada rozšířena (zápis na štítek, 2. pád); S3/T3 – čeká na telefon.
+Poslední APK noci: `VEGA-ab6d591.apk` (release arm64-v8a, `cz.axiom.vega` 2.3.0, podpis CN=AVIOR CI), 39 934 146 B,
+SHA-256 `9c5b349d783ecf588f49802adc977c6cb86cbdf6bf8899e8eca7b5427a6830ca` (CI #290).
+Telefon: NEOVĚŘENO – nové scénáře PHONE-CHECKLIST 16e (zápis větou); velké písmo a formuláře po chybě je dobré vyzkoušet při běžném používání.
+
+## Den 28. 11. 2026 (sobota) – oblasti: dopoledne komerční uživatel (zvyklý na ChatGPT/Claude) – co chybí / mate; odpoledne red team konzilium (vývojář, prompter, hacker, investor)
+
+- Návrh (D10, neopraveno): „Kdo má dnes svátek?“ bez modelu – chce přesnou tabulku českého kalendáře jmen (366 položek) z ověřeného zdroje, ne zpaměti. Do té doby poctivě „potřebuji model“.

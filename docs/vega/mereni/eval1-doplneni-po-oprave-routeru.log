@@ -1,0 +1,5 @@
+    EVAL oprava-programu | model sám | správně=false | dokončeno=true | zásahy=0 | 88.4 s | úprav 1, neaplikováno 48, test kód 1
+    EVAL oprava-programu | model ve VEGA | správně=false | dokončeno=true | zásahy=0 | 784.1 s | kol 3, test kód 1, revize fbbd5a0deebe
+    EVAL navrat-k-projektu | model sám | správně=false | dokončeno=true | zásahy=0 | 5.5 s | model nemá stav mezi sezeními
+    EVAL navrat-k-projektu | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 0.1 s | revize fbbd5a0deebe
+    EVAL komerční požadavky: 0

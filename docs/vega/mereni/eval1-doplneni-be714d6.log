@@ -1,0 +1,9 @@
+    EVAL oprava-programu | model sám | správně=false | dokončeno=true | zásahy=0 | 127.3 s | úprav 0, neaplikováno 0, test kód 1
+    EVAL oprava-programu | model ve VEGA | správně=false | dokončeno=true | zásahy=0 | 38.6 s | kol 0, test kód 1, revize 79de24f6bcfa
+    EVAL data-vypis | model sám | správně=false | dokončeno=true | zásahy=0 | 31.5 s | 
+    EVAL data-vypis | model ve VEGA | správně=true | dokončeno=true | zásahy=0 | 1.8 s | Kontrola proti zůstatku banky: 11/11 návazností sedí ✓
+    EVAL dokument-vyzva | model sám | správně=false | dokončeno=true | zásahy=0 | 26.4 s | 
+    EVAL dokument-vyzva | model ve VEGA | správně=false | dokončeno=false | zásahy=1 | 0.3 s | formulář = 1 zásah; 
+    EVAL navrat-k-projektu | model sám | správně=false | dokončeno=true | zásahy=0 | 2.0 s | model nemá stav mezi sezeními
+    EVAL navrat-k-projektu | model ve VEGA | správně=false | dokončeno=true | zásahy=0 | 0.1 s | revize 
+    EVAL komerční požadavky: 0

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; frame-src 'none'">
+  <meta name="color-scheme" content="dark light">
+  <title>AVIOR</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <header class="top">
+    <button class="icon-btn" id="btnThreads" aria-label="Vlákna">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+    </button>
+    <div class="brand" id="brand"></div>
+    <button class="chip" id="engineChip" aria-label="Volba mozku"><span class="dot" id="engineDot"></span><span id="engineText">AUTO</span></button>
+  </header>
+
+  <main id="main"></main>
+  <button id="toBottom" class="fab" aria-label="Na konec konverzace"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button>
+  <div id="composerSlot"></div>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div class="drawer-bg" id="drawerBg"></div>
+  <aside class="drawer" id="drawer"></aside>
+  <div id="sheet"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

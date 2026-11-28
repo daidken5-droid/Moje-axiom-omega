@@ -1,0 +1,267 @@
+{
+ "vytvoreno_skriptem": "build_data.py",
+ "seed": 20261119,
+ "dokumenty": [
+  {
+   "doc_id": "wiki-cs-31264",
+   "title": "Karlův most",
+   "lang": "cs",
+   "topic": "dějiny",
+   "revision": "26345674",
+   "url": "https://cs.wikipedia.org/wiki/Karl%C5%AFv_most",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-cs-45729",
+   "title": "Operace Anthropoid",
+   "lang": "cs",
+   "topic": "dějiny",
+   "revision": "26243607",
+   "url": "https://cs.wikipedia.org/wiki/Operace_Anthropoid",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-cs-260425",
+   "title": "Sametová revoluce",
+   "lang": "cs",
+   "topic": "dějiny",
+   "revision": "26410094",
+   "url": "https://cs.wikipedia.org/wiki/Sametov%C3%A1_revoluce",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-cs-6250",
+   "title": "Pražské jaro",
+   "lang": "cs",
+   "topic": "dějiny",
+   "revision": "26257824",
+   "url": "https://cs.wikipedia.org/wiki/Pra%C5%BEsk%C3%A9_jaro",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "val"
+  },
+  {
+   "doc_id": "wiki-cs-15900",
+   "title": "Jaderná elektrárna Temelín",
+   "lang": "cs",
+   "topic": "technika",
+   "revision": "26374731",
+   "url": "https://cs.wikipedia.org/wiki/Jadern%C3%A1_elektr%C3%A1rna_Temel%C3%ADn",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-cs-200435",
+   "title": "Lithium-iontový akumulátor",
+   "lang": "cs",
+   "topic": "technika",
+   "revision": "26364079",
+   "url": "https://cs.wikipedia.org/wiki/Lithium-iontov%C3%BD_akumul%C3%A1tor",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-cs-54077",
+   "title": "Česká národní banka",
+   "lang": "cs",
+   "topic": "instituce",
+   "revision": "26272737",
+   "url": "https://cs.wikipedia.org/wiki/%C4%8Cesk%C3%A1_n%C3%A1rodn%C3%AD_banka",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-cs-34395",
+   "title": "Ústavní soud České republiky",
+   "lang": "cs",
+   "topic": "instituce",
+   "revision": "26404813",
+   "url": "https://cs.wikipedia.org/wiki/%C3%9Astavn%C3%AD_soud_%C4%8Cesk%C3%A9_republiky",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-cs-65248",
+   "title": "Senát Parlamentu České republiky",
+   "lang": "cs",
+   "topic": "instituce",
+   "revision": "26411441",
+   "url": "https://cs.wikipedia.org/wiki/Sen%C3%A1t_Parlamentu_%C4%8Cesk%C3%A9_republiky",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-cs-357553",
+   "title": "Český statistický úřad",
+   "lang": "cs",
+   "topic": "instituce",
+   "revision": "26398660",
+   "url": "https://cs.wikipedia.org/wiki/%C4%8Cesk%C3%BD_statistick%C3%BD_%C3%BA%C5%99ad",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "val"
+  },
+  {
+   "doc_id": "wiki-cs-5638",
+   "title": "Dálnice D1",
+   "lang": "cs",
+   "topic": "technika",
+   "revision": "26292684",
+   "url": "https://cs.wikipedia.org/wiki/D%C3%A1lnice_D1",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-en-515933",
+   "title": "Charles Bridge",
+   "lang": "en",
+   "topic": "history",
+   "revision": "1382558523",
+   "url": "https://en.wikipedia.org/wiki/Charles_Bridge",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-en-662",
+   "title": "Apollo 11",
+   "lang": "en",
+   "topic": "history",
+   "revision": "1386189273",
+   "url": "https://en.wikipedia.org/wiki/Apollo_11",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "val"
+  },
+  {
+   "doc_id": "wiki-en-61917089",
+   "title": "Fall of the Berlin Wall",
+   "lang": "en",
+   "topic": "history",
+   "revision": "1386104836",
+   "url": "https://en.wikipedia.org/wiki/Fall_of_the_Berlin_Wall",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-en-2589713",
+   "title": "Chernobyl disaster",
+   "lang": "en",
+   "topic": "history",
+   "revision": "1385265076",
+   "url": "https://en.wikipedia.org/wiki/Chernobyl_disaster",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-en-30011",
+   "title": "Transistor",
+   "lang": "en",
+   "topic": "technical",
+   "revision": "1386451050",
+   "url": "https://en.wikipedia.org/wiki/Transistor",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-en-9474",
+   "title": "European Central Bank",
+   "lang": "en",
+   "topic": "institution",
+   "revision": "1386113734",
+   "url": "https://en.wikipedia.org/wiki/European_Central_Bank",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-en-31737",
+   "title": "Supreme Court of the United States",
+   "lang": "en",
+   "topic": "institution",
+   "revision": "1385539766",
+   "url": "https://en.wikipedia.org/wiki/Supreme_Court_of_the_United_States",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  },
+  {
+   "doc_id": "wiki-en-33583",
+   "title": "World Health Organization",
+   "lang": "en",
+   "topic": "institution",
+   "revision": "1385965424",
+   "url": "https://en.wikipedia.org/wiki/World_Health_Organization",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "final"
+  },
+  {
+   "doc_id": "wiki-en-357353",
+   "title": "Large Hadron Collider",
+   "lang": "en",
+   "topic": "technical",
+   "revision": "1385939166",
+   "url": "https://en.wikipedia.org/wiki/Large_Hadron_Collider",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "val"
+  },
+  {
+   "doc_id": "wiki-en-21209639",
+   "title": "Danube",
+   "lang": "en",
+   "topic": "geography",
+   "revision": "1381819022",
+   "url": "https://en.wikipedia.org/wiki/Danube",
+   "licence": "CC BY-SA 4.0 (Wikipedia, https://creativecommons.org/licenses/by-sa/4.0/)",
+   "split": "train"
+  }
+ ],
+ "pocty": {
+  "train": {
+   "celkem": 115,
+   "rucni": 53,
+   "synteticke": 62,
+   "podle_stitku": {
+    "PODPORUJE": 21,
+    "ODPORUJE": 39,
+    "NEDOSTAČUJE": 55
+   },
+   "podle_jazyka": {
+    "cs": 55,
+    "en": 60
+   }
+  },
+  "val": {
+   "celkem": 23,
+   "rucni": 23,
+   "synteticke": 0,
+   "podle_stitku": {
+    "PODPORUJE": 10,
+    "ODPORUJE": 8,
+    "NEDOSTAČUJE": 5
+   },
+   "podle_jazyka": {
+    "cs": 12,
+    "en": 11
+   }
+  },
+  "final": {
+   "celkem": 36,
+   "rucni": 36,
+   "synteticke": 0,
+   "podle_stitku": {
+    "PODPORUJE": 14,
+    "ODPORUJE": 12,
+    "NEDOSTAČUJE": 10
+   },
+   "podle_jazyka": {
+    "cs": 19,
+    "en": 17
+   }
+  }
+ },
+ "lidsky_zkontrolovano": 0,
+ "poznamka": "Plán pilotu 600/120/180 – skutečně získáno viz počty. Žádný řádek zatím není lidsky zkontrolován → všechna měření jsou PŘEDBĚŽNÁ.",
+ "sha256": {
+  "documents.json": "f07894d5a08aef339d466098ab2885708bf14df67d77e7329143dc738423cb12",
+  "pairs.jsonl": "d1e67426aeb9f37589537acb63eeac8f8cf8922db814a7b266bac360eddfe64c",
+  "final_inputs.jsonl": "1625ef2b2d1707d770799cf4ac3aa31be7300966b9cb6d75dde16ae752b1761e"
+ }
+}

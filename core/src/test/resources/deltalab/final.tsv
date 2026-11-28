@@ -1,0 +1,51 @@
+# ZÁVĚREČNÁ sada Delta Lab – NELADIT na ní kód. Napsáno před změnami Δ IV, slouží jen k měření.
+výpočet	Kolik je 12 procent ze 750?	\b90\b
+výpočet	spočítej 144 / 12	\b12\b
+výpočet	kolik je 2 na desátou	1 ?024
+výpočet	kolik je odmocnina z 81	\b9\b
+výpočet	sleva 30 % z 1200	\b840\b|\b360\b
+výpočet	kolik je 3,5 krát 4	\b14\b
+převod	kolik je 3 míle v kilometrech	4[,.]8
+převod	převeď 2,5 kg na gramy	2 ?500
+převod	kolik je 72 hodin ve dnech	\b3\b
+převod	20 °C na fahrenheity	\b68\b
+převod	kolik mililitrů má 1,5 litru	1 ?500
+čas	kolik je hodin v Tokiu	\b18:00\b
+čas	jaké je dnes datum	3\. listopadu 2026
+čas	kolikátého je dnes	3\.
+čas	kolik dní zbývá do Silvestra	\b58\b
+čas	jaký den bude zítra	středa
+fakta	hlavní město Itálie	Řím
+fakta	jaká je měna v Japonsku	jen
+fakta	chemická značka zlata	\bAu\b
+fakta	hlavní město Slovenska	Bratislav
+wiki	kdy se narodila Božena Němcová	1820
+wiki	kdy zemřel Tomáš Garrigue Masaryk	1937
+wiki	co je inflace	cenov
+wiki	co je blockchain	databáz
+wiki	kde leží Praděd	Jesen
+wiki	kdy byla založena Univerzita Karlova	1348
+wiki	co je tepelné čerpadlo	tepl
+srovnání	co je větší, Brno nebo Ostrava	Brno
+srovnání	která hora je vyšší, Praděd nebo Lysá hora	Praděd
+srovnání	je Sněžka vyšší než Praděd	Sněžka
+srovnání	kdo byl starší, Havel nebo Gott	Havel
+srovnání	která řeka je kratší, Vltava nebo Morava	Morava
+srovnání	co je lidnatější, Plzeň nebo Ostrava	Ostrava
+konverzace	dobré ráno	(?i)dobré ráno
+konverzace	jak se máš	.
+mozek	napiš mi motivační dopis na pozici programátora	∅
+mozek	jaké jsou výhody elektromobilu oproti dieselu	∅
+mozek	vymysli název pro moji kavárnu	∅
+mozek	proč padla Římská říše	∅
+mozek	shrň mi děj Babičky	∅
+mozek	pomoz mi naplánovat výlet do Krkonoš na tři dny	∅
+mozek	co je lepší, iPhone nebo Android	∅
+mozek	porovnej Prahu a Vídeň jako místo pro život	∅
+mozek	jak funguje tepelné čerpadlo a vyplatí se mi do paneláku	∅
+mozek	kdo vyhraje příští volby	∅
+mozek	rozdíl mezi krokodýlem a aligátorem	?krokod|aligát
+mozek	napiš funkci v Pythonu, která seřadí seznam	∅
+mozek	co bych měl dělat, když mě bolí záda	∅
+mozek	přelož do angličtiny: dnes je krásný den	?beautiful
+mozek	kdy se narodil Jan Novák	∅
