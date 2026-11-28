@@ -322,6 +322,12 @@ object Quick {
         Regex("^(?:zmena |o kolik (?:%|procent)[a-z ]{0,20} )?z $N na $N(?: (?:je|to|v|o kolik|kolik)[a-z %]*)?$").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[2]) ?: return null
             if (a == 0.0) return null; val p = (b - a) / a * 100
             return "Z ${fmt(a)} na ${fmt(b)} je to ${if (p >= 0) "nárůst" else "pokles"} o ${fmt(Math.round(kotlin.math.abs(p) * 100) / 100.0)} %." }
+        // i „o kolik je 1500 víc než 1200 v procentech“ a „o kolik procent je X větší / dražší / levnější než Y“ (28. 11.)
+        Regex("o kolik (?:(?:%|procent) )?je $N (vic|vice|vetsi|drazsi|delsi|vyssi|min|mene|mensi|levnejsi|kratsi|nizsi) nez $N(?: (?:v |na )?(?:%|procent\\w*))?$").find(t)?.let { m ->
+            if (!Regex("%|procent").containsMatchIn(t)) return@let
+            val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[3]) ?: return null
+            if (b == 0.0) return null; val p = (a - b) / b * 100
+            return "${fmt(a)} je o ${fmt(Math.round(kotlin.math.abs(p) * 100) / 100.0)} % ${if (p >= 0) "víc" else "míň"} než ${fmt(b)}." }
         Regex("o kolik (?:%|procent) je $N (vic|vice|min|mene) nez $N").find(t)?.let { m -> val a = num(m.groupValues[1]) ?: return null; val b = num(m.groupValues[3]) ?: return null
             if (b == 0.0) return null; val p = (a - b) / b * 100
             return "${fmt(a)} je o ${fmt(Math.round(kotlin.math.abs(p) * 100) / 100.0)} % ${if (p >= 0) "víc" else "míň"} než ${fmt(b)}." }
