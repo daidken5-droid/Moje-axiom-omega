@@ -51,4 +51,13 @@ class OpsDemandGuardTest {
             assertTrue("$word → $msg", msg.contains(word, ignoreCase = true) && !msg.contains("Něco se pokazilo"))
         }
     }
+
+    /** Noc 27./28. 11. (oprava regrese z N6): adresy a předmět jsou NEPOVINNÉ jako dřív – formulář je posílá prázdné a výzva musí vzniknout. */
+    @Test fun emptyAddressesAndSubjectStillWork() {
+        val h = OpsHarness(); val c = h.o.newChat(); h.o.pdfBuilder = { "%PDF-1.4".toByteArray() }
+        val s = h.o.demandSample().put("creditorAddr", "").put("debtorAddr", "").put("subject", "")
+        val n = h.mark(); h.o.demand(c, s)
+        val r = h.replyAfter(n, ms = 60_000)
+        assertEquals(r.toString(), "demand", r.card?.optString("type"))
+    }
 }

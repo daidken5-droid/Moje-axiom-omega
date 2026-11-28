@@ -113,3 +113,9 @@ assert.equal(run("chips().length"),2,'výpočty a soubor návrhy nechají (bez u
 mock.messages.push({role:'user',text:'napiš e-mail šéfovi, že zítra nepřijdu'},{role:'vega',text:'Dobrý den, pane Nováku, zítra bohužel nepřijdu do práce…'});run("S.mc=null");run('renderStream()');
 assert.equal(run("chips().length"),0,'jiné téma → bez návrhů k výpisu');
 console.log('38 UI logic scenarios passed.');
+// noc 27./28. 11.: formulář výzvy – po chybě se vrátí vyplněné hodnoty (dřív se zavřel a laik psal vše znovu); povinná pole shodná s výpočtem
+run("S.dmDraft={creditor:'Jan Novák',invoice:'FV-1',amount:1200}; closeSheet=()=>{}; demandSheet({creditor:'x',invoice:'y',amount:1})");
+assert.match(field('#layer').innerHTML,/data-dm="creditor"[^>]*value="Jan Novák"/,'věřitel z rozpracovaného formuláře');
+assert.match(field('#layer').innerHTML,/data-dm="amount"[^>]*value="1200"/,'částka z rozpracovaného formuláře');
+assert.ok(run("DEMAND_REQ.includes('invoice') && DEMAND_REQ.includes('creditor') && DEMAND_REQ.includes('debtor') && !DEMAND_REQ.includes('creditorAddr')"),'povinná pole formuláře = povinná pole výpočtu');
+run("window.vega.on('message',{chat:'temp',msg:{role:'vega',text:'x',card:{type:'demand'}}})");assert.equal(run('S.dmDraft'),null,'po úspěchu se rozpracovaný formulář zahodí');

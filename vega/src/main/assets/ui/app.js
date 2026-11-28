@@ -758,9 +758,13 @@ function saveOwn() {
   S.home = null; renderTop();
 }
 
+// povinná pole formuláře výzvy = povinná pole výpočtu (DemandForm.input); adresy a „za co“ jsou nepovinné
+const DEMAND_REQ = ['creditor', 'debtor', 'invoice', 'amount', 'issued', 'due', 'asOf'];
 function demandSheet(s) {
   // ukázka je jen ŠEDÁ nápověda (placeholder) – cizí jména a částky z ukázky nesmí skončit v tvém PDF
-  const f = (k, l, t = 'text') => `<label class="lbl">${l}</label><input class="field" data-dm="${k}" type="${t}" ${t === 'date' ? '' : `placeholder="např. ${esc(s[k])}"`}>`;
+  // po chybě výpočtu se formulář otevře znovu s tím, co už bylo vyplněné (S.dmDraft) – dřív se zavřel a laik psal vše znovu
+  const dr = S.dmDraft || {};
+  const f = (k, l, t = 'text') => `<label class="lbl">${l}</label><input class="field" data-dm="${k}" type="${t}" ${dr[k] !== undefined && dr[k] !== '' && !(t === 'number' && dr[k] === 0) ? `value="${esc(String(dr[k]))}" ` : ''}${t === 'date' ? '' : `placeholder="např. ${esc(s[k])}"`}>`;
   sheet(`<h2>Předžalobní výzva</h2><p class="lede">Spočítám jistinu a úrok z prodlení k rozhodnému datu, u každé částky uvedu doklad a vyrobím DOCX i PDF.</p>
     <h3>Strany</h3>${f('creditor', 'Věřitel')}${f('creditorAddr', 'Adresa věřitele')}${f('debtor', 'Dlužník')}${f('debtorAddr', 'Adresa dlužníka')}
     <h3>Faktura</h3>${f('invoice', 'Číslo')}${f('subject', 'Za co')}${f('amount', 'Částka (Kč)', 'number')}${f('issued', 'Vystaveno', 'date')}${f('due', 'Splatnost', 'date')}
@@ -946,6 +950,7 @@ window.vega = {
     switch (type) {
       case 'message':
         S.stream = ''; if (!(d.msg && d.msg.card && d.msg.card.type === 'nfcWait')) S.nfc = false;
+        if (d.msg && d.msg.card && d.msg.card.type === 'demand') S.dmDraft = null; // výzva hotová – rozpracovaný formulář pryč
         if (d.chat === 'temp') S.tempMsgs.push(d.msg);
         if (d.chat === chatId()) { render(); if (!S.stick) jumpPill(true); const sr = $('#sr'); if (sr && d.msg && d.msg.role !== 'user') sr.textContent = String(d.msg.text || '').slice(0, 400); }
         else if (d.chat !== 'temp' || S.space.kind !== 'temp') toast('VEGA: ' + String(d.msg.text || 'výsledek je hotový').slice(0, 120), 8000);
@@ -961,7 +966,10 @@ window.vega = {
       case 'busy': S.busy = true; render(); break;
       case 'idle': S.busy = false; S.stream = ''; render(); break;
       case 'done': S.busy = false; if (d.cancelled) S.nfc = false; if (d.cancelled) toast('Zastaveno. Hotové kroky zůstaly.'); render(); break;
-      case 'error': S.busy = false; S.nfc = false; S.stream = ''; render(); toast(d.text, 7000); break;
+      case 'error': S.busy = false; S.nfc = false; S.stream = ''; render(); toast(d.text, 7000);
+        // chyba výpočtu výzvy: formulář zpět s vyplněnými hodnotami, ať laik opraví jen jedno pole
+        if (S.dmDraft && !$('#layer .sheet')) { const smp = call('demandSample'); if (smp) demandSheet(smp); }
+        break;
       case 'toast': toast(d.text, 7000); break;
       case 'selfupdate': if ($('#layer .sheet') && S.libTab === 'improve') library('improve'); break;
       case 'files': {
@@ -1170,11 +1178,11 @@ function act(a, d) {
       document.querySelectorAll('[data-dm]').forEach(i => {
         if (i.type === 'number' && i.validity.badInput) missing = missing || i.previousElementSibling.textContent + ' (číslo s desetinnou tečkou nebo čárkou)';
         o[i.dataset.dm] = i.type === 'number' ? (i.value === '' ? 0 : +i.value) : i.value;
-        if (['issued', 'due', 'asOf', 'creditor', 'debtor', 'amount'].includes(i.dataset.dm) && !i.value) missing = missing || i.previousElementSibling.textContent;
+        if (DEMAND_REQ.includes(i.dataset.dm) && !i.value) missing = missing || i.previousElementSibling.textContent;
       });
       if (missing) { toast('Vyplň: ' + missing); return; }
       if (o.payAmount > 0 && !o.payDate) { toast('Doplň datum úhrady.'); return; }
-      o.b2b = true; closeSheet(true); busyCall('demand', chatId(), o); render(); break;
+      o.b2b = true; S.dmDraft = o; closeSheet(true); busyCall('demand', chatId(), o); render(); break;
     }
     case 'demandMenu': { const c = JSON.parse(d.d); sheet(`<h2>Výzva</h2><div class="list">${c.files.map(f => `<button class="row" data-act="openOut" data-f="${esc(f)}"><span class="grow"><b>Otevřít ${esc(f.split('.').pop().toUpperCase())}</b></span></button><button class="row" data-act="share" data-f="${esc(f)}"><span class="grow"><b>Sdílet ${esc(f.split('.').pop().toUpperCase())}</b></span></button>`).join('')}</div>
         <h3>Výpočet a původ částek</h3><div class="tbl"><table><tr><th>Položka</th><th>Kč</th><th>Doklad</th></tr>${c.lines.map(l => `<tr><td>${esc(l.label)}</td><td>${fmt(l.amount)}</td><td>${esc(l.origin)}</td></tr>`).join('')}</table></div>

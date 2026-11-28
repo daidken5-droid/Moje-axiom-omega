@@ -15,8 +15,7 @@ object DemandForm {
         .put("payAmount", i.payments.firstOrNull()?.amount ?: 0.0).put("payDoc", i.payments.firstOrNull()?.doc?.name ?: "").put("asOf", i.asOf.toString()).put("account", i.bankAccount).put("b2b", i.b2b)
 
     /** Povinná textová pole formuláře a jejich názvy pro laika (dřív chybějící pole = „Něco se pokazilo uvnitř VEGA (JSONException)“). */
-    private val LABELS = mapOf("creditor" to "věřitel", "creditorAddr" to "adresa věřitele", "debtor" to "dlužník", "debtorAddr" to "adresa dlužníka",
-        "invoice" to "číslo faktury", "subject" to "předmět faktury")
+    private val LABELS = mapOf("creditor" to "věřitel", "debtor" to "dlužník", "invoice" to "číslo faktury")
 
     fun input(o: JSONObject): Demand.Input {
         fun s(k: String) = o.optString(k).trim().takeIf { it.isNotEmpty() } ?: throw ToolError("Vyplň pole „${LABELS[k] ?: k}“ – bez něj výzvu nesestavím.")
@@ -24,9 +23,10 @@ object DemandForm {
             ?: throw ToolError("Pole „$label“ musí být kladné číslo (např. 12500 nebo 12 500,50).")
         fun d(k: String) = runCatching { java.time.LocalDate.parse(o.getString(k)) }.getOrElse { throw ToolError("Datum „$k“ chybí nebo nemá tvar RRRR-MM-DD.") }
         val number = s("invoice")
-        val inv = Demand.Invoice(number, d("issued"), d("due"), num("amount", "částka"), s("subject"), Demand.Doc("Faktura $number", d("issued")))
+        // adresy a předmět jsou nepovinné (formulář je posílá prázdné; před 27. 11. byly také nepovinné)
+        val inv = Demand.Invoice(number, d("issued"), d("due"), num("amount", "částka"), o.optString("subject"), Demand.Doc("Faktura $number", d("issued")))
         val pays = if (o.optString("payDate").isNotBlank() && o.optDouble("payAmount", 0.0) > 0) listOf(Demand.Payment(d("payDate"), num("payAmount", "zaplacená částka"), Demand.Doc(o.optString("payDoc").ifBlank { "Doklad o úhradě" }, d("payDate")))) else emptyList()
-        return Demand.Input(Demand.Party(s("creditor"), s("creditorAddr"), o.optString("creditorId")), Demand.Party(s("debtor"), s("debtorAddr"), o.optString("debtorId")),
+        return Demand.Input(Demand.Party(s("creditor"), o.optString("creditorAddr"), o.optString("creditorId")), Demand.Party(s("debtor"), o.optString("debtorAddr"), o.optString("debtorId")),
             inv, pays, d("asOf"), o.optBoolean("b2b", true), repoOverride = o.optDouble("repo", Double.NaN).takeIf { !it.isNaN() }, bankAccount = o.optString("account"))
     }
 }
