@@ -7,8 +7,13 @@ import cz.axiom.vega.base.Text
  * odpověď a co jde i teď. S modelem se nepoužije (odpoví model). null = není to drobná konverzace.
  */
 object SmallTalk {
-    private const val CAN = "výpočty a procenta („15 % z 2400“, splátka hypotéky), data a dny („kolik dní do Vánoc“), převody jednotek, " +
-        "výpisy z banky (přilož CSV), hledání v tvých souborech („najdi v mých souborech …“) a paměť („pamatuj si …“)"
+    /** Příklady v nápovědě – CapabilityListTest hlídá, že na každý Quick opravdu odpoví bez modelu. */
+    val QUICK_EXAMPLES = listOf("15 % z 2400", "přičti 21 % DPH k 5000", "kolik dní do Vánoc", "kdo má dnes svátek", "převeď 5 mil na km")
+    private fun q(i: Int) = "„${QUICK_EXAMPLES[i]}“"
+    private val CAN = "výpočty, procenta a DPH (${q(0)}, ${q(1)}), data, svátky a jmeniny (${q(2)}, ${q(3)}), převody jednotek (${q(4)}), " +
+        "výtah z vloženého textu („shrň: …“), výpisy z banky (přilož CSV), hledání v tvých souborech („najdi v mých souborech …“), paměť („pamatuj si …“) a ranní přehled zpráv"
+    /** Krátká verze do pozdravu – plný seznam je v „co umíš?“. */
+    private const val CAN_SHORT = "počítat, převádět jednotky, kalendář se svátky a jmeninami, výtah z textu a výpisy z banky (víc napiš „co umíš?“)"
 
     fun answer(raw: String, airgap: Boolean): String? {
         val t = Text.fold(raw).lowercase().trim().trimEnd('!', '.', '?', ' ', ',').replace(Regex("\\s+"), " ")
@@ -17,7 +22,7 @@ object SmallTalk {
         return when {
             t.isEmpty() || Regex("^[?.!…\\s]+$").matches(raw.trim()) -> "Napiš, s čím pomoct – třeba „kolik je 15 % z 2400“ nebo přilož výpis z banky."
             m("ahoj\\w*", "cau\\w*", "nazdar", "zdravim", "dobry den", "dobre rano", "dobry vecer", "hej", "hello", "hi", "zdar", "ahoj vego", "ahoj vega", "cus") ->
-                "${if (t.startsWith("dobr")) "Dobrý den" else "Ahoj"}! $mode, ale i tak umím: $CAN."
+                "${if (t.startsWith("dobr")) "Dobrý den" else "Ahoj"}! $mode, ale i tak umím $CAN_SHORT."
             m("dek\\w*", "dik\\w*", "dikec", "diky moc", "dekuju moc", "dekuji pekne", "super diky", "thx", "thanks") -> "Rádo se stalo."
             m("ok", "okej", "oki", "jo", "jj", "ano", "dobre", "fajn", "super", "parada", "jasne", "rozumim", "ne", "nene", "nic",
                 "no nic", "nevadi", "to nevadi", "to nic", "vyborne", "skvele", "bezva", "dobra", "dobra prace", "perfektni", "prima", "tak jo", "tak dobre", "aha", "aha jasne", "chapu", "v pohode", "pohoda", "neva", "to je jedno", "jedno", "zadny problem", "nic dalsiho", "to je vse", "to je vsechno", "uz nic", "zatim nic",
