@@ -51,6 +51,13 @@ object SmallTalk {
                 "$mode – bez modelu odpovídám jen na to, co umím spočítat nebo najít přesně (abych nic nevymýšlel). Na volné otázky potřebuji model: ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
             m("jak te (mam )?pouzivat", "jak s tebou (mam )?(pracovat|mluvit|komunikovat)", "jak zacit", "co ti mam napsat") ->
                 "Napiš, co potřebuješ, jako bys psal/a člověku – třeba „kolik je 15 % z 2400“, „kolik dní do Vánoc“, nebo přilož výpis z banky či PDF a napiš „shrň“. $mode."
+            // povely, jak je píše uživatel ChatGPT (lomítka, angličtina) – dřív rešerše na web nebo „potřebuji model“
+            m("/?(novy|nova|nove) (chat|konverzace|rozhovor|vlakno)", "/new", "new chat", "zacni znovu", "zacit znovu", "zacneme znovu", "reset", "/reset", "od zacatku") ->
+                "Nový chat založíš v menu ☰ vlevo nahoře → „＋ Nová konverzace“. Tenhle zůstane uložený v seznamu."
+            m("/help", "/\\?", "\\?", "what can you do", "what can you do for me", "help me", "how does it work", "how do i use (it|you|this)") ->
+                "$mode. I tak umím: $CAN. Rozhovor, psaní textů a překlady potřebují model – ${if (airgap) "vypni Bez sítě klepnutím na „VEGA ▾“ nahoře" else "zapneš ho zdarma v Nastavení"}."
+            m("/clear", "clear", "clear chat", "/delete") -> "Konverzaci smažeš v menu ☰: u jejího názvu klepni na ⋯ → Smazat."
+            m("stop", "zastav", "zastav to", "prestan", "dost", "/stop") -> "Teď nic nezpracovávám. Když odpovídám, tlačítko vpravo od pole se změní na „Zastavit“ – jedním klepnutím odpověď ukončíš."
             m("jak se mas", "jak se mas dnes", "jak se dnes mas", "jak je", "jak se vede", "jak to jde", "jak se mate") -> "Díky, běžím. S čím pomůžu?"
             m("co je noveho", "co je noveho ve svete", "zpravy", "novinky", "dnesni zpravy", "zpravy ze sveta", "co se deje", "co se deje ve svete",
                 "novinky dnes", "dnesni novinky", "zpravy dnes", "ranni prehled", "ranni prehled zprav", "prehled zprav", "co pisou noviny", "co pisou media",

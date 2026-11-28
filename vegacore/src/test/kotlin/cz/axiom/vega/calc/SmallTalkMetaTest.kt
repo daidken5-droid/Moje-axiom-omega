@@ -29,4 +29,13 @@ class SmallTalkMetaTest {
         for (q in listOf("Čím se lišíš od ChatGPT?", "Funguješ bez internetu?", "Jsi lepší než Claude?"))
             assertTrue(Router.route(q, ctx) !is Router.Intent.Research, q)
     }
+
+    /** Povely, jak je píše uživatel ChatGPT (lomítka, angličtina, „nový chat“) – dřív rešerše na web nebo „potřebuji model“. */
+    @Test fun chatGptStyleCommands() {
+        val want = mapOf("nový chat" to "Nová konverzace", "Nová konverzace" to "Nová konverzace", "/new" to "Nová konverzace", "začni znovu" to "Nová konverzace",
+            "/help" to "15 %", "what can you do?" to "15 %", "/clear" to "Smazat", "stop" to "Zastavit")
+        for ((q, key) in want) { val a = SmallTalk.answer(q, true); assertNotNull(a, q); assertTrue(a.contains(key), "$q → $a") }
+        val ctx = Router.Ctx(false, null, false, true, null)
+        for (q in listOf("nový chat", "nová konverzace", "what can you do?")) assertTrue(Router.route(q, ctx) !is Router.Intent.Research, q)
+    }
 }
