@@ -79,7 +79,9 @@ object Statement {
             // neznámý název částky („Pohyb“): hlavička = řádek s názvem data a ≥ 3 poli, po kterém následuje řádek s datem
             ?: lines.indices.firstOrNull { i -> val x = f(lines[i]); dateNames.any { x.contains(f(it)) } && Regex("[;,\t|]").findAll(lines[i]).count() >= 2 &&
                 lines.getOrNull(i + 1)?.split(';', ',', '\t', '|')?.any { CzNum.date(it.trim().trim('"')) != null } == true } ?: -1
-        val body = if (headerAt > 0) { warnings += "Přeskočeno $headerAt úvodních řádků před hlavičkou."; lines.drop(headerAt).joinToString("\n") } else text
+        // „sep=;“ (pokyn Excelu) není úvodní řádek banky – do varování o přeskočených řádcích se nepočítá
+        val skipped = headerAt - (if (headerAt > 0 && SEP_DIRECTIVE.containsMatchIn(lines[0])) 1 else 0)
+        val body = if (headerAt > 0) { if (skipped > 0) warnings += "Přeskočeno $skipped úvodních řádků před hlavičkou."; lines.drop(headerAt).joinToString("\n") } else text
         val p = Csv.read(body)
         if (p.headers.size < 2) return Detection(null, p.headers, warnings + "Nepodařilo se rozpoznat sloupce (oddělovač?).", emptyList())
         // hlavičky převést (bez diakritiky, malá písmena) JEDNOU – export s 20 000 sloupci dřív stál statisíce převodů (CI: 1,6 s)

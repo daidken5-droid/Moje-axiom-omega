@@ -18,4 +18,13 @@ class CsvSepDirectiveTest {
         val plain = Statement.process(base, Statement.detect(base).spec!!)
         assertEquals(listOf(4), plain.failed.map { it.first })
     }
+
+    /** Řádek „sep=;“ není „úvodní řádek banky“ – varování o přeskočených řádcích by laika jen mátlo. */
+    @Test fun noSkippedLinesWarningForSepDirective() {
+        val w = Statement.detect("sep=;\n" + base).warnings
+        kotlin.test.assertTrue(w.none { it.startsWith("Přeskočeno") }, w.toString())
+        // skutečné úvodní řádky banky se dál hlásí
+        val w2 = Statement.detect("Účet: 123/0100\nObdobí: listopad\n" + base).warnings
+        kotlin.test.assertTrue(w2.any { it.startsWith("Přeskočeno 2") }, w2.toString())
+    }
 }
