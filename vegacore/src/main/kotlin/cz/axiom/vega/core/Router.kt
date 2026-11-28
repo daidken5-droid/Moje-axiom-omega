@@ -169,8 +169,8 @@ object Router {
         // „projdi mi výpis z banky“, „tady je výpis, co s tím“ u výpisu – zpracovat (shrnutí jiného dokumentu zůstává modelu)
         if (c.hasAttachment && statementFile && has(t, "vypis") && has(t, "projdi|prohledni|zkontroluj|co s tim|podivej|rozeber|analyz|prehled")) return Intent.BuildStatementTool
         // --- NFC
-        // zápis větou (noc 27./28. 11.): „Zapiš na štítek ahoj“, „napiš na NFC tag: https://…“ – obsah z PŮVODNÍHO textu (diakritika, velikost)
-        Regex("^(?:prosim\\s+)?(?:zapis|napis|nahraj|uloz)\\s+(?:na|do)\\s+(?:muj\\s+|ten\\s+)?(?:nfc\\s+)?(?:stitek|tag|cip)\\s*[:,]?\\s+(\\S.*)$").find(t)?.let { m ->
+        // zápis větou (noc 27./28. 11.): „Zapiš na štítek ahoj“, „napiš na NFC tag: https://…“, i 2. pád „do štítku / čipu / tagu“ – obsah z PŮVODNÍHO textu (diakritika, velikost)
+        Regex("^(?:prosim\\s+)?(?:zapis|napis|nahraj|uloz)\\s+(?:na|do)\\s+(?:muj\\s+|ten\\s+)?(?:nfc\\s+)?(?:stitek|stitku|tag|tagu|cip|cipu)\\s*[:,]?\\s+(\\S.*)$").find(t)?.let { m ->
             val content = text.substring(text.length - m.groupValues[1].length).trim().trim('„', '“', '"')
             if (content.isNotBlank() && content.length <= 500) return Intent.NfcWrite(if (Regex("^https?://\\S+$", RegexOption.IGNORE_CASE).matches(content)) "url" else "text", content)
         }

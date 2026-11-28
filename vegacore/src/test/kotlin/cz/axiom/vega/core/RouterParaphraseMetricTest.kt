@@ -37,7 +37,9 @@ class RouterParaphraseMetricTest {
         // 27. 11.: zdvořilý příkaz ve tvaru otázky zůstává příkazem
         "Můžeš si zapamatovat, že bydlím v Brně?" to "Remember", "Zapomeň všechno o mé práci" to "Forget", "Vrať poslední změnu" to "Undo", "Přečti NFC štítek" to "Nfc",
         // noc 27./28. 11.: zápis na štítek větou (dřív jen formulář v sekci Hardware – věta skončila jako rozhovor)
-        "Zapiš na štítek ahoj" to "NfcWrite", "zapiš na NFC štítek: https://example.cz" to "NfcWrite", "Napiš na tag Klíče od garáže" to "NfcWrite")
+        "Zapiš na štítek ahoj" to "NfcWrite", "zapiš na NFC štítek: https://example.cz" to "NfcWrite", "Napiš na tag Klíče od garáže" to "NfcWrite",
+        // noc 28. 11.: i 2. pád („do štítku“, „do čipu“, „do tagu“) – dřív jen „na štítek“
+        "Zapiš do štítku Klíče od sklepa" to "NfcWrite", "ulož do čipu https://example.cz" to "NfcWrite", "nahraj do tagu ahoj" to "NfcWrite")
 
     @Test fun informationalQuestionsNeverTriggerActions() {
         val misfires = informational.mapNotNull { q -> kind(q).takeIf { k -> k.substringBefore(':') in ACTIONS }?.let { "„$q“ → $it" } }
