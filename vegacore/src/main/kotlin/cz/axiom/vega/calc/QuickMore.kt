@@ -37,14 +37,17 @@ object QuickMore {
             ?.takeIf { Regex("rimsk").containsMatchIn(t) }?.let { m -> val n = m.groupValues[1].toInt(); return toRoman(n)?.let { "$n římskými číslicemi: $it." } }
         Regex("^(?:preved |prepis )?([mdclxvi]+)(?: (?:na|do) (?:arabske|normalni|bezne)(?: cislo| cislice)?| arabsky)$").find(t)?.let { m ->
             val v = fromRoman(m.groupValues[1]) ?: return null; return "${m.groupValues[1].uppercase()} = $v." }
-        // „co je XLII“ jen když je číslo napsané velkými písmeny (jinak „co je mix“ → slovo, ne 1009)
-        Regex("^(?i:co je|kolik je|co znamená|co znamena) ([MDCLXVI]{2,})$").find(raw)?.let { m ->
+        // „XL římsky“, „římské číslo CD“ – výslovně římské, i krátké
+        Regex("^(?:rimske cislo|rimsky|rimskymi cislicemi) ([mdclxvi]+)$|^([mdclxvi]+) (?:rimsky|je rimske cislo|jako rimske cislo)$").find(t)?.let { m ->
+            val r = m.groupValues[1].ifEmpty { m.groupValues[2] }; val v = fromRoman(r) ?: return null; return "${r.uppercase()} je římské číslo $v." }
+        // „co je XLII“ jen velkými písmeny a aspoň 4 znaky – kratší jsou spíš zkratky (CV, XL, CD, DIV, MIX), ty patří modelu
+        Regex("^(?i:co je|kolik je|co znamená|co znamena) ([MDCLXVI]{4,})$").find(raw)?.let { m ->
             val v = fromRoman(m.groupValues[1]) ?: return null; return "${m.groupValues[1]} je římské číslo $v." }
         return null
     }
 
     private fun chance(t: String, rnd: Random): String? {
-        if (Regex("^(?:hod|hodit|hodis|hodte) (?:kostkou|kostku)$|^kostka$").matches(t)) return "Padla ${rnd.nextInt(1, 7)}."
+        if (Regex("^(?:hod|hodit|hodis|hodte) (?:kostkou|kostku)$").matches(t)) return "Padla ${rnd.nextInt(1, 7)}."
         if (Regex("^(?:hod|hodit|hodis) minci$|^panna nebo orel$|^orel nebo panna$").matches(t)) return if (rnd.nextBoolean()) "Padl orel." else "Padla panna."
         Regex("^(?:dej mi |vyber |vylosuj |vygeneruj )?(?:nahodne|nejake) cislo (?:od|mezi) (-?\\d{1,9}) (?:do|a) (-?\\d{1,9})$").find(t)?.let { m ->
             val a = m.groupValues[1].toLong(); val b = m.groupValues[2].toLong(); val lo = minOf(a, b); val hi = maxOf(a, b)
