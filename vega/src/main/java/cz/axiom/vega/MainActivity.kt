@@ -722,7 +722,7 @@ class Bridge(private val a: MainActivity) {
     }
     @JavascriptInterface fun checkKey(provider: String) = safe { Thread { val c = ops.engines.check(provider); a.send("keycheck", JSONObject().put("provider", provider).put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
     @JavascriptInterface fun providerChoices() = safe { ops.engines.choices() }
-    @JavascriptInterface fun testOwn() = safe { require(!ops.settings.airgap) { "Je zapnutý režim Bez sítě – vypneš ho nahoře v „VEGA ▾“." }; Thread { val c = ops.engines.testOwn(); a.send("keycheck", JSONObject().put("provider", "own").put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
+    @JavascriptInterface fun testOwn() = safe { require(!ops.settings.airgap) { cz.axiom.vega.core.AirgapText.msg("vlastní server nezkouším") }; Thread { val c = ops.engines.testOwn(); a.send("keycheck", JSONObject().put("provider", "own").put("ok", c.ok).put("message", c.message).put("model", c.model ?: "")) }.start() }
     @JavascriptInterface fun retry(chat: String, req: String) = safe { ops.retry(chat.takeIf { it != "temp" }, req.ifBlank { null }) }
     @JavascriptInterface fun resumeTask(chat: String, project: String) = safe { ops.resumeTask(chat.takeIf { it != "temp" }, project) }
     @JavascriptInterface fun keepChanges(chat: String, project: String, task: String, keep: String) = safe {

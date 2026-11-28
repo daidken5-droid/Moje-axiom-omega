@@ -134,7 +134,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
 
     /** Zdroj z GitHubu → úprava modelem v izolované kopii → pravidla cest a citlivých API → commit na vega/auto-… (push spustí CI). */
     private fun selfUpdate0(chat: String?, task: String, origin: String) {
-        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – na GitHub ani k modelu nesahám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).")
+        if (settings.airgap) throw ToolError(cz.axiom.vega.core.AirgapText.msg("na GitHub ani k modelu nesahám"))
         val g = gh(); val base = settings.ghBase
         val baseSha = g.refSha(base)
         val tree = g.tree(baseSha)
@@ -249,7 +249,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      */
     fun selfUpdateRollback(chat: String?) = submit {
         jobArea = "selfupdate"
-        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – na GitHub nesahám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).")
+        if (settings.airgap) throw ToolError(cz.axiom.vega.core.AirgapText.msg("na GitHub nesahám"))
         val prev = installedUpdate() ?: throw ToolError("Nainstalovaná verze není samoúprava – není co vracet.")
         val g = gh(); val base = settings.ghBase; val baseSha = g.refSha(base)
         val branch = cz.axiom.vega.selfupdate.Policy.branchName("vratit " + prev.task)
@@ -399,7 +399,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
     private val toolCtx get() = object : ToolCtx {
         override val cancel = this@Ops.cancel
         override fun fetch(url: String): String {
-            if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě).", true)
+            if (settings.airgap) throw ToolError(cz.axiom.vega.core.AirgapText.msg(), true)
             if (!settings.webAllowed) throw ToolError("Veřejný web je vypnutý (Nastavení → Veřejný web).", true)
             return Web.fetchText(url, 20_000)
         }
@@ -1070,7 +1070,7 @@ class Ops(private val context: Context, val vault: Vault = Vault(context), val e
      * (4) streamování; přerušená odpověď se uloží s poznámkou.
      */
     private fun llm(chat: String?, messages: List<ChatMessage>, consent: Pair<String, List<String>>?, maxTokens: Int = 4096, calls: Int = 1, visible: Boolean = true): String {
-        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – model v cloudu nevolám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Výpočty a nástroje fungují dál.")
+        if (settings.airgap) throw ToolError(cz.axiom.vega.core.AirgapText.msg("model v cloudu nevolám", "Výpočty a nástroje fungují dál."))
         val chars = messages.sumOf { it.content.length }
         val pick = engines.pick() ?: approvePaid(chars, maxTokens, calls, "Bezplatného poskytovatele nemáš nastaveného.") ?: throw NoEngine()
         return try {
@@ -1235,7 +1235,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
             val calc = offline(text); val off = calc ?: cz.axiom.vega.calc.SmallTalk.answer(text, settings.airgap)
             // bez klíče rovnou tlačítko k průvodci (laik se nemusí vracet na úvod); ne v Bez sítě a ne u „Pouze vlastní modely“
             val setup = if (calc != null) null else if (settings.airgap) JSONObject().put("type", "netOff").put("what", "airgap") else if (!settings.ownOnly) JSONObject().put("type", "setup") else null
-            reply(chat, off ?: if (settings.airgap) "Je zapnutý režim Bez sítě – na tohle potřebuji model v cloudu (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Ruční nástroje (Nástroje) fungují bez sítě." else NoEngine().message!!, setup)
+            reply(chat, off ?: if (settings.airgap) cz.axiom.vega.core.AirgapText.msg("na tohle potřebuji model v cloudu", "Ruční nástroje (Nástroje) fungují bez sítě.") else NoEngine().message!!, setup)
             return
         }
         val answer = llm(chat, listOf(ChatMessage(Role.SYSTEM, sys)) + history(chat, emptyList()) + ChatMessage(Role.USER, user), consent = talkConsent(text, att))
@@ -1278,7 +1278,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
 
     private fun research(chat: String?, topic: String, variants: List<String>) {
         // nejdřív Bez sítě: dokud je zapnutý, zapnutí webu by nepomohlo (laik by dostal zbytečné tlačítko)
-        if (settings.airgap) { reply(chat, "Je zapnutý režim Bez sítě – rešerši na webu nedělám (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "airgap")); return }
+        if (settings.airgap) { reply(chat, cz.axiom.vega.core.AirgapText.msg("rešerši na webu nedělám", "Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“."), JSONObject().put("type", "netOff").put("what", "airgap")); return }
         if (!settings.webAllowed) { reply(chat, "Veřejný web je vypnutý (zapneš nahoře: klepni na „VEGA ▾“ → Veřejný web) – rešerši nedělám, nic neodešlo. Lokálně můžu hledat v tvých souborech: „najdi v mých souborech $topic“.", JSONObject().put("type", "netOff").put("what", "web")); return }
         emit("phase", JSONObject().put("text", "Hledám „$topic“ (varianty: ${variants.joinToString(", ")})…"))
         val src = Research.collect(variants, { cancel.check() }) { v -> webGather(v, 4) }
@@ -2259,7 +2259,7 @@ Umíš: rozhovor, učení, plánování, psaní, čísla, oponenturu. Nástroje 
      * Instaluje se JEN balíček se známým otiskem modelu – podvržený soubor na serveru neprojde.
      */
     fun downloadVerifier() = submit {
-        if (settings.airgap) throw ToolError("Je zapnutý režim Bez sítě – balíček nestahuji (vypneš ho nahoře: klepni na „VEGA ▾“ → Bez sítě). Nainstaluj ho ze souboru.")
+        if (settings.airgap) throw ToolError(cz.axiom.vega.core.AirgapText.msg("balíček nestahuji", "Nainstaluj ho ze souboru."))
         emit("phase", JSONObject().put("text", "Stahuji ověřovač citací (asi 150 MB)…"))
         val zip = File(context.cacheDir, "verifier-dl.zip")
         try {
