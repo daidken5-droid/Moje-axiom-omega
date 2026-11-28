@@ -49,6 +49,7 @@ object Quick {
         everyday(t)?.let { return it }
         split(t)?.let { return it } // „rozpočítej 1840 na 4 lidi“ (rozděl … mezi … umí už everyday)
         vat(t)?.let { return it }
+        fractions(t)?.let { return it }
         percent(t)?.let { return it }
         dateOffset(t, now.toLocalDate())?.let { return it }
         weekday(t)?.let { return it }
@@ -314,6 +315,26 @@ object Quick {
         Regex("$N\\s*(?:kc )?(?:s dph|vcetne dph|vc\\. dph)").find(tx)?.let { m -> val g = num(m.groupValues[1]) ?: return null
             val net = g / (1 + rate / 100); return "${money(g)} s DPH ${fmt(rate)} % = ${money(net)} bez DPH (DPH ${money(g - net)})." }
         return null
+    }
+
+    /** Dva zlomky (28. 11.): „1/3 + 1/4“ → „7/12 (≈ 0,5833)“ – přesně, zkrácené; celé číslo bez závorky. */
+    private fun fractions(t: String): String? {
+        val m = Regex("^(?:kolik je |spocitej |vypocitej )?(\\d{1,6})\\s*/\\s*(\\d{1,6})\\s*([+\\-*×·:÷])\\s*(\\d{1,6})\\s*/\\s*(\\d{1,6})$").find(t) ?: return null
+        val (a, b, op, c, d) = m.destructured
+        val (n1, d1, n2, d2) = listOf(a, b, c, d).map { it.toLong() }
+        if (d1 == 0L || d2 == 0L) return null
+        val (num, den) = when (op) {
+            "+" -> n1 * d2 + n2 * d1 to d1 * d2
+            "-" -> n1 * d2 - n2 * d1 to d1 * d2
+            "*", "×", "·" -> n1 * n2 to d1 * d2
+            else -> { if (n2 == 0L) return null; n1 * d2 to d1 * n2 }
+        }
+        fun gcd(x: Long, y: Long): Long = if (y == 0L) kotlin.math.abs(x) else gcd(y, x % y)
+        val g = gcd(num, den).takeIf { it != 0L } ?: 1L
+        val p = num / g; val q = den / g
+        val exact = if (q == 1L) "$p" else "$p/$q"
+        val approx = if (q == 1L) "" else " (≈ " + java.math.BigDecimal(num.toDouble() / den).setScale(4, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', ',') + ")"
+        return "$a/$b $op $c/$d = $exact$approx"
     }
 
     /** Procenta: „o kolik % je 120 víc než 100“, „změna z 100 na 120 v %“, „kolik procent je 30 ze 120“. */
