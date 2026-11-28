@@ -39,6 +39,7 @@ object Quick {
         if (Regex("^(jake je )?(dnes|dneska) (je )?(datum|za den)?$|^jake je (dnes )?datum$|^kolikateho je( dnes)?$|^jaky (je )?dnes den$|^jaky den je dnes$").matches(t))
             return "Dnes je ${now.dayOfMonth}. ${now.monthValue}. ${now.year}."
         nameDay(t, now.toLocalDate())?.let { return it }
+        QuickMore.answer(raw)?.let { return it }
         holidays(t, now.toLocalDate())?.let { return it }
         clock(t)?.let { return it }
         travel(t)?.let { return it }
@@ -367,34 +368,27 @@ object Quick {
         return null
     }
 
-    /** Svátky – dny pracovního klidu podle zákona 245/2000 Sb. (pevná data + Velký pátek a Velikonoční pondělí). */
-    private fun holidayList(y: Int): List<Pair<LocalDate, String>> { val e = easter(y)
-        return listOf(LocalDate.of(y, 1, 1) to "Den obnovy samostatného českého státu, Nový rok", e.minusDays(2) to "Velký pátek", e.plusDays(1) to "Velikonoční pondělí",
-            LocalDate.of(y, 5, 1) to "Svátek práce", LocalDate.of(y, 5, 8) to "Den vítězství", LocalDate.of(y, 7, 5) to "Den slovanských věrozvěstů Cyrila a Metoděje",
-            LocalDate.of(y, 7, 6) to "Den upálení mistra Jana Husa", LocalDate.of(y, 9, 28) to "Den české státnosti", LocalDate.of(y, 10, 28) to "Den vzniku samostatného československého státu",
-            LocalDate.of(y, 11, 17) to "Den boje za svobodu a demokracii a Mezinárodní den studentstva", LocalDate.of(y, 12, 24) to "Štědrý den",
-            LocalDate.of(y, 12, 25) to "1. svátek vánoční", LocalDate.of(y, 12, 26) to "2. svátek vánoční").sortedBy { it.first } }
     private val MONTHS_IN = listOf("lednu", "unoru", "breznu", "dubnu", "kvetnu", "cervnu", "cervenci", "srpnu", "zari", "rijnu", "listopadu", "prosinci")
     private fun hd(d: LocalDate, n: String) = "${d.dayOfMonth}. ${d.monthValue}. ${DAYS[d.dayOfWeek.value - 1]} – $n"
 
     private fun holidays(t: String, today: LocalDate): String? {
         if (Regex("^(?:je|bude|mame) (?:dnes|dneska) (?:nejaky )?(?:svatek|statni svatek|volno)$|^(?:jaky|kdo ma) (?:je )?(?:dnes|dneska) svatek$").matches(t)) {
-            val h = holidayList(today.year).firstOrNull { it.first == today }
+            val h = CzCalendar.holidays(today.year).firstOrNull { it.first == today }
             val name = NameDays.on(today.monthValue, today.dayOfMonth)?.takeIf { h == null && !it.contains("(") }
             return "Dnes (${today.dayOfMonth}. ${today.monthValue}.) " + (if (h != null) "je svátek ${h.second} – den pracovního klidu." else "není státní svátek ani den volna.") +
                 (name?.let { " Jmeniny má $it. _(${NameDays.SOURCE})_" } ?: "") }
         Regex("^(?:jake (?:jsou )?|kdy (?:jsou |je |budou |bude )?)?(?:statni )?svat(?:ky|ek) (?:v|ve) ([a-z]+)(?: (\\d{4}))?$").find(t)?.let { m ->
             val mi = MONTHS_IN.indexOf(m.groupValues[1]).takeIf { it >= 0 } ?: return null
             val y = m.groupValues[2].toIntOrNull() ?: today.year
-            val l = holidayList(y).filter { it.first.monthValue == mi + 1 }
+            val l = CzCalendar.holidays(y).filter { it.first.monthValue == mi + 1 }
             return if (l.isEmpty()) "V ${m.groupValues[1]} $y není žádný státní ani jiný svátek (den volna)." else "Svátky (dny volna) v $y: " + l.joinToString("; ") { hd(it.first, it.second) } + "." }
         if (Regex("^(?:kdy (?:je|bude) )?(?:dalsi|nejblizsi|pristi) (?:statni )?svatek$|^kdy je (?:dalsi|nejblizsi|pristi) volno$").matches(t)) {
-            val n = (holidayList(today.year) + holidayList(today.year + 1)).first { it.first.isAfter(today) }
+            val n = (CzCalendar.holidays(today.year) + CzCalendar.holidays(today.year + 1)).first { it.first.isAfter(today) }
             return "Nejbližší svátek (den volna): ${hd(n.first, n.second)} ${n.first.year}, za ${daysCz(ChronoUnit.DAYS.between(today, n.first))}." }
         Regex("^(?:je|bude|byl) (\\d{1,2})\\. ?(\\d{1,2})\\.?(?: ?(\\d{4}))? (?:statni )?svatek$").find(t)?.let { m ->
             val y = m.groupValues[3].toIntOrNull() ?: today.year
             val d = runCatching { LocalDate.of(y, m.groupValues[2].toInt(), m.groupValues[1].toInt()) }.getOrNull() ?: return null
-            val h = holidayList(y).firstOrNull { it.first == d }
+            val h = CzCalendar.holidays(y).firstOrNull { it.first == d }
             return if (h != null) "Ano, ${d.dayOfMonth}. ${d.monthValue}. $y je ${h.second} (den volna)." else "Ne, ${d.dayOfMonth}. ${d.monthValue}. $y není státní svátek ani den volna." }
         return null
     }
@@ -476,8 +470,8 @@ object Quick {
             return "${MON_NOM[mo - 1].replaceFirstChar { it.uppercase() }} $y má $n dní." }
         Regex("^kdy (?:je|jsou|budou|bude|byl[ay]?) (velikonoc\\w*|velikonocni (?:pondeli|nedele|patek)|velky patek|bily patek)(?: (?:v )?(?:roce )?(\\d{4}))?$").find(t)?.let { m ->
             val what = m.groupValues[1]; val yr = m.groupValues[2].toIntOrNull()
-            val y = yr ?: easter(today.year).plusDays(1).let { if (it.isBefore(today)) today.year + 1 else today.year }
-            val sun = easter(y); fun d(x: LocalDate) = "${x.dayOfMonth}. ${x.monthValue}. ${x.year}"
+            val y = yr ?: CzCalendar.easter(today.year).plusDays(1).let { if (it.isBefore(today)) today.year + 1 else today.year }
+            val sun = CzCalendar.easter(y); fun d(x: LocalDate) = "${x.dayOfMonth}. ${x.monthValue}. ${x.year}"
             return when {
                 what.contains("pondeli") -> "Velikonoční pondělí $y je ${d(sun.plusDays(1))} (státní svátek)."
                 what.contains("patek") -> "Velký pátek $y je ${d(sun.minusDays(2))} (státní svátek)."
@@ -583,11 +577,6 @@ object Quick {
     private val UNIT_SHOW = mapOf("tydnu" to "týdnů", "den" to "dní", "palec" to "palců", "gal" to "gal")
     private fun date(s: String): LocalDate? = Regex("(\\d{1,2})\\.\\s?(\\d{1,2})\\.\\s?(\\d{4})").find(s)?.let { runCatching { LocalDate.of(it.groupValues[3].toInt(), it.groupValues[2].toInt(), it.groupValues[1].toInt()) }.getOrNull() }
     /** Velikonoční neděle (gregoriánský výpočet). */
-    private fun easter(y: Int): LocalDate {
-        val a = y % 19; val b = y / 100; val c = y % 100; val d = b / 4; val e = b % 4; val f = (b + 8) / 25; val g = (b - f + 1) / 3
-        val h = (19 * a + b - d - g + 15) % 30; val i = c / 4; val k = c % 4; val l = (32 + 2 * e + 2 * i - h - k) % 7; val m = (a + 11 * h + 22 * l) / 451
-        return LocalDate.of(y, (h + l - 7 * m + 114) / 31, (h + l - 7 * m + 114) % 31 + 1)
-    }
     /** „kolik dní do Vánoc / Silvestra / Velikonoc / 24. 12.“, „za kolik dní jsou Vánoce“. */
     private fun untilDay(t: String, today: LocalDate): String? {
         val m = Regex("^(?:kolik (?:je |zbyva |jeste )?(dni|dnu|tydnu|tydny) (?:zbyva |zbyvaji |je )?do|za (?:kolik dni|jak dlouho|kdy) (?:jsou|je|budou|bude)) (.+)$").find(t) ?: return null
@@ -600,7 +589,7 @@ object Quick {
             what.startsWith("konce roku") || what == "konce letoska" -> "konce roku" to LocalDate.of(today.year, 12, 31)
             what.startsWith("konce mesice") -> "konce měsíce" to today.withDayOfMonth(today.lengthOfMonth())
             what.startsWith("nov") && what.contains("rok") -> "Nového roku" to next { LocalDate.of(it, 1, 1) }
-            what.startsWith("velikonoc") -> "Velikonoční neděle" to next { easter(it) }
+            what.startsWith("velikonoc") -> "Velikonoční neděle" to next { CzCalendar.easter(it) }
             what.startsWith("leta") || what.startsWith("prazdnin") -> (if (what.startsWith("leta")) "léta (21. 6.)" else "prázdnin (1. 7.)") to next { LocalDate.of(it, if (what.startsWith("leta")) 6 else 7, if (what.startsWith("leta")) 21 else 1) }
             // „1. ledna“, „15. března“ (měsíc slovem, bez roku) → nejbližší takový den
             Regex("^(\\d{1,2})\\.?\\s*(ledna|unora|brezna|dubna|kvetna|cervna|cervence|srpna|zari|rijna|listopadu|prosince)$").find(what) != null -> {
