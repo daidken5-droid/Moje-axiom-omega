@@ -50,13 +50,18 @@ object TextDigest {
         return picked.map { ss[it] }.takeIf { it.isNotEmpty() }
     }
 
+    /** Citace z cizího textu (R5, 28. 11.): skryté/směrové znaky viditelně (U+202E by obrátil číslo účtu), obří „věta“ bez teček zkrácená. */
+    private const val MAX_QUOTE = 400
+    private fun quote(s: String): String { val r = cz.axiom.vega.base.Hidden.reveal(s)
+        return if (r.length <= MAX_QUOTE) r else r.take(MAX_QUOTE).substringBeforeLast(' ').ifEmpty { r.take(MAX_QUOTE) } + " …" }
+
     /**
      * Odpověď s výtahem (refaktoring 12, 28. 11. – dřív dvě skoro stejné kopie v Ops): [file] = název přílohy (null = text ze zprávy),
      * [pasted] = uživatel vložil text bez pokynu, [airgap] = rada, jak získat shrnutí vlastními slovy.
      */
     fun render(pick: List<String>, file: String?, pasted: Boolean, airgap: Boolean): String =
         (if (pasted) "Vložil/a jsi text. " else "") + "**Výtah bez modelu**" + (file?.let { " z „${cz.axiom.vega.base.Hidden.oneLine(it, 80)}“ – vybrané věty" } ?: " – vybrané věty z tvého textu") +
-            " (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• $it" } +
+            " (doslovně, nic nepřevyprávím ani nedomýšlím):\n" + pick.joinToString("\n") { "• ${quote(it)}" } +
             "\n\n_Shrnutí vlastními slovy, odpověď na otázku k " + (if (file != null) "souboru" else "textu nebo překlad") + " umí model – " +
             (if (airgap) "vypni Bez sítě (nahoře „VEGA ▾“)." else "nastav ho v průvodci.") + "_"
 }
